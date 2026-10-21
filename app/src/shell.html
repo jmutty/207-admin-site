@@ -395,6 +395,30 @@
     .aca .og-panel, .aca #aca-bkPanel { position: fixed; top: var(--og-top, 0px); left: 0; right: 0; bottom: 0; width: 100vw; max-width: none; overflow: auto; -webkit-overflow-scrolling: touch; border-left: none; box-shadow: none; }
     .aca .og-panel > .og-phead, .aca #aca-bkPanel > .og-phead, .aca #aca-bkPanel > :first-child { position: sticky; top: 0; z-index: 2; background: var(--surface); }
   }
+  /* ---- Access + Team (2026-10-21) ---- */
+  .aca .viewonly { margin: 0 0 14px; padding: 8px 12px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+  .aca .modal-wrap { position: fixed; inset: 0; z-index: 60; background: rgba(30, 28, 24, .32); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; overflow: auto; }
+  .aca .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px 22px; width: 100%; max-width: 620px; box-shadow: 0 12px 40px rgba(0, 0, 0, .14); }
+  .aca .modal h2 { margin: 0 0 12px; font-size: 17px; font-weight: 600; }
+  .aca .modal p { font-size: 13.5px; line-height: 20px; }
+  .aca .modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: flex-end; }
+  .aca .modal-actions .grow { flex: 1; }
+  .aca .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; flex: none; }
+  .aca .seg label { cursor: pointer; }
+  .aca .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .aca .seg span { display: block; padding: 4px 11px; font-size: 13px; border-left: 1px solid var(--border); }
+  .aca .seg label:first-child span { border-left: 0; }
+  .aca .seg input:checked + span { background: var(--accent); color: var(--accent-text); }
+  .aca .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .aca .tm-full { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 14px; font-size: 13.5px; }
+  .aca .tm-grid { border-top: 1px solid var(--border); }
+  .aca .tm-sec { margin: 14px 0 2px; font-size: 12px; font-weight: 600; color: var(--faint); }
+  .aca .tm-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line2); font-size: 13.5px; }
+  .aca .tm-row .muted { font-size: 12.5px; }
+  .aca .tm-pw { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; }
+  .aca .tm-pw code { font-size: 20px; letter-spacing: 1px; padding: 8px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; user-select: all; }
+  .aca .tm-log { margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 22px; }
+  @media (max-width: 560px) { .aca .tm-row { flex-direction: column; align-items: flex-start; } }
 </style>
 
 <div class="aca">
@@ -426,25 +450,8 @@
       <div class="railbg" id="aca-railbg"></div>
       <aside class="rail" id="aca-rail">
         <div class="brand"><img src="/logo.png" alt="207 Photo" class="logo" /><span class="brand-admin">Admin</span></div>
-        <nav aria-label="Sections" id="aca-nav">
-          <button type="button" data-tab="today" aria-selected="false">Today<span class="n" id="aca-nav-today"></span></button>
-          <h4>Jobs</h4>
-          <button type="button" data-tab="bookings" aria-selected="false">Bookings<span class="n" id="aca-nav-bookings"></span></button>
-          <button type="button" data-tab="jobs" aria-selected="false">Galleries<span class="n" id="aca-nav-jobs"></span></button>
-          <button type="button" data-tab="hubact" aria-selected="false">Hub activity<span class="n" id="aca-nav-hubact"></span></button>
-          <button type="button" data-tab="calc" aria-selected="false">Job calculator<span class="n" id="aca-nav-calc"></span></button>
-          <h4>Parents</h4>
-          <button type="button" data-tab="requests" aria-selected="false">Help requests<span class="n" id="aca-nav-requests"></span></button>
-          <button type="button" data-tab="makeups" aria-selected="false">Makeups<span class="n" id="aca-nav-makeups"></span></button>
-          <button type="button" data-tab="retakes" aria-selected="false">Retakes<span class="n" id="aca-nav-retakes"></span></button>
-          <button type="button" data-tab="searchlog" aria-selected="false">Find My Photos<span class="n" id="aca-nav-searchlog"></span></button>
-          <h4>Outreach</h4>
-          <button type="button" data-tab="orgs" aria-selected="false">Organizations<span class="n" id="aca-nav-orgs"></span></button>
-          <button type="button" data-tab="outbox" aria-selected="false">Outbox<span class="n" id="aca-nav-outbox"></span></button>
-          <button type="button" data-tab="library" aria-selected="false">Email library<span class="n" id="aca-nav-library"></span></button>
-          <h4 class="sp" aria-hidden="true"></h4>
-          <button type="button" data-tab="sending" aria-selected="false">Settings<span class="n" id="aca-nav-sending"></span></button>
-        </nav>
+        <!-- Built from RAIL in shell-top.js after sign-in (only the pages this person can see). -->
+        <nav aria-label="Sections" id="aca-nav"></nav>
         <div class="foot" id="aca-syncStatus"><span class="dot"></span>Checking sync&#8230;</div>
       </aside>
 
@@ -460,6 +467,7 @@
           <button type="button" class="small quiet" id="aca-whoBtn" aria-haspopup="menu" aria-expanded="false">JM</button>
           <div class="whomenu hidden" id="aca-whoMenu" role="menu">
             <div class="who" id="aca-whoami"></div>
+            <button type="button" id="aca-pwBtn" role="menuitem">Change password</button>
             <button type="button" id="aca-syncNowBtn" role="menuitem">Sync GotPhoto now</button>
             <button type="button" id="aca-signOutBtn" role="menuitem">Sign out</button>
           </div>
@@ -467,6 +475,7 @@
 
         <div class="main">
           <div class="pagetabs hidden" id="aca-pagetabs" role="tablist"></div>
+          <div class="viewonly hidden" id="aca-viewOnly">You have view-only access here. Ask someone with full access if you need to make changes.</div>
 
           <!-- ===== Today ===== -->
           <section class="panel" id="aca-panel-today" role="tabpanel">
@@ -476,9 +485,9 @@
             <div class="today-cols">
               <div id="aca-todayList"></div>
               <div class="today-side">
-                <section><h2>Coming up</h2><div id="aca-todayUp"><p>Loading&#8230;</p></div></section>
-                <section><h2>Going out today</h2><p id="aca-todayOut">Loading&#8230;</p></section>
-                <section><h2>This page, by email</h2><p id="aca-todayDigest">Loading&#8230;</p></section>
+                <section id="aca-todayUpBox"><h2>Coming up</h2><div id="aca-todayUp"><p>Loading&#8230;</p></div></section>
+                <section id="aca-todayOutBox"><h2>Going out today</h2><p id="aca-todayOut">Loading&#8230;</p></section>
+                <section id="aca-todayDigestBox"><h2>This page, by email</h2><p id="aca-todayDigest">Loading&#8230;</p></section>
               </div>
             </div>
           </section>

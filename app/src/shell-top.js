@@ -204,18 +204,31 @@
   async function showDashboard(session) {
     el("loginView").classList.add("hidden");
     el("dashView").classList.remove("hidden");
-    el("whoami").textContent = session && session.user && session.user.email ? session.user.email : "";
+    // Which modules this person may use (access.js). Everything below only loads what they can see.
+    await loadAccess(session);
+    renderRail();
+    applyAccessChrome();
     // Categories + rules first: the Jobs table's "why" column needs them.
-    await ensureRules();
-    loadJobs();
-    loadBlocks();
-    loadSchools();
+    if (canSeeAny(["galleries", "findmyphotos"])) await ensureRules();
+    if (canSeeAny(["galleries", "findmyphotos", "parents"])) loadJobs();
+    if (canSee("findmyphotos")) loadBlocks();
+    if (canSee("hub")) loadSchools();
     // Everything Today summarizes. Today shows "Checking..." until these settle.
-    todayFirst = Promise.all([loadRequests(), loadHubActivity(), loadMakeups(), loadRetakes(), loadHealth(), loadSyncStatus(), Orgs.loadAttention(), Bookings.loadAttention(), loadComingUp(), Outbox.loadToday()])
-      .catch(() => {}).then(markUnchecked);
+    todayFirst = Promise.all(todayLoaders(true)).catch(() => {}).then(markUnchecked);
     foldHelp();
     showTab(tabFromHash() || "today");
     startTodayRefresh();
+    if (ACCESS.must_change_password) openPasswordDialog(true);
+  }
+  // The loaders behind Today's attention list, limited to the modules this person can see.
+  function todayLoaders(first) {
+    const L = [loadSyncStatus()];
+    if (canSee("parents")) L.push(loadRequests(), loadMakeups(), loadRetakes());
+    if (canSee("hub")) L.push(loadHubActivity());
+    if (canSee("settings")) L.push(first ? loadHealth() : loadDataQuality());
+    if (canSee("partners")) L.push(Orgs.loadAttention(), Outbox.loadToday());
+    if (canSee("bookings")) L.push(Bookings.loadAttention(), loadComingUp());
+    return L;
   }
 
   el("loginForm").addEventListener("submit", async (e) => {
@@ -245,32 +258,51 @@
   });
 
 
-  // ================= Pages + router (2026-10-12 redesign) =================
-  // One rail, four groups. Each rail item is a tab; some tabs are pages with inner tabs (PAGES).
+  // ================= Pages + router (2026-10-12 redesign; one registry 2026-10-21) =================
+  // RAIL is the single list of pages: it builds the menu, the router, Cmd-K's page list and the access
+  // checks. Each item is one menu entry; `tabs` are the panels it shows as a tab strip (first = default);
+  // `module` is its key in public.app_modules (null = everyone signed in); `section` is the hash prefix.
   // Hashes keep the old "#section/tab[/id]" shape so links in emails and the modules' own
   // replaceState calls (#jobs/bookings/<id>, #partners/orgs/<id>) keep working.
-  const SECTIONS = [
-    { id: "today",    tabs: ["today"] },
-    { id: "jobs",     tabs: ["bookings", "jobs", "hubact", "schools", "calc"] },
-    { id: "parents",  tabs: ["requests", "makeups", "retakes", "searchlog", "settings", "blocks"] },
-    { id: "partners", tabs: ["orgs", "outbox", "ready", "library"] },
-    { id: "system",   tabs: ["sending", "health", "signin"] },
+  // New modules add themselves from their own src file with registerPage({...}): see docs/ADDING-A-MODULE.md.
+  const RAIL_GROUPS = ["", "Jobs", "Parents", "Outreach", "Staff", "Operations", "System"];
+  const RAIL = [
+    { id: "today",     group: "",         section: "today",    module: null,           tabs: [["today", "Today"]] },
+    { id: "bookings",  group: "Jobs",     section: "jobs",     module: "bookings",     tabs: [["bookings", "Bookings"]] },
+    { id: "jobs",      group: "Jobs",     section: "jobs",     module: "galleries",    tabs: [["jobs", "Galleries"]] },
+    { id: "hubact",    group: "Jobs",     section: "jobs",     module: "hub",          title: "Hub activity", tabs: [["hubact", "Activity"], ["schools", "Schools on the hub"]] },
+    { id: "calc",      group: "Jobs",     section: "jobs",     module: "bookings",     tabs: [["calc", "Job calculator"]] },
+    { id: "requests",  group: "Parents",  section: "parents",  module: "parents",      tabs: [["requests", "Help requests"]] },
+    { id: "makeups",   group: "Parents",  section: "parents",  module: "parents",      tabs: [["makeups", "Makeups"]] },
+    { id: "retakes",   group: "Parents",  section: "parents",  module: "parents",      tabs: [["retakes", "Retakes"]] },
+    { id: "searchlog", group: "Parents",  section: "parents",  module: "findmyphotos", title: "Find My Photos", tabs: [["searchlog", "Activity"], ["settings", "Search rules"], ["blocks", "Blocked names"]] },
+    { id: "orgs",      group: "Outreach", section: "partners", module: "partners",     tabs: [["orgs", "Organizations"]],
+      search: [["Clients", "clients"], ["Active leads", "active"], ["Prospecting", "prospecting"], ["Cold leads", "cold"], ["Follow up later", "later"], ["Past clients", "past"]] },
+    { id: "outbox",    group: "Outreach", section: "partners", module: "partners",     title: "Outbox", tabs: [["outbox", "Everything"], ["ready", "Outreach to review"]] },
+    { id: "library",   group: "Outreach", section: "partners", module: "partners",     tabs: [["library", "Email library"]] },
+    { id: "sending",   group: "System",   section: "system",   module: "settings",     title: "Settings", tabs: [["sending", "Sending"], ["health", "Sync"], ["signin", "Sign-in"]] },
   ];
-  // Rail item -> the tabs it shows as a tab strip (first = default). Tabs not listed stand alone.
-  const PAGES = {
-    hubact:    { title: "Hub activity", tabs: [["hubact", "Activity"], ["schools", "Schools on the hub"]] },
-    searchlog: { title: "Find My Photos", tabs: [["searchlog", "Activity"], ["settings", "Search rules"], ["blocks", "Blocked names"]] },
-    outbox:    { title: "Outbox", tabs: [["outbox", "Everything"], ["ready", "Outreach to review"]] },
-    sending:   { title: "Settings", tabs: [["sending", "Sending"], ["health", "Sync"], ["signin", "Sign-in"]] },
-  };
-  const TAB_NAMES = { today: "Today", bookings: "Bookings", jobs: "Galleries", hubact: "Hub activity", schools: "Schools on the hub", calc: "Job calculator",
-    requests: "Help requests", makeups: "Makeups", retakes: "Retakes", searchlog: "Find My Photos", settings: "Search rules", blocks: "Blocked names",
-    orgs: "Organizations", outbox: "Outbox", ready: "Outreach to review", library: "Email library", sending: "Settings", health: "Sync", signin: "Sign-in" };
-  const sectionOf = (tab) => SECTIONS.find((s) => s.tabs.includes(tab));
+  function registerPage(item) { RAIL.push(item); }
+  const itemOf = (tab) => RAIL.find((it) => it.tabs.some((t) => t[0] === tab));
+  const railLabel = (it) => it.label || it.title || it.tabs[0][1];
+  const sectionOf = (tab) => { const it = itemOf(tab); return it ? { id: it.section } : null; };
   // the rail item a tab belongs to
-  function railItemOf(tab) {
-    for (const k of Object.keys(PAGES)) if (PAGES[k].tabs.some((t) => t[0] === tab)) return k;
-    return tab;
+  function railItemOf(tab) { const it = itemOf(tab); return it ? it.id : tab; }
+  // a tab's name as Today and search show it ("Find My Photos", not "Activity")
+  function tabName(tab) {
+    const it = itemOf(tab);
+    if (!it) return "";
+    return it.title && it.tabs[0][0] === tab ? it.title : it.tabs.find((t) => t[0] === tab)[1];
+  }
+  const pageOf = (id) => { const it = RAIL.find((x) => x.id === id); return it && it.tabs.length > 1 ? it : null; };
+  function renderRail() {
+    const groups = RAIL_GROUPS.concat(RAIL.map((it) => it.group || "").filter((g) => !RAIL_GROUPS.includes(g)));
+    el("nav").innerHTML = groups.filter((g, i) => groups.indexOf(g) === i).map((g) => {
+      const items = RAIL.filter((it) => (it.group || "") === g && canSee(it.module));
+      if (!items.length) return "";
+      return (g === "System" ? '<h4 class="sp" aria-hidden="true"></h4>' : g ? "<h4>" + esc(g) + "</h4>" : "") +
+        items.map((it) => '<button type="button" data-tab="' + esc(it.id) + '" aria-selected="false">' + esc(railLabel(it)) + '<span class="n" id="aca-nav-' + esc(it.id) + '"></span></button>').join("");
+    }).join("");
   }
   const lastTab = {}; // rail item -> last inner tab shown
   let currentTab = null;
@@ -279,6 +311,8 @@
   function showTab(name) {
     const sec = sectionOf(name);
     if (!sec) return;
+    const it = itemOf(name);
+    if (!canSee(it.module)) { if (name !== "today") showTab("today"); return; }
     currentTab = name;
     const item = railItemOf(name);
     lastTab[item] = name;
@@ -300,11 +334,13 @@
     if (name === "library") { Orgs.measureTop(); Library.load(); BookingLibrary.load(); }
     if (name === "today") refreshToday();
     if (name === "calc") JobCalc.load();
+    if (it.onShow) it.onShow(name);
+    el("viewOnly").classList.toggle("hidden", !it.module || canEdit(it.module));
     window.scrollTo(0, 0);
   }
   function renderPageTabs(item, name) {
     const strip = el("pagetabs");
-    const page = PAGES[item];
+    const page = pageOf(item);
     if (!page) { strip.classList.add("hidden"); strip.innerHTML = ""; return; }
     strip.innerHTML = '<h1>' + esc(page.title) + '</h1>' + page.tabs.map((t) => '<button type="button" role="tab" data-tab="' + t[0] + '" aria-selected="' + (t[0] === name) + '">' + esc(t[1]) + '<span class="n" id="aca-ptab-' + t[0] + '"></span></button>').join("");
     strip.classList.remove("hidden");
@@ -317,8 +353,9 @@
     const segs = h.split("/").filter(Boolean).map((s) => (s === "prospects" ? "orgs" : s));
     return segs.slice(0, 2).reverse().find((s) => sectionOf(s)) || null;
   }
-  document.querySelectorAll("#aca-nav button[data-tab]").forEach((b) => {
-    b.addEventListener("click", () => { const item = b.dataset.tab; showTab(lastTab[item] || item); });
+  el("nav").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-tab]");
+    if (b) { const item = b.dataset.tab; showTab(lastTab[item] || item); }
   });
   window.addEventListener("hashchange", () => { const t = tabFromHash(); if (t && t !== currentTab) showTab(t); });
 
@@ -347,6 +384,20 @@
   // Each module reports "things that need Jeremiah" with setAttention() next to its own badge code.
   // Today sorts them into three groups by level: err = Fix now, warn = Waiting on you, soon = Check soon.
   const ATTENTION_ORDER = ["bookingFailed", "syncFailed", "bookingNoContact", "bookingNeedsTime", "bookingNeedsCode", "bookingNeedsJob", "bookingNeedsCoaches", "prospects", "requests", "makeups", "retakeDayTomorrow", "followups", "retakesNew", "hubLate", "bookingCalendar", "bookingNeedsTimeLater", "dataQuality"];
+  // The module each item belongs to; people without it neither load nor see the item.
+  const ATTENTION_MODULE = { bookingFailed: "bookings", bookingNoContact: "bookings", bookingNeedsTime: "bookings", bookingNeedsTimeLater: "bookings", bookingCalendar: "bookings",
+    bookingNeedsCode: "bookings", bookingNeedsJob: "bookings", bookingNeedsCoaches: "bookings", prospects: "partners", followups: "partners", requests: "parents", makeups: "parents",
+    retakeDayTomorrow: "parents", retakesNew: "parents", hubLate: "hub", syncFailed: "settings", dataQuality: "settings" };
+  const attentionKeys = () => ATTENTION_ORDER.filter((k) => canSee(ATTENTION_MODULE[k]));
+  // For new modules: registerAttention("shiftsUncovered", { module: "scheduling", level: "warn", name: "shift coverage",
+  //   one: "A shift has nobody on it.", many: "{n} shifts have nobody on it." }); then setAttention(key, count, label, tab).
+  function registerAttention(key, d) {
+    ATTENTION_ORDER.push(key);
+    ATTENTION_MODULE[key] = d.module;
+    SENTENCES[key] = [d.one, d.many];
+    if (d.level) LEVEL_OVERRIDE[key] = d.level;
+    ATTENTION_NAMES[key] = d.name || key;
+  }
   const LEVEL_OVERRIDE = { bookingNeedsCoaches: "soon", retakesNew: "soon", followups: "soon", hubLate: "soon", bookingCalendar: "soon", dataQuality: "soon", bookingNeedsTimeLater: "soon" };
   // Sentences. [one, many]; {n} = count.
   const SENTENCES = {
@@ -394,10 +445,11 @@
       const v = perItem[b.dataset.tab];
       n.textContent = v ? v.n : ""; n.className = "n" + (v && v.bad ? " bad" : "");
     });
-    const items = ATTENTION_ORDER.filter((k) => attention[k] && attention[k].count).map((k) => attention[k]);
-    const pending = ATTENTION_ORDER.filter((k) => !attention[k]).length;
+    const items = attentionKeys().filter((k) => attention[k] && attention[k].count).map((k) => attention[k]);
+    const pending = attentionKeys().filter((k) => !attention[k]).length;
     const total = items.reduce((n, a) => n + a.count, 0);
     const todayBadge = el("nav-today");
+    if (!todayBadge) return;
     todayBadge.textContent = total || ""; todayBadge.className = "n" + (items.some((a) => a.level === "err") ? " bad" : "");
     const list = el("todayList");
     if (!items.length) {
@@ -408,7 +460,7 @@
         if (!rows.length) return "";
         return '<div class="today-grp"><h2><span class="gd" style="background:' + g[2] + '"></span>' + g[1] + ' <span class="c">' + rows.reduce((n, a) => n + a.count, 0) + "</span></h2>" +
           rows.map((a) => '<button type="button" class="today-item" data-go="' + esc(a.tab) + '" data-key="' + esc(a.key || "") + '">' +
-            '<span class="today-n">' + esc(a.count) + '</span><span class="today-l">' + esc(sentence(a)) + ' <span class="today-where">' + esc(TAB_NAMES[a.tab] || "") + '</span></span>' +
+            '<span class="today-n">' + esc(a.count) + '</span><span class="today-l">' + esc(sentence(a)) + ' <span class="today-where">' + esc(tabName(a.tab)) + '</span></span>' +
             '<span class="today-go">Open</span></button>').join("") + "</div>";
       }).join("") + (pending ? '<div class="empty"><span class="spin"></span>Still checking a few things&#8230;</div>' : "");
     }
@@ -481,7 +533,7 @@
     todayBusy = true;
     try {
       await todayFirst;
-      await Promise.all([loadRequests(), loadHubActivity(), loadMakeups(), loadRetakes(), loadDataQuality(), loadSyncStatus(), Bookings.loadAttention(), Orgs.loadAttention(), loadComingUp(), Outbox.loadToday()]);
+      await Promise.all(todayLoaders(false));
     } catch (_e) { /* each loader shows its own error on its tab */ }
     finally { todayBusy = false; markUnchecked(); }
   }
@@ -490,7 +542,7 @@
     followups: "prospect follow-ups", prospects: "outreach to review", hubLate: "hub activity", requests: "help requests",
     makeups: "makeups", retakesNew: "retake requests", retakeDayTomorrow: "retake requests", dataQuality: "gallery search fields", syncFailed: "sync status" };
   function markUnchecked() {
-    const missing = ATTENTION_ORDER.filter((k) => !attention[k] || attention[k].unchecked);
+    const missing = attentionKeys().filter((k) => !attention[k] || attention[k].unchecked);
     el("todayUnchecked").textContent = missing.length
       ? "Could not check " + missing.map((k) => ATTENTION_NAMES[k]).join(", ") + ". Open that page to see the error."
       : "";
@@ -502,22 +554,31 @@
     if (todayTimer) return;
     todayTimer = setInterval(() => {
       if (document.hidden) return;
-      Orgs.loadAttention(); Bookings.loadAttention();
+      if (canSee("partners")) Orgs.loadAttention();
+      if (canSee("bookings")) Bookings.loadAttention();
       if (currentTab === "today") refreshToday();
     }, 5 * 60 * 1000);
     // Coming back to the window after a minute away re-checks Today (replaces the Refresh buttons).
     document.addEventListener("visibilitychange", () => {
       if (document.hidden || Date.now() - lastFocusReload < 60 * 1000) return;
       lastFocusReload = Date.now();
-      Orgs.loadAttention(); Bookings.loadAttention();
+      if (canSee("partners")) Orgs.loadAttention();
+      if (canSee("bookings")) Bookings.loadAttention();
       if (currentTab === "today") refreshToday();
     });
   }
 
   // ================= Global search (Cmd-K) =================
   // Pages, galleries (loaded jobs), organizations (a search_text lookup), bookings and schools.
-  const GS_PAGES = [["today", "Today"], ["bookings", "Bookings"], ["jobs", "Galleries"], ["hubact", "Hub activity"], ["calc", "Job calculator"], ["requests", "Help requests"], ["makeups", "Makeups"], ["retakes", "Retakes"],
-    ["searchlog", "Find My Photos"], ["settings", "Search rules"], ["blocks", "Blocked names"], ["orgs", "Organizations"], ["orgs", "Clients", "clients"], ["orgs", "Active leads", "active"], ["orgs", "Prospecting", "prospecting"], ["orgs", "Cold leads", "cold"], ["orgs", "Follow up later", "later"], ["orgs", "Past clients", "past"], ["outbox", "Outbox"], ["library", "Email library"], ["sending", "Settings"], ["health", "Sync"], ["signin", "Sign-in"]];
+  // Pages come from RAIL (only those this person can see); org sub-lists from the orgs item's `search`.
+  function gsPages() {
+    const out = [];
+    RAIL.filter((it) => canSee(it.module)).forEach((it) => {
+      it.tabs.forEach((t) => out.push([t[0], tabName(t[0])]));
+      (it.search || []).forEach((x) => out.push([it.tabs[0][0], x[0], x[1]]));
+    });
+    return out;
+  }
   let gsWrap = null, gsTimer = null, gsCur = 0, gsItems = [];
   function openSearch() {
     if (gsWrap) return;
@@ -551,15 +612,16 @@
     gsCur = 0;
     const ql = q.toLowerCase();
     const groups = [];
-    const pages = GS_PAGES.filter((p) => !ql || p[1].toLowerCase().includes(ql)).slice(0, ql ? 4 : 8);
+    const pages = gsPages().filter((p) => !ql || p[1].toLowerCase().includes(ql)).slice(0, ql ? 4 : 8);
     if (pages.length) groups.push(["Pages", pages.map((p) => ({ tab: p[0], id: p[2] || "", k: p[1], m: p[2] ? "Organizations" : "" }))]);
     if (ql.length >= 2) {
       const jobs = allJobs.filter((j) => (j.name || "").toLowerCase().includes(ql)).slice(0, 6);
       if (jobs.length) groups.push(["Galleries", jobs.map((j) => ({ tab: "jobs", id: j.gotphoto_job_id, k: j.name, m: [j.job_type, j.status].filter(Boolean).join(", ") }))]);
       try {
+        const none = Promise.resolve({ data: [] });
         const [{ data: orgs }, { data: bks }] = await Promise.all([
-          supabase.from("prospect_orgs").select("id,name,town,stage").ilike("search_text", "%" + ql.replace(/[%_]/g, "") + "%").order("name").limit(6),
-          supabase.rpc("admin_bookings", { p_from: todayStrNY(), p_to: null }),
+          canSee("partners") ? supabase.from("prospect_orgs").select("id,name,town,stage").ilike("search_text", "%" + ql.replace(/[%_]/g, "") + "%").order("name").limit(6) : none,
+          canSee("bookings") ? supabase.rpc("admin_bookings", { p_from: todayStrNY(), p_to: null }) : none,
         ]);
         if (el("gsInput") && el("gsInput").value.trim().toLowerCase() !== ql) return; // stale
         if (orgs && orgs.length) groups.push(["Organizations", orgs.map((o) => ({ tab: "orgs", id: o.id, k: o.name, m: [o.town, o.stage].filter(Boolean).join(", ") }))]);

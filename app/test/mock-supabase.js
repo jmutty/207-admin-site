@@ -46,6 +46,16 @@
     prospect_sequence_steps: [{ id: "st1", sequence_id: "q1", step_no: 1, delay_business_days: 0, subject: "{{league|winter}} picture day", body: "{{hi|Hey there}}!\n\n{{personal_line|We're filling our winter calendar now.}}", attachments: [{ path: "portfolio.pdf", filename: "207 Photo - Team & Individual Photos.pdf" }] },
       { id: "st2", sequence_id: "q1", step_no: 2, delay_business_days: 3, subject: null, body: "{{hi|Hey there}}, one more thing worth seeing.", attachments: [] }],
     prospect_saved_views: [],
+    app_modules: [
+      { key: "bookings", label: "Bookings", section: "Jobs", description: "Picture-day bookings.", sort: 10, status: "live", admin_only: false },
+      { key: "galleries", label: "Galleries", section: "Jobs", description: "GotPhoto galleries.", sort: 20, status: "live", admin_only: false },
+      { key: "hub", label: "Hub", section: "Jobs", description: "Hub activity.", sort: 30, status: "live", admin_only: false },
+      { key: "parents", label: "Parent help", section: "Parents", description: "Help requests, makeups, retakes.", sort: 40, status: "live", admin_only: false },
+      { key: "findmyphotos", label: "Find My Photos", section: "Parents", description: "Search activity and rules.", sort: 50, status: "live", admin_only: false },
+      { key: "partners", label: "Organizations & outreach", section: "Partners", description: "Organizations and outreach.", sort: 60, status: "live", admin_only: false },
+      { key: "settings", label: "Settings", section: "System", description: "", sort: 90, status: "live", admin_only: true },
+      { key: "team", label: "Team", section: "System", description: "", sort: 95, status: "live", admin_only: true },
+      { key: "scheduling", label: "Employee scheduling", section: "Staff", description: "Shifts.", sort: 200, status: "planned", admin_only: false }],
     prospect_enrollments: [{ org_id: "44444444-4444-4444-4444-444444444444", status: "paused", end_reason: "held for review" }],
     booking_types: [
       { key: "school", label: "School Photos", audience: "school", description: "Four emails: booked, student data (21 days), two weeks, day before. Creates the school on the hub.", title_labels: ["School Photos"], default_duration_min: 180, sort_order: 1 },
@@ -89,7 +99,16 @@
     return p;
   }
   window.__rpcCalls = [];
+  // ?as=staff signs in as a limited team member (bookings edit, parents view) instead of the owner.
+  const AS_STAFF = /[?&]as=staff\b/.test(location.search);
   const RPC = {
+    my_access: AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view" } }
+      : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
+    team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, last_sign_in_at: iso(-0.01), modules: {} },
+      { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, is_me: false, active: true, must_change_password: true, last_sign_in_at: null, modules: { bookings: "edit", parents: "view" } },
+      { user_id: "u3", email: "old@207photo.com", name: "Former Staff", is_admin: false, is_me: false, active: false, must_change_password: false, last_sign_in_at: iso(-90), modules: { partners: "view" } }],
+    team_audit_list: [{ at: iso(-1), action: "added", actor: "Jeremiah Mutty", target: "Sam Helper" }, { at: iso(-0.5), action: "updated", actor: "Jeremiah Mutty", target: "Sam Helper" }],
+    team_save: { ok: true }, me_password_changed: null,
     admin_outbox: [
       { src: "outreach", id: "ob1", at: iso(0.1), to_name: "Island Cheer", to_email: "info@islandcheer.com", org: "Island Cheer & Tumbling", org_id: "44444444-4444-4444-4444-444444444444", subject: "Island Cheer picture day", detail: "Outreach, email 1", status: "needs_review", enrollment_id: "e9" },
       { src: "booking", id: "ob2", at: iso(-1), to_name: "Chris Snowdeal", to_email: "c@x.org", org: "Brewer Travel Basketball Club", booking_id: "b1", subject: "You're booked, start here", detail: "Booking email 1", status: "failed", error: "Gmail refused the send" },
@@ -125,7 +144,17 @@
     prospect_prior_contact: { cooldown_months: 6, matches: [{ source: "gmail", org_name: "Presque Isle Youth Hockey", matched_on: ["name", "domain"], emails: ["coach@piyh.org"], first_at: iso(-40), last_at: iso(-30), emails_sent: 2, replied: true, reply_note: "Asked us to check back in spring", status: null, thread_ids: ["18f00aa"], within_cooldown: true, is_client: true, do_not_email: ["gone@piyh.org"] }, { source: "gmail", org_name: "Portland School 0", matched_on: ["domain"], emails: ["p0@portlandschools.org"], last_at: iso(-40), emails_sent: 5, replied: false, thread_ids: [], within_cooldown: true }, { source: "gmail", org_name: "Portland School 1", matched_on: ["domain"], emails: ["p1@portlandschools.org"], last_at: iso(-40), emails_sent: 5, replied: false, thread_ids: [], within_cooldown: true }, { source: "gmail", org_name: "Portland School 2", matched_on: ["domain"], emails: ["p2@portlandschools.org"], last_at: iso(-40), emails_sent: 5, replied: false, thread_ids: [], within_cooldown: true }, { source: "gmail", org_name: "Portland School 3", matched_on: ["domain"], emails: ["p3@portlandschools.org"], last_at: iso(-40), emails_sent: 5, replied: false, thread_ids: [], within_cooldown: true }] }, prospect_enroll_org: { enrollment_id: 'e9', emails: 4, sequence: 'Winter 2026 Leagues' }, prospect_approve: { ok: true }, prospect_import_orgs: { added: 1, matched: 1, contacts: 2, enrolled: 1, notes: ["x@y.org is already on Brewer Travel, left there"] }, prospect_sequence_rank: [{ key: "winter-2026-leagues", name: "Winter 2026 Leagues", score: 13, reason: "same season, general" }, { key: "cheer-gyms-2026-27", name: "Cheer Gyms 2026-27 (intro only)", score: 3, reason: "same season" }], admin_hub_activity: [{ hub: "sports", org_id: "x", org: "Hampden Little League", picture_day: iso(-3).slice(0,10), late_count: 1, sends: [], watchers: [{ id: "w1", name: "Pat Lee", email: "pat@hll.org", since: iso(-10) }] }, { hub: "school", org_id: "s1", org: "Testville Elementary", picture_day: iso(5).slice(0,10), late_count: 0, sends: [], watchers: [] }], admin_hub_watcher_add: { ok: true, id: "w2", result: "added" }, admin_hub_watcher_remove: { ok: true }, admin_hub_watcher_update: { ok: true } };
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
-            onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}) },
+            onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
+            updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }) },
     from: q, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: RPC[n] !== undefined ? RPC[n] : [], error: null }),
   }) };
+  // Edge functions: the Team page's account actions.
+  const realFetch = window.fetch;
+  window.fetch = async (url, opts) => {
+    if (String(url).includes("/functions/v1/team")) {
+      window.__teamCalls = (window.__teamCalls || []).concat([JSON.parse(opts.body)]);
+      return new Response(JSON.stringify({ ok: true, user_id: "u9", temp_password: "k7mp-2qrx-h8vt-w3nd" }), { status: 200 });
+    }
+    return realFetch(url, opts);
+  };
 })();
