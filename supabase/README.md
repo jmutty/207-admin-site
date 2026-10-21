@@ -13,6 +13,8 @@ all 202 function definitions were verified byte-identical. Then:
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261021120000_team_access_foundation.sql
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261021120100_module_scoped_access.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/team_access_test.sql   # signs in as owner / staff / outsiders; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261021200000_booking_stages_deliverables.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/booking_tracking_test.sql  # stages, deliverables, auto ticks, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
