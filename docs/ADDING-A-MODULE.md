@@ -127,6 +127,10 @@ Then add the files to `app/build.py` (`JS_PARTS` before `src/shell-end.js`, and 
 | `tabs` | `[[tab, label], ...]`, where the first is the default; more than one shows a tab strip |
 | `onShow(tab)` | called every time one of its tabs is opened |
 | `search` | extra Cmd-K entries `[[label, id], ...]` |
+| `selfService` | `true` when View means "use it for yourself" (Assignments): no view-only notice |
+
+A Today line: `registerAttention(...)` plus `registerTodayLoader("<module>", () => Thing.loadAttention())`, which runs
+with the other Today checks for people who can see the module (see `app/src/scheduling.js`).
 
 Helpers available everywhere: `supabase`, `el(id)`, `esc()`, `fmtDate()`, `fmtAgo()`, `toast()`,
 `showError()`/`clearError()`, `canSee(m)`, `canEdit(m)`, `openModal(html, {locked})`, `setAttention()`.

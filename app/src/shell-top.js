@@ -228,6 +228,7 @@
     if (canSee("settings")) L.push(first ? loadHealth() : loadDataQuality());
     if (canSee("partners")) L.push(Orgs.loadAttention(), Outbox.loadToday());
     if (canSee("bookings")) L.push(Bookings.loadAttention(), loadComingUp());
+    TODAY_LOADERS.forEach(([m, fn]) => { if (canSee(m)) L.push(fn()); });
     return L;
   }
 
@@ -335,7 +336,7 @@
     if (name === "today") refreshToday();
     if (name === "calc") JobCalc.load();
     if (it.onShow) it.onShow(name);
-    el("viewOnly").classList.toggle("hidden", !it.module || canEdit(it.module));
+    el("viewOnly").classList.toggle("hidden", !it.module || canEdit(it.module) || it.selfService);
     window.scrollTo(0, 0);
   }
   function renderPageTabs(item, name) {
@@ -391,6 +392,9 @@
   const attentionKeys = () => ATTENTION_ORDER.filter((k) => canSee(ATTENTION_MODULE[k]));
   // For new modules: registerAttention("shiftsUncovered", { module: "scheduling", level: "warn", name: "shift coverage",
   //   one: "A shift has nobody on it.", many: "{n} shifts have nobody on it." }); then setAttention(key, count, label, tab).
+  // New modules add their Today check with registerTodayLoader("<module>", () => Thing.loadAttention()).
+  const TODAY_LOADERS = [];
+  function registerTodayLoader(module, fn) { TODAY_LOADERS.push([module, fn]); }
   function registerAttention(key, d) {
     ATTENTION_ORDER.push(key);
     ATTENTION_MODULE[key] = d.module;
