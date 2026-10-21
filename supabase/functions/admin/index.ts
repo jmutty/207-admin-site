@@ -45,8 +45,8 @@ Deno.serve(async (req) => {
         headers: { apikey: ANON_KEY, Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" },
         body: JSON.stringify({ p_module: "galleries", p_level: "edit" }),
       });
-      const isAdmin = who.ok && (await who.text()).trim() === "true";
-      if (!isAdmin) {
+      const allowed = who.ok && (await who.text()).trim() === "true";
+      if (!allowed) {
         console.error(`admin/sync: refused (auth status ${who.status})`);
         return json({ ok: false, error: "Invalid or expired session." }, 401);
       }
