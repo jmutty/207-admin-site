@@ -73,10 +73,18 @@ select pg_temp.ok((public.booking_deliverables_add('00000000-0000-0000-0000-0000
   '[{"label":"Yearbook files","save":true,"due_days":14},{"label":"Thank-you card"}]') ->> 'added')::int = 2, 'e1: adds two typed deliverables');
 select pg_temp.ok((select count(*) from public.deliverable_templates where type_key = 'school' and label = 'Yearbook files' and due_days = 14) = 1, 'e1: "save" keeps it for school jobs');
 select pg_temp.ok((select count(*) from public.deliverable_templates where label = 'Thank-you card') = 0, 'e1: a one-off is not saved');
-select pg_temp.ok((select due_date from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-0000000000b2' and label = 'Yearbook files') = current_date + 21 + 14, 'e1: due date = last picture day + due days');
+select pg_temp.ok((select due_date is null and due_days = 14 from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-0000000000b2' and label = 'Yearbook files'), 'e1: not launched yet: no due date, the days are kept');
 select pg_temp.ok((public.booking_deliverables_add('00000000-0000-0000-0000-0000000000b2',
   jsonb_build_array(jsonb_build_object('template_id', (select id from public.deliverable_templates where label = 'Yearbook files')))) ->> 'added')::int = 0, 'e1: picking one already on the booking adds nothing');
 select pg_temp.ok((select deliverables_total = 2 and deliverables_open = 2 from public.booking_progress where booking_id = '00000000-0000-0000-0000-0000000000b2'), 'e1: summary counts 2 open');
+select public.booking_set_stage('00000000-0000-0000-0000-0000000000b2', (select id from public.booking_stages where type_key = 'school' and auto = 'gallery_live'));
+select pg_temp.ok((select due_date from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-0000000000b2' and label = 'Yearbook files') = (now() at time zone 'America/New_York')::date + 14, 'e1: launching the job dates it: launch day + due days');
+select pg_temp.ok((select due_date from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-0000000000b2' and label = 'Thank-you card') is null, 'e1: one without due days stays undated');
+select pg_temp.ok((select next_due from public.booking_progress where booking_id = '00000000-0000-0000-0000-0000000000b2') = (now() at time zone 'America/New_York')::date + 14, 'e1: list summary picks up the new date');
+select pg_temp.ok((public.booking_deliverables_add('00000000-0000-0000-0000-0000000000b1', '[{"label":"Banner proofs","due_days":7}]') ->> 'added')::int = 1, 'e1: adds one after launch');
+select pg_temp.ok((select due_date from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-0000000000b1' and label = 'Banner proofs') = (now() at time zone 'America/New_York')::date + 7, 'e1: added after launch: dated from the launch day');
+select pg_temp.ok((public.booking_deliverables_add('00000000-0000-0000-0000-0000000000b1', '[{"label":"Team poster","due_date":"2027-01-05"}]') ->> 'added')::int = 1, 'e1: adds one with a typed date');
+select pg_temp.ok((select due_date = '2027-01-05' and due_days is null from public.booking_deliverables where label = 'Team poster'), 'e1: a date typed by hand wins');
 
 -- the saved one is offered to the next school job, not to sports jobs
 select pg_temp.ok(exists (select 1 from jsonb_array_elements(public.admin_booking_tracking('00000000-0000-0000-0000-0000000000b2') -> 'templates') t where t ->> 'label' = 'Yearbook files'), 'e1: offered on school jobs');
