@@ -186,9 +186,18 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent("#aca-bkCrewSum")) === "Sam Helper", "the dropdown shows who's picked");
     await page.click("#aca-bkLoc");
     check(!(await page.$eval("#aca-bkCrewDd", (n) => n.open)), "the dropdown closes when you click elsewhere");
+    await page.fill("#aca-bkLoc", "doughty");
+    await page.waitForSelector("#aca-bkLocList:not(.hidden) button[data-i]");
+    check((await page.$$("#aca-bkLocList button[data-i]")).length === 2, "typing a location shows Google Maps suggestions");
+    await page.click("#aca-bkLocList button[data-i] >> nth=0");
+    await page.waitForFunction(() => document.querySelector("#aca-bkLoc").value === "James F. Doughty Middle School, 143 Fifth St, Bangor, ME 04401");
+    const calls = await page.evaluate(() => window.__placeCalls);
+    check(calls.length === 2 && calls[0].session && calls[0].session === calls[1].session && calls[1].place_id === "ChIJdoughty0000001", "picking one fetches its address in the same session");
+    check(await page.$eval("#aca-bkLocList", (n) => n.classList.contains("hidden")) && /google\.com\/maps/.test(await page.$eval("#aca-bkLocNote a", (a) => a.href)), "the list closes and a map link shows");
     await page.click('.bk-form button[data-v="save"]');
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_create"));
     await page.waitForSelector("#aca-bkPanel .bk-stages");
+    check((await lastRpc("booking_create"))[1].p.location === "James F. Doughty Middle School, 143 Fifth St, Bangor, ME 04401", "the picked address is saved as the location");
     const bk = await lastRpc("booking_deliverables_add");
     check(bk && bk[1].p_booking === "bk1" && bk[1].p_items.some((x) => x.template_id === "dt1") && bk[1].p_items.some((x) => x.label === "Coach gift" && x.save), "booking adds the picked deliverables");
     const crewSave = await lastRpc("schedule_save");
