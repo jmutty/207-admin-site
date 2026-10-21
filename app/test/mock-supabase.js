@@ -109,6 +109,12 @@
       { user_id: "u3", email: "old@207photo.com", name: "Former Staff", is_admin: false, is_me: false, active: false, must_change_password: false, last_sign_in_at: iso(-90), modules: { partners: "view" } }],
     team_audit_list: [{ at: iso(-1), action: "added", actor: "Jeremiah Mutty", target: "Sam Helper" }, { at: iso(-0.5), action: "updated", actor: "Jeremiah Mutty", target: "Sam Helper" }],
     team_save: { ok: true }, me_password_changed: null,
+    push_my_settings: { vapid_public: "BKz8kzZpH3b3FVt5JQq0C4f4vFq2l7yqzG0oQ6tVq2zrI8mN2l6Qy6X7cJq3yH4m1nV7pP3s2wT8kL5dR9e1aF0", devices: [{ id: "d1", label: "iPhone \u00b7 Safari", endpoint: "https://web.push.apple.com/abc", created_at: iso(-3), last_ok_at: iso(-1) }],
+      topics: AS_STAFF ? [{ key: "help_request", label: "New help request", description: "A parent asked for help finding their access code.", enabled: true }]
+        : [{ key: "help_request", label: "New help request", description: "A parent asked for help finding their access code.", enabled: true },
+           { key: "booking_email_failed", label: "Booking email failed", description: "A booking email could not be sent.", enabled: false },
+           { key: "sync_failed", label: "GotPhoto sync failing", description: "The GotPhoto sync started failing.", enabled: true }] },
+    push_set_pref: null, push_subscribe: { ok: true }, push_unsubscribe: null, push_test: { ok: true }, push_request_setup: null,
     admin_outbox: [
       { src: "outreach", id: "ob1", at: iso(0.1), to_name: "Island Cheer", to_email: "info@islandcheer.com", org: "Island Cheer & Tumbling", org_id: "44444444-4444-4444-4444-444444444444", subject: "Island Cheer picture day", detail: "Outreach, email 1", status: "needs_review", enrollment_id: "e9" },
       { src: "booking", id: "ob2", at: iso(-1), to_name: "Chris Snowdeal", to_email: "c@x.org", org: "Brewer Travel Basketball Club", booking_id: "b1", subject: "You're booked, start here", detail: "Booking email 1", status: "failed", error: "Gmail refused the send" },

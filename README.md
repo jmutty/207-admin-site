@@ -3,7 +3,7 @@
 207 Photo's internal admin at https://admin.207photo.com.
 
 ```
-index.html, loader.js, 404.html   the loader page (Cloudflare Pages serves this repo's root). No secrets.
+site/                              what Cloudflare serves: loader page, logo, sw.js (notifications), manifest. No secrets.
 app/                               the app: src/ -> build.py -> dist/207-admin.js (hosted on Supabase Storage)
 supabase/migrations/               database changes made in this repo (earlier history lives in Supabase)
 supabase/functions/                edge functions changed in this repo (admin, team)
@@ -12,7 +12,7 @@ docs/ADDING-A-MODULE.md            how to add a new area (scheduling, time clock
 
 ## How it fits together
 
-- **Hosting.** Cloudflare Pages project `207-admin` (direct upload, not connected to GitHub) serves `index.html`. When re-uploading it, upload only the loader files (`index.html`, `loader.js`, `404.html`, `robots.txt`), not the whole repo.
+- **Hosting.** Cloudflare Pages project `207-admin` (direct upload, not connected to GitHub) serves `index.html`. To change it, zip the files inside `site/` and upload them (Create deployment -> Production).
   `index.html` loads supabase-js and then `loader.js`, which
   pulls the current app bundle from Supabase Storage (`admin-app/207-admin.js`). Deploying the app
   never needs a change here.
@@ -25,6 +25,10 @@ docs/ADDING-A-MODULE.md            how to add a new area (scheduling, time clock
   `team_members`, with per-module `None / View / Edit` in `team_permissions`. Every policy and RPC
   asks `public.can('<module>', 'view' | 'edit')`. The app asks `my_access()` and shows only the pages
   you can use. Manage people on the **Team** page.
+- **Notifications.** Push notifications to phones and computers. `push_topics` lists the kinds of
+  notification, one per module, and each goes only to people who can see that module. Triggers call
+  `push_notify()`, and the `push-sender` edge function delivers. Each person turns them on under
+  account menu -> Notifications. On iPhone this needs the home-screen app.
 - **Modules.** `public.app_modules` lists the areas. In the app, `RAIL` in `app/src/shell-top.js` (plus
   `registerPage()` calls in module files) is the single list that builds the menu, router, Cmd-K and
   access checks. See [docs/ADDING-A-MODULE.md](docs/ADDING-A-MODULE.md).
