@@ -119,8 +119,9 @@
     .aca .bk-form input[type=text], .aca .bk-form input[type=date], .aca .bk-form input[type=time], .aca .bk-form input[type=email], .aca .bk-form textarea, .aca .bk-form select { font-size: 16px; min-height: 40px; }
     .aca .bk-form button.link, .aca .bk-form button.small { min-height: 40px; }
     .aca .bk-form .bk-dayrow { row-gap: 8px; }
-    .aca .bk-form .bk-dayrow .bk-d-day { flex: 1 1 100%; min-width: 0; }
-    .aca .bk-form .bk-dayrow .bk-d-start, .aca .bk-form .bk-dayrow .bk-d-end { flex: 1 1 0; min-width: 0; width: auto; }
+    .aca .bk-form .bk-dayrow .dp-face { flex: 1 1 100%; min-width: 0; }
+    .aca .bk-form .bk-dayrow .dp-tbox { flex: 1 1 0; min-width: 0; }
+    .aca .bk-form .bk-dayrow .dp-tbox input.dp-time[type=text] { width: 100%; }
     .aca .bk-form .bk-dayrow .bk-d-label { flex: 1 1 100% !important; min-width: 0 !important; }
     .aca .bk-form #aca-bkCode { width: 100% !important; }
     .aca #aca-panel-bookings .card-head { flex-direction: column; align-items: stretch; gap: 10px; }
@@ -456,7 +457,7 @@
       el("bkDays").innerHTML = dayRows.map((r, i) => '<div class="bk-dayrow" data-i="' + i + '" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
         '<input type="date" class="bk-d-day" value="' + esc(r.day || "") + '" aria-label="Day ' + (i + 1) + '" /> ' +
         '<input type="time" class="bk-d-start" value="' + esc(r.start_time || "") + '" step="300" aria-label="Start" /> <span class="bk-sub">to</span> ' +
-        '<input type="time" class="bk-d-end" value="' + esc(r.end_time || "") + '" step="300" aria-label="End" /> ' +
+        '<input type="time" class="bk-d-end" value="' + esc(r.end_time || "") + '" step="300" aria-label="End" data-dp-after=".bk-d-start" /> ' +
         '<input type="text" class="bk-d-label" value="' + esc(r.label || "") + '" placeholder="' + (dayRows.length > 1 ? "Which teams this day" : "Label (optional)") + '" maxlength="60" style="flex:1 1 160px;min-width:120px" />' +
         (dayRows.length > 1 ? '<button type="button" class="small quiet" data-v="rmday" data-i="' + i + '" aria-label="Remove day ' + (i + 1) + '">&times;</button>' : "") + "</div>").join("");
     }
@@ -589,8 +590,8 @@
       if (v === "close") return box.close();
       if (v === "prevfold") { const open = el("bkPrev").classList.toggle("folded") === false; b.setAttribute("aria-expanded", String(open)); try { localStorage.setItem("aca-bkformmail", open ? "open" : "closed"); } catch (e2) {} return; }
       if (v === "copyname") { try { await navigator.clipboard.writeText(b.dataset.name); b.textContent = "copied"; setTimeout(() => { b.textContent = "copy"; }, 1500); } catch (er) { toast("Couldn't copy: " + b.dataset.name, true); } return; }
-      if (v === "addday") { dayRows.push({ day: "", start_time: "", end_time: "", label: "" }); renderDays(); return; }
-      if (v === "rmday") { const i = Number(b.dataset.i); if (dayRows.length > 1) { dayRows.splice(i, 1); renderDays(); renderPreview(); } return; }
+      if (v === "addday") { readDays(); dayRows.push({ day: "", start_time: "", end_time: "", label: "" }); renderDays(); return; }
+      if (v === "rmday") { const i = Number(b.dataset.i); if (dayRows.length > 1) { readDays(); dayRows.splice(i, 1); renderDays(); renderPreview(); } return; }
       if (v === "changeorg") { org = null; contacts = []; chosen.clear(); el("bkOrgPick").innerHTML = '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'; renderContacts(); el("bkOrgQ").focus(); return; }
       if (v === "fdlvadd") {
         const l = el("bkFDlvNew").value.trim(); if (!l) return;
