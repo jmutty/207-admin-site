@@ -29,17 +29,4 @@ migration was applied in parts, with identical SQL:
 | `team_access_foundation_2a_checks` + `_2b_grants` | can / can_any / my_access / is_team_member, team_list, team_flag_password, team_audit_list, me_password_changed | applied |
 | `team_access_foundation_3_signin` | emailed code + remembered devices accept team members | applied |
 | `module_scoped_access` | every policy and RPC switched from is_admin() to module checks | applied |
-| `team_access_foundation_4_team_management` | **team_save, team_set_active** | **pending: see below** |
-
-### Finishing part 4
-
-Until part 4 is applied, the Team page lists people, but **Add person** and **Save** fail with
-"Could not find the function public.team_save". Nothing else depends on it.
-
-To apply it, either:
-
-- ask Claude to apply `pending/team_access_foundation_4_team_management.sql` and approve the Supabase
-  prompt that appears, or
-- paste that file into Supabase Dashboard -> SQL Editor -> Run.
-
-Then delete the `pending/` folder.
+| `team_access_foundation_4_team_management` | team_save, team_set_active | applied (pasted into the SQL Editor) |
