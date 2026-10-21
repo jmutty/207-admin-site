@@ -162,7 +162,23 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector("#aca-bkOrgList button[data-org]");
     await page.click("#aca-bkOrgList button[data-org]");
     await page.waitForTimeout(150);
-    await page.fill("#aca-bkDays .bk-d-day", "2026-12-05");
+    // Date and time pickers: calendar for the day, typed start, end defaults to start + 2 hours
+    await page.click("#aca-bkDays .dp-face");
+    for (let i = 0; i < 36 && !(await page.$('.dp-cal [data-d="2026-12-05"]')); i++) await page.click('.dp-cal [data-m="' + (new Date() < new Date(2026, 11, 5) ? 1 : -1) + '"]');
+    await page.click('.dp-cal [data-d="2026-12-05"]');
+    check(await page.$eval("#aca-bkDays .bk-d-day", (n) => n.value) === "2026-12-05" && /Dec 5, 2026/.test(await page.textContent("#aca-bkDays .dp-face")), "calendar sets the day");
+    await page.fill("#aca-bkDays .bk-dayrow .dp-time >> nth=0", "930");
+    await page.keyboard.press("Enter");
+    const tm = await page.$eval("#aca-bkDays .bk-dayrow", (r) => [r.querySelector(".bk-d-start").value, r.querySelector(".bk-d-end").value, r.querySelectorAll(".dp-time")[1].value]);
+    check(tm[0] === "09:30" && tm[1] === "11:30" && tm[2] === "11:30 AM", "typed start 930 -> 9:30 AM, end defaults to 11:30 AM: " + tm.join(" / "));
+    await page.fill("#aca-bkDays .bk-dayrow .dp-time >> nth=1", "1p");
+    await page.keyboard.press("Tab");
+    await page.fill("#aca-bkDays .bk-dayrow .dp-time >> nth=0", "10");
+    await page.keyboard.press("Enter");
+    check(await page.$eval("#aca-bkDays .bk-d-end", (n) => n.value) === "13:30", "moving the start keeps the length");
+    await page.click('.bk-form button[data-v="addday"]');
+    check(await page.$eval("#aca-bkDays .bk-d-start", (n) => n.value) === "10:00", "adding a day keeps the first day's times");
+    await page.click('.bk-form button[data-v="rmday"][data-i="1"]');
     await page.click('.bk-form button[data-v="save"]');
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_create"));
     await page.waitForSelector("#aca-bkPanel .bk-stages");
