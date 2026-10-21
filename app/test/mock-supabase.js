@@ -259,6 +259,14 @@
       window.__driveCalls = (window.__driveCalls || []).concat([JSON.parse(opts.body)]);
       return new Response(JSON.stringify({ ok: true, minutes: 23, meters: 21000, destination: "89 Western Ave, Hampden ME" }), { status: 200 });
     }
+    if (String(url).includes("/functions/v1/place-search")) {
+      const b = JSON.parse(opts.body);
+      window.__placeCalls = (window.__placeCalls || []).concat([b]);
+      if (b.place_id) return new Response(JSON.stringify({ ok: true, name: "James F. Doughty Middle School", address: "143 Fifth St, Bangor, ME 04401, USA" }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, places: [
+        { id: "ChIJdoughty0000001", name: "James F. Doughty Middle School", detail: "Fifth Street, Bangor, ME, USA" },
+        { id: "ChIJdoughty0000002", name: "Doughty Field", detail: "Hampden, ME, USA" }] }), { status: 200 });
+    }
     return realFetch(url, opts);
   };
 })();
