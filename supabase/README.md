@@ -18,6 +18,8 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261021220000_booking_track_
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261021230000_deliverables_due_after_launch.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/booking_tracking_test.sql  # stages, deliverables, auto ticks, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/booking_track_only_test.sql   # track-only jobs: nothing sent, org matching, auto-track; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022090000_inventory.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/inventory_test.sql          # bins, items, kits, check-out, search, photos bucket, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
