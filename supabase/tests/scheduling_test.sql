@@ -247,5 +247,40 @@ select pg_temp.act('00000000-0000-0000-0000-0000000000d1');
 select pg_temp.raises($$select public.schedule_attention()$$, 'n1: no attention count');
 
 reset role;
+-- Flex time (20261022150000): v1 (Scheduling view) can add, move and remove their own flex bars, nothing else.
+select pg_temp.act('00000000-0000-0000-0000-0000000000c1');
+select pg_temp.ok((public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000c1","kind":"flex","title":"Cull photos","starts_at":"2026-11-05T13:00:00-05:00","ends_at":"2026-11-05T15:00:00-05:00"}') ->> 'ok')::boolean, 'v1: adds their own flex time');
+select pg_temp.ok((public.schedule_save(jsonb_build_object('id', (select id from public.schedule_entries where kind = 'flex'), 'user_id', '00000000-0000-0000-0000-0000000000c1', 'kind', 'flex',
+  'starts_at', '2026-11-06T09:00:00-05:00', 'ends_at', '2026-11-06T11:00:00-05:00')) ->> 'ok')::boolean, 'v1: moves it');
+select pg_temp.raises($$select public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000e1","kind":"flex","starts_at":"2026-11-05T13:00:00-05:00","ends_at":"2026-11-05T15:00:00-05:00"}')$$, 'v1: no flex time for someone else');
+select pg_temp.raises($$select public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000c1","kind":"studio","starts_at":"2026-11-05T13:00:00-05:00","ends_at":"2026-11-05T15:00:00-05:00"}')$$, 'v1: only flex, not studio time');
+select pg_temp.raises($$select public.schedule_save(jsonb_build_object('id', (select id from public.schedule_entries where kind = 'job' limit 1), 'user_id', '00000000-0000-0000-0000-0000000000c1', 'kind', 'flex',
+  'starts_at', '2026-11-06T09:00:00-05:00', 'ends_at', '2026-11-06T11:00:00-05:00'))$$, 'v1: cannot turn their job into flex');
+select pg_temp.raises($$select public.schedule_remove((select id from public.schedule_entries where kind = 'job' limit 1))$$, 'v1: cannot remove their job');
+select pg_temp.ok((public.schedule_remove((select id from public.schedule_entries where kind = 'flex')) ->> 'ok')::boolean, 'v1: removes their flex time');
+select pg_temp.act('00000000-0000-0000-0000-0000000000d1');
+select pg_temp.raises($$select public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000d1","kind":"flex","starts_at":"2026-11-05T13:00:00-05:00","ends_at":"2026-11-05T15:00:00-05:00"}')$$, 'n1: no Scheduling, no flex time');
+reset role;
+
+-- Google Calendar (20261022170000): events that aren't bookings, "X Off" as time off
+insert into public.calendar_events (google_event_id, summary, start_date, end_date, all_day, start_at, end_at) values
+  ('ev1@google.com', 'Test Academy • School Photos', '2026-11-03', '2026-11-03', false, '2026-11-03 09:00 America/New_York', '2026-11-03 12:00 America/New_York'),
+  ('ev2@google.com', '*Test Academy retakes in studio', '2026-11-04', '2026-11-04', false, '2026-11-04 15:00 America/New_York', '2026-11-04 16:00 America/New_York'),
+  ('ev3@google.com', 'Studio makeup session', '2026-11-05', '2026-11-05', false, '2026-11-05 10:00 America/New_York', '2026-11-05 12:00 America/New_York'),
+  ('ev4@google.com', 'View Off', '2026-11-02', '2026-11-03', true, null, null),
+  ('ev5@google.com', 'Ryan Off', '2026-11-02', '2026-11-02', true, null, null),
+  ('ev6@google.com', 'Next week thing', '2026-11-09', '2026-11-09', true, null, null),
+  ('ev7@google.com', 'Linked by id', '2026-11-06', '2026-11-06', true, null, null);
+update public.booking_days set google_event_id = 'ev7@google.com' where day = '2026-11-06';
+select pg_temp.act('00000000-0000-0000-0000-0000000000c1');
+select pg_temp.ok((select string_agg(x ->> 'event_id', ',' order by x ->> 'event_id') from jsonb_array_elements(public.schedule_week('2026-11-01') -> 'calendar') x) = 'ev3@google.com,ev4@google.com,ev5@google.com',
+  'calendar: bookings (by title, organization or event id) and other weeks left out: ' || (select string_agg(x ->> 'event_id', ',' order by x ->> 'event_id') from jsonb_array_elements(public.schedule_week('2026-11-01') -> 'calendar') x));
+select pg_temp.ok((select x ->> 'off_user' from jsonb_array_elements(public.schedule_week('2026-11-01') -> 'calendar') x where x ->> 'event_id' = 'ev4@google.com') = '00000000-0000-0000-0000-0000000000c1', 'calendar: "View Off" is View One''s time off');
+select pg_temp.ok((select x -> 'off_user' from jsonb_array_elements(public.schedule_week('2026-11-01') -> 'calendar') x where x ->> 'event_id' = 'ev5@google.com') = 'null'::jsonb, 'calendar: "Ryan Off" with no Ryan on the team stays an event');
+select pg_temp.raises($$select public.schedule_calendar('2026-11-01', '2026-11-08')$$, 'v1: cannot call schedule_calendar directly');
+select pg_temp.act('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.ok((public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000c1","kind":"studio","title":"Studio makeup session","gcal_event_id":"ev3@google.com","starts_at":"2026-11-05T10:00:00-05:00","ends_at":"2026-11-05T12:00:00-05:00"}') ->> 'ok')::boolean, 'e1: staffs a calendar event');
+select pg_temp.ok((select x ->> 'gcal_event_id' from jsonb_array_elements(public.schedule_week('2026-11-01') -> 'entries') x where x ->> 'title' = 'Studio makeup session') = 'ev3@google.com', 'the bar remembers its calendar event');
+reset role;
 select 'ALL SCHEDULING TESTS PASSED';
 rollback;

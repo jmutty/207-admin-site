@@ -215,6 +215,8 @@
     const today = nyDay(Date.now()), sun = add(today, -new Date(today + "T12:00:00Z").getUTCDay());
     const at = (d, hm) => d + "T" + hm + ":00-04:00";
     RPC.schedule_week = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", studio_address: AS_STAFF ? "1 Main St, Bangor ME" : "",
+      calendar: [{ event_id: "ev1@google.com", summary: "Studio makeup session", start_date: add(sun, 3), end_date: add(sun, 3), all_day: false, start_at: at(add(sun, 3), "10:00"), end_at: at(add(sun, 3), "12:00"), off_user: null },
+        { event_id: "ev2@google.com", summary: "Alex Off", start_date: add(sun, 6), end_date: add(sun, 6), all_day: true, start_at: null, end_at: null, off_user: "u5" }],
       people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40 }, { user_id: "u2", name: "Sam Helper", weekly_hours: 24 }, { user_id: "u5", name: "Alex Assistant", weekly_hours: null }],
       bookings: [{ booking_id: "bk1", day: add(sun, 2), start_at: at(add(sun, 2), "09:00"), end_at: at(add(sun, 2), "12:00"), title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", location: "89 Western Ave, Hampden ME", status: "booked", day_label: "" },
         { booking_id: "bk2", day: add(sun, 4), start_at: at(add(sun, 4), "16:00"), end_at: at(add(sun, 4), "19:00"), title: "Brewer Travel Basketball Club \u2022 Winter Sports", type_label: "Sports", location: "", status: "booked", day_label: "" },
@@ -223,6 +225,7 @@
         { id: "se2", user_id: "u2", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
         { id: "se3", user_id: "u2", kind: "admin", booking_id: null, starts_at: at(add(sun, 2), "12:15"), ends_at: at(add(sun, 2), "16:00"), drive_before_min: 0, drive_after_min: 0, title: "Editing", note: "", booking_title: null },
         { id: "se4", user_id: "u1", kind: "studio", booking_id: null, starts_at: at(add(sun, 1), "08:00"), ends_at: at(add(sun, 1), "16:30"), drive_before_min: 0, drive_after_min: 0, title: "", note: "", booking_title: null },
+        { id: "se6", user_id: "u2", kind: "flex", booking_id: null, starts_at: at(add(sun, 4), "09:00"), ends_at: at(add(sun, 4), "11:00"), drive_before_min: 0, drive_after_min: 0, title: "Cull photos", note: "", booking_title: null },
         { id: "se5", user_id: "u5", kind: "off", booking_id: null, starts_at: at(add(sun, 3), "00:00"), ends_at: at(add(sun, 5), "00:00"), drive_before_min: 0, drive_after_min: 0, title: "Vacation", note: "", booking_title: null }],
       tasks: [{ user_id: "u2", day: add(sun, 1), n: 2 }, { user_id: "u2", day: add(sun, 2), n: 1 }, { user_id: "u1", day: add(sun, 5), n: 1 }] };
     RPC.schedule_attention = { unstaffed: 2 };

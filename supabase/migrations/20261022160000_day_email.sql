@@ -44,9 +44,9 @@ begin
     else
       v_line := to_char(greatest(r.starts_at, v_from) at time zone 'America/New_York', fmt) || '-' || to_char(least(r.ends_at, v_to) at time zone 'America/New_York', fmt) || ' ' ||
         case r.kind when 'job' then coalesce(nullif(r.title, ''), r.btitle, 'On site job')
-                    else coalesce(nullif(r.title, ''), case r.kind when 'studio' then 'Studio' when 'admin' then 'Admin' else 'Work' end) end;
+                    else coalesce(nullif(r.title, ''), case r.kind when 'studio' then 'Studio' when 'admin' then 'Admin' when 'flex' then 'Flex time' else 'Work' end) end;
       v_sub := concat_ws(' · ',
-        case r.kind when 'job' then 'On site job' when 'studio' then case when r.title <> '' then 'Studio' end when 'admin' then case when r.title <> '' then 'Admin' end end,
+        case r.kind when 'job' then 'On site job' when 'studio' then case when r.title <> '' then 'Studio' end when 'admin' then case when r.title <> '' then 'Admin' end when 'flex' then case when r.title <> '' then 'Flex time' end end,
         nullif(r.bloc, ''),
         case when r.kind = 'job' and r.drive_before_min > 0 then 'leave the studio ' || to_char((r.starts_at - make_interval(mins => r.drive_before_min)) at time zone 'America/New_York', fmt) || ' (' || r.drive_before_min || ' min drive)' end,
         nullif(r.note, ''));
