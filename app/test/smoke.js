@@ -184,9 +184,46 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       "job type dialog saves stage names and new deliverables");
     await page.click('.bk-form .bk-factions button[data-v="close"]');
 
+    // Track a job: GotPhoto jobs not on the screen; nothing is sent for them
+    await page.click("#aca-bkTrack");
+    await page.waitForSelector('#aca-bkTrList [data-pick="g10"]');
+    check((await page.textContent('#aca-bkTrList [data-job="g10"]')).includes("Hancock Grammar School"), "track picker shows the matched organization");
+    await page.check('#aca-bkTrList [data-pick="g10"]');
+    await page.check('#aca-bkTrList [data-pick="g11"]');
+    await page.click('.bk-form button[data-v="track"]');
+    check((await page.textContent("#aca-bkTrErr")).includes("organization"), "asks for the organization the sync could not match");
+    await page.fill('#aca-bkTrList [data-orgq="g11"]', "Island");
+    await page.waitForSelector('#aca-bkTrList [data-orgpick]');
+    await page.click('#aca-bkTrList [data-orgpick]');
+    await page.click('.bk-form button[data-v="track"]');
+    await page.waitForTimeout(200);
+    const tr = await lastRpc("booking_track_jobs");
+    check(tr && tr[1].p_items.length === 2 && tr[1].p_items.some((x) => x.gotphoto_job_id === "g11" && x.org_id === "44444444-4444-4444-4444-444444444444" && x.type_key === "sports_data"), "tracks the picked GotPhoto jobs");
+    await page.click("#aca-bkTrack");
+    await page.waitForSelector("#aca-bkTrAuto");
+    await page.check("#aca-bkTrAuto");
+    await page.waitForTimeout(150);
+    const au = await lastRpc("booking_set_auto_track");
+    check(au && au[1].p_on === true, "auto-track switch saves");
+    await page.click('.bk-form .bk-factions button[data-v="close"]');
+
     await page.click('#aca-nav button[data-tab="today"]');
     await page.waitForTimeout(150);
     check((await page.textContent("#aca-todayList")).includes("past its due date"), "Today lists the overdue deliverable");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Bookings: a track-only job");
+  {
+    const { page, errors } = await open(browser, port, "?tracked=1", "#jobs/bookings/bk1");
+    await page.waitForSelector("#aca-bkPanel .bk-stages");
+    const txt = await page.textContent("#aca-bkPanel");
+    check(txt.includes("Tracking only") && !txt.includes("Calendar") && !txt.includes("Emails") && !(await page.$('#aca-bkPanel button[data-v="edit"]')), "panel shows tracking only: no calendar, emails or edit");
+    check(!!(await page.$("#aca-bkPanel .bk-dlv")), "deliverables still there");
+    await page.click('#aca-bkPanel button[data-v="untrack"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_untrack" && c[1].p_id === "bk1")), "Stop tracking");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -198,6 +235,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$$eval("#aca-bkPanel .bk-stages button", (bs) => bs.every((b) => b.disabled)), "stages read-only");
     check(!(await page.$('#aca-bkPanel button[data-next]')) && !(await page.$("#aca-bkDlvNew")) && !(await page.$('#aca-bkPanel button[data-v="dlvedit"]')), "no move / add / edit controls");
     check(await page.$$eval("#aca-bkPanel input[data-dlv]", (cs) => cs.every((c) => c.disabled)), "deliverable ticks disabled");
+    check(!(await visible(page, "#aca-bkTrack")), "Track a job hidden");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

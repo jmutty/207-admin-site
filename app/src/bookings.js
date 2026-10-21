@@ -129,7 +129,7 @@
       <div class="card-head">
         <div><h2>Bookings</h2>
           <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a booking to see its emails, its stage and what you still owe the client.</p></div>
-        <div class="og-actions"><button type="button" class="small" id="aca-bkJobTypes">Stages &amp; deliverables</button><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button></div>
+        <div class="og-actions"><button type="button" class="small" id="aca-bkJobTypes">Stages &amp; deliverables</button><button type="button" class="small" id="aca-bkTrack">Track a job</button><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button></div>
       </div>
       <div id="aca-bkBanner" class="bk-banner hidden"></div>
       <div class="toolbar">
@@ -234,6 +234,7 @@
   const seqOf = (id) => seqType[id];
 
   async function load(force) {
+    el("bkTrack").classList.toggle("hidden", !canEdit("bookings"));
     if (loaded && !force && currentTabIs()) { render(); return; }
     clearError("bkErr");
     try {
@@ -273,12 +274,14 @@
     return ds.map((x) => esc(fmtDay(x.day)) + " " + esc(dayTimes(b, x)) + (x.label ? " (" + esc(x.label) + ")" : "")).join("; ");
   }
   function calPill(b) {
+    if (b.status === "tracked") return '<span class="pill muted">No calendar event</span>';
     const m = { pending: ["muted", "Calendar: writing…"], synced: ["ok", "On calendar"], error: ["err", "Calendar error"], moved: ["warn", "Moved in Google"], missing: ["err", "Missing in Google"], deleted: ["muted", "Removed"] };
     const [cls, txt] = m[b.calendar_status] || ["muted", b.calendar_status];
     return '<span class="pill ' + cls + '">' + esc(txt) + "</span>";
   }
   function mailSummary(b) {
     if (b.status === "cancelled") return '<span class="pill muted">Cancelled</span>';
+    if (b.status === "tracked") return '<span class="pill muted">Tracking only, no emails</span>';
     const parts = [num(b.emails_sent) + " of " + num(b.emails_total) + " sent"];
     if (num(b.emails_failed)) parts.push('<span class="pill err">' + num(b.emails_failed) + " failed</span>");
     if (num(b.emails_waiting_time)) parts.push('<span class="pill warn">waiting for the time</span>');
@@ -316,7 +319,7 @@
       '<td class="bk-c-when"><div class="bk-date">' + esc(whenRange(b)) + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div></td>" +
       '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type">' + esc(b.type_label) + (b.location ? " · " + esc(b.location) : "") + "</div></td>" +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
-      '<td class="bk-c-who">' + ((b.contacts || []).map((c) => esc(c.name || c.email)).join(", ") || '<span class="pill err">no contact</span>') + "</td>" +
+      '<td class="bk-c-who">' + ((b.contacts || []).map((c) => esc(c.name || c.email)).join(", ") || (b.status === "tracked" ? '<span class="bk-sub">&mdash;</span>' : '<span class="pill err">no contact</span>')) + "</td>" +
       '<td class="bk-c-mail">' + mailSummary(b) + "</td>" +
       '<td class="bk-c-cal">' + calPill(b) + "</td></tr>").join("");
   }
@@ -710,6 +713,7 @@
     pick(tk);
   }
   el("bkJobTypes").addEventListener("click", openJobTypes);
+  el("bkTrack").addEventListener("click", () => openTrack());
 
   // ---- detail panel
   let detail = null;
@@ -748,7 +752,7 @@
     const [c, t] = m[e.status] || ["muted", e.status]; return '<span class="pill ' + c + '">' + t + "</span>";
   };
   function renderDetail() {
-    const b = detail, isSchool = b.audience === "school", live = b.status === "booked";
+    const b = detail, isSchool = b.audience === "school", live = b.status === "booked", tracked = b.status === "tracked";
     let mailFolded = true; try { mailFolded = localStorage.getItem("aca-bkmailfold") !== "open"; } catch (e) {}
     const calBtns = [];
     if (b.google_event_id && b.calendar_status !== "deleted") calBtns.push('<a class="small" href="' + esc(gcalLink(b.google_event_id)) + '" target="_blank" rel="noopener" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:8px">Open in Google Calendar</a>');
@@ -761,13 +765,14 @@
     el("bkPanel").innerHTML = `
       <div class="bk-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
         <div><h3 style="font-size:15px">${esc(b.title)}</h3>
-          <div class="bk-sub">${daysLine(b)} · ${esc(b.type_label)}${b.status !== "booked" ? ' · <span class="pill muted">' + esc(b.status) + "</span>" : ""}</div>
+          <div class="bk-sub">${daysLine(b)} · ${esc(b.type_label)}${b.status !== "booked" ? ' · <span class="pill muted">' + esc(tracked ? "tracking only" : b.status) + "</span>" : ""}</div>
           ${b.time_set === false && live ? '<div class="bk-sub" style="margin-top:6px"><span class="pill warn">time not set</span> Emails that mention the time are waiting. <button type="button" class="small" data-v="edit">Set the times</button></div>' : ""}
           <div class="bk-sub"><a href="#partners/orgs/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " · " + esc(b.location) : ""}</div></div>
         <button type="button" data-v="close" aria-label="Close">✕</button>
       </div>
       ${stageBlock(b)}
       ${dlvBlock(b)}
+      ${tracked ? trackedBlock(b) : `
       <div class="bk-sec"><h3>Calendar</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${calPill(b)}${calBtns.join("")}</div>
         ${b.calendar_error ? '<div class="bk-sub" style="margin-top:6px;color:var(--err-fg)">' + esc(b.calendar_error) + "</div>" : ""}
@@ -790,9 +795,104 @@
           '<td class="bk-act"><button type="button" class="small" data-em="' + esc(e.id) + '" data-v="preview">Preview</button>' +
           (live && ["scheduled", "waiting", "failed", "skipped"].includes(e.status) ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="sendnow">Send now</button>' : "") +
           (live && e.status === "sent" ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="resend">Resend</button>' : "") + "</td></tr>").join("") || '<tr><td class="empty">No emails.</td></tr>'}</tbody></table></div>
-      </div>
+      </div>`}
       ${b.notes ? '<div class="bk-sec"><h3>Notes</h3><div style="white-space:pre-line;font-size:13px">' + esc(b.notes) + "</div></div>" : ""}
       <div class="bk-sec og-actions">${live ? '<button type="button" class="primary" data-v="edit">Edit booking</button><button type="button" data-v="cancel" style="margin-left:auto">Cancel booking</button>' : ""}</div>`;
+  }
+  // Track-only jobs (2026-10-21): on the screen for stages and deliverables, with no emails, calendar event or hub row.
+  function trackedBlock(b) {
+    const can = canEdit("bookings");
+    return '<div class="bk-sec"><h3>Tracking only</h3><div class="bk-sub">This job did not go through Book a job. It is here for its stages and deliverables only: no emails, no calendar event and no hub reminders come from it.</div>' +
+      (b.gotphoto_job ? '<div class="bk-sub" style="margin-top:6px">GotPhoto job <strong>' + esc(b.gotphoto_job.name) + "</strong>" + (b.gotphoto_job.gp_activated_at ? ", gallery live since " + esc(fmtWhen(b.gotphoto_job.gp_activated_at)) : ", gallery not live yet") + "</div>" : "") +
+      (can ? '<div style="margin-top:8px"><button type="button" class="small" data-v="untrack">Stop tracking</button></div>' : "") + "</div>";
+  }
+  async function openTrack() {
+    const can = canEdit("bookings");
+    const box = dialog(`<div class="bk-fhead"><h2>Track a job</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">✕</button></div>
+      <div class="bk-sub" style="margin-bottom:10px">Put jobs that did not go through Book a job on this screen, to track their stages and deliverables. Nothing is sent for them: no emails, no calendar event, no hub reminders.</div>
+      <div class="toolbar" style="padding:0;margin-bottom:8px"><input type="text" id="aca-bkTrQ" placeholder="Filter GotPhoto jobs&#8230;" /></div>
+      <div id="aca-bkTrList" class="bk-jt-rows" style="max-height:46vh;overflow:auto"><div class="empty"><span class="spin"></span>Loading GotPhoto jobs&#8230;</div></div>
+      <details style="margin-top:10px"><summary class="bk-sub" style="cursor:pointer">Add a job that is not in GotPhoto</summary>
+        <div class="bk-jt-row" style="margin-top:8px"><span id="aca-bkTrMOrg"></span><select id="aca-bkTrMType" class="small">${types.map((t) => '<option value="' + esc(t.key) + '">' + esc(t.label) + "</option>").join("")}</select>
+          <input type="date" id="aca-bkTrMDay" class="small" aria-label="Picture day" /><input type="text" id="aca-bkTrMTitle" placeholder="Title (optional)" /><button type="button" class="small" data-v="manual">Track it</button></div></details>
+      <label class="bk-sub" style="display:flex;gap:6px;align-items:center;margin-top:12px"><input type="checkbox" id="aca-bkTrAuto"${can ? "" : " disabled"} /> Add new GotPhoto jobs to tracking by themselves (hourly, when the organization is clear)</label>
+      <div id="aca-bkTrErr" class="inline-error hidden" style="margin:10px 0 0"></div>
+      <div class="og-actions bk-factions" style="margin-top:12px">${can ? '<button type="button" class="primary" data-v="track" disabled>Track selected</button>' : ""}<button type="button" data-v="close">Close</button></div>`, true);
+    box.classList.add("bk-form");
+    let jobs = [];
+    const picked = new Set(), orgFor = {}, typeFor = {};
+    // A small organization search that sets orgFor[key] (key = job id, or "manual").
+    const orgPicker = (key, cur) => cur ? '<span class="bk-sub"><strong>' + esc(cur.name) + '</strong> <button type="button" class="link" data-v="orgchange" data-k="' + esc(key) + '">change</button></span>'
+      : '<span style="position:relative;display:inline-block;flex:1 1 200px"><input type="text" data-orgq="' + esc(key) + '" placeholder="Organization&#8230;" autocomplete="off" style="width:100%" /><span class="bk-orgs hidden" data-orgl="' + esc(key) + '" style="position:absolute;z-index:5;left:0;right:0"></span></span>';
+    const typeSel = (key, k) => '<select class="small" data-type="' + esc(key) + '"' + (can ? "" : " disabled") + ">" + types.map((t) => '<option value="' + esc(t.key) + '"' + (t.key === k ? " selected" : "") + ">" + esc(t.label) + "</option>").join("") + "</select>";
+    function draw() {
+      const q = el("bkTrQ").value.trim().toLowerCase();
+      const list = jobs.filter((j) => !q || (j.name + " " + (j.org_name || "")).toLowerCase().includes(q));
+      el("bkTrList").innerHTML = list.map((j) => '<div class="bk-jt-row" data-job="' + esc(j.gotphoto_job_id) + '"><input type="checkbox" data-pick="' + esc(j.gotphoto_job_id) + '"' + (picked.has(j.gotphoto_job_id) ? " checked" : "") + (can ? "" : " disabled") + ' aria-label="Track ' + esc(j.name) + '" />' +
+          '<span style="flex:1 1 220px;min-width:0"><strong>' + esc(j.name) + '</strong><span class="bk-sub"> ' + esc(fmtDay(j.picture_day)) + (j.status === "published" ? "" : " &middot; " + esc(j.status)) + "</span></span>" +
+          orgPicker(j.gotphoto_job_id, orgFor[j.gotphoto_job_id]) + typeSel(j.gotphoto_job_id, typeFor[j.gotphoto_job_id]) + "</div>").join("") ||
+        '<div class="bk-sub">' + (jobs.length ? "No GotPhoto job matches that." : "Every GotPhoto job from the last six months and the next year is already on this screen.") + "</div>";
+      const tb = box.querySelector('button[data-v="track"]'); if (tb) { tb.disabled = !picked.size; tb.textContent = picked.size ? "Track " + picked.size + " job" + (picked.size === 1 ? "" : "s") : "Track selected"; }
+    }
+    function drawManual() { el("bkTrMOrg").outerHTML = '<span id="aca-bkTrMOrg" style="display:contents">' + orgPicker("manual", orgFor.manual) + "</span>"; }
+    let searchTimer = null;
+    box.addEventListener("input", (e) => {
+      if (e.target.id === "aca-bkTrQ") return draw();
+      const key = e.target.dataset && e.target.dataset.orgq; if (!key) return;
+      clearTimeout(searchTimer);
+      const q = e.target.value.trim(), out = box.querySelector('[data-orgl="' + CSS.escape(key) + '"]');
+      if (q.length < 2) { out.classList.add("hidden"); return; }
+      searchTimer = setTimeout(async () => {
+        const { data } = await sb.from("prospect_orgs").select("id, name, town").ilike("search_text", "%" + q.replace(/[%_]/g, "") + "%").order("name").limit(8);
+        out.classList.remove("hidden");
+        out.innerHTML = (data || []).map((o) => '<button type="button" data-orgpick="' + esc(o.id) + '" data-name="' + esc(o.name) + '" data-k="' + esc(key) + '"><strong>' + esc(o.name) + "</strong>" + (o.town ? ' <span class="bk-sub">' + esc(o.town) + "</span>" : "") + "</button>").join("") ||
+          '<div class="empty">No match. Add it under Organizations first.</div>';
+      }, 220);
+    });
+    box.addEventListener("change", async (e) => {
+      const t = e.target;
+      if (t.dataset.pick) { if (t.checked) picked.add(t.dataset.pick); else picked.delete(t.dataset.pick); draw(); }
+      if (t.dataset.type) typeFor[t.dataset.type] = t.value;
+      if (t.id === "aca-bkTrAuto") {
+        t.disabled = true; const { error } = await sb.rpc("booking_set_auto_track", { p_on: t.checked }); t.disabled = false;
+        if (error) { t.checked = !t.checked; return toast(cleanErr(error), true); }
+        toast(t.checked ? "New GotPhoto jobs will be added to tracking." : "Automatic tracking is off.");
+      }
+    });
+    box.addEventListener("click", async (e) => {
+      const op = e.target.closest("button[data-orgpick]");
+      if (op) { orgFor[op.dataset.k] = { id: op.dataset.orgpick, name: op.dataset.name }; if (op.dataset.k === "manual") drawManual(); else draw(); return; }
+      const b = e.target.closest("button[data-v]"); if (!b) return;
+      const v = b.dataset.v;
+      if (v === "close") return box.close();
+      if (v === "orgchange") { delete orgFor[b.dataset.k]; if (b.dataset.k === "manual") drawManual(); else draw(); return; }
+      if (v !== "track" && v !== "manual") return;
+      clearError("bkTrErr");
+      let items;
+      if (v === "track") {
+        const missing = [...picked].filter((id) => !orgFor[id]);
+        if (missing.length) return showError("bkTrErr", "Pick the organization for " + missing.length + " of the selected jobs first.");
+        items = [...picked].map((id) => ({ gotphoto_job_id: id, org_id: orgFor[id].id, type_key: typeFor[id] }));
+      } else {
+        if (!orgFor.manual) return showError("bkTrErr", "Pick the organization.");
+        if (!el("bkTrMDay").value) return showError("bkTrErr", "Pick the picture day.");
+        items = [{ org_id: orgFor.manual.id, type_key: el("bkTrMType").value, picture_day: el("bkTrMDay").value, title_label: el("bkTrMTitle").value.trim() }];
+      }
+      b.disabled = true;
+      try {
+        const { data, error } = await sb.rpc("booking_track_jobs", { p_items: items }); if (error) throw error; if (!data.ok) throw new Error(data.error);
+        box.close(); toast("Tracking " + data.added + " job" + (data.added === 1 ? "" : "s") + ". Nothing is sent for them."); load(true);
+      } catch (e2) { b.disabled = false; showError("bkTrErr", cleanErr(e2)); }
+    });
+    drawManual();
+    try {
+      const [{ data, error }, st] = await Promise.all([sb.rpc("admin_trackable_jobs", {}), sb.from("booking_tracking_settings").select("*").maybeSingle()]);
+      if (error) throw error;
+      jobs = data || [];
+      jobs.forEach((j) => { if (j.org_id) orgFor[j.gotphoto_job_id] = { id: j.org_id, name: j.org_name }; typeFor[j.gotphoto_job_id] = j.type_key; });
+      el("bkTrAuto").checked = !!(st.data && st.data.auto_track);
+      draw();
+    } catch (e) { el("bkTrList").innerHTML = '<div class="inline-error">' + esc(cleanErr(e)) + "</div>"; }
   }
   // Stage (2026-10-21): the job type's stages as a row of steps; click one to move the job there.
   function stageBlock(b) {
@@ -930,6 +1030,11 @@
         if (!b.dataset.next && !confirm("Move this job to " + s.label + "?")) return;
         b.disabled = true; const { data, error } = await sb.rpc("booking_set_stage", { p_booking: detail.id, p_stage: s.id }); if (error) throw error; if (!data.ok) throw new Error(data.error);
         toast("Moved to " + s.label + "."); await refreshDetail(); load(true); return;
+      }
+      if (v === "untrack") {
+        if (!confirm("Stop tracking this job? It leaves the Bookings screen (its stage history and deliverables are kept).")) return;
+        b.disabled = true; const { data, error } = await sb.rpc("booking_untrack", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error("This job is not track-only.");
+        toast("No longer tracked."); closeDetail(); load(true); loadAttention(); return;
       }
       if (v === "dlvedit") { const d = ((tracking || {}).deliverables || []).find((x) => x.id === b.dataset.dlv); if (d) openDlvEdit(d); return; }
       if (v === "dlvpick") {
