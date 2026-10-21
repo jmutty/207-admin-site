@@ -39,7 +39,17 @@
     const fmtTs = (ts) => fmtMin(local(ts).min);
     const fmtDay = (day, o) => new Date(day + "T12:00:00Z").toLocaleDateString("en-US", Object.assign({ timeZone: "UTC", weekday: "short", month: "short", day: "numeric" }, o || {}));
     const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    return { TZ, local, today, addDays, dow, weekStart, daysBetween, toIso, hhmm, fmtMin, fmtTs, fmtDay, WEEKDAYS };
+    // Hours scheduled on one Eastern day: jobs with their drive time, and work; time off doesn't count.
+    function workHours(entries, day) {
+      const a = new Date(toIso(day, "00:00")).getTime(), z = new Date(toIso(addDays(day, 1), "00:00")).getTime();
+      return entries.reduce((sum, e) => {
+        if (e.kind === "off") return sum;
+        const s = new Date(e.starts_at).getTime() - (e.drive_before_min || 0) * 6e4, en = new Date(e.ends_at).getTime() + (e.drive_after_min || 0) * 6e4;
+        return sum + Math.max(0, Math.min(en, z) - Math.max(s, a)) / 36e5;
+      }, 0);
+    }
+    const LUNCH_AFTER_H = 6; // a day this long needs a lunch break
+    return { TZ, local, today, addDays, dow, weekStart, daysBetween, toIso, hhmm, fmtMin, fmtTs, fmtDay, WEEKDAYS, workHours, LUNCH_AFTER_H };
   })();
 
   const Schedule = (function () {
@@ -47,7 +57,8 @@
     const sb = supabase;
     const cleanErr = (e) => String((e && (e.message || e.details)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
     const DRIVE_FN_URL = SUPABASE_URL + "/functions/v1/drive-time";
-    const KIND = { job: "Job", work: "Work", off: "Time off" };
+    const KIND = { job: "On site job", studio: "Studio", admin: "Admin", work: "Other", off: "Time off" };
+    const KINDS = ["job", "studio", "admin", "work", "off"];
 
     const css = `
     .aca .sc-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 0 12px; }
@@ -57,7 +68,9 @@
     .aca .sc-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
     .aca .sc-k-job { background: #2f6db5; color: #fff; }
     .aca .sc-k-drive { background: #f0b429; color: #3d2c00; }
-    .aca .sc-k-work { background: #3f8f5a; color: #fff; }
+    .aca .sc-k-studio { background: #7b5cc4; color: #fff; }
+    .aca .sc-k-admin { background: #3f8f5a; color: #fff; }
+    .aca .sc-k-work { background: #6b7a8f; color: #fff; }
     .aca .sc-k-off { background: repeating-linear-gradient(135deg, #d9d4cb 0 6px, #ece8e1 6px 12px); color: #4a463f; }
     .aca .sc-warn { margin: 0 0 10px; padding: 9px 12px; border-radius: 4px; background: var(--warn-bg); color: var(--warn-fg); font-size: 13px; }
     .aca .sc-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); }
@@ -97,7 +110,17 @@
     .aca .sc-modal .sc-drive { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
     .aca .sc-modal .sc-drive .field { margin-bottom: 0; }
     .aca .sc-modal .sc-drive input { width: 90px; }
-    .aca .sc-people label { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 13.5px; }
+    .aca .sc-people label { display: flex; gap: 8px; align-items: center; justify-content: flex-start; padding: 4px 0; font-size: 13.5px; font-weight: 400; }
+    .aca .sc-modal .sc-people input { width: 18px; height: 18px; flex: none; margin: 0; }
+    .aca .sc-dh { position: absolute; left: 5px; bottom: 2px; font-size: 11px; color: var(--muted); }
+    .aca .sc-lunch { color: #8a6100; font-weight: 600; }
+    .aca .sc-sum { margin-top: 18px; }
+    .aca .sc-sum h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .aca .sc-sum table { min-width: 640px; }
+    .aca .sc-sum td, .aca .sc-sum th { padding: 7px 10px; font-size: 13px; text-align: right; white-space: nowrap; }
+    .aca .sc-sum td:first-child, .aca .sc-sum th:first-child { text-align: left; }
+    .aca .sc-sum td.lunch { background: #fdf6e3; }
+    .aca .sc-sum .muted { color: var(--faint); }
     .aca .sc-note { font-size: 12.5px; color: var(--muted); margin: 6px 0 12px; }
     .aca .sc-facts { font-size: 13.5px; line-height: 21px; margin: 0 0 8px; }
     @media (max-width: 760px) {
@@ -115,14 +138,15 @@
         '<div class="seg" role="radiogroup" aria-label="View"><label><input type="radio" name="aca-scView" value="week" checked /><span>Week</span></label><label><input type="radio" name="aca-scView" value="day" /><span>Day</span></label></div>' +
         '<label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="aca-scMine" /> Just me</label>' +
         '<span class="grow"></span>' +
-        '<div class="sc-legend"><span><i class="sc-k-job"></i>Job</span><span><i class="sc-k-drive"></i>Drive</span><span><i class="sc-k-work"></i>Work</span><span><i class="sc-k-off"></i>Time off</span></div>' +
+        '<div class="sc-legend"><span><i class="sc-k-job"></i>On site job</span><span><i class="sc-k-drive"></i>Drive</span><span><i class="sc-k-studio"></i>Studio</span><span><i class="sc-k-admin"></i>Admin</span><span><i class="sc-k-work"></i>Other</span><span><i class="sc-k-off"></i>Time off</span></div>' +
         '<button type="button" class="small sc-ed" data-v="studio">Studio address</button>' +
         '<button type="button" class="primary sc-ed" data-v="add">Add time</button>' +
       "</div>" +
       '<div id="aca-scErr" class="inline-error hidden"></div>' +
       '<div id="aca-scWarn" class="sc-warn hidden"></div>' +
       '<div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
-      '<p class="sc-note">Weeks run Sunday to Saturday. Hours count jobs, drive time and work, not time off, against each person&#39;s default hours per week (set on the Team page). <span class="sc-ed">Click an empty spot to add time; click a job at the top to put people on it.</span></p>';
+      '<div class="sc-sum hidden" id="aca-scSum"></div>' +
+      '<p class="sc-note">Weeks run Sunday to Saturday. Hours count jobs, drive time and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people.</span></p>';
 
     let view = window.innerWidth < 760 ? "day" : "week";
     let anchor = T.today();       // the day shown in day view; its week in week view
@@ -223,16 +247,15 @@
         h += '<div class="sc-head' + (d === today ? " today" : "") + '">' + (view === "week" ? '<button type="button" class="link" data-day="' + d + '">' + esc(T.fmtDay(d)) + "</button>" : esc(T.fmtDay(d, { weekday: "long" }))) +
           '<div class="sc-ticks">' + ticks() + "</div></div>";
       });
-      // Jobs lane
-      h += '<div class="sc-name"><b>Jobs</b><span class="sc-hrs">' + num(data.bookings.filter((b) => days.includes(b.day)).length) + " this " + (view === "week" ? "week" : "day") + "</span></div>";
+      // Jobs not assigned: a job leaves this lane once someone is on it that day (its bar is then on their row).
+      const staffedOn = (b, d) => data.entries.some((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day <= d && T.local(e.ends_at).day >= d);
+      const open = data.bookings.filter((b) => days.includes(b.day) && !staffedOn(b, b.day));
+      h += '<div class="sc-name"><b>Jobs not assigned</b><span class="sc-hrs">' + (open.length ? num(open.length) + " this " + (view === "week" ? "week" : "day") : "All jobs have someone") + "</span></div>";
       days.forEach((d) => {
-        const list = data.bookings.filter((b) => b.day === d);
-        h += '<div class="sc-jobs">' + (list.length ? list.map((b) => {
-          const staffed = data.entries.some((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day <= d && T.local(e.ends_at).day >= d);
-          const who = data.entries.filter((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day === d).map((e) => personName(e.user_id).split(" ")[0]);
-          return '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : !staffed && b.status === "booked" ? " none" : "") + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "")) + '">' +
-            esc(view === "week" ? shortTitle(b.title) : bookingLabel(b)) + "<small>" + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "time not set") + (who.length ? " \u00b7 " + esc(who.join(", ")) : "") + "</small></button>";
-        }).join("") : "") + "</div>";
+        const list = open.filter((b) => b.day === d);
+        h += '<div class="sc-jobs">' + list.map((b) =>
+          '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : b.status === "booked" ? " none" : "") + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "")) + '">' +
+            esc(view === "week" ? shortTitle(b.title) : bookingLabel(b)) + "<small>" + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "time not set yet") + "</small></button>").join("") + "</div>";
       });
       // People
       const people = mineOnly ? data.people.filter((p) => p.user_id === data.me) : data.people;
@@ -245,8 +268,10 @@
           const diff = weekHours - Number(p.weekly_hours);
           target = " / " + fmtH(Number(p.weekly_hours)) + " h " + (Math.abs(diff) < 0.25 ? '<span class="on">on target</span>' : diff > 0 ? '<span class="over">' + fmtH(diff) + " over</span>" : '<span class="under">' + fmtH(-diff) + " under</span>");
         } else target = " h";
-        const dayHours = view === "day" ? mine.reduce((s, e) => s + piecesOn(e, anchor).filter((x) => x.part !== "off").reduce((a, x) => a + (x.to - x.from) / 60, 0), 0) : null;
-        h += '<div class="sc-name"><b title="' + esc(p.name) + '">' + esc(p.name) + "</b><span class=\"sc-hrs\">" + (view === "day" ? fmtH(dayHours) + " h today &middot; " : "") + fmtH(weekHours) + target + (view === "day" ? " this week" : "") + "</span></div>";
+        const dayHours = view === "day" ? T.workHours(mine, anchor) : null;
+        h += '<div class="sc-name"><b title="' + esc(p.name) + '">' + esc(p.name) + "</b><span class=\"sc-hrs\">" +
+          (view === "day" ? fmtH(dayHours) + " h this day" + (dayHours >= T.LUNCH_AFTER_H ? ' <span class="sc-lunch" title="6 hours or more: plan a lunch break">&middot; lunch</span>' : "") + " &middot; " : "") +
+          fmtH(weekHours) + target + (view === "day" ? " this week" : "") + "</span></div>";
         days.forEach((d) => {
           const items = [];
           mine.forEach((e) => {
@@ -258,21 +283,39 @@
           mine.forEach((e) => { const ps = items.filter((x) => x.entry === e); if (ps.length) blocks.push({ entry: e, from: Math.min(...ps.map((x) => x.from)), to: Math.max(...ps.map((x) => x.to)), ps }); });
           const n = lanesFor(blocks);
           const tc = (data.tasks || []).find((t) => t.user_id === p.user_id && t.day === d);
+          const dh = view === "week" ? T.workHours(mine, d) : 0;
           let bars = "";
           blocks.forEach((bk) => bk.ps.forEach((x) => {
             const e = bk.entry, isDrive = x.part === "drive";
-            const label = isDrive ? "" : e.kind === "job" ? (view === "week" ? shortTitle(e.booking_title) : e.booking_title) : e.kind === "work" ? (e.title || "Work") : "Off" + (e.title ? ": " + e.title : "");
-            const tip = (e.kind === "off" ? "Time off" : T.fmtTs(e.starts_at) + "\u2013" + T.fmtTs(e.ends_at)) + " " + (e.kind === "job" ? e.booking_title : e.kind === "work" ? (e.title || "Work") : e.title) +
+            const label = isDrive ? "" : e.kind === "job" ? (view === "week" ? shortTitle(e.booking_title) : e.booking_title) : e.kind !== "off" ? (e.title || KIND[e.kind]) : "Off" + (e.title ? ": " + e.title : "");
+            const tip = (e.kind === "off" ? "Time off" : T.fmtTs(e.starts_at) + "\u2013" + T.fmtTs(e.ends_at)) + " " + (e.kind === "job" ? e.booking_title : e.kind !== "off" ? (e.title || KIND[e.kind]) : e.title) +
               (e.kind === "job" && (e.drive_before_min || e.drive_after_min) ? "\nDrive " + e.drive_before_min + " min there, " + e.drive_after_min + " min back" : "") + (e.note ? "\n" + e.note : "") + (bk.clash ? "\nOverlaps another bar" : "");
             const cls = "sc-b sc-k-" + (isDrive ? "drive" : e.kind) + (isDrive ? " drive" + (x.first ? " first" : "") + (x.last ? " last" : "") : "") +
               (e.kind === "job" && !isDrive && (bk.ps.length > 1) ? " mid" : "") + (bk.clash ? " clash" : "") + (e.booking_status === "cancelled" ? " cancelled" : "");
             bars += '<button type="button" class="' + cls + '" data-entry="' + esc(e.id) + '" style="left:' + pct(x.from) + ";width:calc(" + pct(x.to) + " - " + pct(x.from) + ");top:" + (6 + bk.lane * 26) + 'px" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' + esc(label) + "</button>";
           }));
           h += '<div class="sc-cell' + (editable() ? " edit" : "") + (view === "day" ? " grid" : "") + (d === today && view === "week" ? " today" : "") + '" data-person="' + esc(p.user_id) + '" data-day="' + esc(d) + '" style="min-height:' + (n * 26 + 18) + 'px">' + bars +
+            (dh > 0 ? '<span class="sc-dh' + (dh >= T.LUNCH_AFTER_H ? " sc-lunch" : "") + '"' + (dh >= T.LUNCH_AFTER_H ? ' title="6 hours or more: plan a lunch break"' : "") + ">" + fmtH(dh) + " h" + (dh >= T.LUNCH_AFTER_H ? " &middot; lunch" : "") + "</span>" : "") +
             (tc ? '<a class="sc-tasks" href="#staff/myday" title="Tasks due">' + num(tc.n) + " task" + (tc.n === 1 ? "" : "s") + "</a>" : "") + "</div>";
         });
       });
       grid.innerHTML = h;
+      renderSummary(people);
+    }
+
+    // Hours per person per day, and the week against their target.
+    function renderSummary(people) {
+      const box = el("scSum"), wk = [0, 1, 2, 3, 4, 5, 6].map((i) => T.addDays(data.start, i));
+      box.classList.toggle("hidden", !people.length);
+      if (!people.length) return;
+      box.innerHTML = "<h3>Hours scheduled</h3><div class=\"table-wrap\"><table><thead><tr><th>Person</th>" + wk.map((d) => "<th>" + esc(T.fmtDay(d, { month: undefined, day: undefined })) + " " + esc(String(+d.slice(8))) + "</th>").join("") + "<th>Week</th><th>Target</th></tr></thead><tbody>" +
+        people.map((p) => {
+          const mine = data.entries.filter((e) => e.user_id === p.user_id);
+          const per = wk.map((d) => T.workHours(mine, d)), tot = per.reduce((a, b) => a + b, 0);
+          const tgt = p.weekly_hours == null ? null : Number(p.weekly_hours), diff = tgt == null ? 0 : tot - tgt;
+          return "<tr><td><b>" + esc(p.name) + "</b></td>" + per.map((x) => x >= T.LUNCH_AFTER_H ? '<td class="lunch" title="6 hours or more: plan a lunch break">' + fmtH(x) + ' <span class="sc-lunch">lunch</span></td>' : "<td" + (x ? "" : ' class="muted"') + ">" + (x ? fmtH(x) : "&ndash;") + "</td>").join("") +
+            "<td><b>" + fmtH(tot) + "</b></td><td>" + (tgt == null ? '<span class="muted">not set</span>' : fmtH(tgt) + " " + (Math.abs(diff) < 0.25 ? '<span class="sc-hrs"><span class="on">on target</span></span>' : '<span class="sc-hrs"><span class="' + (diff > 0 ? "over" : "under") + '">' + fmtH(Math.abs(diff)) + (diff > 0 ? " over" : " under") + "</span></span>")) + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
     }
 
     // ---------------------------------------------------------------- events
@@ -348,6 +391,8 @@
       '<button type="button" class="small" data-m="drive">Look up drive time</button></div><p class="sc-note sc-drivemsg"></p>';
 
     // ---------------------------------------------------------------- put people on a job
+    // The booking day a job bar belongs to (bookings on screen this week).
+    const jobOf = (e) => data.bookings.find((b) => b.booking_id === e.booking_id && b.day === T.local(e.starts_at).day);
     function openAssign(b) {
       const already = data.entries.filter((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day === b.day);
       const s = b.start_at ? T.local(b.start_at).min : 9 * 60, en = b.end_at ? T.local(b.end_at).min : s + 120;
@@ -394,24 +439,24 @@
     function openEntry(e, preset) {
       const isNew = !e;
       preset = preset || {};
-      const kind0 = e ? e.kind : "work";
+      const kind0 = e ? e.kind : "studio";
       const day0 = e ? T.local(e.starts_at).day : preset.day || T.today();
       const s0 = e ? T.local(e.starts_at).min : preset.startMin != null ? preset.startMin : 9 * 60;
       const e0 = e ? T.local(e.ends_at).min : Math.min(s0 + 240, 23 * 60 + 30);
       const offEnd = e && e.kind === "off" ? T.addDays(T.local(e.ends_at).day, T.local(e.ends_at).min === 0 ? -1 : 0) : day0;
       const weekBookings = data.bookings;
       const m = openModal('<div class="sc-modal"><h2>' + (isNew ? "Add time" : "Change " + esc(KIND[e.kind].toLowerCase())) + "</h2>" +
-        '<div class="row2"><div class="field"><label for="aca-scP">Person</label><select id="aca-scP">' + data.people.map((p) => '<option value="' + esc(p.user_id) + '"' + (p.user_id === (e ? e.user_id : preset.user_id) ? " selected" : "") + ">" + esc(p.name) + "</option>").join("") + "</select></div>" +
-        '<div class="field"><label>What</label><div class="seg" role="radiogroup" aria-label="What">' + ["job", "work", "off"].map((k) => '<label><input type="radio" name="aca-scK" value="' + k + '"' + (k === kind0 ? " checked" : "") + " /><span>" + KIND[k] + "</span></label>").join("") + "</div></div></div>" +
+        '<div class="row2"><div class="field"><label for="aca-scP">Person</label><select id="aca-scP">' + data.people.map((p) => '<option value="' + esc(p.user_id) + '"' + (p.user_id === (e ? e.user_id : preset.user_id) ? " selected" : "") + ">" + esc(p.name) + "</option>").join("") + "</select></div></div>" +
+        '<div class="field"><label>What</label><div class="seg" role="radiogroup" aria-label="What">' + KINDS.map((k) => '<label><input type="radio" name="aca-scK" value="' + k + '"' + (k === kind0 ? " checked" : "") + " /><span>" + KIND[k] + "</span></label>").join("") + "</div></div>" +
         '<div class="field sc-only-job"><label for="aca-scB">Job</label><select id="aca-scB"><option value="">Pick a job this week\u2026</option>' + weekBookings.map((b) => '<option value="' + esc(b.booking_id) + '" data-day="' + esc(b.day) + '"' + (e && e.booking_id === b.booking_id && b.day === day0 ? " selected" : "") + ">" + esc(T.fmtDay(b.day) + " \u00b7 " + bookingLabel(b) + (b.start_at ? " \u00b7 " + T.fmtTs(b.start_at) : "")) + "</option>").join("") +
           (e && e.booking_id && !weekBookings.some((b) => b.booking_id === e.booking_id) ? '<option value="' + esc(e.booking_id) + '" selected>' + esc(e.booking_title) + "</option>" : "") + "</select></div>" +
-        '<div class="field sc-not-job"><label for="aca-scT">Label</label><input type="text" id="aca-scT" maxlength="120" placeholder="Studio, editing, delivery run\u2026" value="' + esc(e ? e.title : "") + '" /></div>' +
+        '<div class="field sc-not-job"><label for="aca-scT">Label</label><input type="text" id="aca-scT" maxlength="120" placeholder="Editing, ordering, delivery run\u2026" value="' + esc(e ? e.title : "") + '" /></div>' +
         '<div class="row3 sc-not-off"><div class="field"><label for="aca-scD">Day</label><input type="date" id="aca-scD" value="' + esc(day0) + '" /></div><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s0) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(e0) + '" /></div></div>' +
         '<div class="row2 sc-only-off"><div class="field"><label for="aca-scO1">From</label><input type="date" id="aca-scO1" value="' + esc(day0) + '" /></div><div class="field"><label for="aca-scO2">Through</label><input type="date" id="aca-scO2" value="' + esc(offEnd) + '" /></div></div>' +
         '<div class="sc-only-job">' + driveHtml(e ? e.drive_before_min : 30, e ? e.drive_after_min : 30) + "</div>" +
         '<div class="field"><label for="aca-scN">Note</label><textarea id="aca-scN" maxlength="1000">' + esc(e ? e.note : "") + "</textarea></div>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
-        '<div class="modal-actions">' + (isNew ? "" : '<button type="button" class="small warn" data-m="remove">Remove</button>') + '<span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (isNew ? "Add" : "Save") + "</button></div></div>");
+        '<div class="modal-actions">' + (isNew ? "" : '<button type="button" class="small warn" data-m="remove">Remove</button>') + (e && e.kind === "job" && jobOf(e) ? ' <button type="button" class="small" data-m="more">More people</button>' : "") + '<span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (isNew ? "Add" : "Save") + "</button></div></div>");
       const kind = () => m.querySelector('input[name="aca-scK"]:checked').value;
       function sync() {
         const k = kind();
@@ -435,6 +480,7 @@
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") m.close();
+        if (t.dataset.m === "more") { m.close(); openAssign(jobOf(e)); return; }
         if (t.dataset.m === "remove") {
           if (!confirm("Remove this from " + personName(e.user_id) + "'s schedule?")) return;
           t.disabled = true;
@@ -473,7 +519,7 @@
 
     // ---------------------------------------------------------------- view-only details
     function openInfo(e) {
-      const m = openModal('<div class="sc-modal"><h2>' + esc(personName(e.user_id)) + ": " + esc(e.kind === "job" ? e.booking_title : e.kind === "work" ? (e.title || "Work") : "Time off" + (e.title ? " (" + e.title + ")" : "")) + "</h2>" +
+      const m = openModal('<div class="sc-modal"><h2>' + esc(personName(e.user_id)) + ": " + esc(e.kind === "job" ? e.booking_title : e.kind !== "off" ? (e.title || KIND[e.kind]) : "Time off" + (e.title ? " (" + e.title + ")" : "")) + "</h2>" +
         '<p class="sc-facts">' + (e.kind === "off" ? esc(T.fmtDay(T.local(e.starts_at).day, { weekday: "long" })) + " through " + esc(T.fmtDay(T.addDays(T.local(e.ends_at).day, T.local(e.ends_at).min === 0 ? -1 : 0), { weekday: "long" }))
           : esc(T.fmtDay(T.local(e.starts_at).day, { weekday: "long" })) + ", " + esc(T.fmtTs(e.starts_at)) + "\u2013" + esc(T.fmtTs(e.ends_at))) +
         (e.kind === "job" ? "<br>Leave by " + esc(T.fmtTs(new Date(new Date(e.starts_at) - e.drive_before_min * 6e4).toISOString())) + " (" + num(e.drive_before_min) + " min drive), back about " + esc(T.fmtTs(new Date(new Date(e.ends_at).getTime() + e.drive_after_min * 6e4).toISOString())) : "") +

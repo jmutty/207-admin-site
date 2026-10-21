@@ -362,6 +362,12 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent("#aca-scGrid")).includes("40 h") && (await page.textContent("#aca-scGrid")).includes("under"), "hours against the weekly target");
     check(await visible(page, "#aca-scWarn"), "asks for the studio address");
     check((await page.$$("#aca-scGrid .sc-chip.none")).length === 2, "jobs with nobody on them stand out");
+    check((await page.textContent("#aca-scGrid")).includes("Jobs not assigned") && (await page.$$("#aca-scGrid .sc-chip")).length === (await page.$$("#aca-scGrid .sc-chip.none")).length + (await page.$$("#aca-scGrid .sc-chip.tracked")).length, "only jobs nobody is on sit in Jobs not assigned");
+    await page.click("#aca-scGrid .sc-b.sc-k-job:not(.drive)");
+    await page.waitForSelector('.sc-modal [data-m="more"]');
+    await page.click('.sc-modal [data-m="more"]');
+    check(await page.isVisible(".sc-modal .sc-people"), "a job bar's More people opens the people picker");
+    await page.click('.sc-modal [data-m="cancel"]');
     // put someone on a job
     await page.click("#aca-scGrid .sc-chip.none");
     await page.waitForSelector(".sc-modal .sc-people input");
@@ -387,8 +393,10 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('.sc-modal [data-m="save"]');
     await page.waitForTimeout(150);
     const w = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").pop()[1].p);
-    check(w.kind === "work" && w.title === "Editing" && w.user_id === "u5", "adds work time for the clicked person: " + JSON.stringify(w));
+    check(w.kind === "studio" && w.title === "Editing" && w.user_id === "u5", "adds studio time (the default) for the clicked person: " + JSON.stringify(w));
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "schedule_attention")), "Today checks for jobs with nobody on them");
+    const legend = await page.textContent("#aca-panel-schedule .sc-legend");
+    check(legend.includes("On site job") && legend.includes("Studio") && legend.includes("Admin"), "legend: On site job, Studio, Admin");
     // My day
     await page.click('#aca-nav button[data-tab="myday"]');
     await page.waitForSelector("#aca-asBody .as-task");
@@ -413,6 +421,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const t = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "assignment_save").pop()[1].p);
     check(t.repeat === "weekly" && t.weekdays[0] === 5 && t.priority === "urgent" && t.user_id === "u2", "adds a weekly urgent task");
     check(await visible(page, "#aca-asSetCard") && await page.$eval("#aca-asPlanHour", (n) => n.value) === "20", "evening notification at 8pm");
+    await page.waitForTimeout(100);
+    check(await page.$eval("#aca-asMailHour", (n) => n.value) === "7" && await page.$eval("#aca-asMailOn", (n) => n.checked), "morning email at 7am");
     // Team: weekly hours
     await page.click('#aca-nav button[data-tab="team"]');
     await page.waitForSelector("#aca-teamBody [data-edit]");
@@ -438,6 +448,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!(await shown(page, "#aca-syncNowBtn")), "Sync now hidden");
     check(await visible(page, "#aca-bookBtn"), "Book a job shown (bookings edit)");
     check(!(await visible(page, "#aca-todayOutBox")) && !(await visible(page, "#aca-todayDigestBox")) && await visible(page, "#aca-todayUpBox"), "Today shows only Coming up");
+    await page.waitForSelector("#aca-todayMine .as-task");
+    check((await page.textContent("#aca-todayMine")).includes("Your assignments"), "Today shows their assignments");
+    await page.click("#aca-todayMine .as-task input >> nth=0");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "assignment_check")), "a task checks off from Today");
     await page.click('#aca-nav button[data-tab="requests"]');
     check(await visible(page, "#aca-viewOnly"), "view-only notice on a view module");
     await page.click('#aca-nav button[data-tab="bookings"]');
@@ -460,6 +475,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-nav button[data-tab="myday"]');
     await page.waitForSelector("#aca-asBody .as-task");
     check(!(await shown(page, "#aca-asWhoWrap")), "my day: only their own");
+    await page.waitForSelector("#aca-asMailMine");
+    await page.waitForTimeout(100);
+    await page.click("#aca-asMailMine");
+    await page.waitForTimeout(100);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "day_email_mine" && c[1].p_on === false)), "my day: they can switch their morning email off");
     await page.click('#aca-pagetabs button[data-tab="tasks"]');
     await page.waitForTimeout(200);
     check(!(await shown(page, "#aca-asAdd")) && !(await shown(page, "#aca-asSetCard")), "tasks: no add, no settings");

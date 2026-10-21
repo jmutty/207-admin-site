@@ -1,4 +1,4 @@
--- Tests for 20261022120000_scheduling_assignments (Scheduling + Assignments). Run against a NON-production copy
+-- Tests for 20261022120000_scheduling_assignments (Scheduling + Assignments) 20261022150000_schedule_kinds and 20261022160000_day_email. Run against a NON-production copy
 -- of the schema after the migration, inside a transaction that is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/scheduling_test.sql
 -- "ALL SCHEDULING TESTS PASSED" at the end means every check held.
@@ -81,6 +81,14 @@ select pg_temp.ok((public.schedule_save('{"user_id":"00000000-0000-0000-0000-000
 select pg_temp.ok((public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000c1","kind":"work","title":"Editing",
   "starts_at":"2026-11-03T12:30:00-05:00","ends_at":"2026-11-03T15:00:00-05:00","drive_before_min":30}') ->> 'overlaps')::int = 1, 'e1: a bar inside the drive home counts as an overlap');
 select pg_temp.ok((select drive_before_min from public.schedule_entries where kind = 'work') = 0, 'e1: drive time only on jobs');
+select pg_temp.ok((public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000d1","kind":"studio","starts_at":"2026-11-04T09:00:00-05:00","ends_at":"2026-11-04T12:00:00-05:00"}') ->> 'ok')::boolean, 'e1: studio time saves');
+select pg_temp.ok((public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000d1","kind":"admin","title":"Editing","starts_at":"2026-11-04T13:00:00-05:00","ends_at":"2026-11-04T15:00:00-05:00","drive_before_min":20}') ->> 'ok')::boolean, 'e1: admin time saves');
+select pg_temp.ok((select sum(drive_before_min) from public.schedule_entries where kind in ('studio', 'admin')) = 0, 'e1: no drive time on studio or admin time');
+reset role;
+select pg_temp.ok((public.day_plan_text('00000000-0000-0000-0000-0000000000d1', '2026-11-04') ->> 'body') like '%Studio%' and (public.day_plan_text('00000000-0000-0000-0000-0000000000d1', '2026-11-04') ->> 'body') like '%Editing%', 'e1: studio and admin time are in the day plan');
+delete from public.schedule_entries where kind in ('studio', 'admin');
+select pg_temp.act('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.raises($$select public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000c1","kind":"lunch","starts_at":"2026-11-03T09:00:00-05:00","ends_at":"2026-11-03T10:00:00-05:00"}')$$, 'e1: unknown kinds refused');
 select pg_temp.raises($$select public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000c1","kind":"job","starts_at":"2026-11-03T09:00:00-05:00","ends_at":"2026-11-03T10:00:00-05:00"}')$$, 'e1: a job needs its booking');
 select pg_temp.raises($$select public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000c1","kind":"work","starts_at":"2026-11-03T10:00:00-05:00","ends_at":"2026-11-03T09:00:00-05:00"}')$$, 'e1: end before start refused');
 select pg_temp.raises($$select public.schedule_save('{"user_id":"00000000-0000-0000-0000-0000000000f9","kind":"work","starts_at":"2026-11-03T09:00:00-05:00","ends_at":"2026-11-03T10:00:00-05:00"}')$$, 'e1: deactivated people cannot be scheduled');
@@ -176,8 +184,39 @@ begin
     perform pg_temp.ok(public.day_plan_send() = 0, 'outside the window: nothing');
   end if;
 end $$;
+-- "Your day" morning email (20261022160000_day_email)
+select pg_temp.ok((public.day_email_content('00000000-0000-0000-0000-0000000000c1', '2026-11-03') ->> 'subject') = 'Your day, Tuesday Nov 3: 1 job, 2 tasks', 'email subject: ' || (public.day_email_content('00000000-0000-0000-0000-0000000000c1', '2026-11-03') ->> 'subject'));
+select pg_temp.ok((public.day_email_content('00000000-0000-0000-0000-0000000000c1', '2026-11-03') ->> 'text') like '%9:00am-12:00pm Test Academy • School Photos%leave the studio 8:15am (45 min drive)%', 'email lists the job and when to leave');
+select pg_temp.ok((public.day_email_content('00000000-0000-0000-0000-0000000000c1', '2026-11-03') ->> 'text') like '%hours scheduled%' and (public.day_email_content('00000000-0000-0000-0000-0000000000c1', '2026-11-03') ->> 'text') like '%TASKS%- [ ] %', 'email has hours and tasks');
+select pg_temp.ok((public.day_email_content('00000000-0000-0000-0000-0000000000c1', '2026-11-03') ->> 'html') like '%<ul%' and (public.day_email_content('00000000-0000-0000-0000-0000000000c1', '2026-11-03') ->> 'html') not like '%<script%', 'email has html');
+select pg_temp.ok(public.day_email_content('00000000-0000-0000-0000-0000000000d1', '2026-11-03') is null, 'email: nothing on -> nothing sent');
+select pg_temp.ok(public.html_esc('<b>&') = '&lt;b&gt;&amp;', 'html_esc escapes');
+do $$
+declare h int := extract(hour from now() at time zone 'America/New_York');
+begin
+  insert into vault.decrypted_secrets values ('resend_api_key', 'test-key');
+  if h between 4 and 13 then
+    update public.staff_settings set day_email_hour = least(h, 11);
+    perform pg_temp.ok(public.day_email_send() = 2, 'emails v1 and e1 (n1 has no Assignments)');
+    perform pg_temp.ok((select array_agg(body -> 'to' ->> 0 order by body -> 'to' ->> 0) from net.calls) = '{e1@example.com,v1@example.com}', 'to their login emails');
+    perform pg_temp.ok(public.day_email_send() = 0, 'email: once per day');
+    delete from public.day_email_log; update public.team_members set day_email = false where user_id = '00000000-0000-0000-0000-0000000000c1';
+    perform pg_temp.ok(public.day_email_send() = 1, 'email: v1 switched theirs off');
+    update public.team_members set day_email = true; delete from public.day_email_log;
+    update public.staff_settings set day_email_on = false;
+    perform pg_temp.ok(public.day_email_send() = 0, 'email: switched off for everyone');
+    update public.staff_settings set day_email_on = true;
+  else
+    perform pg_temp.ok(public.day_email_send() = 0, 'email: outside the window, nothing');
+  end if;
+end $$;
 select pg_temp.act('00000000-0000-0000-0000-0000000000c1');
 select pg_temp.raises($$select public.day_plan_send()$$, 'v1: cannot run the sender');
+select pg_temp.raises($$select public.day_email_send()$$, 'v1: cannot run the email sender');
+select pg_temp.raises($$select public.day_email_settings_save(true, 7)$$, 'v1: cannot change the email hour');
+select pg_temp.ok((public.day_email_mine(false) ->> 'ok')::boolean, 'v1: switches their own email off');
+select pg_temp.ok(not (public.day_email_status() ->> 'mine')::boolean, 'v1: and sees it off');
+select pg_temp.ok((public.day_email_mine(true) ->> 'on')::boolean, 'v1: and back on');
 select pg_temp.raises($$select public.staff_settings_save(true, 20)$$, 'v1: cannot change the notification hour');
 select pg_temp.act('00000000-0000-0000-0000-0000000000e1');
 select pg_temp.raises($$select public.staff_settings_save(true, 23)$$, 'hour after 9pm refused');

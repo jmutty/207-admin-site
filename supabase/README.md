@@ -21,7 +21,9 @@ psql -d shadow -v ON_ERROR_STOP=1    -f tests/booking_track_only_test.sql   # tr
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022090000_inventory.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/inventory_test.sql          # bins, items, kits, check-out, search, photos bucket, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022120000_scheduling_assignments.sql
-psql -d shadow -v ON_ERROR_STOP=1    -f tests/scheduling_test.sql   # schedule bars, drive time cache, tasks + carry-over, evening push, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022150000_schedule_kinds.sql
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022160000_day_email.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/scheduling_test.sql   # schedule bars + kinds, drive time cache, tasks + carry-over, evening push, morning email, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
