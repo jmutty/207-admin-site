@@ -48,7 +48,7 @@
     function render() {
       el("teamBody").innerHTML = people.length ? people.map((p) =>
         "<tr" + (p.active ? "" : ' class="muted"') + '><td class="name">' + esc(p.name || p.email) + (p.is_me ? ' <span class="muted">(you)</span>' : "") +
-        '<div class="muted" style="font-size:12.5px">' + esc(p.email) + "</div></td>" +
+        '<div class="muted" style="font-size:12.5px">' + esc(p.email) + (p.weekly_hours != null ? " &middot; " + esc(String(Number(p.weekly_hours))) + " h/week" : "") + "</div></td>" +
         "<td>" + accessText(p) + "</td>" +
         "<td>" + esc(p.last_sign_in_at ? fmtAgo(p.last_sign_in_at) : "never") + "</td>" +
         "<td>" + (!p.active ? '<span class="pill muted">Deactivated</span>' : p.must_change_password ? '<span class="pill warn">Temporary password</span>' : '<span class="pill ok">Active</span>') + "</td>" +
@@ -73,11 +73,13 @@
 
     function openEditor(p) {
       const isNew = !p;
-      p = p || { name: "", email: "", is_admin: false, active: true, modules: {} };
+      p = p || { name: "", email: "", is_admin: false, active: true, modules: {}, weekly_hours: null };
       const m = openModal(
         "<h2>" + (isNew ? "Add a person" : "Edit " + esc(p.name || p.email)) + "</h2>" +
         '<div class="field"><label for="aca-tmName">Name</label><input type="text" id="aca-tmName" maxlength="120" value="' + esc(p.name) + '" /></div>' +
         '<div class="field"><label for="aca-tmEmail">Email</label><input type="email" id="aca-tmEmail" value="' + esc(p.email) + '"' + (isNew ? "" : " disabled") + " /></div>" +
+        '<div class="field"><label for="aca-tmHours">Default hours per week</label><input type="number" id="aca-tmHours" min="0" max="80" step="0.5" style="width:110px" value="' + esc(p.weekly_hours == null ? "" : String(Number(p.weekly_hours))) + '" placeholder="e.g. 32" />' +
+        '<span class="muted" style="font-size:12.5px">The Schedule shows how many hours they are scheduled against this each week. Leave empty if it doesn&#39;t apply.</span></div>' +
         '<label class="tm-full"><input type="checkbox" id="aca-tmAdmin"' + (p.is_admin ? " checked" : "") + (p.is_me ? " disabled" : "") + ' /> <span><b>Full access</b><br><span class="muted">Everything, including Settings and this Team page. For owners and managers only.</span></span></label>' +
         '<div id="aca-tmGrid" class="tm-grid' + (p.is_admin ? " hidden" : "") + '">' + grid(p.modules) + "</div>" +
         '<div class="inline-error hidden" id="aca-tmErr"></div>' +
@@ -94,15 +96,21 @@
         const name = el("tmName").value.trim(), email = el("tmEmail").value.trim(), isAdmin = el("tmAdmin").checked;
         if (!name) return err("Enter a name.");
         if (isNew && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err("Enter a valid email address.");
+        const hoursTxt = el("tmHours").value.trim(), hours = hoursTxt === "" ? null : Number(hoursTxt);
+        if (hours != null && !(hours >= 0 && hours <= 80)) return err("Hours per week is 0 to 80.");
+        const hoursChanged = hours !== (p.weekly_hours == null ? null : Number(p.weekly_hours));
+        const setHours = async (uid) => { if (!hoursChanged) return; const { error } = await supabase.rpc("team_set_hours", { p_user_id: uid, p_hours: hours }); if (error) throw error; };
         el("tmSave").disabled = true;
         try {
           if (isNew) {
             const r = await teamFn({ action: "create", email, name, is_admin: isAdmin, permissions: isAdmin ? {} : picked() });
+            try { await setHours(r.user_id); } catch (_e) { toast("Added, but the hours did not save. Edit them on the Team page.", true); }
             m.close();
             showPassword(name, email, r.temp_password, true);
           } else {
             const { error } = await supabase.rpc("team_save", { p_user_id: p.user_id, p_name: name, p_is_admin: isAdmin, p_permissions: isAdmin ? {} : picked() });
             if (error) throw error;
+            await setHours(p.user_id);
             m.close();
             toast("Saved. " + (name || email) + " sees the change the next time they load the page.");
           }
@@ -139,7 +147,7 @@
       el("tmDone").addEventListener("click", () => m.close());
     }
 
-    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for" };
+    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for", hours_set: "changed the weekly hours for" };
     async function loadLog() {
       const { data, error } = await supabase.rpc("team_audit_list", { p_limit: 30 });
       el("teamLog").innerHTML = error ? '<span class="inline-error">' + esc(error.message) + "</span>"

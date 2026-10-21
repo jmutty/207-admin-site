@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -257,11 +257,88 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
+  console.log("Schedule + Assignments (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#staff/schedule");
+    await page.waitForSelector("#aca-scGrid .sc-b");
+    check(await page.$eval("#aca-panel-schedule", (n) => n.classList.contains("active")), "schedule opens from its link");
+    check((await page.$$("#aca-scGrid .sc-head")).length === 8, "week view: 7 days Sunday to Saturday");
+    check((await page.textContent("#aca-scGrid .sc-head:nth-child(2)")).startsWith("Sun"), "the week starts on Sunday");
+    check((await page.$$("#aca-scGrid .sc-b.sc-k-drive")).length === 4 && (await page.$$("#aca-scGrid .sc-b.sc-k-job")).length >= 2, "job bars with drive time on both sides");
+    check((await page.$$("#aca-scGrid .sc-b.sc-k-off")).length === 2, "time off spans two days");
+    check((await page.$$("#aca-scGrid .sc-b.clash")).length > 0, "overlapping bars are flagged");
+    check((await page.textContent("#aca-scGrid")).includes("40 h") && (await page.textContent("#aca-scGrid")).includes("under"), "hours against the weekly target");
+    check(await visible(page, "#aca-scWarn"), "asks for the studio address");
+    check((await page.$$("#aca-scGrid .sc-chip.none")).length === 2, "jobs with nobody on them stand out");
+    // put someone on a job
+    await page.click("#aca-scGrid .sc-chip.none");
+    await page.waitForSelector(".sc-modal .sc-people input");
+    await page.click('.sc-modal [data-m="drive"]');
+    await page.waitForTimeout(150);
+    check(await page.$eval(".sc-modal .sc-db", (n) => n.value) === "25", "drive time looked up and rounded up to 25");
+    await page.check(".sc-modal .sc-people input >> nth=0");
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    const saved = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
+    check(saved.length === 1 && saved[0].kind === "job" && saved[0].drive_before_min === 25 && /T\d\d:00:00.000Z$/.test(saved[0].starts_at), "saves a job bar with drive time");
+    // add time from an empty spot (day view)
+    await page.click('input[name="aca-scView"][value="day"] + span');
+    await page.waitForTimeout(150);
+    check((await page.$$("#aca-scGrid .sc-head")).length === 2, "day view: one day");
+    // a day Alex (third row) is not off: Monday of this week
+    await page.evaluate(() => { const b = document.querySelector('#aca-panel-schedule [data-v="today"]'); b.click(); });
+    await page.waitForTimeout(100);
+    for (let i = 0; i < 7 && !(await page.textContent("#aca-scTitle")).startsWith("Monday"); i++) { await page.click('#aca-panel-schedule [data-v="prev"]'); await page.waitForTimeout(100); }
+    await page.click("#aca-scGrid .sc-cell >> nth=2", { position: { x: 30, y: 10 } });
+    await page.waitForSelector("#aca-scT");
+    await page.fill("#aca-scT", "Editing");
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    const w = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").pop()[1].p);
+    check(w.kind === "work" && w.title === "Editing" && w.user_id === "u5", "adds work time for the clicked person: " + JSON.stringify(w));
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "schedule_attention")), "Today checks for jobs with nobody on them");
+    // My day
+    await page.click('#aca-nav button[data-tab="myday"]');
+    await page.waitForSelector("#aca-asBody .as-task");
+    check((await page.textContent("#aca-asBody")).includes("Leave the studio"), "my day says when to leave");
+    check(await page.$eval("#aca-asBody .as-task", (n) => n.textContent.includes("Urgent")), "urgent task on top");
+    await page.click("#aca-asBody .as-task:nth-of-type(2) input");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "assignment_check" && c[1].p_done === true)), "checks a task off");
+    // Tasks
+    await page.click('#aca-pagetabs button[data-tab="tasks"]');
+    await page.waitForSelector("#aca-asTBody tr.as-row");
+    check((await page.$$("#aca-asTBody tr.as-row")).length === 4, "task list");
+    check((await page.textContent("#aca-asTBody")).includes("Weekdays"), "repeat described in words");
+    await page.click("#aca-asAdd");
+    await page.selectOption("#aca-atWho", "u2");
+    await page.fill("#aca-atTitle", "Sweep the studio");
+    await page.click('input[name="aca-atRep"][value="weekly"] + span');
+    await page.selectOption("#aca-atDow", "5");
+    await page.click('input[name="aca-atPri"][value="urgent"] + span');
+    await page.click('.as-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    const t = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "assignment_save").pop()[1].p);
+    check(t.repeat === "weekly" && t.weekdays[0] === 5 && t.priority === "urgent" && t.user_id === "u2", "adds a weekly urgent task");
+    check(await visible(page, "#aca-asSetCard") && await page.$eval("#aca-asPlanHour", (n) => n.value) === "20", "evening notification at 8pm");
+    // Team: weekly hours
+    await page.click('#aca-nav button[data-tab="team"]');
+    await page.waitForSelector("#aca-teamBody [data-edit]");
+    check((await page.textContent("#aca-teamBody")).includes("40 h/week"), "team list shows weekly hours");
+    await page.click('#aca-teamBody [data-edit="u2"]');
+    await page.fill("#aca-tmHours", "28");
+    await page.click("#aca-tmSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_hours" && c[1].p_hours === 28 && c[1].p_user_id === "u2")), "saves weekly hours");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
   console.log("Staff (bookings edit, parents view)");
   {
     const { page, errors } = await open(browser, port, "?as=staff", "#partners/orgs");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes"]), "menu limited to their pages: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday"]), "menu limited to their pages: " + items.join(","));
     check(await page.$eval("#aca-panel-today", (n) => n.classList.contains("active")), "a link to a page they can't see lands on Today");
     const calls = await page.evaluate(() => window.__rpcCalls.map((c) => c[0]));
     const forbidden = calls.filter((n) => /^(admin_outbox|admin_hub|admin_lookup|prospect_|admin_morning|team_|admin_job)/.test(n));
@@ -282,6 +359,18 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const gs = await page.textContent("#aca-gsList");
     check(!gs.includes("Organizations") && !gs.includes("Outbox"), "Cmd-K hides pages they can't see");
     await page.keyboard.press("Escape");
+    await page.click('#aca-nav button[data-tab="schedule"]');
+    await page.waitForSelector("#aca-scGrid .sc-b");
+    check(!(await shown(page, '#aca-panel-schedule [data-v="add"]')) && await visible(page, "#aca-viewOnly"), "schedule is view-only for them");
+    await page.click("#aca-scGrid .sc-b.sc-k-job");
+    check(await page.isVisible(".sc-modal") && !(await page.$(".sc-modal [data-m=save]")), "a bar opens its details, not an editor");
+    await page.click('.sc-modal [data-m="ok"]');
+    await page.click('#aca-nav button[data-tab="myday"]');
+    await page.waitForSelector("#aca-asBody .as-task");
+    check(!(await shown(page, "#aca-asWhoWrap")), "my day: only their own");
+    await page.click('#aca-pagetabs button[data-tab="tasks"]');
+    await page.waitForTimeout(200);
+    check(!(await shown(page, "#aca-asAdd")) && !(await shown(page, "#aca-asSetCard")), "tasks: no add, no settings");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
