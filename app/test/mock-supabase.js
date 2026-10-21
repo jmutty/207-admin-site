@@ -114,8 +114,10 @@
   const AS_STAFF = /[?&]as=staff\b/.test(location.search);
   // ?as=viewer: bookings view only (read-only booking panel).
   const AS_VIEWER = /[?&]as=viewer\b/.test(location.search);
+  const AS_GEAR = /[?&]as=gear\b/.test(location.search);
   const RPC = {
-    my_access: AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
+    my_access: AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
+      : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
       : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view" } }
       : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
     team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, weekly_hours: 40, last_sign_in_at: iso(-0.01), modules: {} },
@@ -178,6 +180,34 @@
     prospect_prior_contact: { cooldown_months: 6, matches: [{ source: "gmail", org_name: "Presque Isle Youth Hockey", matched_on: ["name", "domain"], emails: ["coach@piyh.org"], first_at: iso(-40), last_at: iso(-30), emails_sent: 2, replied: true, reply_note: "Asked us to check back in spring", status: null, thread_ids: ["18f00aa"], within_cooldown: true, is_client: true, do_not_email: ["gone@piyh.org"] }, { source: "gmail", org_name: "Portland School 0", matched_on: ["domain"], emails: ["p0@portlandschools.org"], last_at: iso(-40), emails_sent: 5, replied: false, thread_ids: [], within_cooldown: true }, { source: "gmail", org_name: "Portland School 1", matched_on: ["domain"], emails: ["p1@portlandschools.org"], last_at: iso(-40), emails_sent: 5, replied: false, thread_ids: [], within_cooldown: true }, { source: "gmail", org_name: "Portland School 2", matched_on: ["domain"], emails: ["p2@portlandschools.org"], last_at: iso(-40), emails_sent: 5, replied: false, thread_ids: [], within_cooldown: true }, { source: "gmail", org_name: "Portland School 3", matched_on: ["domain"], emails: ["p3@portlandschools.org"], last_at: iso(-40), emails_sent: 5, replied: false, thread_ids: [], within_cooldown: true }] }, prospect_enroll_org: { enrollment_id: 'e9', emails: 4, sequence: 'Winter 2026 Leagues' }, prospect_approve: { ok: true }, prospect_import_orgs: { added: 1, matched: 1, contacts: 2, enrolled: 1, notes: ["x@y.org is already on Brewer Travel, left there"] }, prospect_sequence_rank: [{ key: "winter-2026-leagues", name: "Winter 2026 Leagues", score: 13, reason: "same season, general" }, { key: "cheer-gyms-2026-27", name: "Cheer Gyms 2026-27 (intro only)", score: 3, reason: "same season" }], admin_hub_activity: [{ hub: "sports", org_id: "x", org: "Hampden Little League", picture_day: iso(-3).slice(0,10), late_count: 1, sends: [], watchers: [{ id: "w1", name: "Pat Lee", email: "pat@hll.org", since: iso(-10) }] }, { hub: "school", org_id: "s1", org: "Testville Elementary", picture_day: iso(5).slice(0,10), late_count: 0, sends: [], watchers: [] }], admin_hub_watcher_add: { ok: true, id: "w2", result: "added" }, admin_hub_watcher_remove: { ok: true }, admin_hub_watcher_update: { ok: true } };
   // ?tracked=1: the open booking is a track-only job
   if (/[?&]tracked=1\b/.test(location.search)) Object.assign(RPC.admin_booking_detail, { status: "tracked", contacts: [], emails: [], gotphoto_job: { gotphoto_job_id: "1", name: "Brewer Travel Basketball | Winter 2026", gp_activated_at: null } });
+  // Inventory: two bins, a kit in the van, a camera checked out to Sam and the kit out to Gus (late).
+  Object.assign(T, {
+    inventory_bins_v: [
+      { id: "ib1", code: "A-01", location: "Studio, back shelf", note: "", photo_path: "bins/ib1/1.jpg", item_count: 3, kit_count: 0, preview: "AA batteries, Canon R6 body, Gaffer tape" },
+      { id: "ib2", code: "V-1", location: "Van", note: "Behind the driver seat", photo_path: null, item_count: 0, kit_count: 1, preview: null }],
+    inventory_kits_v: [{ id: "ik1", name: "Sports kit 1", note: "", photo_path: null, bin_id: "ib2", bin_code: "V-1", bin_location: "Van", item_count: 2,
+      checkout_id: 2, holder_user: "u5", holder_name: "Gus Shooter", out_at: iso(-3), due_on: iso(-1).slice(0, 10) }],
+    inventory_items_v: [
+      { id: "ii1", name: "AA batteries", qty: 24, serial: "", note: "", photo_path: null, bin_id: "ib1", kit_id: null, place_bin_id: "ib1", bin_code: "A-01", bin_location: "Studio, back shelf", kit_name: null, checkout_id: null, holder_name: null },
+      { id: "ii2", name: "Canon R6 body", qty: 1, serial: "SN-12345", note: "Main body", photo_path: "items/ii2/1.jpg", bin_id: "ib1", kit_id: null, place_bin_id: "ib1", bin_code: "A-01", bin_location: "Studio, back shelf", kit_name: null,
+        checkout_id: 1, holder_user: "u2", holder_name: "Sam Helper", out_at: iso(-1), due_on: iso(2).slice(0, 10), out_with_kit: false },
+      { id: "ii3", name: "Godox AD600 flash", qty: 1, serial: "GX-9", note: "", photo_path: null, bin_id: null, kit_id: "ik1", place_bin_id: "ib2", bin_code: "V-1", bin_location: "Van", kit_name: "Sports kit 1",
+        checkout_id: 2, holder_user: "u5", holder_name: "Gus Shooter", out_at: iso(-3), due_on: iso(-1).slice(0, 10), out_with_kit: true }],
+    inventory_out_v: [
+      { id: 1, item_id: "ii2", kit_id: null, what: "Canon R6 body", serial: "SN-12345", holder_user: "u2", holder_name: "Sam Helper", out_at: iso(-1), due_on: iso(2).slice(0, 10), note: "", bin_code: "A-01" },
+      { id: 2, item_id: null, kit_id: "ik1", what: "Sports kit 1", serial: "", holder_user: "u5", holder_name: "Gus Shooter", out_at: iso(-3), due_on: iso(-1).slice(0, 10), note: "Hampden", bin_code: "V-1" }],
+  });
+  Object.assign(RPC, {
+    inventory_search: { items: T.inventory_items_v, kits: T.inventory_kits_v, bins: T.inventory_bins_v },
+    inventory_people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }, { user_id: "u5", name: "Gus Shooter" }],
+    inventory_check_out: { ok: true, id: 3, holder_name: "Jeremiah Mutty" }, inventory_return: { ok: true },
+    inventory_history: [{ id: 2, holder_name: "Gus Shooter", out_at: iso(-3), due_on: null, note: "Hampden", returned_at: null, with_kit: false }],
+  });
+  const storage = { from: () => ({
+    createSignedUrls: async (paths) => ({ data: paths.map((p) => ({ path: p, signedUrl: "logo.png" })), error: null }),
+    upload: async (path) => (window.__writes = (window.__writes || []).concat([["storage", "upload", path]]), { data: { path }, error: null }),
+    remove: async (paths) => (window.__writes = (window.__writes || []).concat([["storage", "remove", paths]]), { data: [], error: null }),
+  }) };
   // Scheduling + Assignments (2026-10-22): this week (Sunday start, Eastern), relative to today.
   {
     const nyDay = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -213,7 +243,7 @@
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
             updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }) },
-    from: q, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: RPC[n] !== undefined ? RPC[n] : [], error: null }),
+    from: q, storage, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: RPC[n] !== undefined ? RPC[n] : [], error: null }),
   }) };
   // Edge functions: the Team page's account actions.
   const realFetch = window.fetch;

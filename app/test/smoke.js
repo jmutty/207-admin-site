@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -253,6 +253,98 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!(await page.$('#aca-bkPanel button[data-next]')) && !(await page.$("#aca-bkDlvNew")) && !(await page.$('#aca-bkPanel button[data-v="dlvedit"]')), "no move / add / edit controls");
     check(await page.$$eval("#aca-bkPanel input[data-dlv]", (cs) => cs.every((c) => c.disabled)), "deliverable ticks disabled");
     check(!(await visible(page, "#aca-bkTrack")), "Track a job hidden");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Inventory (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#ops/inventory");
+    check(await page.$eval("#aca-panel-inventory", (n) => n.classList.contains("active")), "#ops/inventory opens Find");
+    await page.waitForSelector("#aca-invResults .empty");
+    check(!(await page.textContent("#aca-invResults")).includes("Checked out to you"), "nothing checked out to the owner");
+    await page.fill("#aca-invQ", "canon");
+    await page.waitForSelector("#aca-invResults [data-item]");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_search" && c[1].p_q === "canon")), "typing searches");
+    check((await page.textContent("#aca-invResults [data-item=\"ii2\"]")).includes("A-01"), "result shows the bin to look in");
+    check((await page.textContent("#aca-invResults [data-item=\"ii2\"]")).includes("Out with Sam Helper"), "result shows who has it");
+    await page.click("#aca-invResults [data-item=\"ii1\"]");
+    await page.waitForSelector(".modal [data-co]");
+    await page.click(".modal [data-co]");
+    await page.waitForSelector("#aca-invWho");
+    check(await page.$eval("#aca-invWho", (s) => s.value) === "u1", "check out defaults to me");
+    await page.selectOption("#aca-invWho", "");
+    await page.fill("#aca-invWhoName", "Pat (freelancer)");
+    await page.click("#aca-invCoSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_check_out" && c[1].p_item === "ii1" && c[1].p_holder === null && c[1].p_holder_name === "Pat (freelancer)")), "checks out to a typed name");
+    // Bins: list, open, add an item there
+    await page.click('#aca-pagetabs button[data-tab="invbins"]');
+    await page.waitForSelector("#aca-invBinBody tr[data-bin]");
+    check((await page.$$("#aca-invBinBody tr[data-bin]")).length === 2, "bins list shows 2 bins");
+    check(await visible(page, "#aca-invBinAdd"), "Add bin shown");
+    await page.click('#aca-invBinBody tr[data-bin="ib1"]');
+    await page.waitForSelector("#aca-invBinItem");
+    await page.click("#aca-invBinItem");
+    await page.waitForSelector("#aca-invIName");
+    check(await page.$eval("#aca-invIPlace", (s) => s.value) === "b:ib1", "Add item starts in that bin");
+    await page.fill("#aca-invIName", "Gaffer tape");
+    await page.fill("#aca-invISerial", "");
+    await page.click("#aca-invISave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "inventory_items" && w[1] === "insert" && w[2].name === "Gaffer tape" && w[2].bin_id === "ib1")), "adds an item to the bin");
+    await page.click("#aca-invBinAdd");
+    await page.fill("#aca-invBCode", "B-02");
+    await page.click("#aca-invBSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "inventory_bins" && w[1] === "insert" && w[2].code === "B-02")), "adds a bin");
+    // Kits and Checked out
+    await page.click('#aca-pagetabs button[data-tab="invkits"]');
+    await page.waitForSelector("#aca-invKitBody tr[data-kit]");
+    check((await page.textContent("#aca-invKitBody")).includes("Out with Gus Shooter"), "kit shows who has it");
+    await page.click('#aca-pagetabs button[data-tab="invout"]');
+    await page.waitForSelector("#aca-invOutBody [data-ret]");
+    check((await page.$$("#aca-invOutBody [data-ret]")).length === 2, "owner can return everything");
+    check((await page.textContent("#aca-invOutCount")).includes("1 late"), "counts late returns");
+    await page.click('#aca-invOutBody [data-ret="2"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_return" && c[1].p_checkout === 2)), "Return");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Inventory view only");
+  {
+    const { page, errors } = await open(browser, port, "?as=gear");
+    const items = await rail(page);
+    check(JSON.stringify(items) === JSON.stringify(["today", "inventory"]), "menu: Today and Inventory: " + items.join(","));
+    await page.click('#aca-nav button[data-tab="inventory"]');
+    await page.waitForSelector("#aca-invResults .inv-h");
+    check((await page.textContent("#aca-invResults")).includes("Checked out to you"), "Find starts with what they have");
+    await page.click('#aca-pagetabs button[data-tab="invbins"]');
+    await page.waitForSelector("#aca-invBinBody tr[data-bin]");
+    check(!(await visible(page, "#aca-invBinAdd")), "no Add bin");
+    await page.click('#aca-invBinBody tr[data-bin="ib1"]');
+    await page.waitForSelector("#aca-invBinClose");
+    check(!(await page.$("#aca-invBinEdit")) && !(await page.$("#aca-invBinItem")), "bin is read-only");
+    await page.click("#aca-invBinClose");
+    await page.click('#aca-pagetabs button[data-tab="invout"]');
+    await page.waitForSelector("#aca-invOutBody tr");
+    await page.waitForTimeout(150);
+    check((await page.$$("#aca-invOutBody [data-ret]")).length === 1, "can return only their own");
+    await page.click('#aca-pagetabs button[data-tab="inventory"]');
+    await page.fill("#aca-invQ", "batteries");
+    await page.waitForSelector("#aca-invResults [data-item=\"ii1\"]");
+    await page.click("#aca-invResults [data-item=\"ii1\"]");
+    await page.waitForSelector(".modal [data-co]");
+    check((await page.textContent(".modal [data-co]")).includes("to me"), "Check out to me");
+    check(!(await page.$("#aca-invIEdit")), "no Edit item");
+    await page.click(".modal [data-co]");
+    await page.waitForSelector("#aca-invCoSave");
+    check(!(await page.$("#aca-invWho")), "no choosing who");
+    await page.click("#aca-invCoSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_check_out" && c[1].p_holder === "u5")), "checks out to themselves");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
