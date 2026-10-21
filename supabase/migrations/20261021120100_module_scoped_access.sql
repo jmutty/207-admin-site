@@ -67,13 +67,13 @@ insert into _fn values
   ('public.booking_adopt_calendar_date(uuid)',          '{bookings}', 'edit'),
   ('public.booking_cancel(uuid)',                       '{bookings}', 'edit'),
   ('public.booking_coach_remove(uuid)',                 '{bookings}', 'edit'),
-  ('public.booking_coaches_add(uuid, text)',            '{bookings}', 'edit'),
+  ('public.booking_coaches_add(uuid, text, text)',            '{bookings}', 'edit'),
   ('public.booking_create(jsonb)',                      '{bookings}', 'edit'),
   ('public.booking_link_job(uuid, text)',               '{bookings}', 'edit'),
   ('public.booking_resend(uuid)',                       '{bookings}', 'edit'),
   ('public.booking_rewrite_calendar(uuid)',             '{bookings}', 'edit'),
   ('public.booking_send_now(uuid)',                     '{bookings}', 'edit'),
-  ('public.booking_set_access_code(uuid, text)',        '{bookings}', 'edit'),
+  ('public.booking_set_access_code(uuid, text, date)',        '{bookings}', 'edit'),
   ('public.booking_update(uuid, jsonb)',                '{bookings}', 'edit'),
   -- Galleries
   ('public.admin_job_field_coverage(text)',             '{galleries,findmyphotos}', 'view'),
@@ -85,12 +85,12 @@ insert into _fn values
   -- Parent help
   ('public.admin_request_matches(uuid)',                '{parents}', 'view'),
   ('public.admin_request_searches(uuid)',               '{parents}', 'view'),
-  ('public.lookup_request_reply(uuid, text)',           '{parents}', 'edit'),
+  ('public.lookup_request_reply(uuid, text, text, text, text)',           '{parents}', 'edit'),
   ('public.admin_makeups()',                            '{parents}', 'view'),
   ('public.admin_makeup_jobs()',                        '{parents}', 'view'),
-  ('public.makeup_ready_email(uuid)',                   '{parents}', 'view'),
+  ('public.makeup_ready_email(uuid, text, text, text)',                   '{parents}', 'view'),
   ('public.admin_makeup_set(uuid, text, boolean)',      '{parents}', 'edit'),
-  ('public.makeup_send_ready(uuid)',                    '{parents}', 'edit'),
+  ('public.makeup_send_ready(uuid, text, text, text, boolean)',                    '{parents}', 'edit'),
   ('public.admin_retakes(integer)',                     '{parents}', 'view'),
   ('public.admin_retake_delete(uuid)',                  '{parents}', 'edit'),
   ('public.admin_retake_mark_handled(uuid)',            '{parents}', 'edit'),
@@ -103,20 +103,20 @@ insert into _fn values
   ('public.admin_trust_ip(text, text, boolean)',        '{findmyphotos}', 'edit'),
   -- Organizations & outreach
   ('public.admin_outbox(integer)',                      '{partners}', 'view'),
-  ('public.prospect_prior_contact(text)',               '{partners}', 'view'),
-  ('public.prospect_reply_queue()',                     '{partners}', 'view'),
+  ('public.prospect_prior_contact(text, text[])',               '{partners}', 'view'),
+  ('public.prospect_reply_queue(integer)',                     '{partners}', 'view'),
   ('public.prospect_approve(uuid)',                     '{partners}', 'edit'),
-  ('public.prospect_approve_quick(text[])',             '{partners}', 'edit'),
+  ('public.prospect_approve_quick(uuid[])',             '{partners}', 'edit'),
   ('public.prospect_contact_action(uuid, text)',        '{partners}', 'edit'),
-  ('public.prospect_enroll(uuid)',                      '{partners}', 'edit'),
-  ('public.prospect_enroll_org(text)',                  '{partners}', 'edit'),
-  ('public.prospect_import_orgs(jsonb)',                '{partners}', 'edit'),
-  ('public.prospect_mark_declined(uuid)',               '{partners}', 'edit'),
-  ('public.prospect_merge_orgs(text, text)',            '{partners}', 'edit'),
-  ('public.prospect_quick_draft(text)',                 '{partners}', 'edit'),
-  ('public.prospect_schedule_oneoff(jsonb)',            '{partners}', 'edit'),
+  ('public.prospect_enroll(jsonb, jsonb, text, boolean, boolean)',                      '{partners}', 'edit'),
+  ('public.prospect_enroll_org(uuid, uuid[], text, text)',                  '{partners}', 'edit'),
+  ('public.prospect_import_orgs(jsonb, boolean)',                '{partners}', 'edit'),
+  ('public.prospect_mark_declined(uuid, text)',               '{partners}', 'edit'),
+  ('public.prospect_merge_orgs(uuid, uuid)',            '{partners}', 'edit'),
+  ('public.prospect_quick_draft(uuid[], text, text, text, boolean)',                 '{partners}', 'edit'),
+  ('public.prospect_schedule_oneoff(uuid, text, text, timestamp with time zone)',            '{partners}', 'edit'),
   ('public.prospect_set_status(uuid, text)',            '{partners}', 'edit');
--- Full access only (unchanged): admin_morning_digest (Settings). Already team-aware since the
+-- Full access only (unchanged): admin_morning_digest (Settings) and the team_* functions (Team page). Already team-aware since the
 -- foundation migration: admin_devices_list, admin_forget_device, admin_remember_device.
 
 -- ---------------------------------------------------------------- policies
@@ -126,7 +126,7 @@ declare
   c_pat constant text := '(public\.)?is_admin\(\)';
 begin
   for p in
-    select pol.schemaname, pol.tablename, pol.policyname, pol.cmd, pol.roles, pol.qual, pol.with_check
+    select pol.schemaname, pol.tablename, pol.policyname, pol.permissive, pol.cmd, pol.roles, pol.qual, pol.with_check
       from pg_policies pol
      where pol.schemaname in ('public', 'storage')
        and (coalesce(pol.qual, '') ~ c_pat or coalesce(pol.with_check, '') ~ c_pat)
@@ -174,7 +174,7 @@ begin
   select string_agg(p.oid::regprocedure::text, ', ') into v_missing
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.prokind = 'f'
-     and p.proname not in ('is_admin', 'admin_morning_digest')
+     and p.proname not in ('is_admin', 'admin_morning_digest', 'team_list', 'team_save', 'team_set_active', 'team_flag_password', 'team_audit_list')
      and pg_get_functiondef(p.oid) ~ c_pat
      and p.oid not in (select fn from _fn);
   if v_missing is not null then raise exception 'no module mapping for function(s): %', v_missing; end if;
