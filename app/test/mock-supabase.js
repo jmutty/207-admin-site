@@ -77,6 +77,15 @@
     booking_settings: { id: true, sending_enabled: false, test_mode: false, test_recipient: null, bcc: null, from_name: "Jeremiah Mutty", from_email: "jmutty@207photo.com", signature: "Jeremiah & The 207 Photo Team", quiet_start: "21:00:00", quiet_end: "07:00:00", day0_delay_min: 10 },
     prospect_settings: { track_opens: true, cooldown_months: 6, paused: false, test_mode: false, daily_cap: 40, send_days: [1,2,3,4,5], send_window_start_hour: 17, send_window_end_hour: 20, send_windows: {} },
   };
+  // Job stages per type + saved deliverables (2026-10-21)
+  T.booking_stages = [];
+  ["school", "sports_data", "sports_nodata"].forEach((k) => [["Booked", "booked"], ["Picture day done", "picture_day"], ["In production", null], ["Job launched", "gallery_live"], ["Deliverables sent", "deliverables_done"], ["Complete", null]]
+    .forEach(([label, auto], i) => T.booking_stages.push({ id: "st-" + k + "-" + i, type_key: k, label, sort: (i + 1) * 10, auto, archived_at: null })));
+  T.deliverable_templates = [
+    { id: "dt1", type_key: "sports_data", label: "Team composites", due_days: 21, auto_add: true, sort: 10, archived_at: null },
+    { id: "dt2", type_key: "sports_data", label: "Banner proofs", due_days: 14, auto_add: false, sort: 20, archived_at: null },
+    { id: "dt3", type_key: "school", label: "Yearbook files", due_days: 30, auto_add: true, sort: 10, archived_at: null },
+    { id: "dt4", type_key: null, label: "Thank-you card", due_days: null, auto_add: false, sort: 10, archived_at: null }];
   function q(table) {
     let single = false, head = false; const filt = [];
     const res = () => {
@@ -101,8 +110,11 @@
   window.__rpcCalls = [];
   // ?as=staff signs in as a limited team member (bookings edit, parents view) instead of the owner.
   const AS_STAFF = /[?&]as=staff\b/.test(location.search);
+  // ?as=viewer: bookings view only (read-only booking panel).
+  const AS_VIEWER = /[?&]as=viewer\b/.test(location.search);
   const RPC = {
-    my_access: AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view" } }
+    my_access: AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
+      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view" } }
       : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
     team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, last_sign_in_at: iso(-0.01), modules: {} },
       { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, is_me: false, active: true, must_change_password: true, last_sign_in_at: null, modules: { bookings: "edit", parents: "view" } },
@@ -142,6 +154,17 @@
       { id: "rt3", job_id: "9002", school: "Milbridge Elementary School", retake_day: iso(9).slice(0, 10), access_code: "zz99yy88", child: "Ava Gray", group: "K - Beal", reasons: [], notes: [{ at: iso(-5), text: "She was sick that day and looks tired" }], parent_name: "Jo Gray", parent_email: "jo@example.org", created_at: iso(-5), updated_at: iso(-5), pulled_at: null }],
     admin_retake_delete: null,
     admin_retake_mark_handled: null,
+    admin_booking_progress: [{ booking_id: "bk1", stage_id: "st-sports_data-2", deliverables_total: 3, deliverables_open: 2, next_due: iso(-1).slice(0, 10), overdue: 1 },
+      { booking_id: "bk2", stage_id: "st-school-0", deliverables_total: 0, deliverables_open: 0, next_due: null, overdue: 0 }],
+    admin_booking_tracking: { stage_id: "st-sports_data-2", stage_at: iso(-1), last_day: iso(12).slice(0, 10),
+      stages: [["Booked", "booked"], ["Picture day done", "picture_day"], ["In production", null], ["Job launched", "gallery_live"], ["Deliverables sent", "deliverables_done"], ["Complete", null]].map(([label, auto], i) => ({ id: "st-sports_data-" + i, label, sort: (i + 1) * 10, auto, archived: false })),
+      events: [{ id: 3, label: "In production", auto: false, by: "Jeremiah Mutty", note: null, at: iso(-1) }, { id: 2, label: "Picture day done", auto: true, at: iso(-2) }, { id: 1, label: "Booked", auto: true, at: iso(-20) }],
+      deliverables: [{ id: "bd1", template_id: "dt1", label: "Team composites", due_date: iso(-1).slice(0, 10), status: "todo", link: null, note: null },
+        { id: "bd2", template_id: null, label: "Coach banner", due_date: iso(10).slice(0, 10), status: "todo", link: null, note: "Two sizes" },
+        { id: "bd3", template_id: "dt2", label: "Banner proofs", due_date: iso(-3).slice(0, 10), status: "done", link: "https://www.dropbox.com/sh/x", done_at: iso(-3), done_by_name: "Sam Helper" }],
+      templates: [{ id: "dt1", type_key: "sports_data", label: "Team composites", due_days: 21 }, { id: "dt2", type_key: "sports_data", label: "Banner proofs", due_days: 14 }, { id: "dt4", type_key: null, label: "Thank-you card", due_days: null }] },
+    admin_deliverables_attention: { overdue: 1 },
+    booking_set_stage: { ok: true }, booking_deliverables_add: { ok: true, added: 1 }, booking_deliverable_update: { ok: true }, booking_deliverable_remove: { ok: true },
     admin_bookings_attention: { send_failed: 1, calendar: 1, no_contact: 1, needs_code: 1, needs_job: 1, needs_coaches: 1, sending_enabled: false, test_mode: false },
     booking_coaches_add: { ok: true, added: 1, skipped: 0, seen: 1, coaches: 3 }, booking_coach_remove: { ok: true },
     booking_create: { ok: true, id: "bk1" }, booking_update: { ok: true, calendar: true }, booking_cancel: { ok: true }, booking_set_access_code: { ok: true, hub_school_id: "s1" },

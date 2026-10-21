@@ -108,6 +108,100 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
+  console.log("Bookings: stages and deliverables (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/bookings");
+    const lastRpc = (n) => page.evaluate((n) => window.__rpcCalls.filter((c) => c[0] === n).pop(), n);
+    await page.waitForSelector("#aca-bkBody tr.bk-row");
+    const row1 = await page.textContent('#aca-bkBody tr[data-id="bk1"] .bk-c-stage');
+    check(row1.includes("In production") && row1.includes("1 of 3 delivered") && row1.includes("1 overdue"), "list shows the stage and deliverables: " + row1.trim());
+    check((await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-c-stage')).includes("Booked"), "list shows Booked for a new job");
+    await page.selectOption("#aca-bkStage", ":overdue");
+    check((await page.$$("#aca-bkBody tr.bk-row")).length === 1, "Deliverables overdue filter");
+    await page.selectOption("#aca-bkStage", "Booked");
+    check((await page.$$("#aca-bkBody tr.bk-row")).length === 1, "stage filter by name");
+    await page.selectOption("#aca-bkStage", "");
+    await page.click('#aca-bkBody tr[data-id="bk1"]');
+    await page.waitForSelector("#aca-bkPanel .bk-stages");
+    check((await page.$$("#aca-bkPanel .bk-stages li")).length === 6, "panel shows the type's six stages");
+    check((await page.textContent("#aca-bkPanel .bk-stages li.cur")).includes("In production"), "current stage highlighted");
+    check((await page.$$("#aca-bkPanel .bk-stages li.done")).length === 2, "earlier stages ticked");
+    await page.click('#aca-bkPanel button[data-next="1"]');
+    await page.waitForTimeout(150);
+    const mv = await lastRpc("booking_set_stage");
+    check(mv && mv[1].p_stage === "st-sports_data-3" && mv[1].p_booking === "bk1", "Move to Job launched");
+    check((await page.$$("#aca-bkPanel .bk-dlv li")).length === 3 && (await page.textContent("#aca-bkPanel .bk-dlv")).includes("overdue"), "deliverables listed with overdue");
+    await page.click('#aca-bkPanel input[data-dlv="bd1"]');
+    await page.waitForTimeout(150);
+    const tick = await lastRpc("booking_deliverable_update");
+    check(tick && tick[1].p_id === "bd1" && tick[1].p.status === "done", "ticking marks it delivered");
+    const opts = await page.$$eval("#aca-bkDlvPick option", (os) => os.map((o) => o.textContent));
+    check(opts.some((o) => o.includes("Thank-you card")) && !opts.some((o) => o.includes("Team composites")), "saved picks leave out ones already on the job");
+    await page.fill("#aca-bkDlvNew", "Coach banner 2");
+    await page.click('#aca-bkPanel button[data-v="dlvnew"]');
+    await page.waitForTimeout(150);
+    const add = await lastRpc("booking_deliverables_add");
+    check(add && add[1].p_items[0].label === "Coach banner 2" && add[1].p_items[0].save === true, "typed deliverable added and saved for the type");
+    await page.click('#aca-bkPanel button[data-v="dlvedit"][data-dlv="bd2"]');
+    await page.selectOption("#aca-bkDeStatus", "skipped");
+    await page.click('.og-modal button[data-v="save"]');
+    await page.waitForTimeout(150);
+    const ed = await lastRpc("booking_deliverable_update");
+    check(ed && ed[1].p_id === "bd2" && ed[1].p.status === "skipped" && ed[1].p.label === "Coach banner", "edit dialog saves");
+    await page.click('#aca-bkPanel button[data-v="close"]');
+
+    // Book a job: saved deliverables for the type, "every job" ones pre-ticked, typed ones kept
+    await page.click("#aca-bkNew");
+    await page.waitForSelector("#aca-bkFDlv");
+    check(await page.isChecked('#aca-bkFDlv input[data-fdt="dt3"]') && !(await page.isChecked('#aca-bkFDlv input[data-fdt="dt4"]')), "school: Yearbook files pre-ticked, Thank-you card offered");
+    await page.click('#aca-bkTypes input[value="sports_data"]', { force: true });
+    check(await page.isChecked('#aca-bkFDlv input[data-fdt="dt1"]') && !(await page.$('#aca-bkFDlv input[data-fdt="dt3"]')), "switching type swaps the picks");
+    await page.fill("#aca-bkFDlvNew", "Coach gift");
+    await page.click('button[data-v="fdlvadd"]');
+    await page.fill("#aca-bkOrgQ", "Brewer");
+    await page.waitForSelector("#aca-bkOrgList button[data-org]");
+    await page.click("#aca-bkOrgList button[data-org]");
+    await page.waitForTimeout(150);
+    await page.fill("#aca-bkDays .bk-d-day", "2026-12-05");
+    await page.click('.bk-form button[data-v="save"]');
+    await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_create"));
+    await page.waitForSelector("#aca-bkPanel .bk-stages");
+    const bk = await lastRpc("booking_deliverables_add");
+    check(bk && bk[1].p_booking === "bk1" && bk[1].p_items.some((x) => x.template_id === "dt1") && bk[1].p_items.some((x) => x.label === "Coach gift" && x.save), "booking adds the picked deliverables");
+
+    // Stages & deliverables per job type
+    await page.click('#aca-bkPanel button[data-v="close"]');
+    await page.click("#aca-bkJobTypes");
+    await page.waitForSelector("#aca-bkJtBody [data-st]");
+    check((await page.$$("#aca-bkJtBody [data-st]")).length === 6, "job type dialog lists the stages");
+    await page.fill('#aca-bkJtBody [data-st="2"] input[type=text]', "Editing");
+    await page.click('#aca-bkJtBody button[data-v="add"][data-l="tp"]');
+    await page.fill('#aca-bkJtBody [data-tp="1"] input[type=text]', "Panoramic");
+    await page.click('.bk-form button[data-v="save"]');
+    await page.waitForTimeout(200);
+    const w = await page.evaluate(() => window.__writes.filter((x) => x[0] === "booking_stages" || x[0] === "deliverable_templates"));
+    check(w.some((x) => x[0] === "booking_stages" && x[1] === "update" && x[2].label === "Editing") && w.some((x) => x[0] === "deliverable_templates" && x[1] === "insert" && x[2].label === "Panoramic" && x[2].type_key === "school"),
+      "job type dialog saves stage names and new deliverables");
+    await page.click('.bk-form .bk-factions button[data-v="close"]');
+
+    await page.click('#aca-nav button[data-tab="today"]');
+    await page.waitForTimeout(150);
+    check((await page.textContent("#aca-todayList")).includes("past its due date"), "Today lists the overdue deliverable");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Bookings view only");
+  {
+    const { page, errors } = await open(browser, port, "?as=viewer", "#jobs/bookings/bk1");
+    await page.waitForSelector("#aca-bkPanel .bk-stages");
+    check(await page.$$eval("#aca-bkPanel .bk-stages button", (bs) => bs.every((b) => b.disabled)), "stages read-only");
+    check(!(await page.$('#aca-bkPanel button[data-next]')) && !(await page.$("#aca-bkDlvNew")) && !(await page.$('#aca-bkPanel button[data-v="dlvedit"]')), "no move / add / edit controls");
+    check(await page.$$eval("#aca-bkPanel input[data-dlv]", (cs) => cs.every((c) => c.disabled)), "deliverable ticks disabled");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
   console.log("Staff (bookings edit, parents view)");
   {
     const { page, errors } = await open(browser, port, "?as=staff", "#partners/orgs");

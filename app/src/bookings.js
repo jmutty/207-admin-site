@@ -63,6 +63,30 @@
   .aca .bk-fhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .aca .bk-fhead h2 { margin: 0 0 12px; }
   .aca .bk-fhead .bk-fx { display: none; margin-bottom: 12px; }
+  /* Stages + deliverables (2026-10-21) */
+  .aca .bk-stages { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; margin: 0 0 8px; padding: 0; }
+  .aca .bk-stages li { display: flex; align-items: center; gap: 4px; }
+  .aca .bk-stages li + li::before { content: ""; width: 10px; height: 1px; background: var(--border); }
+  .aca .bk-stages button { font-size: 12px; height: 26px; padding: 0 9px; border-radius: 13px; color: var(--muted); background: var(--surface); }
+  .aca .bk-stages li.done button { color: var(--text); border-color: var(--border); }
+  .aca .bk-stages li.done button::before { content: "\\2713 "; color: var(--ok-fg); }
+  .aca .bk-stages li.cur button { background: var(--sel-bg); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .aca .bk-stages button:disabled { opacity: 1; cursor: default; }
+  .aca .bk-hist summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .aca .bk-hist ul { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; }
+  .aca .bk-dlv { list-style: none; margin: 0; padding: 0; }
+  .aca .bk-dlv li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .aca .bk-dlv li:last-child { border-bottom: none; }
+  .aca .bk-dlv li > div { flex: 1; min-width: 0; }
+  .aca .bk-dlv li input[type=checkbox] { margin-top: 3px; }
+  .aca .bk-dlv li.closed strong { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted); }
+  .aca .bk-dlvadd { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .aca .bk-dlvadd select, .aca .bk-dlvadd input[type=text] { flex: 1 1 200px; min-width: 0; }
+  .aca .bk-jt-rows { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+  .aca .bk-jt-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .aca .bk-jt-row input[type=text] { flex: 1 1 200px; min-width: 0; }
+  .aca .bk-jt-row input[type=number] { width: 70px; }
+  .aca .bk-jt h3 { margin: 14px 0 2px; font-size: 13px; }
   @media (max-width: 900px) {
     .aca #aca-bkPanel { position: fixed; top: var(--og-top, 0px); left: 0; right: 0; bottom: 0; width: 100vw; max-width: none; overflow: auto; -webkit-overflow-scrolling: touch; z-index: 60; background: var(--surface); }
     .aca #aca-bkPanel.hidden { display: none; }
@@ -88,10 +112,10 @@
     .aca #aca-panel-bookings .card-head .og-actions button { min-height: 44px; width: 100%; }
     .aca .bk-table thead { display: none; }
     .aca .bk-table, .aca .bk-table tbody { display: block; }
-    .aca .bk-table tr.bk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when cal" "job job" "who who" "mail mail"; gap: 3px 8px; padding: 12px; border-bottom: 1px solid var(--border); }
+    .aca .bk-table tr.bk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when cal" "job job" "stage stage" "who who" "mail mail"; gap: 3px 8px; padding: 12px; border-bottom: 1px solid var(--border); }
     .aca .bk-table tr.bk-row > td { display: block; padding: 0; border: none; }
     .aca .bk-table td.bk-c-when { grid-area: when; } .aca .bk-table td.bk-c-cal { grid-area: cal; justify-self: end; }
-    .aca .bk-table td.bk-c-job { grid-area: job; } .aca .bk-table td.bk-c-who { grid-area: who; } .aca .bk-table td.bk-c-mail { grid-area: mail; }
+    .aca .bk-table td.bk-c-job { grid-area: job; } .aca .bk-table td.bk-c-stage { grid-area: stage; } .aca .bk-table td.bk-c-who { grid-area: who; } .aca .bk-table td.bk-c-mail { grid-area: mail; }
     .aca .bk-cards { grid-template-columns: 1fr; }
     .aca .bk-addc { grid-template-columns: 1fr 1fr; }
     .aca .bk-facts { grid-template-columns: 1fr; }
@@ -104,26 +128,35 @@
     <div class="card">
       <div class="card-head">
         <div><h2>Bookings</h2>
-          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a booking to see its emails.</p></div>
-        <div class="og-actions"><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button></div>
+          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a booking to see its emails, its stage and what you still owe the client.</p></div>
+        <div class="og-actions"><button type="button" class="small" id="aca-bkJobTypes">Stages &amp; deliverables</button><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button></div>
       </div>
       <div id="aca-bkBanner" class="bk-banner hidden"></div>
       <div class="toolbar">
         <input type="text" id="aca-bkSearch" placeholder="Search by organization&#8230;" aria-label="Search bookings" />
         <select id="aca-bkType" class="small" aria-label="Job type"><option value="">All types</option></select>
+        <select id="aca-bkStage" class="small" aria-label="Stage"><option value="">Any stage</option><option value=":owed">Owes deliverables</option><option value=":overdue">Deliverables overdue</option></select>
         <div class="chips bk-chips" id="aca-bkScope" role="group">
           <button type="button" data-scope="upcoming" aria-pressed="true">Upcoming</button>
           <button type="button" data-scope="past" aria-pressed="false">Past 60 days</button>
+          <button type="button" data-scope="owed" aria-pressed="false">Still owed</button>
           <button type="button" data-scope="cancelled" aria-pressed="false">Cancelled</button>
         </div>
       </div>
       <div id="aca-bkErr" class="inline-error hidden"></div>
-      <div class="table-wrap"><table class="bk-table"><thead><tr><th>When</th><th>Job</th><th>Contacts</th><th>Emails</th><th>Calendar</th></tr></thead>
-        <tbody id="aca-bkBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div>
+      <div class="table-wrap"><table class="bk-table"><thead><tr><th>When</th><th>Job</th><th>Stage</th><th>Contacts</th><th>Emails</th><th>Calendar</th></tr></thead>
+        <tbody id="aca-bkBody"><tr><td colspan="6" class="empty">Loading&#8230;</td></tr></tbody></table></div>
     </div>
     <div class="og-panel hidden" id="aca-bkPanel" aria-label="Booking details"></div>`;
 
   let types = [], steps = [], rows = [], loaded = false, scope = "upcoming", openId = null, pollTimer = null;
+  // Stages per job type and saved deliverables (2026-10-21; see supabase/migrations/20261021200000_booking_stages_deliverables.sql)
+  let stagesAll = [], templates = [];
+  const typeStages = (k) => stagesAll.filter((s) => s.type_key === k && !s.archived_at).sort((a, b) => a.sort - b.sort);
+  const stageOf = (id) => stagesAll.find((s) => s.id === id);
+  const typeTemplates = (k) => templates.filter((t) => !t.archived_at && (!t.type_key || t.type_key === k)).sort((a, b) => (a.type_key ? 0 : 1) - (b.type_key ? 0 : 1) || a.sort - b.sort || a.label.localeCompare(b.label));
+  const STAGE_AUTO = { booked: "Ticks itself when the job is booked.", picture_day: "Ticks itself the morning after the last picture day.",
+    gallery_live: "Ticks itself when the GotPhoto gallery goes live.", deliverables_done: "Ticks itself when every deliverable is done or skipped." };
   const byType = (k) => types.find((t) => t.key === k) || {};
   const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
   const addDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -179,13 +212,23 @@
     const [t, s, q] = await Promise.all([
       sb.from("booking_types").select("*").order("sort_order"),
       sb.from("booking_steps").select("*").eq("is_active", true).order("step_no"),
-      sb.from("booking_sequences").select("id, type_key, is_active").eq("is_active", true)]);
+      sb.from("booking_sequences").select("id, type_key, is_active").eq("is_active", true), loadTracking()]);
     if (t.error) throw t.error;
     types = t.data || [];
     const active = new Set((q.data || []).map((x) => x.id));
     steps = (s.data || []).filter((x) => active.has(x.sequence_id));
     seqType = {}; (q.data || []).forEach((x) => { seqType[x.id] = x.type_key; }); // the form's schedule preview needs this too
     const sel = el("bkType"); sel.innerHTML = '<option value="">All types</option>' + types.map((x) => '<option value="' + esc(x.key) + '">' + esc(x.label) + "</option>").join("");
+  }
+  // Stages and saved deliverables change in the Stages & deliverables dialog and when a typed deliverable is saved.
+  async function loadTracking() {
+    const [st, tp] = await Promise.all([sb.from("booking_stages").select("*").order("sort"), sb.from("deliverable_templates").select("*").is("archived_at", null).order("sort")]);
+    stagesAll = st.data || []; templates = tp.data || [];
+    const sel = el("bkStage"), cur = sel.value, seen = new Set();
+    const labels = stagesAll.filter((x) => !x.archived_at).sort((a, b) => a.sort - b.sort).map((x) => x.label).filter((l) => !seen.has(l) && seen.add(l));
+    sel.innerHTML = '<option value="">Any stage</option>' + labels.map((l) => '<option value="' + esc(l) + '">' + esc(l) + "</option>").join("") +
+      '<option value=":owed">Owes deliverables</option><option value=":overdue">Deliverables overdue</option>';
+    sel.value = cur;
   }
   let seqType = {}; // sequence id -> type key
   const seqOf = (id) => seqType[id];
@@ -198,16 +241,17 @@
       const { data: seqs } = await sb.from("booking_sequences").select("id, type_key");
       seqType = {}; (seqs || []).forEach((q) => { seqType[q.id] = q.type_key; });
       const today = todayStr();
-      const from = scope === "upcoming" ? today : addDays(today, -60);
+      const from = scope === "upcoming" ? today : addDays(today, scope === "owed" ? -400 : -60);
       const to = scope === "upcoming" ? null : (scope === "past" ? addDays(today, -1) : null);
-      const { data, error } = await sb.rpc("admin_bookings", { p_from: from, p_to: to });
+      const [{ data, error }, prog] = await Promise.all([sb.rpc("admin_bookings", { p_from: from, p_to: to }), sb.rpc("admin_booking_progress", { p_from: from, p_to: to })]);
       if (error) throw error;
-      rows = (data || []);
+      const pm = {}; (prog.data || []).forEach((x) => { pm[x.booking_id] = x; });
+      rows = (data || []).map((b) => Object.assign(b, { progress: pm[b.id] || null }));
       loaded = true;
       render();
       const seg = location.hash.replace(/^#/, "").split("/");
       if (seg[0] === "jobs" && seg[1] === "bookings" && seg[2] && seg[2] !== openId) openDetail(seg[2]);
-    } catch (e) { showError("bkErr", cleanErr(e)); el("bkBody").innerHTML = '<tr><td colspan="5" class="empty">Could not load bookings.</td></tr>'; }
+    } catch (e) { showError("bkErr", cleanErr(e)); el("bkBody").innerHTML = '<tr><td colspan="6" class="empty">Could not load bookings.</td></tr>'; }
   }
   const currentTabIs = () => el("panel-bookings").classList.contains("active");
 
@@ -244,22 +288,41 @@
     if (b.next_send_at) parts.push('<span class="bk-sub">next ' + esc(fmtWhen(b.next_send_at)) + "</span>");
     return parts.join(" ");
   }
+  // Stage pill + "2 of 3 delivered" for the list.
+  function stageCell(b) {
+    if (b.status === "cancelled") return "";
+    const p = b.progress || {}, s = stageOf(p.stage_id), list = typeStages(b.type_key);
+    const last = list.length && s && s.id === list[list.length - 1].id;
+    const out = [s ? '<span class="pill ' + (last ? "ok" : "accent") + '">' + esc(s.label) + "</span>" : '<span class="pill muted">No stage</span>'];
+    if (num(p.deliverables_total)) {
+      const done = num(p.deliverables_total) - num(p.deliverables_open);
+      out.push('<div class="bk-sub">' + done + " of " + num(p.deliverables_total) + " delivered" + (num(p.overdue) ? ' <span class="pill err">' + num(p.overdue) + " overdue</span>" : num(p.deliverables_open) && p.next_due ? ", next due " + esc(fmtDay(p.next_due)) : "") + "</div>");
+    }
+    return out.join("");
+  }
   function render() {
     const q = el("bkSearch").value.trim().toLowerCase(), tk = el("bkType").value;
     let list = rows.filter((b) => (scope === "cancelled" ? b.status === "cancelled" : b.status !== "cancelled"));
     if (tk) list = list.filter((b) => b.type_key === tk);
+    const sk = el("bkStage").value, prog = (b) => b.progress || {};
+    if (scope === "owed") list = list.filter((b) => num(prog(b).deliverables_open) > 0);
+    if (sk === ":owed") list = list.filter((b) => num(prog(b).deliverables_open) > 0);
+    else if (sk === ":overdue") list = list.filter((b) => num(prog(b).overdue) > 0);
+    else if (sk) list = list.filter((b) => (stageOf(prog(b).stage_id) || {}).label === sk);
     if (q) list = list.filter((b) => (b.org_name + " " + b.title + " " + (b.org_town || "")).toLowerCase().includes(q));
     const body = el("bkBody");
-    if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty">' + (scope === "upcoming" ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : "Nothing here.") + "</td></tr>"; return; }
+    if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty">' + (scope === "upcoming" && !sk ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : scope === "owed" ? "Nothing owed. Every deliverable is done or skipped." : "Nothing here.") + "</td></tr>"; return; }
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
       '<td class="bk-c-when"><div class="bk-date">' + esc(whenRange(b)) + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div></td>" +
       '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type">' + esc(b.type_label) + (b.location ? " · " + esc(b.location) : "") + "</div></td>" +
+      '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-who">' + ((b.contacts || []).map((c) => esc(c.name || c.email)).join(", ") || '<span class="pill err">no contact</span>') + "</td>" +
       '<td class="bk-c-mail">' + mailSummary(b) + "</td>" +
       '<td class="bk-c-cal">' + calPill(b) + "</td></tr>").join("");
   }
   el("bkSearch").addEventListener("input", render);
   el("bkType").addEventListener("change", render);
+  el("bkStage").addEventListener("change", render);
   el("bkScope").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-scope]"); if (!b) return;
     scope = b.dataset.scope;
@@ -269,7 +332,13 @@
   el("bkBody").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) openDetail(tr.dataset.id); });
 
   // ---- attention (Today + Jobs badge)
+  registerAttention("bookingDeliverablesOverdue", { module: "bookings", level: "warn", name: "overdue deliverables",
+    one: "A deliverable is past its due date.", many: "{n} deliverables are past their due date." });
+  const showOwed = (filter) => { scope = "owed"; el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x.dataset.scope === "owed" ? "true" : "false")); el("bkStage").value = filter || ""; load(true); };
   async function loadAttention() {
+    sb.rpc("admin_deliverables_attention").then(({ data }) => {
+      setAttention("bookingDeliverablesOverdue", num((data || {}).overdue), "deliverable(s) overdue", "bookings", "warn", () => showOwed(":overdue"));
+    }, () => {});
     try {
       const { data, error } = await sb.rpc("admin_bookings_attention");
       if (error) throw error;
@@ -342,6 +411,11 @@
         <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Create the job in GotPhoto (link above), then put its code here. Leave empty for now and email 0 waits for it.</span></span>
         <label for="aca-bkRetake" class="bk-school">Retake day</label><span class="bk-school"><input type="date" id="aca-bkRetake" value="${esc(d.retake_day || "")}" /> <span class="bk-sub">optional</span></span>
         <label for="aca-bkNotes">Notes</label><textarea id="aca-bkNotes" rows="2" placeholder="Internal notes (also on the calendar event)">${esc(d.notes || "")}</textarea>
+        ${isNew ? `<label>Deliverables</label>
+        <div><div class="bk-contacts" id="aca-bkFDlv"></div>
+          <div class="bk-dlvadd"><input type="text" id="aca-bkFDlvNew" maxlength="120" placeholder="Add one, e.g. Team composites" /><button type="button" class="small" data-v="fdlvadd">Add</button></div>
+          <label class="bk-sub" style="display:inline-flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="aca-bkFDlvSave" checked /> <span id="aca-bkFDlvSaveL">Save new ones for future jobs of this type</span></label>
+          <div class="bk-sub">What you owe the client after the job. Optional: you can add these on the booking later.</div></div>` : ""}
       </div>
       <div class="bk-preview" id="aca-bkPrev"></div>
       <div id="aca-bkFormErr" class="inline-error hidden" style="margin:10px 0 0"></div>
@@ -407,6 +481,18 @@
           (name ? "<strong>" + esc(name) + "</strong> " : "") + esc(c.email || "(no email)") + (c.role ? ' <span class="bk-sub">' + esc(c.role) + "</span>" : "") + (c.is_primary ? ' <span class="pill accent">Main</span>' : "") + (ok ? "" : ' <span class="pill muted">not emailable</span>') + "</span></label>";
       }).join("");
     }
+    // Deliverables picked while booking (new bookings only): saved ones for the type, "every job" ones pre-ticked, plus typed ones.
+    let fdType = null; const fdPicked = new Set(), fdNew = [];
+    function renderFormDlv() {
+      const box3 = el("bkFDlv"); if (!box3) return;
+      const list = typeTemplates(typeKey);
+      if (fdType !== typeKey) { fdType = typeKey; fdPicked.clear(); list.filter((x) => x.auto_add).forEach((x) => fdPicked.add(x.id)); }
+      el("bkFDlvSaveL").textContent = "Save new ones for future " + (byType(typeKey).label || "") + " jobs";
+      box3.innerHTML = list.map((x) => '<label><input type="checkbox" data-fdt="' + esc(x.id) + '"' + (fdPicked.has(x.id) ? " checked" : "") + " /><span>" + esc(x.label) +
+          (x.due_days != null ? ' <span class="bk-sub">due ' + x.due_days + " days after</span>" : "") + (x.type_key ? "" : ' <span class="bk-sub">all types</span>') + "</span></label>").join("") +
+        fdNew.map((l, i) => '<label><input type="checkbox" checked data-fdn="' + i + '" /><span>' + esc(l) + ' <span class="pill accent">new</span></span></label>').join("") ||
+        '<span class="bk-sub">No saved deliverables for this job type yet. Type one below and it is kept for next time.</span>';
+    }
     function renderPreview() {
       renderTitle();
       const pd = firstDay();
@@ -466,8 +552,10 @@
       if (e.target.name === "bkType") {
         typeKey = e.target.value;
         box.querySelectorAll(".bk-card").forEach((c) => c.classList.toggle("sel", c.querySelector("input").checked));
-        renderLabels(); renderPreview();
+        renderLabels(); renderPreview(); renderFormDlv();
       }
+      if (e.target.dataset && e.target.dataset.fdt) { if (e.target.checked) fdPicked.add(e.target.dataset.fdt); else fdPicked.delete(e.target.dataset.fdt); }
+      if (e.target.dataset && e.target.dataset.fdn) { if (!e.target.checked) { fdNew.splice(Number(e.target.dataset.fdn), 1); renderFormDlv(); } }
       if (e.target.dataset && e.target.dataset.cid) { if (e.target.checked) chosen.add(e.target.dataset.cid); else chosen.delete(e.target.dataset.cid); renderPreview(); }
     });
     box.addEventListener("click", async (e) => {
@@ -481,6 +569,12 @@
       if (v === "addday") { dayRows.push({ day: "", start_time: "", end_time: "", label: "" }); renderDays(); return; }
       if (v === "rmday") { const i = Number(b.dataset.i); if (dayRows.length > 1) { dayRows.splice(i, 1); renderDays(); renderPreview(); } return; }
       if (v === "changeorg") { org = null; contacts = []; chosen.clear(); el("bkOrgPick").innerHTML = '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'; renderContacts(); el("bkOrgQ").focus(); return; }
+      if (v === "fdlvadd") {
+        const l = el("bkFDlvNew").value.trim(); if (!l) return;
+        const hit = typeTemplates(typeKey).find((x) => x.label.trim().toLowerCase() === l.toLowerCase());
+        if (hit) fdPicked.add(hit.id); else if (!fdNew.some((x) => x.toLowerCase() === l.toLowerCase())) fdNew.push(l);
+        el("bkFDlvNew").value = ""; renderFormDlv(); el("bkFDlvNew").focus(); return;
+      }
       if (v === "showaddc") { el("bkAddC").classList.remove("hidden"); b.classList.add("hidden"); el("bkCFirst").focus(); return; }
       if (v === "addc") {
         const email = el("bkCEmail").value.trim().toLowerCase();
@@ -513,17 +607,109 @@
         try {
           const { data, error } = isNew ? await sb.rpc("booking_create", { p }) : await sb.rpc("booking_update", { p_id: d.id, p });
           if (error) throw error;
+          const typed = isNew ? el("bkFDlvNew").value.trim() : "";
+          const items = isNew ? [...fdPicked].map((id) => ({ template_id: id })).concat(fdNew.concat(typed ? [typed] : []).map((label) => ({ label, save: el("bkFDlvSave").checked }))) : [];
           box.close();
-          toast(isNew ? "Booked. Writing the calendar event…" : "Saved.");
+          let dlvErr = "";
+          if (items.length) { try { await addDeliverables(data.id, items); } catch (e3) { dlvErr = cleanErr(e3); } }
+          toast(dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event…" : "Saved.", !!dlvErr);
           await load(true);
           openDetail(isNew ? data.id : d.id, true);
         } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
       }
     });
-    renderLabels(); renderDays();
+    renderLabels(); renderDays(); renderFormDlv();
     if (!isNew) { renderContacts(); renderPreview(); } else { renderPreview(); setTimeout(() => { const q = el("bkOrgQ"); if (q) q.focus(); }, 50); }
   }
   el("bkNew").addEventListener("click", () => openForm(null));
+
+  // ---- Stages & deliverables per job type (2026-10-21). Edits go straight to booking_stages / deliverable_templates
+  // (bookings edit). Removing archives: past bookings keep their history and their copies of deliverables.
+  async function openJobTypes() {
+    try { await ensureMeta(); await loadTracking(); } catch (e) { toast(cleanErr(e), true); return; }
+    const can = canEdit("bookings");
+    let tk = (types[0] || {}).key || "";
+    let st = [], tp = [];  // working copies for the chosen type: { id?, label, sort, auto?, due_days?, auto_add?, gone? }
+    const box = dialog(`<div class="bk-fhead"><h2>Stages &amp; deliverables</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">✕</button></div>
+      <div class="bk-sub" style="margin-bottom:10px">Each job type has its own stages and its own saved deliverables. Changes apply from now on: past bookings keep their history and their own copies.</div>
+      <div class="bk-chips" id="aca-bkJtTypes" role="group">${types.map((t) => '<button type="button" class="small" data-jt="' + esc(t.key) + '">' + esc(t.label) + "</button>").join("")}<button type="button" class="small" data-jt="">All job types</button></div>
+      <div class="bk-jt" id="aca-bkJtBody"></div>
+      <div id="aca-bkJtErr" class="inline-error hidden" style="margin:10px 0 0"></div>
+      <div class="og-actions bk-factions" style="margin-top:12px">${can ? '<button type="button" class="primary" data-v="save">Save</button>' : ""}<button type="button" data-v="close">${can ? "Cancel" : "Close"}</button></div>`, true);
+    box.classList.add("bk-form");
+    const dis = can ? "" : " disabled";
+    let dirty = false;
+    box.addEventListener("input", () => { dirty = true; });
+    function pick(k) {
+      tk = k; dirty = false;
+      st = tk ? typeStages(tk).map((x) => ({ ...x })) : [];
+      tp = templates.filter((x) => !x.archived_at && (x.type_key || "") === tk).sort((a, b) => a.sort - b.sort).map((x) => ({ ...x }));
+      el("bkJtTypes").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.jt === tk ? "true" : "false"));
+      draw();
+    }
+    const live = (list) => list.filter((x) => !x.gone);
+    function read() {
+      box.querySelectorAll("[data-st]").forEach((r) => { const x = live(st)[Number(r.dataset.st)]; x.label = r.querySelector("input[type=text]").value; });
+      box.querySelectorAll("[data-tp]").forEach((r) => { const x = live(tp)[Number(r.dataset.tp)]; x.label = r.querySelector("input[type=text]").value;
+        const n = r.querySelector("input[type=number]").value; x.due_days = n === "" ? null : Number(n); x.auto_add = r.querySelector("input[type=checkbox]").checked; });
+    }
+    function draw() {
+      const tl = (byType(tk).label || "every job type");
+      el("bkJtBody").innerHTML = (tk ? "<h3>Stages</h3>" + '<div class="bk-sub">In order. A job moves through these on its booking. Ones marked automatic tick themselves.</div><div class="bk-jt-rows">' +
+          live(st).map((x, i, a) => '<div class="bk-jt-row" data-st="' + i + '"><span class="bk-sub" style="width:18px">' + (i + 1) + '.</span><input type="text" maxlength="60" value="' + esc(x.label) + '"' + dis + " />" +
+            (x.auto ? '<span class="pill muted" title="' + esc(STAGE_AUTO[x.auto]) + '">automatic</span>' : "") +
+            (can ? '<button type="button" class="small quiet" data-v="up" data-l="st" data-i="' + i + '"' + (i ? "" : " disabled") + ' aria-label="Move up">&uarr;</button><button type="button" class="small quiet" data-v="down" data-l="st" data-i="' + i + '"' + (i < a.length - 1 ? "" : " disabled") + ' aria-label="Move down">&darr;</button>' +
+              '<button type="button" class="small quiet" data-v="rm" data-l="st" data-i="' + i + '" aria-label="Remove">&times;</button>' : "") + "</div>").join("") + "</div>" +
+          (can ? '<button type="button" class="link" data-v="add" data-l="st">+ Add a stage</button>' : "") : "") +
+        "<h3>Saved deliverables" + (tk ? "" : " for every job type") + "</h3>" + '<div class="bk-sub">Offered when booking a ' + esc(tl) + ' job. Due = days after the last picture day. "Every job" ones come pre-ticked.</div><div class="bk-jt-rows">' +
+          (live(tp).map((x, i, a) => '<div class="bk-jt-row" data-tp="' + i + '"><input type="text" maxlength="120" value="' + esc(x.label) + '"' + dis + ' />' +
+            '<span class="bk-sub">due</span><input type="number" min="0" max="365" value="' + (x.due_days == null ? "" : esc(x.due_days)) + '" placeholder="days"' + dis + ' aria-label="Due days after picture day" />' +
+            '<label class="bk-sub" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox"' + (x.auto_add ? " checked" : "") + dis + " /> every job</label>" +
+            (can ? '<button type="button" class="small quiet" data-v="up" data-l="tp" data-i="' + i + '"' + (i ? "" : " disabled") + ' aria-label="Move up">&uarr;</button><button type="button" class="small quiet" data-v="down" data-l="tp" data-i="' + i + '"' + (i < a.length - 1 ? "" : " disabled") + ' aria-label="Move down">&darr;</button>' +
+              '<button type="button" class="small quiet" data-v="rm" data-l="tp" data-i="' + i + '" aria-label="Remove">&times;</button>' : "") + "</div>").join("") || '<div class="bk-sub">None saved yet. Add one here, or type one on a booking and keep "Save it for future jobs" ticked.</div>') + "</div>" +
+        (can ? '<button type="button" class="link" data-v="add" data-l="tp">+ Add a deliverable</button>' : "");
+    }
+    async function save() {
+      read();
+      const bad = live(st).concat(live(tp)).find((x) => !String(x.label || "").trim());
+      if (bad) throw new Error("Every stage and deliverable needs a name (or remove the empty one).");
+      if (tk && !live(st).length) throw new Error("Keep at least one stage.");
+      const now = new Date().toISOString(), w = [];
+      st.forEach((x, i) => { const sort = (live(st).indexOf(x) + 1) * 10;
+        if (x.gone) { if (x.id) w.push(sb.from("booking_stages").update({ archived_at: now }).eq("id", x.id)); }
+        else if (x.id) w.push(sb.from("booking_stages").update({ label: x.label.trim(), sort }).eq("id", x.id));
+        else w.push(sb.from("booking_stages").insert({ type_key: tk, label: x.label.trim(), sort })); });
+      // archive first so a re-added name doesn't collide with the one being removed
+      for (const x of tp.filter((y) => y.gone && y.id)) { const { error } = await sb.from("deliverable_templates").update({ archived_at: now }).eq("id", x.id); if (error) throw error; }
+      live(tp).forEach((x, i) => { const row = { label: x.label.trim(), due_days: x.due_days, auto_add: !!x.auto_add, sort: (i + 1) * 10 };
+        w.push(x.id ? sb.from("deliverable_templates").update(row).eq("id", x.id) : sb.from("deliverable_templates").insert(Object.assign(row, { type_key: tk || null }))); });
+      const res = await Promise.all(w), err = res.find((r) => r && r.error);
+      if (err) throw err.error;
+    }
+    box.addEventListener("click", async (e) => {
+      const jt = e.target.closest("button[data-jt]");
+      if (jt) { if (jt.dataset.jt === tk || (dirty && !confirm("Discard the changes you made to " + (byType(tk).label || "every job type") + "?"))) return; return pick(jt.dataset.jt); }
+      const b = e.target.closest("button[data-v]"); if (!b) return;
+      const v = b.dataset.v;
+      if (v === "close") { if (dirty && can && !confirm("Close without saving your changes?")) return; return box.close(); }
+      if (v === "save") {
+        clearError("bkJtErr"); b.disabled = true;
+        try { await save(); await loadTracking(); toast("Saved."); pick(tk); render(); if (openId) refreshDetail(); }
+        catch (e2) { showError("bkJtErr", /duplicate key|unique/i.test(cleanErr(e2)) ? "Two saved deliverables have the same name." : cleanErr(e2)); }
+        b.disabled = false; return;
+      }
+      read();
+      const list = b.dataset.l === "st" ? st : tp, l = live(list), i = Number(b.dataset.i);
+      if (v === "add") list.push(b.dataset.l === "st" ? { label: "" } : { label: "", due_days: null, auto_add: false });
+      if (v === "rm") { const x = l[i]; if (x.id) x.gone = true; else list.splice(list.indexOf(x), 1); }
+      dirty = true;
+      if (v === "up" || v === "down") { const j = v === "up" ? i - 1 : i + 1; const a = list.indexOf(l[i]), c = list.indexOf(l[j]); [list[a], list[c]] = [list[c], list[a]]; }
+      draw();
+      if (v === "add") { const rows = box.querySelectorAll("[data-" + b.dataset.l + "] input[type=text]"); if (rows.length) rows[rows.length - 1].focus(); }
+    });
+    pick(tk);
+  }
+  el("bkJobTypes").addEventListener("click", openJobTypes);
 
   // ---- detail panel
   let detail = null;
@@ -550,8 +736,10 @@
     el("bkPanel").classList.add("hidden");
     if (/^#jobs\/bookings\//.test(location.hash)) history.replaceState(null, "", "#jobs/bookings");
   }
+  let tracking = null;
   async function refreshDetail() {
-    const { data, error } = await sb.rpc("admin_booking_detail", { p_id: openId });
+    const [{ data, error }, tr] = await Promise.all([sb.rpc("admin_booking_detail", { p_id: openId }), sb.rpc("admin_booking_tracking", { p_id: openId })]);
+    tracking = tr.error ? null : tr.data;
     if (error || !data) { el("bkPanel").innerHTML = '<div class="inline-error" style="margin:16px">' + esc(error ? cleanErr(error) : "Booking not found.") + '</div><div style="padding:0 16px"><button type="button" data-v="close">Close</button></div>'; return; }
     detail = data; renderDetail();
   }
@@ -578,6 +766,8 @@
           <div class="bk-sub"><a href="#partners/orgs/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " · " + esc(b.location) : ""}</div></div>
         <button type="button" data-v="close" aria-label="Close">✕</button>
       </div>
+      ${stageBlock(b)}
+      ${dlvBlock(b)}
       <div class="bk-sec"><h3>Calendar</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${calPill(b)}${calBtns.join("")}</div>
         ${b.calendar_error ? '<div class="bk-sub" style="margin-top:6px;color:var(--err-fg)">' + esc(b.calendar_error) + "</div>" : ""}
@@ -603,6 +793,83 @@
       </div>
       ${b.notes ? '<div class="bk-sec"><h3>Notes</h3><div style="white-space:pre-line;font-size:13px">' + esc(b.notes) + "</div></div>" : ""}
       <div class="bk-sec og-actions">${live ? '<button type="button" class="primary" data-v="edit">Edit booking</button><button type="button" data-v="cancel" style="margin-left:auto">Cancel booking</button>' : ""}</div>`;
+  }
+  // Stage (2026-10-21): the job type's stages as a row of steps; click one to move the job there.
+  function stageBlock(b) {
+    const t = tracking; if (!t) return "";
+    const can = canEdit("bookings") && b.status !== "cancelled";
+    const list = (t.stages || []).filter((s) => !s.archived || s.id === t.stage_id);
+    const cur = list.find((s) => s.id === t.stage_id), curSort = cur ? cur.sort : -Infinity;
+    const next = list.find((s) => !s.archived && s.sort > curSort);
+    const ev = t.events || [];
+    return '<div class="bk-sec"><h3>Stage' + (cur ? ' <span class="bk-sub">' + esc(cur.label) + (t.stage_at ? " since " + esc(fmtDay(new Date(t.stage_at).toLocaleDateString("en-CA", { timeZone: TZ }))) : "") + "</span>" : "") + "</h3>" +
+      (b.status === "cancelled" ? '<div class="bk-sub">Cancelled bookings are not tracked.</div>' : "") +
+      '<ol class="bk-stages">' + list.map((s) => '<li class="' + (s.id === t.stage_id ? "cur" : s.sort < curSort ? "done" : "") + '"><button type="button" data-v="stage" data-stage="' + esc(s.id) + '"' +
+        (STAGE_AUTO[s.auto] ? ' title="' + esc(STAGE_AUTO[s.auto]) + '"' : "") + (can && s.id !== t.stage_id ? "" : " disabled") + ">" + esc(s.label) + "</button></li>").join("") + "</ol>" +
+      (can && next ? '<button type="button" class="small primary" data-v="stage" data-stage="' + esc(next.id) + '" data-next="1">Move to ' + esc(next.label) + "</button>" : "") +
+      (ev.length ? '<details class="bk-hist"><summary>History (' + ev.length + ")</summary><ul>" + ev.map((e) => "<li><strong>" + esc(e.label) + "</strong> " + esc(fmtWhen(e.at)) +
+        " &middot; " + (e.auto ? "automatic" : esc(e.by || "someone")) + (e.note ? ' <span class="bk-sub">' + esc(e.note) + "</span>" : "") + "</li>").join("") + "</ul></details>" : "") + "</div>";
+  }
+  // Deliverables (2026-10-21): what is owed to the client, ticked off as it goes out.
+  const dueBits = (d) => {
+    if (d.status !== "todo") return d.done_at ? '<span class="bk-sub">' + (d.status === "skipped" ? "skipped " : "delivered ") + esc(fmtWhen(d.done_at)) + (d.done_by_name ? " by " + esc(d.done_by_name) : "") + "</span>" : "";
+    if (!d.due_date) return "";
+    return d.due_date < todayStr() ? '<span class="pill err">overdue, was due ' + esc(fmtDay(d.due_date)) + "</span>" : '<span class="bk-sub">due ' + esc(fmtDay(d.due_date)) + "</span>";
+  };
+  function dlvBlock(b) {
+    const t = tracking; if (!t) return "";
+    const can = canEdit("bookings") && b.status !== "cancelled";
+    const ds = t.deliverables || [], closed = ds.filter((d) => d.status !== "todo").length;
+    const have = new Set(ds.map((d) => d.template_id).filter(Boolean)), haveL = new Set(ds.map((d) => d.label.trim().toLowerCase()));
+    const picks = (t.templates || []).filter((x) => !have.has(x.id) && !haveL.has(x.label.trim().toLowerCase()));
+    return '<div class="bk-sec"><h3>Deliverables' + (ds.length ? ' <span class="bk-sub">' + closed + " of " + ds.length + " delivered</span>" : "") + "</h3>" +
+      (ds.length ? '<ul class="bk-dlv">' + ds.map((d) => '<li class="' + (d.status !== "todo" ? "closed" : "") + '"><input type="checkbox" data-dlv="' + esc(d.id) + '" aria-label="Delivered: ' + esc(d.label) + '"' +
+          (d.status !== "todo" ? " checked" : "") + (can ? "" : " disabled") + " /><div><strong>" + esc(d.label) + "</strong> " + (d.status === "skipped" ? '<span class="pill muted">Skipped</span> ' : "") + dueBits(d) +
+          (d.link ? ' &middot; <a href="' + esc(d.link) + '" target="_blank" rel="noopener">link</a>' : "") + (d.note ? '<div class="bk-sub">' + esc(d.note) + "</div>" : "") + "</div>" +
+          (can ? '<button type="button" class="link" data-v="dlvedit" data-dlv="' + esc(d.id) + '">edit</button>' : "") + "</li>").join("") + "</ul>"
+        : '<div class="bk-sub">Nothing to deliver yet.' + (can ? " Add what you owe " + esc(b.org_name) + " after the job." : "") + "</div>") +
+      (can ? (picks.length ? '<div class="bk-dlvadd"><select id="aca-bkDlvPick" class="small" aria-label="Saved deliverable"><option value="">Pick a saved deliverable&#8230;</option>' +
+          picks.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.label) + (x.due_days != null ? " (due " + x.due_days + " days after)" : "") + (x.type_key ? "" : " &middot; all types") + "</option>").join("") +
+          '</select><button type="button" class="small" data-v="dlvpick">Add</button></div>' : "") +
+        '<div class="bk-dlvadd"><input type="text" id="aca-bkDlvNew" maxlength="120" placeholder="' + (picks.length ? "Or type a new one" : "Type a deliverable, e.g. Team composites") + '" />' +
+        '<input type="date" id="aca-bkDlvDue" class="small" aria-label="Due date (optional)" title="Due date (optional)" /><button type="button" class="small" data-v="dlvnew">Add</button></div>' +
+        '<label class="bk-sub" style="display:inline-flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="aca-bkDlvSave" checked /> Save it for future ' + esc(b.type_label) + " jobs</label>" : "") + "</div>";
+  }
+  // Edit one deliverable: name, due date, link, note, or mark it skipped.
+  function openDlvEdit(d) {
+    const box = dialog(`<h2 style="margin:0 0 12px">Edit deliverable</h2>
+      <div class="og-grid">
+        <label for="aca-bkDeLabel">Name</label><input type="text" id="aca-bkDeLabel" maxlength="120" value="${esc(d.label)}" />
+        <label for="aca-bkDeDue">Due</label><input type="date" id="aca-bkDeDue" value="${esc(d.due_date || "")}" />
+        <label for="aca-bkDeStatus">Status</label><select id="aca-bkDeStatus"><option value="todo">To do</option><option value="done">Delivered</option><option value="skipped">Skipped (not needed)</option></select>
+        <label for="aca-bkDeLink">Link</label><input type="text" id="aca-bkDeLink" value="${esc(d.link || "")}" placeholder="Where it went, e.g. the Dropbox folder" />
+        <label for="aca-bkDeNote">Note</label><textarea id="aca-bkDeNote" rows="2">${esc(d.note || "")}</textarea>
+      </div>
+      <div id="aca-bkDeErr" class="inline-error hidden" style="margin:10px 0 0"></div>
+      <div class="og-actions" style="margin-top:12px"><button type="button" class="primary" data-v="save">Save</button><button type="button" data-v="close">Cancel</button><button type="button" data-v="remove" style="margin-left:auto">Remove</button></div>`);
+    el("bkDeStatus").value = d.status;
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("button[data-v]"); if (!b) return;
+      if (b.dataset.v === "close") return box.close();
+      try {
+        b.disabled = true;
+        if (b.dataset.v === "remove") {
+          if (!confirm("Remove " + d.label + " from this booking?")) { b.disabled = false; return; }
+          const { error } = await sb.rpc("booking_deliverable_remove", { p_id: d.id }); if (error) throw error;
+        } else {
+          const { data, error } = await sb.rpc("booking_deliverable_update", { p_id: d.id, p: { label: el("bkDeLabel").value.trim(), due_date: el("bkDeDue").value || "",
+            status: el("bkDeStatus").value, link: el("bkDeLink").value.trim(), note: el("bkDeNote").value.trim() } });
+          if (error) throw error; if (!data.ok) throw new Error(data.error);
+        }
+        box.close(); await refreshDetail(); load(true); loadAttention();
+      } catch (e2) { b.disabled = false; el("bkDeErr").textContent = cleanErr(e2); el("bkDeErr").classList.remove("hidden"); }
+    });
+  }
+  async function addDeliverables(id, items) {
+    const { data, error } = await sb.rpc("booking_deliverables_add", { p_booking: id, p_items: items });
+    if (error) throw error; if (!data.ok) throw new Error(data.error);
+    if (items.some((x) => x.save)) await loadTracking();
+    return data.added;
   }
   // Coaches (sports, 2026-10-17): captured from the AD's Reply All by booking-sender every 15 minutes, or pasted here.
   // Coach steps (kind "coach") go to this list, in their own Gmail thread, with no SMS and no consent forms.
@@ -634,6 +901,13 @@
     if (error) return toast(cleanErr(error), true);
     toast(on ? "Shown on the hub." : "Hidden from the hub."); openDetail(detail.id);
   });
+  el("bkPanel").addEventListener("change", async (e) => {
+    const cb = e.target.closest("input[data-dlv]"); if (!cb || !detail) return;
+    cb.disabled = true;
+    const { data, error } = await sb.rpc("booking_deliverable_update", { p_id: cb.dataset.dlv, p: { status: cb.checked ? "done" : "todo" } });
+    if (error || !data.ok) { cb.disabled = false; cb.checked = !cb.checked; return toast(error ? cleanErr(error) : data.error, true); }
+    await refreshDetail(); load(true); loadAttention();
+  });
   el("bkPanel").addEventListener("click", async (e) => {
     const b = e.target.closest("button[data-v]"); if (!b) return;
     const v = b.dataset.v, em = b.dataset.em;
@@ -651,6 +925,23 @@
         toast("Hub row updated."); await openDetail(detail.id); return;
       }
       if (v === "edit") return openForm(detail);
+      if (v === "stage") {
+        const s = ((tracking || {}).stages || []).find((x) => x.id === b.dataset.stage); if (!s) return;
+        if (!b.dataset.next && !confirm("Move this job to " + s.label + "?")) return;
+        b.disabled = true; const { data, error } = await sb.rpc("booking_set_stage", { p_booking: detail.id, p_stage: s.id }); if (error) throw error; if (!data.ok) throw new Error(data.error);
+        toast("Moved to " + s.label + "."); await refreshDetail(); load(true); return;
+      }
+      if (v === "dlvedit") { const d = ((tracking || {}).deliverables || []).find((x) => x.id === b.dataset.dlv); if (d) openDlvEdit(d); return; }
+      if (v === "dlvpick") {
+        const id = el("bkDlvPick").value; if (!id) return toast("Pick a saved deliverable first.", true);
+        b.disabled = true; await addDeliverables(detail.id, [{ template_id: id }]); await refreshDetail(); load(true); loadAttention(); return;
+      }
+      if (v === "dlvnew") {
+        const label = el("bkDlvNew").value.trim(); if (!label) return toast("Type the deliverable first.", true);
+        b.disabled = true; const n = await addDeliverables(detail.id, [{ label, due_date: el("bkDlvDue").value || "", save: el("bkDlvSave").checked }]);
+        if (!n) toast("That one is already on this booking.", true);
+        await refreshDetail(); load(true); loadAttention(); return;
+      }
       if (v === "coachadd") {
         const text = (el("bkCoachText").value || "").trim(); if (!text) return toast("Paste at least one email first.", true);
         b.disabled = true; const { data, error } = await sb.rpc("booking_coaches_add", { p_booking: detail.id, p_text: text, p_source: "manual" }); if (error) throw error;
