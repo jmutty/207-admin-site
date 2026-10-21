@@ -12,7 +12,8 @@ docs/ADDING-A-MODULE.md            how to add a new area (scheduling, time clock
 
 ## How it fits together
 
-- **Hosting.** Cloudflare Pages serves `index.html`. It loads supabase-js and then `loader.js`, which
+- **Hosting.** Cloudflare Pages project `207-admin` (direct upload, not connected to GitHub) serves `index.html`. When re-uploading it, upload only the loader files (`index.html`, `loader.js`, `404.html`, `robots.txt`), not the whole repo.
+  `index.html` loads supabase-js and then `loader.js`, which
   pulls the current app bundle from Supabase Storage (`admin-app/207-admin.js`). Deploying the app
   never needs a change here.
 - **Security.** The browser holds only the public anon key. All data access goes through Postgres
