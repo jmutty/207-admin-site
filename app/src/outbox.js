@@ -105,11 +105,15 @@
       const going = all.filter((r) => r.status === "scheduled" && dayOf(r.at) === today);
       const bySrc = {}; going.forEach((r) => { bySrc[r.src] = (bySrc[r.src] || 0) + 1; });
       const parts = Object.keys(bySrc).map((k) => bySrc[k] + " " + ({ outreach: "outreach", booking: "booking", makeup: "makeup", hub: "hub reminder", digest: "digest" }[k] || k) + (bySrc[k] === 1 ? "" : "s").replace(/ss$/, "s"));
-      const waitingB = all.filter((r) => r.src === "booking" && r.status === "waiting").length;
+      // Booking emails wait on something (coach emails, the gallery going live), not on the sending switch.
+      const waitingRows = all.filter((r) => r.src === "booking" && r.status === "waiting");
+      const waitingB = waitingRows.length;
+      const byWhy = {}; waitingRows.forEach((r) => { const k = r.error || "something else first"; byWhy[k] = (byWhy[k] || 0) + 1; });
+      const whyText = Object.keys(byWhy).map((k) => byWhy[k] + " " + k).join(", ");
       const needs = all.filter((r) => ["needs_review", "ready", "failed"].includes(r.status)).length;
       const out = el("todayOut");
       if (out) out.innerHTML = (going.length ? "Going out today: " + esc(parts.join(", ")) + "." : "Nothing is scheduled to go out today.") +
-        (waitingB ? " " + waitingB + (waitingB === 1 ? " booking email is" : " booking emails are") + " waiting because booking emails are <b>switched off</b>." : "") +
+        (waitingB ? " " + waitingB + (waitingB === 1 ? " booking email is" : " booking emails are") + " on hold until they're ready (" + esc(whyText) + ")." : "") +
         (needs ? " " + needs + (needs === 1 ? " email needs you." : " emails need you.") : "") + ' <a href="#partners/outbox">Open the outbox</a>';
     } catch (_e) { const out = el("todayOut"); if (out) out.textContent = "Could not load the outbox."; }
     renderDigestNote();

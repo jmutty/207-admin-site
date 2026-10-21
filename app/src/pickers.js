@@ -189,7 +189,7 @@
       let html = "";
       for (let m = from; m < 24 * 60; m += 15) html += '<button type="button" tabindex="-1" data-t="' + toHhmm(m) + '"' + (m === sel ? ' class="dp-sel"' : "") + ">" + fmtTime(toHhmm(m)) + (s != null ? "<span>" + fmtLen(m - s) + "</span>" : "") + "</button>";
       box.innerHTML = html || '<div class="empty" style="padding:8px">No later times today.</div>';
-      box.addEventListener("click", (e) => { const b = e.target.closest("button[data-t]"); if (b) { commit(inp, b.dataset.t); closePop(); f.select(); } });
+      box.addEventListener("click", (e) => { const b = e.target.closest("button[data-t]"); if (b) { commit(inp, b.dataset.t); f.value = fmtTime(raw(inp)); closePop(); f.select(); } }); // the box has focus, so sync() left its text alone
       place();
       hilite(inp, sel != null ? sel : s != null ? s + 120 : 8 * 60, true);
     }
