@@ -179,9 +179,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('.bk-form button[data-v="addday"]');
     check(await page.$eval("#aca-bkDays .bk-d-start", (n) => n.value) === "10:00", "adding a day keeps the first day's times");
     await page.click('.bk-form button[data-v="rmday"][data-i="1"]');
-    await page.waitForSelector("#aca-bkCrew .bk-crew");
+    await page.waitForSelector("#aca-bkCrew .bk-crew", { state: "attached" });
     check((await page.$$("#aca-bkCrew .bk-crew")).length === 3, "Who's shooting lists the team");
+    await page.click("#aca-bkCrewSum");
     await page.check("#aca-bkCrew .bk-crew >> nth=1");
+    check((await page.textContent("#aca-bkCrewSum")) === "Sam Helper", "the dropdown shows who's picked");
+    await page.click("#aca-bkLoc");
+    check(!(await page.$eval("#aca-bkCrewDd", (n) => n.open)), "the dropdown closes when you click elsewhere");
     await page.click('.bk-form button[data-v="save"]');
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_create"));
     await page.waitForSelector("#aca-bkPanel .bk-stages");

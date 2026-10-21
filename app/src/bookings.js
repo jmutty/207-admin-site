@@ -44,6 +44,12 @@
   .aca .bk-contacts label { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 13px; }
   .aca .bk-contacts label.off { color: var(--muted); }
   .aca .bk-contacts input[type=checkbox] { margin-top: 3px; }
+  .aca .bk-crew-dd { position: relative; display: inline-block; min-width: 240px; }
+  .aca .bk-crew-dd summary { list-style: none; cursor: pointer; border: 1px solid var(--border); border-radius: 8px; padding: 7px 30px 7px 10px; background: var(--surface); font-size: 14px; position: relative; }
+  .aca .bk-crew-dd summary::-webkit-details-marker { display: none; }
+  .aca .bk-crew-dd summary::after { content: "\\25BE"; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .aca .bk-crew-dd summary.none { color: var(--muted); }
+  .aca .bk-crew-dd > .bk-contacts { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; box-shadow: 0 6px 20px rgba(0,0,0,.12); max-height: 240px; overflow: auto; }
   .aca .bk-addc { display: grid; grid-template-columns: 1fr 1fr 1.4fr 1fr auto; gap: 6px; margin-top: 6px; }
   .aca .bk-addc input { width: 100%; }
   .aca .bk-preview { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-top: 12px; }
@@ -428,7 +434,7 @@
           <div id="aca-bkGp"></div></div>
         <label for="aca-bkLoc">Location</label><input type="text" id="aca-bkLoc" value="${esc(d.location || "")}" placeholder="Where we set up (goes on the calendar event)" />
         ${isNew && canEdit("scheduling") ? `<label>Who's shooting</label>
-        <div><div class="bk-contacts" id="aca-bkCrew"><span class="bk-sub">Loading the team&#8230;</span></div>
+        <div><details class="bk-crew-dd" id="aca-bkCrewDd"><summary id="aca-bkCrewSum">Nobody yet</summary><div class="bk-contacts" id="aca-bkCrew"><span class="bk-sub">Loading the team&#8230;</span></div></details>
           <div class="bk-sub">Optional. They go on the Schedule for each day with a time (with drive time when it can be looked up).</div></div>` : ""}
         <label>Who gets the emails</label>
         <div><div class="bk-contacts" id="aca-bkContacts"><span class="bk-sub">Pick an organization first.</span></div>
@@ -653,9 +659,16 @@
         } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
       }
     });
+    box.addEventListener("click", (e) => { const dd = el("bkCrewDd"); if (dd && dd.open && !dd.contains(e.target)) dd.open = false; });
     renderLabels(); renderDays(); renderFormDlv();
     if (el("bkCrew")) Schedule.team().then((ppl) => {
       el("bkCrew").innerHTML = ppl.length ? ppl.map((x) => '<label class="bk-contact"><input type="checkbox" class="bk-crew" value="' + esc(x.user_id) + '" /> ' + esc(x.name) + "</label>").join("") : '<span class="bk-sub">Nobody on the team yet.</span>';
+      const sync = () => {
+        const names = [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.parentNode.textContent.trim());
+        el("bkCrewSum").textContent = names.length ? names.join(", ") : "Nobody yet";
+        el("bkCrewSum").classList.toggle("none", !names.length);
+      };
+      el("bkCrew").addEventListener("change", sync); sync();
     }).catch(() => { el("bkCrew").innerHTML = '<span class="bk-sub">Could not load the team. Add people on the Schedule after booking.</span>'; });
     if (!isNew) { renderContacts(); renderPreview(); } else { renderPreview(); setTimeout(() => { const q = el("bkOrgQ"); if (q) q.focus(); }, 50); }
   }
