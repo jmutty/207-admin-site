@@ -76,6 +76,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(200);
     const save = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "team_save").pop());
     check(save && save[1].p_permissions.parents === "edit" && save[1].p_permissions.bookings === "edit" && save[1].p_is_admin === false, "edit saves through team_save");
+    // Remove: only offered for deactivated people
+    await page.click('[data-edit="u2"]');
+    check(!(await page.$("#aca-tmRemove")), "no Remove button for an active person");
+    await page.click("#aca-tmCancel");
+    await page.click('[data-edit="u3"]');
+    await page.click("#aca-tmRemove");
+    await page.waitForTimeout(200);
+    const rm = await page.evaluate(() => window.__teamCalls.pop());
+    check(rm.action === "remove" && rm.user_id === "u3", "Remove sends the remove action");
     // Cmd-K finds Team
     await page.keyboard.press("Control+k");
     await page.fill("#aca-gsInput", "team");

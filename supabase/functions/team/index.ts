@@ -9,6 +9,7 @@
 //   {action:"create", email, name, is_admin, permissions}  -> new login with a temporary password
 //   {action:"reset_password", user_id}                       -> new temporary password
 //   {action:"set_active", user_id, active}                   -> deactivate / reactivate (bans the login)
+//   {action:"remove", user_id}                               -> take a deactivated person off the team, delete the login
 // Temporary passwords are returned once and never stored; the person is asked to change it at sign-in.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -117,6 +118,13 @@ Deno.serve(async (req) => {
       const active = body.active === true;
       await asCaller(jwt, "team_set_active", { p_user_id: userId, p_active: active });
       await authAdmin("PUT", `users/${userId}`, { ban_duration: active ? "none" : "876000h" });
+      return json({ ok: true });
+    }
+
+    if (body.action === "remove") {
+      await asCaller(jwt, "team_remove", { p_user_id: userId }); // checks they're deactivated, logs it
+      // Already off the team and their login is banned, so a failed delete leaves nothing usable behind.
+      await authAdmin("DELETE", `users/${userId}`).catch((e) => console.error("team/remove auth delete:", e));
       return json({ ok: true });
     }
 
