@@ -176,6 +176,12 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.fill("#aca-bkDays .bk-dayrow .dp-time >> nth=0", "10");
     await page.keyboard.press("Enter");
     check(await page.$eval("#aca-bkDays .bk-d-end", (n) => n.value) === "13:30", "moving the start keeps the length");
+    await page.click("#aca-bkDays .bk-dayrow .dp-time >> nth=0");
+    await page.click('.dp-list button[data-t="10:15"]');
+    await page.keyboard.press("Tab");
+    check(await page.$eval("#aca-bkDays .bk-d-start", (n) => n.value) === "10:15" && await page.$eval("#aca-bkDays .dp-time", (n) => n.value) === "10:15 AM", "a start picked from the list sticks after leaving the box");
+    await page.fill("#aca-bkDays .bk-dayrow .dp-time >> nth=0", "10");
+    await page.keyboard.press("Enter");
     await page.click('.bk-form button[data-v="addday"]');
     check(await page.$eval("#aca-bkDays .bk-d-start", (n) => n.value) === "10:00", "adding a day keeps the first day's times");
     await page.click('.bk-form button[data-v="rmday"][data-i="1"]');
