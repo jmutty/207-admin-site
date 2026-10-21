@@ -788,7 +788,7 @@
           <div class="bk-sub">${daysLine(b)} · ${esc(b.type_label)}${b.status !== "booked" ? ' · <span class="pill muted">' + esc(tracked ? "tracking only" : b.status) + "</span>" : ""}</div>
           ${b.time_set === false && live ? '<div class="bk-sub" style="margin-top:6px"><span class="pill warn">time not set</span> Emails that mention the time are waiting. <button type="button" class="small" data-v="edit">Set the times</button></div>' : ""}
           <div class="bk-sub"><a href="#partners/orgs/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " · " + esc(b.location) : ""}</div></div>
-        <button type="button" data-v="close" aria-label="Close">✕</button>
+        <div style="display:flex;gap:6px;flex:0 0 auto">${live ? '<button type="button" class="small" data-v="edit">Edit</button>' : ""}<button type="button" data-v="close" aria-label="Close">✕</button></div>
       </div>
       ${stageBlock(b)}
       ${dlvBlock(b)}
