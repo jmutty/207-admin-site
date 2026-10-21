@@ -82,6 +82,19 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(250);
     check((await page.textContent("#aca-gsList")).includes("Team"), "Cmd-K lists the Team page");
     await page.keyboard.press("Escape");
+    // Notifications (account menu)
+    await page.click("#aca-whoBtn");
+    await page.click("#aca-notifBtn");
+    await page.waitForSelector("[data-topic]");
+    check((await page.$$("[data-topic]")).length === 3, "Notifications lists the kinds this person can get");
+    // Headless Chromium reports notifications as blocked; a real browser offers "Turn on".
+    check(await page.isVisible("#aca-pnOn") || (await page.textContent("#aca-pnBody")).includes("blocked"), "shows this device's notification state");
+    check((await page.textContent("#aca-pnBody")).includes("iPhone"), "lists their other devices");
+    await page.uncheck('[data-topic="help_request"]');
+    await page.waitForTimeout(150);
+    const pref = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "push_set_pref").pop());
+    check(pref && pref[1].p_topic === "help_request" && pref[1].p_enabled === false, "switching a kind off saves it");
+    await page.click("#aca-pnDone");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
