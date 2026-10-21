@@ -187,6 +187,17 @@ begin
   end loop;
 end $$;
 
--- prospect_sequence_rank is called by the Organizations page and had no check of its own (it was only
--- ever reachable by the owner). It is a pure ranking helper, but keep it to people with partners access.
--- (Patched below once the shadow-DB review confirms its shape; see the test notes in supabase/README.md.)
+-- ---------------------------------------------------------------- helpers that had no check of their own
+-- These were only reachable by the owner (the only signed-in account). None is called by the app or by any
+-- SECURITY INVOKER code, only from inside SECURITY DEFINER functions (which run as their owner), so
+-- signed-in people no longer need to call them directly.
+revoke execute on function public.prospect_org_refresh(uuid), public.prospect_pick_peer(uuid), public.prospect_pick_quote(uuid, uuid),
+  public.prospect_followup_date(uuid), public.booking_schedule_words(uuid) from authenticated;
+-- The Organizations page calls prospect_sequence_rank directly: limit it to people with partners access.
+do $$
+declare v_def text := pg_get_functiondef('public.prospect_sequence_rank(uuid)'::regprocedure); v_n int;
+begin
+  select count(*) into v_n from regexp_matches(v_def, 'from prospect_orgs where id = p_org\)', 'g');
+  if v_n <> 1 then raise exception 'prospect_sequence_rank: expected 1 match, found %', v_n; end if;
+  execute regexp_replace(v_def, 'from prospect_orgs where id = p_org\)', 'from prospect_orgs where id = p_org and public.can_any(''{partners}'', ''view''))');
+end $$;

@@ -1,8 +1,10 @@
 -- Access tests for the 2026-10-21 team migrations. Run against a NON-production copy of the schema
 -- (it inserts fake users and rows) after both migrations, inside a transaction that is rolled back:
---   psql -d shadow -v ON_ERROR_STOP=1 -1 -f supabase/tests/team_access_test.sql
+--   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/team_access_test.sql
 -- Each check RAISEs on failure; "ALL ACCESS TESTS PASSED" at the end means every check held.
 -- Needs the Supabase-style stubs: auth.uid() from request.jwt.claim.sub, auth.jwt() from request.jwt.claims.
+
+begin;
 
 -- ---------------------------------------------------------------- fixtures (as postgres)
 create function pg_temp.act(p_uid uuid, p_aal text default 'aal2') returns void language plpgsql as $$
@@ -92,6 +94,8 @@ select pg_temp.ok(public.admin_outbox(14) = '[]'::jsonb, 's1: outbox RPC returns
 select pg_temp.raises($$select public.prospect_set_status('00000000-0000-0000-0000-000000000000', 'x')$$, 's1: partners edit RPC refused');
 select pg_temp.ok((select count(*) from public.admin_settings) = 0, 's1: cannot read settings');
 select pg_temp.ok((select count(*) from public.sync_runs) = 1, 's1: reads sync status (everyone)');
+select pg_temp.ok((select count(*) from public.prospect_sequence_rank('00000000-0000-0000-0000-0000000000f1')) = 0, 's1: sequence ranking returns nothing');
+select pg_temp.raises($$select public.prospect_org_refresh('00000000-0000-0000-0000-0000000000f1')$$, 's1: internal prospect helper not callable');
 select pg_temp.raises($$select public.team_list()$$, 's1: cannot list the team');
 select pg_temp.raises($$select public.team_save('00000000-0000-0000-0000-0000000000a1', 'Me', true, '{}')$$, 's1: cannot give themselves full access');
 select pg_temp.raises($$insert into public.team_permissions values ('00000000-0000-0000-0000-0000000000a1', 'partners', 'edit')$$, 's1: cannot write team_permissions directly');
@@ -148,3 +152,5 @@ select pg_temp.ok((select count(*) from pg_proc p join pg_namespace n on n.oid =
                   'only the intended functions still use is_admin()');
 
 do $$ begin raise notice 'ALL ACCESS TESTS PASSED'; end $$;
+
+rollback;
