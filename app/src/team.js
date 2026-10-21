@@ -82,7 +82,8 @@
         '<div id="aca-tmGrid" class="tm-grid' + (p.is_admin ? " hidden" : "") + '">' + grid(p.modules) + "</div>" +
         '<div class="inline-error hidden" id="aca-tmErr"></div>' +
         '<div class="modal-actions">' +
-        (isNew || p.is_me ? "" : '<button type="button" class="small" id="aca-tmReset">Reset password</button><button type="button" class="small" id="aca-tmActive">' + (p.active ? "Deactivate" : "Reactivate") + "</button>") +
+        (isNew || p.is_me ? "" : '<button type="button" class="small" id="aca-tmReset">Reset password</button><button type="button" class="small" id="aca-tmActive">' + (p.active ? "Deactivate" : "Reactivate") + "</button>" +
+          (p.active ? "" : '<button type="button" class="small warn" id="aca-tmRemove">Remove</button>')) +
         '<span class="grow"></span><button type="button" class="small" id="aca-tmCancel">Cancel</button><button type="button" class="primary" id="aca-tmSave">' + (isNew ? "Add and create login" : "Save") + "</button></div>");
       const err = (t) => { const n = el("tmErr"); n.textContent = t; n.classList.remove("hidden"); };
       el("tmAdmin").addEventListener("change", () => el("tmGrid").classList.toggle("hidden", el("tmAdmin").checked));
@@ -120,6 +121,12 @@
         try { await teamFn({ action: "set_active", user_id: p.user_id, active: !p.active }); m.close(); toast(p.active ? "Deactivated." : "Reactivated."); load(); }
         catch (e) { err(e.message || String(e)); }
       });
+      if (p.active) return;
+      el("tmRemove").addEventListener("click", async () => {
+        if (!confirm("Remove " + (p.name || p.email) + " from the team? Their login is deleted and they drop off this list. The change log keeps their name. This can't be undone; to bring them back, add them again.")) return;
+        try { await teamFn({ action: "remove", user_id: p.user_id }); m.close(); toast("Removed."); load(); }
+        catch (e) { err(e.message || String(e)); }
+      });
     }
 
     function showPassword(name, email, pw, isNew) {
@@ -132,7 +139,7 @@
       el("tmDone").addEventListener("click", () => m.close());
     }
 
-    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for" };
+    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for" };
     async function loadLog() {
       const { data, error } = await supabase.rpc("team_audit_list", { p_limit: 30 });
       el("teamLog").innerHTML = error ? '<span class="inline-error">' + esc(error.message) + "</span>"

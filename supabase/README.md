@@ -30,3 +30,4 @@ migration was applied in parts, with identical SQL:
 | `team_access_foundation_3_signin` | emailed code + remembered devices accept team members | applied |
 | `module_scoped_access` | every policy and RPC switched from is_admin() to module checks | applied |
 | `team_access_foundation_4_team_management` | team_save, team_set_active | applied (pasted into the SQL Editor) |
+| `team_remove` (20261021170000) | team_remove; team_audit_list keeps names of removed people | not yet applied |

@@ -143,12 +143,26 @@ select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
 select pg_temp.ok(not public.can('bookings'), 's1 after deactivation: access gone immediately');
 reset role;
 
+-- ---------------------------------------------------------------- removal through team_remove
+select pg_temp.act('ccbe859a-d295-4df0-94bc-6f423db4d806');
+select pg_temp.raises($$select public.team_remove('00000000-0000-0000-0000-0000000000a2')$$, 'owner: cannot remove an active person');
+select pg_temp.raises($$select public.team_remove('ccbe859a-d295-4df0-94bc-6f423db4d806')$$, 'owner: cannot remove self');
+select public.team_remove('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.ok(jsonb_array_length(public.team_list()) = 3, 'owner: removed person is off team_list');
+select pg_temp.ok(exists (select 1 from jsonb_array_elements(public.team_audit_list()) r where r ->> 'action' = 'deactivated' and r ->> 'target' = 'Staff One'),
+                  'owner: change log still names the removed person');
+reset role;
+select pg_temp.ok(not exists (select 1 from public.team_permissions where user_id = '00000000-0000-0000-0000-0000000000a1'), 'removed person: permissions gone');
+select pg_temp.act('00000000-0000-0000-0000-0000000000a2');
+select pg_temp.raises($$select public.team_remove('00000000-0000-0000-0000-0000000000a3')$$, 's2 (no full access): cannot remove');
+reset role;
+
 -- ---------------------------------------------------------------- nothing left behind
 select pg_temp.ok(not exists (select 1 from pg_policies where (coalesce(qual, '') || coalesce(with_check, '')) ~ 'is_admin\(\)'
                                and tablename not in ('admin_settings', 'gotphoto_orders', 'photo_releases')), 'only the intended policies still use is_admin()');
 select pg_temp.ok((select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                     where n.nspname = 'public' and p.prokind = 'f' and pg_get_functiondef(p.oid) ~ 'is_admin\(\)'
-                      and p.proname not in ('is_admin', 'can_any', 'admin_morning_digest', 'team_list', 'team_save', 'team_set_active', 'team_flag_password', 'team_audit_list')) = 0,
+                      and p.proname not in ('is_admin', 'can_any', 'admin_morning_digest', 'team_list', 'team_save', 'team_set_active', 'team_remove', 'team_flag_password', 'team_audit_list')) = 0,
                   'only the intended functions still use is_admin()');
 
 do $$ begin raise notice 'ALL ACCESS TESTS PASSED'; end $$;
