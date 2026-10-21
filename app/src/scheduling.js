@@ -126,10 +126,32 @@
     .aca .sc-sum .muted { color: var(--faint); }
     .aca .sc-note { font-size: 12.5px; color: var(--muted); margin: 6px 0 12px; }
     .aca .sc-facts { font-size: 13.5px; line-height: 21px; margin: 0 0 8px; }
+    .aca .sc-keybtn { display: none; }
+    .aca .sc-help { font-size: 12.5px; color: var(--muted); margin: 10px 0 12px; }
+    .aca .sc-help summary { cursor: pointer; font-weight: 600; }
+    .aca .sc-help p { margin: 6px 0 0; line-height: 19px; }
     @media (max-width: 760px) {
-      .aca .sc-grid { grid-template-columns: 110px repeat(var(--cols), minmax(var(--colmin), 1fr)); min-width: calc(110px + var(--cols) * var(--colmin)); }
-      .aca .sc-modal .row2, .aca .sc-modal .row3 { grid-template-columns: 1fr; }
+      .aca .sc-bar { gap: 6px; }
+      .aca .sc-bar h2 { order: -1; flex: 1 0 100%; margin: 0 0 2px; font-size: 16px; }
+      .aca .sc-bar .grow { display: none; }
+      .aca .sc-legend { display: none; order: 10; flex: 1 0 100%; gap: 6px 12px; font-size: 12px; padding: 4px 0; }
+      .aca .sc-showkey .sc-legend { display: flex; }
+      .aca .sc-keybtn { display: inline-block; }
+      .aca .sc-bar button[data-v="studio"] { display: none; }
+      .aca .sc-bar .primary { margin-left: auto; }
+      .aca .sc-grid { grid-template-columns: 92px repeat(var(--cols), minmax(var(--colmin), 1fr)); min-width: calc(92px + var(--cols) * var(--colmin)); }
+      .aca .sc-name { padding: 6px 7px; font-size: 12.5px; }
+      .aca .sc-name b { white-space: normal; overflow-wrap: anywhere; line-height: 16px; }
+      .aca .sc-name .sc-hrs { font-size: 11px; line-height: 15px; display: block; margin-top: 2px; }
+      .aca .sc-name .sc-hint { display: none; }
+      .aca .sc-modal .row2 { grid-template-columns: 1fr; }
+      .aca .sc-modal .row3 { grid-template-columns: 1fr 1fr; }
+      .aca .sc-modal .row3 > :first-child { grid-column: 1 / -1; }
+      .aca .sc-modal .seg { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+      .aca .sc-modal .seg span { text-align: center; padding: 8px 4px; border-top: 1px solid var(--border); margin-top: -1px; white-space: nowrap; }
+      .aca .sc-modal .seg label:nth-child(3n+1) span { border-left: 0; }
       .aca .sc-b { height: 28px; line-height: 28px; }
+      .aca .sc-sum table { min-width: 0; width: 100%; }
     }`;
     const styleTag = document.createElement("style"); styleTag.textContent = css; document.head.appendChild(styleTag);
 
@@ -141,6 +163,7 @@
         '<div class="seg" role="radiogroup" aria-label="View"><label><input type="radio" name="aca-scView" value="week" checked /><span>Week</span></label><label><input type="radio" name="aca-scView" value="day" /><span>Day</span></label></div>' +
         '<label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="aca-scMine" /> Just me</label>' +
         '<span class="grow"></span>' +
+        '<button type="button" class="small sc-keybtn" data-v="key" aria-expanded="false">Colors</button>' +
         '<div class="sc-legend"><span><i class="sc-k-job"></i>On site job</span><span><i class="sc-k-drive"></i>Drive</span><span><i class="sc-k-studio"></i>Studio</span><span><i class="sc-k-admin"></i>Admin</span><span><i class="sc-k-flex"></i>Flex</span><span><i class="sc-k-work"></i>Other</span><span><i class="sc-k-off"></i>Time off</span><span><i class="sc-k-gcal"></i>Google Calendar</span></div>' +
         '<button type="button" class="small sc-ed" data-v="studio">Studio address</button>' +
         '<button type="button" class="primary sc-ed" data-v="add">Add time</button>' +
@@ -150,9 +173,10 @@
       '<div id="aca-scWarn" class="sc-warn hidden"></div>' +
       '<div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
-      '<p class="sc-note">Weeks run Sunday to Saturday. Hours count jobs, drive time and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people.</span> Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p>';
+      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people.</span> Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
 
-    let view = window.innerWidth < 760 ? "day" : "week";
+    const narrow = () => window.innerWidth < 760;
+    let view = narrow() ? "day" : "week";
     let anchor = T.today();       // the day shown in day view; its week in week view
     let data = null, mineOnly = false, loading = 0;
     root.querySelector('input[name="aca-scView"][value="' + view + '"]').checked = true;
@@ -247,11 +271,11 @@
 
       const win = windowFor(days), span = win.hi - win.lo, hours = span / 60;
       const pct = (m) => ((Math.min(Math.max(m, win.lo), win.hi) - win.lo) / span * 100).toFixed(3) + "%";
-      const ticks = () => { let h = ""; for (let m = win.lo; m <= win.hi; m += view === "day" ? 60 : 360) if (m > win.lo && m < win.hi) h += '<span style="left:' + pct(m) + '">' + T.fmtMin(m) + "</span>"; return h; };
+      const ticks = () => { let h = ""; for (let m = win.lo; m <= win.hi; m += view === "day" ? (narrow() ? 120 : 60) : 360) if (m > win.lo && m < win.hi) h += '<span style="left:' + pct(m) + '">' + T.fmtMin(m) + "</span>"; return h; };
       const grid = el("scGrid");
       grid.className = "sc-grid";
       grid.style.setProperty("--cols", days.length);
-      grid.style.setProperty("--colmin", view === "week" ? "118px" : "640px");
+      grid.style.setProperty("--colmin", view === "week" ? "118px" : narrow() ? "0px" : "640px");
       grid.style.setProperty("--hours", hours);
 
       let h = '<div class="sc-head sc-name">' + (view === "week" ? "Team" : "") + "</div>";
@@ -272,7 +296,7 @@
       // From Google Calendar: events that aren't bookings, until someone is on them ("X Off" ones are time off instead)
       const calOpen = (data.calendar || []).filter((c) => !c.off_user && !data.entries.some((e) => e.gcal_event_id === c.event_id) && days.some((d) => d >= c.start_date && d <= c.end_date));
       if (calOpen.length) {
-        h += '<div class="sc-name"><b>From Google Calendar</b><span class="sc-hrs">Not bookings' + (editable() ? "; click one to put people on it" : "") + "</span></div>";
+        h += '<div class="sc-name"><b>From Google Calendar</b><span class="sc-hrs sc-hint">Not bookings' + (editable() ? "; click one to put people on it" : "") + "</span></div>";
         days.forEach((d) => {
           h += '<div class="sc-jobs">' + calOpen.filter((c) => d >= c.start_date && d <= c.end_date).map((c) =>
             '<button type="button" class="sc-chip gcal" data-gcal="' + esc(c.event_id) + '" data-day="' + esc(d) + '" title="' + esc(c.summary) + '">' + esc(c.summary) +
@@ -292,8 +316,8 @@
         } else target = " h";
         const dayHours = view === "day" ? T.workHours(mine, anchor) : null;
         h += '<div class="sc-name"><b title="' + esc(p.name) + '">' + esc(p.name) + "</b><span class=\"sc-hrs\">" +
-          (view === "day" ? fmtH(dayHours) + " h this day" + (dayHours >= T.LUNCH_AFTER_H ? ' <span class="sc-lunch" title="6 hours or more: plan a lunch break">&middot; lunch</span>' : "") + " &middot; " : "") +
-          fmtH(weekHours) + target + (view === "day" ? " this week" : "") + "</span></div>";
+          (view === "day" ? fmtH(dayHours) + " h this day" + (dayHours >= T.LUNCH_AFTER_H ? ' <span class="sc-lunch" title="6 hours or more: plan a lunch break">&middot; lunch</span>' : "") + (narrow() ? "" : " &middot; ") : "") +
+          (view === "day" && narrow() ? "" : fmtH(weekHours) + target + (view === "day" ? " this week" : "")) + "</span></div>";
         days.forEach((d) => {
           const items = [];
           mine.forEach((e) => {
@@ -327,13 +351,15 @@
 
     // Hours per person per day, and the week against their target.
     function renderSummary(people) {
-      const box = el("scSum"), wk = [0, 1, 2, 3, 4, 5, 6].map((i) => T.addDays(data.start, i));
+      const box = el("scSum"), all = [0, 1, 2, 3, 4, 5, 6].map((i) => T.addDays(data.start, i));
+      // Phones: just the day on screen (day view), then the week and target.
+      const wk = narrow() ? (view === "day" ? [anchor] : []) : all;
       box.classList.toggle("hidden", !people.length);
       if (!people.length) return;
       box.innerHTML = "<h3>Hours scheduled</h3><div class=\"table-wrap\"><table><thead><tr><th>Person</th>" + wk.map((d) => "<th>" + esc(T.fmtDay(d, { month: undefined, day: undefined })) + " " + esc(String(+d.slice(8))) + "</th>").join("") + "<th>Week</th><th>Target</th></tr></thead><tbody>" +
         people.map((p) => {
           const mine = data.entries.filter((e) => e.user_id === p.user_id);
-          const per = wk.map((d) => T.workHours(mine, d)), tot = per.reduce((a, b) => a + b, 0);
+          const per = wk.map((d) => T.workHours(mine, d)), tot = all.reduce((a, d) => a + T.workHours(mine, d), 0);
           const tgt = p.weekly_hours == null ? null : Number(p.weekly_hours), diff = tgt == null ? 0 : tot - tgt;
           return "<tr><td><b>" + esc(p.name) + "</b></td>" + per.map((x) => x >= T.LUNCH_AFTER_H ? '<td class="lunch" title="6 hours or more: plan a lunch break">' + fmtH(x) + ' <span class="sc-lunch">lunch</span></td>' : "<td" + (x ? "" : ' class="muted"') + ">" + (x ? fmtH(x) : "&ndash;") + "</td>").join("") +
             "<td><b>" + fmtH(tot) + "</b></td><td>" + (tgt == null ? '<span class="muted">not set</span>' : fmtH(tgt) + " " + (Math.abs(diff) < 0.25 ? '<span class="sc-hrs"><span class="on">on target</span></span>' : '<span class="sc-hrs"><span class="' + (diff > 0 ? "over" : "under") + '">' + fmtH(Math.abs(diff)) + (diff > 0 ? " over" : " under") + "</span></span>")) + "</td></tr>";
@@ -351,6 +377,7 @@
         if (a === "addflex") openEntry(null, { user_id: data.me, kind: "flex", day: view === "day" ? anchor : T.today() >= data.start && T.today() < T.addDays(data.start, 7) ? T.today() : data.start });
         if (a === "add") openEntry(null, { user_id: data && data.me, day: view === "day" ? anchor : T.today() >= data.start && T.today() < T.addDays(data.start, 7) ? T.today() : data.start });
         if (a === "studio") openStudio();
+        if (a === "key") v.setAttribute("aria-expanded", String(root.classList.toggle("sc-showkey")));
         return;
       }
       const dayBtn = e.target.closest(".sc-head [data-day]");
