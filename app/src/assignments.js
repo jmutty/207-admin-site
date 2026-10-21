@@ -84,7 +84,7 @@
     }
     async function loadPeople() {
       const { data } = await sb.rpc("assignments_list");
-      people = (data && data.people) || [];
+      people = ((data && data.people) || []).map((p) => Object.assign({}, p, { name: T.shortName(p.name) }));
       el("asWho").innerHTML = '<option value="me">Me</option><option value="all">Everyone</option>' + people.filter((p) => p.user_id !== (data && data.me)).map((p) => '<option value="' + esc(p.user_id) + '">' + esc(p.name) + "</option>").join("");
       el("asWho").value = who;
     }
@@ -128,7 +128,7 @@
       const since = t.overdue ? "from " + T.fmtDay(t.on_date) : "";
       return '<label class="as-task' + (done ? " done" : "") + '"><input type="checkbox" data-task="' + esc(t.task_id) + '" data-on="' + esc(t.on_date) + '"' + (done ? " checked" : "") + " />" +
         '<span><span class="as-title">' + esc(t.title) + "</span>" + (t.priority === "urgent" ? '<span class="as-tag urgent">Urgent</span>' : "") + (t.overdue && !done ? '<span class="as-tag overdue">Overdue, ' + esc(since) + "</span>" : "") +
-        '<span class="s">' + esc([REPEAT[t.repeat], t.est_minutes ? "about " + t.est_minutes + " min" : "", done ? "done " + T.fmtTs(t.done_at) + (t.done_by ? " by " + t.done_by : "") : ""].filter(Boolean).join(" \u00b7 ")) + "</span>" +
+        '<span class="s">' + esc([REPEAT[t.repeat], t.est_minutes ? "about " + t.est_minutes + " min" : "", done ? "done " + T.fmtTs(t.done_at) + (t.done_by ? " by " + T.shortName(t.done_by) : "") : ""].filter(Boolean).join(" \u00b7 ")) + "</span>" +
         (t.notes ? '<span class="s">' + esc(t.notes) + "</span>" : "") + "</span></label>";
     }
     function renderTasks(list, grouped, into) {
@@ -136,7 +136,7 @@
       if (!list.length) { box.innerHTML = '<p class="empty">No tasks ' + (day === T.today() ? "today" : "this day") + "." + (canEdit("assignments") ? ' <a href="#staff/tasks">Assign one</a>' : "") + "</p>"; return; }
       if (!grouped) { box.innerHTML = list.map(taskHtml).join(""); return; }
       const names = [...new Set(list.map((t) => t.user_name))];
-      box.innerHTML = names.map((n) => '<div class="as-who">' + esc(n) + "</div>" + list.filter((t) => t.user_name === n).map(taskHtml).join("")).join("");
+      box.innerHTML = names.map((n) => '<div class="as-who">' + esc(T.shortName(n)) + "</div>" + list.filter((t) => t.user_name === n).map(taskHtml).join("")).join("");
     }
 
     dayRoot.addEventListener("click", (e) => {
@@ -197,7 +197,7 @@
       try {
         const { data, error } = await sb.rpc("assignments_list");
         if (error) throw error;
-        list = data; people = data.people || [];
+        list = data; people = (data.people || []).map((p) => Object.assign({}, p, { name: T.shortName(p.name) }));
         const ed = !!data.can_edit;
         el("asAdd").classList.toggle("hidden", !ed);
         el("asFilter").classList.toggle("hidden", !ed);

@@ -49,7 +49,9 @@
       }, 0);
     }
     const LUNCH_AFTER_H = 6; // a day this long needs a lunch break
-    return { TZ, local, today, addDays, dow, weekStart, daysBetween, toIso, hhmm, fmtMin, fmtTs, fmtDay, WEEKDAYS, workHours, LUNCH_AFTER_H };
+    // People show as first name and last initial ("Sam H.") to keep things short.
+    const shortName = (n) => { const w = String(n || "").trim().split(/\s+/); return w.length > 1 && w[w.length - 1] ? w[0] + " " + w[w.length - 1][0].toUpperCase() + "." : String(n || ""); };
+    return { TZ, local, today, addDays, dow, weekStart, daysBetween, toIso, hhmm, fmtMin, fmtTs, fmtDay, WEEKDAYS, workHours, LUNCH_AFTER_H, shortName };
   })();
 
   const Schedule = (function () {
@@ -198,6 +200,7 @@
         if (error) throw error;
         if (my !== loading) return;
         data = d; data.start = start;
+        (d.people || []).forEach((p) => { p.name = T.shortName(p.name); });
         // "Ryan Off" on the Google Calendar: time off on that person's row (read only; change it in Google)
         (d.calendar || []).filter((c) => c.off_user).forEach((c) => d.entries.push({ id: "gcal:" + c.event_id, user_id: c.off_user, kind: "off", booking_id: null,
           starts_at: c.all_day || !c.start_at ? T.toIso(c.start_date, "00:00") : c.start_at, ends_at: c.all_day || !c.end_at ? T.toIso(T.addDays(c.end_date, 1), "00:00") : c.end_at,
@@ -623,7 +626,7 @@
     async function team() {
       const { data: d, error } = await sb.rpc("schedule_week", { p_start: T.today(), p_days: 1 });
       if (error) throw error;
-      return d.people || [];
+      return (d.people || []).map((p) => Object.assign({}, p, { name: T.shortName(p.name) }));
     }
     // Put people on every day of a booking that has a time (with drive time from Google Maps when it can be
     // looked up). Returns {added, untimed: [days without a time yet]}.
