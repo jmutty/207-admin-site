@@ -64,6 +64,22 @@ Rules of thumb:
   That way **View = use it for yourself**, and **Edit = manage everyone**.
 - After applying a migration, run the Supabase security advisor (it flags missing RLS and grants).
 
+### Notifications (optional)
+
+Add a kind of notification in the same migration, then queue it wherever the event happens:
+
+```sql
+insert into public.push_topics (key, label, description, module, sort)
+values ('shift_uncovered', 'Shift needs someone', 'A shift this week has nobody on it.', 'scheduling', 70);
+
+-- in a trigger or RPC (wrap triggers in begin ... exception when others ... end so a notification can never block the change):
+perform public.push_notify('shift_uncovered', 'A shift needs someone', 'Saturday 9am at Hampden', '/#staff/schedule', 'shift_uncovered');
+```
+
+It reaches everyone who can see `scheduling` (and full-access people) who has turned notifications
+on and not switched this kind off. The last argument (tag) merges repeats within 10 minutes. Add a
+check to `supabase/tests/push_test.sql`.
+
 ## 2. Page (frontend)
 
 `app/src/scheduling.html`: one panel per tab. Ids must be `aca-panel-<tab>`.
