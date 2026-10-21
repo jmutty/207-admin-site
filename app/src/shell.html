@@ -418,6 +418,11 @@
   .aca .tm-pw { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; }
   .aca .tm-pw code { font-size: 20px; letter-spacing: 1px; padding: 8px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; user-select: all; }
   .aca .tm-log { margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 22px; }
+  .aca .pn-h { margin: 18px 0 6px; font-size: 13px; font-weight: 600; color: var(--faint); }
+  .aca .pn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .aca .pn-topic { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid var(--line2); font-size: 13.5px; }
+  .aca .pn-topic .muted { font-size: 12.5px; }
+  .aca .pn-dev { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; font-size: 13.5px; }
   @media (max-width: 560px) { .aca .tm-row { flex-direction: column; align-items: flex-start; } }
 </style>
 
@@ -467,6 +472,7 @@
           <button type="button" class="small quiet" id="aca-whoBtn" aria-haspopup="menu" aria-expanded="false">JM</button>
           <div class="whomenu hidden" id="aca-whoMenu" role="menu">
             <div class="who" id="aca-whoami"></div>
+            <button type="button" id="aca-notifBtn" role="menuitem">Notifications</button>
             <button type="button" id="aca-pwBtn" role="menuitem">Change password</button>
             <button type="button" id="aca-syncNowBtn" role="menuitem">Sync GotPhoto now</button>
             <button type="button" id="aca-signOutBtn" role="menuitem">Sign out</button>
