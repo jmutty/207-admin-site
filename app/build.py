@@ -10,8 +10,8 @@ import json, os, re, subprocess, sys
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 JS_PARTS = ["src/shell-top.js", "src/pickers.js", "src/access.js", "src/jobs.js", "src/jobs-calculator.js", "src/parents.js", "src/partners-prospect-tools.js",
-            "src/partners-orgs.js", "src/partners-library.js", "src/bookings.js", "src/bookings-library.js", "src/partners-hub.js", "src/system.js", "src/outbox.js", "src/settings-sending.js", "src/team.js", "src/push.js", "src/inventory.js", "src/shell-end.js"]
-HTML_PARTS = ["src/jobs.html", "src/parents.html", "src/partners.html", "src/system.html", "src/team.html", "src/inventory.html"]
+            "src/partners-orgs.js", "src/partners-library.js", "src/bookings.js", "src/bookings-library.js", "src/partners-hub.js", "src/system.js", "src/outbox.js", "src/settings-sending.js", "src/team.js", "src/push.js", "src/scheduling.js", "src/assignments.js", "src/inventory.js", "src/shell-end.js"]
+HTML_PARTS = ["src/jobs.html", "src/parents.html", "src/partners.html", "src/system.html", "src/team.html", "src/staff.html", "src/inventory.html"]
 APP_URL = "https://socluffmclkdljtmiexw.supabase.co/storage/v1/object/public/admin-app/207-admin.js"
 
 # 1. App code (shared scope, one function body), syntax-checked.
