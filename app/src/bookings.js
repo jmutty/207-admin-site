@@ -492,7 +492,7 @@
       if (fdType !== typeKey) { fdType = typeKey; fdPicked.clear(); list.filter((x) => x.auto_add).forEach((x) => fdPicked.add(x.id)); }
       el("bkFDlvSaveL").textContent = "Save new ones for future " + (byType(typeKey).label || "") + " jobs";
       box3.innerHTML = list.map((x) => '<label><input type="checkbox" data-fdt="' + esc(x.id) + '"' + (fdPicked.has(x.id) ? " checked" : "") + " /><span>" + esc(x.label) +
-          (x.due_days != null ? ' <span class="bk-sub">due ' + x.due_days + " days after</span>" : "") + (x.type_key ? "" : ' <span class="bk-sub">all types</span>') + "</span></label>").join("") +
+          (x.due_days != null ? ' <span class="bk-sub">due ' + x.due_days + " days after launch</span>" : "") + (x.type_key ? "" : ' <span class="bk-sub">all types</span>') + "</span></label>").join("") +
         fdNew.map((l, i) => '<label><input type="checkbox" checked data-fdn="' + i + '" /><span>' + esc(l) + ' <span class="pill accent">new</span></span></label>').join("") ||
         '<span class="bk-sub">No saved deliverables for this job type yet. Type one below and it is kept for next time.</span>';
     }
@@ -664,9 +664,9 @@
             (can ? '<button type="button" class="small quiet" data-v="up" data-l="st" data-i="' + i + '"' + (i ? "" : " disabled") + ' aria-label="Move up">&uarr;</button><button type="button" class="small quiet" data-v="down" data-l="st" data-i="' + i + '"' + (i < a.length - 1 ? "" : " disabled") + ' aria-label="Move down">&darr;</button>' +
               '<button type="button" class="small quiet" data-v="rm" data-l="st" data-i="' + i + '" aria-label="Remove">&times;</button>' : "") + "</div>").join("") + "</div>" +
           (can ? '<button type="button" class="link" data-v="add" data-l="st">+ Add a stage</button>' : "") : "") +
-        "<h3>Saved deliverables" + (tk ? "" : " for every job type") + "</h3>" + '<div class="bk-sub">Offered when booking a ' + esc(tl) + ' job. Due = days after the last picture day. "Every job" ones come pre-ticked.</div><div class="bk-jt-rows">' +
+        "<h3>Saved deliverables" + (tk ? "" : " for every job type") + "</h3>" + '<div class="bk-sub">Offered when booking a ' + esc(tl) + ' job. Due = days after the job is launched on GotPhoto (no due date until then). "Every job" ones come pre-ticked.</div><div class="bk-jt-rows">' +
           (live(tp).map((x, i, a) => '<div class="bk-jt-row" data-tp="' + i + '"><input type="text" maxlength="120" value="' + esc(x.label) + '"' + dis + ' />' +
-            '<span class="bk-sub">due</span><input type="number" min="0" max="365" value="' + (x.due_days == null ? "" : esc(x.due_days)) + '" placeholder="days"' + dis + ' aria-label="Due days after picture day" />' +
+            '<span class="bk-sub">due</span><input type="number" min="0" max="365" value="' + (x.due_days == null ? "" : esc(x.due_days)) + '" placeholder="days"' + dis + ' aria-label="Due days after launch" />' +
             '<label class="bk-sub" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox"' + (x.auto_add ? " checked" : "") + dis + " /> every job</label>" +
             (can ? '<button type="button" class="small quiet" data-v="up" data-l="tp" data-i="' + i + '"' + (i ? "" : " disabled") + ' aria-label="Move up">&uarr;</button><button type="button" class="small quiet" data-v="down" data-l="tp" data-i="' + i + '"' + (i < a.length - 1 ? "" : " disabled") + ' aria-label="Move down">&darr;</button>' +
               '<button type="button" class="small quiet" data-v="rm" data-l="tp" data-i="' + i + '" aria-label="Remove">&times;</button>' : "") + "</div>").join("") || '<div class="bk-sub">None saved yet. Add one here, or type one on a booking and keep "Save it for future jobs" ticked.</div>') + "</div>" +
@@ -913,7 +913,7 @@
   // Deliverables (2026-10-21): what is owed to the client, ticked off as it goes out.
   const dueBits = (d) => {
     if (d.status !== "todo") return d.done_at ? '<span class="bk-sub">' + (d.status === "skipped" ? "skipped " : "delivered ") + esc(fmtWhen(d.done_at)) + (d.done_by_name ? " by " + esc(d.done_by_name) : "") + "</span>" : "";
-    if (!d.due_date) return "";
+    if (!d.due_date) return d.due_days != null ? '<span class="bk-sub">due ' + num(d.due_days) + " days after launch</span>" : "";
     return d.due_date < todayStr() ? '<span class="pill err">overdue, was due ' + esc(fmtDay(d.due_date)) + "</span>" : '<span class="bk-sub">due ' + esc(fmtDay(d.due_date)) + "</span>";
   };
   function dlvBlock(b) {
@@ -929,7 +929,7 @@
           (can ? '<button type="button" class="link" data-v="dlvedit" data-dlv="' + esc(d.id) + '">edit</button>' : "") + "</li>").join("") + "</ul>"
         : '<div class="bk-sub">Nothing to deliver yet.' + (can ? " Add what you owe " + esc(b.org_name) + " after the job." : "") + "</div>") +
       (can ? (picks.length ? '<div class="bk-dlvadd"><select id="aca-bkDlvPick" class="small" aria-label="Saved deliverable"><option value="">Pick a saved deliverable&#8230;</option>' +
-          picks.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.label) + (x.due_days != null ? " (due " + x.due_days + " days after)" : "") + (x.type_key ? "" : " &middot; all types") + "</option>").join("") +
+          picks.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.label) + (x.due_days != null ? " (due " + x.due_days + " days after launch)" : "") + (x.type_key ? "" : " &middot; all types") + "</option>").join("") +
           '</select><button type="button" class="small" data-v="dlvpick">Add</button></div>' : "") +
         '<div class="bk-dlvadd"><input type="text" id="aca-bkDlvNew" maxlength="120" placeholder="' + (picks.length ? "Or type a new one" : "Type a deliverable, e.g. Team composites") + '" />' +
         '<input type="date" id="aca-bkDlvDue" class="small" aria-label="Due date (optional)" title="Due date (optional)" /><button type="button" class="small" data-v="dlvnew">Add</button></div>' +

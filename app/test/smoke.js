@@ -174,6 +174,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-bkJobTypes");
     await page.waitForSelector("#aca-bkJtBody [data-st]");
     check((await page.$$("#aca-bkJtBody [data-st]")).length === 6, "job type dialog lists the stages");
+    check((await page.textContent("#aca-bkJtBody")).includes("days after the job is launched"), "due days count from launch");
     await page.fill('#aca-bkJtBody [data-st="2"] input[type=text]', "Editing");
     await page.click('#aca-bkJtBody button[data-v="add"][data-l="tp"]');
     await page.fill('#aca-bkJtBody [data-tp="1"] input[type=text]', "Panoramic");
