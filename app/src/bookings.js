@@ -12,7 +12,16 @@
   const css = `
   .aca .bk-banner { margin: 0 16px 10px; padding: 9px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-bg); color: var(--warn-fg); }
   .aca .bk-banner.test { background: var(--sel-bg); color: var(--accent); }
-  .aca .bk-table td, .aca .bk-table th { padding: 9px 14px; font-size: 13px; vertical-align: top; }
+  .aca .bk-table td, .aca .bk-table th { padding: 10px 12px; font-size: 13px; vertical-align: top; }
+  /* Fixed column widths: short columns sized to their content, Emails a share, Job takes the rest (2026-10-21) */
+  .aca .bk-table { table-layout: fixed; min-width: 1000px; }
+  .aca .bk-table th.bk-c-when { width: 140px; } .aca .bk-table th.bk-c-stage { width: 160px; } .aca .bk-table th.bk-c-who { width: 140px; }
+  .aca .bk-table th.bk-c-mail { width: 22%; } .aca .bk-table th.bk-c-cal { width: 150px; }
+  .aca .bk-table td.bk-c-when .bk-sub, .aca .bk-table td.bk-c-mail .bk-sub { white-space: nowrap; }
+  .aca .bk-table td.bk-c-job strong { line-height: 1.35; }
+  .aca .bk-table td.bk-c-who { overflow-wrap: anywhere; }
+  .aca .bk-table td.bk-c-mail { line-height: 1.6; } .aca .bk-table td.bk-c-mail .pill { margin: 0 6px 0 4px; }
+  .aca .bk-table td.bk-c-stage .pill + .bk-sub { margin-top: 2px; }
   .aca .bk-table tr.bk-row { cursor: pointer; }
   .aca .bk-table tr.bk-row:hover td { background: var(--surface-2); }
   .aca .bk-date { font-weight: 700; white-space: nowrap; }
@@ -64,13 +73,19 @@
   .aca .bk-fhead h2 { margin: 0 0 12px; }
   .aca .bk-fhead .bk-fx { display: none; margin-bottom: 12px; }
   /* Stages + deliverables (2026-10-21) */
-  .aca .bk-stages { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; margin: 0 0 8px; padding: 0; }
-  .aca .bk-stages li { display: flex; align-items: center; gap: 4px; }
-  .aca .bk-stages li + li::before { content: ""; width: 10px; height: 1px; background: var(--border); }
-  .aca .bk-stages button { font-size: 12px; height: 26px; padding: 0 9px; border-radius: 13px; color: var(--muted); background: var(--surface); }
-  .aca .bk-stages li.done button { color: var(--text); border-color: var(--border); }
-  .aca .bk-stages li.done button::before { content: "\\2713 "; color: var(--ok-fg); }
-  .aca .bk-stages li.cur button { background: var(--sel-bg); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  /* Stage stepper: one row of dots joined by a line, label under each, never wraps onto a second row */
+  .aca .bk-stages { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); list-style: none; margin: 6px -4px 14px; padding: 0; }
+  .aca .bk-stages li { position: relative; display: flex; justify-content: center; }
+  .aca .bk-stages li + li::before { content: ""; position: absolute; top: 7px; left: calc(-50% + 9px); right: calc(50% + 9px); height: 2px; background: var(--border); }
+  .aca .bk-stages li.done::before, .aca .bk-stages li.cur::before { background: var(--ok-fg); }
+  .aca .bk-stages button { flex-direction: column; justify-content: flex-start; gap: 6px; height: auto; padding: 0 4px; border: 0; background: transparent; font-size: 12px; font-weight: 600; line-height: 1.25; color: var(--muted); text-align: center; white-space: normal; }
+  .aca .bk-stages button::before { content: ""; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); flex: 0 0 auto; }
+  .aca .bk-stages button:hover:not(:disabled) { background: transparent; color: var(--text); }
+  .aca .bk-stages button:hover:not(:disabled)::before { border-color: var(--accent); }
+  .aca .bk-stages li.done button { color: var(--text); }
+  .aca .bk-stages li.done button::before { background: var(--ok-fg); border-color: var(--ok-fg); }
+  .aca .bk-stages li.cur button { color: var(--accent); font-weight: 700; }
+  .aca .bk-stages li.cur button::before { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 0 3px var(--sel-bg); }
   .aca .bk-stages button:disabled { opacity: 1; cursor: default; }
   .aca .bk-hist summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
   .aca .bk-hist ul { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; }
@@ -116,6 +131,11 @@
     .aca .bk-table tr.bk-row > td { display: block; padding: 0; border: none; }
     .aca .bk-table td.bk-c-when { grid-area: when; } .aca .bk-table td.bk-c-cal { grid-area: cal; justify-self: end; }
     .aca .bk-table td.bk-c-job { grid-area: job; } .aca .bk-table td.bk-c-stage { grid-area: stage; } .aca .bk-table td.bk-c-who { grid-area: who; } .aca .bk-table td.bk-c-mail { grid-area: mail; }
+    .aca .bk-stages { grid-auto-flow: row; grid-auto-columns: auto; margin: 6px 0 12px; }
+    .aca .bk-stages li { justify-content: flex-start; }
+    .aca .bk-stages li + li::before { top: -12px; left: 7px; right: auto; width: 2px; height: 24px; }
+    .aca .bk-stages button { flex-direction: row; gap: 10px; min-height: 40px; padding: 0; text-align: left; font-size: 13px; }
+    .aca .bk-table { min-width: 0; table-layout: auto; }
     .aca .bk-cards { grid-template-columns: 1fr; }
     .aca .bk-addc { grid-template-columns: 1fr 1fr; }
     .aca .bk-facts { grid-template-columns: 1fr; }
@@ -144,7 +164,7 @@
         </div>
       </div>
       <div id="aca-bkErr" class="inline-error hidden"></div>
-      <div class="table-wrap"><table class="bk-table"><thead><tr><th>When</th><th>Job</th><th>Stage</th><th>Contacts</th><th>Emails</th><th>Calendar</th></tr></thead>
+      <div class="table-wrap"><table class="bk-table"><thead><tr><th class="bk-c-when">When</th><th class="bk-c-job">Job</th><th class="bk-c-stage">Stage</th><th class="bk-c-who">Contacts</th><th class="bk-c-mail">Emails</th><th class="bk-c-cal">Calendar</th></tr></thead>
         <tbody id="aca-bkBody"><tr><td colspan="6" class="empty">Loading&#8230;</td></tr></tbody></table></div>
     </div>
     <div class="og-panel hidden" id="aca-bkPanel" aria-label="Booking details"></div>`;
