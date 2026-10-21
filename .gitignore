@@ -5,3 +5,10 @@
 .env*
 !.env.example
 .wrangler/
+
+# app build output (regenerate with app/build.py)
+app/dist/
+app/admin-dashboard.js
+app/wordpress-embed.html
+.DS_Store
+__pycache__/

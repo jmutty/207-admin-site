@@ -1,0 +1,685 @@
+  // ================================================================ JOBS: Bookings (replaces 17hats, 2026-10-11)
+  // Book a job = one action: the booking row (source of truth), the Google Calendar event (edge fn calendar-write,
+  // poked by the RPC), the admin email series (booking_emails, sent by edge fn booking-sender through Gmail) and,
+  // for schools with an access code, the hub school row + reminder signups. Every write goes through an RPC.
+  // Spec: docs/plans/2026-10-11-bookings-replace-17hats-design.md
+  const Bookings = (function () {
+  const sb = supabase;
+  const cleanErr = (e) => String((e && (e.message || e.details)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
+  const TZ = "America/New_York";
+  const CAL_ID = "c_6ebcc7d860d22ba4fce1c9209625b21373e17578ff0b35c2d62483e780ed11e8@group.calendar.google.com";
+
+  const css = `
+  .aca .bk-banner { margin: 0 16px 10px; padding: 9px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-bg); color: var(--warn-fg); }
+  .aca .bk-banner.test { background: var(--sel-bg); color: var(--accent); }
+  .aca .bk-table td, .aca .bk-table th { padding: 9px 14px; font-size: 13px; vertical-align: top; }
+  .aca .bk-table tr.bk-row { cursor: pointer; }
+  .aca .bk-table tr.bk-row:hover td { background: var(--surface-2); }
+  .aca .bk-date { font-weight: 700; white-space: nowrap; }
+  .aca .bk-sub { font-size: 12px; color: var(--muted); }
+  .aca .bk-type { font-size: 12px; color: var(--muted); }
+  .aca .bk-fold { padding: 8px 16px 14px; }
+  .aca .bk-fold summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .aca .bk-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .aca .bk-card { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+  .aca .bk-card input { position: absolute; opacity: 0; }
+  .aca .bk-card.sel { border-color: var(--accent); background: var(--sel-bg); }
+  .aca .bk-card strong { font-size: 13px; }
+  .aca .bk-card span { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .aca .bk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .aca .bk-chips button[aria-pressed="true"] { background: var(--sel-bg); border-color: var(--accent); color: var(--accent); }
+  .aca .bk-orgs { border: 1px solid var(--border); border-radius: 8px; max-height: 200px; overflow: auto; margin-top: 6px; }
+  .aca .bk-orgs button { display: block; width: 100%; text-align: left; border: none; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--surface); padding: 8px 10px; white-space: normal; }
+  .aca .bk-orgs button:last-child { border-bottom: none; }
+  .aca .bk-orgpick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .aca .bk-contacts label { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 13px; }
+  .aca .bk-contacts label.off { color: var(--muted); }
+  .aca .bk-contacts input[type=checkbox] { margin-top: 3px; }
+  .aca .bk-addc { display: grid; grid-template-columns: 1fr 1fr 1.4fr 1fr auto; gap: 6px; margin-top: 6px; }
+  .aca .bk-addc input { width: 100%; }
+  .aca .bk-preview { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-top: 12px; }
+  .aca .bk-preview ul { margin: 6px 0 0 18px; padding: 0; }
+  .aca .bk-preview.folded .bk-prevbody { display: none; }
+  .aca .bk-preview.folded .bk-mailtog .sl-chev { transform: rotate(-45deg); margin-top: 0; }
+  .aca .bk-sec { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .aca .bk-sec h3 { margin: 0 0 8px; font-size: 13px; }
+  .aca .bk-mailtog { border: 0; background: transparent; height: auto; padding: 0; font: inherit; font-size: 13px; font-weight: 600; gap: 6px; }
+  .aca .bk-mailsec.folded .bk-mailtog .sl-chev { transform: rotate(-45deg); margin-top: 0; }
+  .aca .bk-mailsec.folded .bk-mailbody { display: none; }
+  .aca .bk-gp { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+  .aca .bk-gp a.btn { text-decoration: none; font-size: 13px; font-weight: 600; border: 1px solid #d9d4cb; background: var(--surface); color: var(--text); border-radius: 4px; padding: 0 10px; height: 28px; display: inline-flex; align-items: center; white-space: nowrap; }
+  .aca .bk-gp a.btn:hover { background: var(--surface-2); }
+  .aca .bk-gp code { font: inherit; background: var(--sel-bg); padding: 1px 5px; border-radius: 3px; }
+  .aca .bk-facts { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; font-size: 13px; }
+  .aca .bk-facts > span:nth-child(odd) { color: var(--muted); font-size: 12.5px; }
+  .aca .bk-emails td { padding: 7px 8px; font-size: 12.5px; vertical-align: top; }
+  .aca .bk-emails td.bk-act { white-space: nowrap; }
+  .aca .bk-emails td.bk-act button { margin-left: 4px; }
+  .aca .bk-mail { font-size: 14px; line-height: 1.55; max-width: 640px; }
+  .aca .bk-mail p { margin: 0 0 12px; } .aca .bk-mail ul { margin: 0 0 12px 20px; padding: 0; } .aca .bk-mail blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--surface-2); }
+  .aca .bk-mail-head { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
+  .aca .bk-mail-head strong { color: var(--text); font-size: 15px; display: block; margin-top: 2px; }
+  .aca .bk-step-list { font-size: 12.5px; color: var(--muted); margin: 4px 0 0; padding-left: 18px; }
+  .aca .bk-fhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .aca .bk-fhead h2 { margin: 0 0 12px; }
+  .aca .bk-fhead .bk-fx { display: none; margin-bottom: 12px; }
+  @media (max-width: 900px) {
+    .aca #aca-bkPanel { position: fixed; top: var(--og-top, 0px); left: 0; right: 0; bottom: 0; width: 100vw; max-width: none; overflow: auto; -webkit-overflow-scrolling: touch; z-index: 60; background: var(--surface); }
+    .aca #aca-bkPanel.hidden { display: none; }
+    .aca #aca-bkPanel > :first-child { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+    .aca #aca-bkPanel > .bk-sec.og-actions { position: sticky; bottom: 0; z-index: 2; background: var(--surface); border-top: 1px solid var(--border); border-bottom: none; }
+    .aca #aca-bkPanel > .bk-sec.og-actions button { min-height: 40px; }
+  }
+  @media (max-width: 760px) {
+    .aca .og-modal-wrap:has(.bk-form) { padding: 0; align-items: stretch; }
+    .aca .og-modal.bk-form { max-width: none; width: 100%; height: 100%; max-height: none; border-radius: 0; padding: 0 14px; overflow: auto; -webkit-overflow-scrolling: touch; }
+    .aca .bk-form .bk-fhead { position: sticky; top: 0; z-index: 3; background: var(--surface); padding: 12px 0 0; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .aca .bk-form .bk-fhead h2 { margin: 0 0 12px; }
+    .aca .bk-form .bk-fhead .bk-fx { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; margin: 0 0 8px; }
+    .aca .bk-form .bk-factions { position: sticky; bottom: 0; z-index: 3; background: var(--surface); border-top: 1px solid var(--border); margin: 12px -14px 0 !important; padding: 10px 14px; display: flex; gap: 8px; }
+    .aca .bk-form input[type=text], .aca .bk-form input[type=date], .aca .bk-form input[type=time], .aca .bk-form input[type=email], .aca .bk-form textarea, .aca .bk-form select { font-size: 16px; min-height: 40px; }
+    .aca .bk-form button.link, .aca .bk-form button.small { min-height: 40px; }
+    .aca .bk-form .bk-dayrow { row-gap: 8px; }
+    .aca .bk-form .bk-dayrow .bk-d-day { flex: 1 1 100%; min-width: 0; }
+    .aca .bk-form .bk-dayrow .bk-d-start, .aca .bk-form .bk-dayrow .bk-d-end { flex: 1 1 0; min-width: 0; width: auto; }
+    .aca .bk-form .bk-dayrow .bk-d-label { flex: 1 1 100% !important; min-width: 0 !important; }
+    .aca .bk-form #aca-bkCode { width: 100% !important; }
+    .aca #aca-panel-bookings .card-head { flex-direction: column; align-items: stretch; gap: 10px; }
+    .aca #aca-panel-bookings .card-head .og-actions button { min-height: 44px; width: 100%; }
+    .aca .bk-table thead { display: none; }
+    .aca .bk-table, .aca .bk-table tbody { display: block; }
+    .aca .bk-table tr.bk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when cal" "job job" "who who" "mail mail"; gap: 3px 8px; padding: 12px; border-bottom: 1px solid var(--border); }
+    .aca .bk-table tr.bk-row > td { display: block; padding: 0; border: none; }
+    .aca .bk-table td.bk-c-when { grid-area: when; } .aca .bk-table td.bk-c-cal { grid-area: cal; justify-self: end; }
+    .aca .bk-table td.bk-c-job { grid-area: job; } .aca .bk-table td.bk-c-who { grid-area: who; } .aca .bk-table td.bk-c-mail { grid-area: mail; }
+    .aca .bk-cards { grid-template-columns: 1fr; }
+    .aca .bk-addc { grid-template-columns: 1fr 1fr; }
+    .aca .bk-facts { grid-template-columns: 1fr; }
+    .aca .bk-emails td.bk-act { white-space: normal; } .aca .bk-emails td.bk-act button { min-height: 40px; margin: 2px 4px 2px 0; }
+  }`;
+  const styleTag = document.createElement("style"); styleTag.textContent = css; document.head.appendChild(styleTag);
+
+  const root = el("panel-bookings");
+  root.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Bookings</h2>
+          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a booking to see its emails.</p></div>
+        <div class="og-actions"><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button></div>
+      </div>
+      <div id="aca-bkBanner" class="bk-banner hidden"></div>
+      <div class="toolbar">
+        <input type="text" id="aca-bkSearch" placeholder="Search by organization&#8230;" aria-label="Search bookings" />
+        <select id="aca-bkType" class="small" aria-label="Job type"><option value="">All types</option></select>
+        <div class="chips bk-chips" id="aca-bkScope" role="group">
+          <button type="button" data-scope="upcoming" aria-pressed="true">Upcoming</button>
+          <button type="button" data-scope="past" aria-pressed="false">Past 60 days</button>
+          <button type="button" data-scope="cancelled" aria-pressed="false">Cancelled</button>
+        </div>
+      </div>
+      <div id="aca-bkErr" class="inline-error hidden"></div>
+      <div class="table-wrap"><table class="bk-table"><thead><tr><th>When</th><th>Job</th><th>Contacts</th><th>Emails</th><th>Calendar</th></tr></thead>
+        <tbody id="aca-bkBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div>
+    </div>
+    <div class="og-panel hidden" id="aca-bkPanel" aria-label="Booking details"></div>`;
+
+  let types = [], steps = [], rows = [], loaded = false, scope = "upcoming", openId = null, pollTimer = null;
+  const byType = (k) => types.find((t) => t.key === k) || {};
+  const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+  const addDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const fmtDay = (ymd, long) => { if (!ymd) return ""; const d = new Date(ymd + "T12:00:00Z"); return d.toLocaleDateString("en-US", { timeZone: "UTC", weekday: long ? "long" : "short", month: long ? "long" : "short", day: "numeric" }); };
+  // GotPhoto "Create new job" screen, with the shoot date pre-filled (GotPhoto's own calendar passes shot_at the same way).
+  const gpCreateUrl = (b) => "https://app.gotphoto.com/config_jobs/create?shot_at=" + encodeURIComponent(b.picture_day || "");
+  // The job name the sync will match: it looks for the organization's name at the front, the rest is your usual pattern.
+  const gpJobName = (b) => {
+    const y = (b.picture_day || "").slice(0, 4), m = +((b.picture_day || "").slice(5, 7));
+    const season = b.type_key === "school" && y ? (m >= 7 ? y + "-" + (+y + 1) : (+y - 1) + "-" + y) : y;
+    return [b.org_name, b.title_label || b.type_label, season].filter(Boolean).join(" | ");
+  };
+  // A saved custom title splits back into the typed part and whether the organization was kept with it.
+  // Reads both orders: "Org • typed" (now) and "typed • Org" (titles saved before the organization moved to the front).
+  const ovParts = (d) => { const ov = (d && d.title_override || "").trim(); const org = d && d.org_name || ""; const head = org + " \u2022 ", tail = " \u2022 " + org;
+    if (ov && org && ov.startsWith(head)) return { text: ov.slice(head.length), keep: true };
+    if (ov && org && ov.endsWith(tail)) return { text: ov.slice(0, -tail.length), keep: true };
+    return { text: ov, keep: !ov }; };
+  const gpCreateBlock = (b) => '<div class="bk-gp"><a class="btn small" href="' + esc(gpCreateUrl(b)) + '" target="_blank" rel="noopener">Create the job in GotPhoto</a>' +
+    '<span class="bk-sub">Name it <code>' + esc(gpJobName(b)) + '</code> <button type="button" class="link" data-v="copyname" data-name="' + esc(gpJobName(b)) + '">copy</button></span></div>';
+  const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" }) : "";
+  const fmtWhen = (iso) => iso ? new Date(iso).toLocaleString("en-US", { timeZone: TZ, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const hhmmToLabel = (t) => { if (!t) return ""; const [h, m] = t.split(":").map(Number); const ap = h >= 12 ? "PM" : "AM"; return ((h % 12) || 12) + ":" + String(m).padStart(2, "0") + " " + ap; };
+  const gcalLink = (eventId) => eventId ? "https://calendar.google.com/calendar/event?eid=" + btoa(eventId + " " + CAL_ID).replace(/=+$/, "") : "";
+
+  // ---- light Markdown -> HTML (same rules as functions/booking-sender/md.ts; display only)
+  function mdInline(s) {
+    const links = [];
+    let t = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_m, txt, url) => { links.push('<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(txt) + "</a>"); return "\u0000" + (links.length - 1) + "\u0000"; });
+    t = esc(t).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    t = t.replace(/(^|[\s(])((?:https?:\/\/)?(?:[a-z0-9-]+\.)+(?:com|org|net|edu|us)(?:\/[^\s<]*)?)/gi, (m, pre, u) => {
+      const trail = (u.match(/[.,;:!?)]+$/) || [""])[0]; const core = trail ? u.slice(0, -trail.length) : u;
+      return pre + '<a href="' + (/^https?:\/\//i.test(core) ? core : "https://" + core) + '" target="_blank" rel="noopener">' + core + "</a>" + trail;
+    });
+    return t.replace(/\u0000(\d+)\u0000/g, (_m, i) => links[Number(i)]);
+  }
+  function mdToHtml(md) {
+    return String(md || "").replace(/\r\n/g, "\n").split(/\n{2,}/).map((b) => b.trim()).filter(Boolean).map((b) => {
+      const out = []; let list = [];
+      const flush = () => { if (list.length) { out.push("<ul>" + list.map((l) => "<li>" + mdInline(l) + "</li>").join("") + "</ul>"); list = []; } };
+      b.split("\n").forEach((l) => { if (/^- /.test(l)) list.push(l.slice(2)); else if (/^> ?/.test(l)) { flush(); out.push("<blockquote>" + mdInline(l.replace(/^> ?/, "")) + "</blockquote>"); } else { flush(); out.push("<p>" + mdInline(l) + "</p>"); } });
+      flush(); return out.join("");
+    }).join("");
+  }
+  // {{key|fallback}} filler for client-side previews (the server uses prospect_render; same rules)
+  function fill(tpl, vars) {
+    return String(tpl || "").replace(/\{\{([^{}|]+)(?:\|([^{}]*))?\}\}/g, (_m, k, fb) => { const v = (vars[k.trim()] || "").trim(); return v || (fb || ""); });
+  }
+
+  // ---- data
+  async function ensureMeta() {
+    if (types.length) return;
+    const [t, s, q] = await Promise.all([
+      sb.from("booking_types").select("*").order("sort_order"),
+      sb.from("booking_steps").select("*").eq("is_active", true).order("step_no"),
+      sb.from("booking_sequences").select("id, type_key, is_active").eq("is_active", true)]);
+    if (t.error) throw t.error;
+    types = t.data || [];
+    const active = new Set((q.data || []).map((x) => x.id));
+    steps = (s.data || []).filter((x) => active.has(x.sequence_id));
+    seqType = {}; (q.data || []).forEach((x) => { seqType[x.id] = x.type_key; }); // the form's schedule preview needs this too
+    const sel = el("bkType"); sel.innerHTML = '<option value="">All types</option>' + types.map((x) => '<option value="' + esc(x.key) + '">' + esc(x.label) + "</option>").join("");
+  }
+  let seqType = {}; // sequence id -> type key
+  const seqOf = (id) => seqType[id];
+
+  async function load(force) {
+    if (loaded && !force && currentTabIs()) { render(); return; }
+    clearError("bkErr");
+    try {
+      await ensureMeta();
+      const { data: seqs } = await sb.from("booking_sequences").select("id, type_key");
+      seqType = {}; (seqs || []).forEach((q) => { seqType[q.id] = q.type_key; });
+      const today = todayStr();
+      const from = scope === "upcoming" ? today : addDays(today, -60);
+      const to = scope === "upcoming" ? null : (scope === "past" ? addDays(today, -1) : null);
+      const { data, error } = await sb.rpc("admin_bookings", { p_from: from, p_to: to });
+      if (error) throw error;
+      rows = (data || []);
+      loaded = true;
+      render();
+      const seg = location.hash.replace(/^#/, "").split("/");
+      if (seg[0] === "jobs" && seg[1] === "bookings" && seg[2] && seg[2] !== openId) openDetail(seg[2]);
+    } catch (e) { showError("bkErr", cleanErr(e)); el("bkBody").innerHTML = '<tr><td colspan="5" class="empty">Could not load bookings.</td></tr>'; }
+  }
+  const currentTabIs = () => el("panel-bookings").classList.contains("active");
+
+  // "Mon, Oct 20" or "Mon, Oct 20 to Tue, Oct 21"
+  function whenRange(b) {
+    const ds = (b.days || []).map((x) => x.day).filter(Boolean);
+    if (ds.length < 2) return fmtDay(b.picture_day);
+    return fmtDay(ds[0]) + " to " + fmtDay(ds[ds.length - 1]);
+  }
+  function dayTimes(b, x) {
+    const has = x.sort === 0 ? b.time_set !== false : !!x.start_at;
+    const hasEnd = x.sort === 0 ? b.end_set !== false : !!x.end_at;
+    if (!has) return "time not set";
+    return fmtTime(x.start_at) + (hasEnd ? " to " + fmtTime(x.end_at) : "");
+  }
+  function daysLine(b) {
+    const ds = (b.days || []);
+    if (ds.length < 2) return esc(fmtDay(b.picture_day, true)) + ", " + esc(b.time_set === false ? "time not set" : fmtTime(b.start_at) + (b.end_set === false ? "" : " to " + fmtTime(b.end_at)));
+    return ds.map((x) => esc(fmtDay(x.day)) + " " + esc(dayTimes(b, x)) + (x.label ? " (" + esc(x.label) + ")" : "")).join("; ");
+  }
+  function calPill(b) {
+    const m = { pending: ["muted", "Calendar: writing…"], synced: ["ok", "On calendar"], error: ["err", "Calendar error"], moved: ["warn", "Moved in Google"], missing: ["err", "Missing in Google"], deleted: ["muted", "Removed"] };
+    const [cls, txt] = m[b.calendar_status] || ["muted", b.calendar_status];
+    return '<span class="pill ' + cls + '">' + esc(txt) + "</span>";
+  }
+  function mailSummary(b) {
+    if (b.status === "cancelled") return '<span class="pill muted">Cancelled</span>';
+    const parts = [num(b.emails_sent) + " of " + num(b.emails_total) + " sent"];
+    if (num(b.emails_failed)) parts.push('<span class="pill err">' + num(b.emails_failed) + " failed</span>");
+    if (num(b.emails_waiting_time)) parts.push('<span class="pill warn">waiting for the time</span>');
+    if (num(b.emails_waiting_coaches)) parts.push('<span class="pill muted">waiting for coaches</span>');
+    if (num(b.emails_waiting_gallery)) parts.push('<span class="pill muted">waiting for the gallery</span>');
+    if (num(b.emails_waiting) - num(b.emails_waiting_time) - num(b.emails_waiting_coaches) - num(b.emails_waiting_gallery) > 0) parts.push('<span class="pill warn">' + (b.audience === "school" ? "needs access code" : "needs GotPhoto job") + "</span>");
+    if (b.next_send_at) parts.push('<span class="bk-sub">next ' + esc(fmtWhen(b.next_send_at)) + "</span>");
+    return parts.join(" ");
+  }
+  function render() {
+    const q = el("bkSearch").value.trim().toLowerCase(), tk = el("bkType").value;
+    let list = rows.filter((b) => (scope === "cancelled" ? b.status === "cancelled" : b.status !== "cancelled"));
+    if (tk) list = list.filter((b) => b.type_key === tk);
+    if (q) list = list.filter((b) => (b.org_name + " " + b.title + " " + (b.org_town || "")).toLowerCase().includes(q));
+    const body = el("bkBody");
+    if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty">' + (scope === "upcoming" ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : "Nothing here.") + "</td></tr>"; return; }
+    body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
+      '<td class="bk-c-when"><div class="bk-date">' + esc(whenRange(b)) + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div></td>" +
+      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type">' + esc(b.type_label) + (b.location ? " · " + esc(b.location) : "") + "</div></td>" +
+      '<td class="bk-c-who">' + ((b.contacts || []).map((c) => esc(c.name || c.email)).join(", ") || '<span class="pill err">no contact</span>') + "</td>" +
+      '<td class="bk-c-mail">' + mailSummary(b) + "</td>" +
+      '<td class="bk-c-cal">' + calPill(b) + "</td></tr>").join("");
+  }
+  el("bkSearch").addEventListener("input", render);
+  el("bkType").addEventListener("change", render);
+  el("bkScope").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-scope]"); if (!b) return;
+    scope = b.dataset.scope;
+    el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+    load(true);
+  });
+  el("bkBody").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) openDetail(tr.dataset.id); });
+
+  // ---- attention (Today + Jobs badge)
+  async function loadAttention() {
+    try {
+      const { data, error } = await sb.rpc("admin_bookings_attention");
+      if (error) throw error;
+      const a = data || {};
+      setAttention("bookingFailed", num(a.send_failed), "booking email(s) failed to send", "bookings", "err", () => { scope = "upcoming"; load(true); });
+      setAttention("bookingCalendar", num(a.calendar), "booking(s) out of step with Google Calendar", "bookings", "warn", () => { scope = "upcoming"; load(true); });
+      setAttention("bookingNeedsCode", num(a.needs_code), "school booking(s) waiting for an access code", "bookings", "warn", () => { scope = "upcoming"; load(true); });
+      setAttention("bookingNeedsJob", num(a.needs_job), "sports booking(s) waiting for the GotPhoto job", "bookings", "warn", () => { scope = "upcoming"; load(true); });
+      setAttention("bookingNeedsCoaches", num(a.needs_coaches), "sports booking(s) a week out with no coach emails", "bookings", "soon", () => { scope = "upcoming"; load(true); });
+      setAttention("bookingNoContact", num(a.no_contact), "booking(s) with nobody to email", "bookings", "err", () => { scope = "upcoming"; load(true); });
+      setAttention("bookingNeedsTime", num(a.needs_time), "booking(s) need their start and end time", "bookings", "warn", () => { scope = "upcoming"; load(true); });
+      setAttention("bookingNeedsTimeLater", num(a.needs_time_later), "booking(s) without a time yet", "bookings", "soon", () => { scope = "upcoming"; load(true); });
+      const ban = el("bkBanner");
+      if (a.sending_enabled === false) { ban.className = "bk-banner"; ban.innerHTML = "<strong>Sending is off.</strong> Emails are scheduled but nothing goes out until sending is turned on (Library &rsaquo; Booking emails &rsaquo; Settings)."; }
+      else if (a.test_mode) { ban.className = "bk-banner test"; ban.innerHTML = "<strong>Test mode.</strong> Every booking email goes to the test address with a [TEST] subject."; }
+      else ban.className = "bk-banner hidden";
+    } catch (_e) { /* badge stays unknown; the tab shows its own error */ }
+  }
+
+  // ---- dialogs
+  function dialog(html, wide) {
+    const wrap = document.createElement("div");
+    wrap.className = "og-modal-wrap";
+    wrap.innerHTML = '<div class="og-modal' + (wide ? " wide" : "") + '" role="dialog" aria-modal="true">' + html + "</div>";
+    const box = wrap.firstElementChild;
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    const close = () => { document.removeEventListener("keydown", onKey); wrap.remove(); };
+    box.close = close;
+    document.addEventListener("keydown", onKey);
+    document.querySelector(".aca").appendChild(wrap);
+    Orgs.measureTop();
+    return box;
+  }
+
+  // ---- Book a job / Edit booking
+  async function openForm(existing) {
+    try { await ensureMeta(); } catch (e) { toast(cleanErr(e), true); return; }
+    const isNew = !existing;
+    const d = existing || {};
+    let org = isNew ? null : { id: d.org_id, name: d.org_name, town: d.org_town };
+    let contacts = isNew ? [] : (d.org_contacts || []);
+    let typeKey = d.type_key || (types[0] && types[0].key) || "";
+    const chosen = new Set(isNew ? [] : (d.contact_ids || []));
+    const box = dialog(`
+      <div class="bk-fhead"><h2>${isNew ? "Book a job" : "Edit booking"}</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">✕</button></div>
+      <div class="og-grid">
+        <label>Organization</label>
+        <div>
+          <div class="bk-orgpick" id="aca-bkOrgPick">${org ? '<strong>' + esc(org.name) + '</strong> <a href="#partners/orgs/' + esc(org.id) + '" class="bk-sub" target="_blank" rel="noopener">open organization</a>' + (isNew ? ' <button type="button" class="link" data-v="changeorg">change</button>' : "") : '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'}</div>
+          <div class="bk-orgs hidden" id="aca-bkOrgList"></div>
+        </div>
+        <label>Job type${isNew ? "" : ' <span class="bk-sub">(fixed once booked)</span>'}</label>
+        <div class="bk-cards" id="aca-bkTypes">${types.map((t) => '<label class="bk-card' + (t.key === typeKey ? " sel" : "") + (isNew || t.key === typeKey ? "" : " hidden") + '"><input type="radio" name="bkType" value="' + esc(t.key) + '"' + (t.key === typeKey ? " checked" : "") + (isNew ? "" : " disabled") + ' /><strong>' + esc(t.label) + "</strong><span>" + esc(t.description) + "</span></label>").join("")}</div>
+        <label>Picture day${(d.days || []).length > 1 ? "s" : ""}</label>
+        <div><div id="aca-bkDays"></div>
+          <button type="button" class="link" data-v="addday" style="margin-top:6px">+ Add another day</button>
+          <div class="bk-sub" style="margin-top:4px">Times can wait: emails that mention one hold until it is set. Label a day only when each day is a different group.</div></div>
+        <label>Calendar title</label>
+        <div><div class="bk-chips" id="aca-bkLabels"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px"><input type="text" id="aca-bkTitle" placeholder="Or type your own, e.g. Football" value="${esc(ovParts(d).text)}" style="flex:1;min-width:200px" />
+            <label class="bk-sub" style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" id="aca-bkKeepOrg" ${ovParts(d).keep ? "checked" : ""} /> keep the organization before it</label></div>
+          <div class="bk-sub" id="aca-bkTitlePrev" style="margin-top:6px"></div>
+          <div id="aca-bkGp"></div></div>
+        <label for="aca-bkLoc">Location</label><input type="text" id="aca-bkLoc" value="${esc(d.location || "")}" placeholder="Where we set up (goes on the calendar event)" />
+        <label>Who gets the emails</label>
+        <div><div class="bk-contacts" id="aca-bkContacts"><span class="bk-sub">Pick an organization first.</span></div>
+          <div class="bk-addc hidden" id="aca-bkAddC"><input type="text" id="aca-bkCFirst" placeholder="First" /><input type="text" id="aca-bkCLast" placeholder="Last" /><input type="email" id="aca-bkCEmail" placeholder="email@school.org" /><input type="text" id="aca-bkCRole" placeholder="Role (AD, secretary)" /><button type="button" class="small" data-v="addc">Add</button></div>
+          <button type="button" class="link hidden" id="aca-bkAddCBtn" data-v="showaddc">+ Add a contact</button></div>
+        <label for="aca-bkCode" class="bk-school">Access code</label>
+        <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Create the job in GotPhoto (link above), then put its code here. Leave empty for now and email 0 waits for it.</span></span>
+        <label for="aca-bkRetake" class="bk-school">Retake day</label><span class="bk-school"><input type="date" id="aca-bkRetake" value="${esc(d.retake_day || "")}" /> <span class="bk-sub">optional</span></span>
+        <label for="aca-bkNotes">Notes</label><textarea id="aca-bkNotes" rows="2" placeholder="Internal notes (also on the calendar event)">${esc(d.notes || "")}</textarea>
+      </div>
+      <div class="bk-preview" id="aca-bkPrev"></div>
+      <div id="aca-bkFormErr" class="inline-error hidden" style="margin:10px 0 0"></div>
+      <div class="og-actions bk-factions" style="margin-top:12px"><button type="button" class="primary" data-v="save">${isNew ? "Book it" : "Save changes"}</button><button type="button" data-v="close">Cancel</button></div>`, true);
+    box.classList.add("bk-form");
+
+    const err = (m) => { el("bkFormErr").textContent = m; el("bkFormErr").classList.remove("hidden"); };
+    // One or more days. Day rows come from the booking's days (edit) or one blank row (new). Times optional.
+    const hhmmOf = (iso) => (iso ? new Date(iso).toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }) : "");
+    const dayRows = isNew ? [{ day: "", start_time: "", end_time: "", label: "" }]
+      : ((d.days || []).length ? d.days : [{ day: d.picture_day, start_at: d.start_at, end_at: d.end_at, sort: 0 }]).map((x) => ({
+          day: x.day, start_time: (x.sort === 0 ? d.time_set !== false : !!x.start_at) ? hhmmOf(x.start_at) : "",
+          end_time: (x.sort === 0 ? d.end_set !== false : !!x.end_at) ? hhmmOf(x.end_at) : "", label: x.label || "" }));
+    function renderDays() {
+      el("bkDays").innerHTML = dayRows.map((r, i) => '<div class="bk-dayrow" data-i="' + i + '" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
+        '<input type="date" class="bk-d-day" value="' + esc(r.day || "") + '" aria-label="Day ' + (i + 1) + '" /> ' +
+        '<input type="time" class="bk-d-start" value="' + esc(r.start_time || "") + '" step="300" aria-label="Start" /> <span class="bk-sub">to</span> ' +
+        '<input type="time" class="bk-d-end" value="' + esc(r.end_time || "") + '" step="300" aria-label="End" /> ' +
+        '<input type="text" class="bk-d-label" value="' + esc(r.label || "") + '" placeholder="' + (dayRows.length > 1 ? "Which teams this day" : "Label (optional)") + '" maxlength="60" style="flex:1 1 160px;min-width:120px" />' +
+        (dayRows.length > 1 ? '<button type="button" class="small quiet" data-v="rmday" data-i="' + i + '" aria-label="Remove day ' + (i + 1) + '">&times;</button>' : "") + "</div>").join("");
+    }
+    function readDays() {
+      const out = [];
+      el("bkDays").querySelectorAll(".bk-dayrow").forEach((row, i) => {
+        const r = { day: row.querySelector(".bk-d-day").value, start_time: row.querySelector(".bk-d-start").value, end_time: row.querySelector(".bk-d-end").value, label: row.querySelector(".bk-d-label").value.trim() };
+        dayRows[i] = r; if (r.day) out.push(r);
+      });
+      return out.sort((a, b2) => a.day.localeCompare(b2.day));
+    }
+    const firstDay = () => { const ds = readDays(); return ds.length ? ds[0].day : ""; };
+    const isSchool = () => byType(typeKey).audience === "school";
+    function renderLabels() {
+      const labels = byType(typeKey).title_labels || [];
+      const cur = d.title_label && labels.includes(d.title_label) ? d.title_label : (labels[0] || "");
+      el("bkLabels").innerHTML = labels.map((l) => '<button type="button" class="small" data-label="' + esc(l) + '" aria-pressed="' + (l === cur ? "true" : "false") + '">' + esc(l) + "</button>").join("");
+      box.querySelectorAll(".bk-school").forEach((x) => x.classList.toggle("hidden", !isSchool()));
+    }
+    const pickedLabel = () => { const b = el("bkLabels").querySelector('button[aria-pressed="true"]'); return b ? b.dataset.label : ""; };
+    // The exact calendar title, the way the calendar function writes it (title_override, else "Organization • Label").
+    // The typed title, with the organization kept in front of it unless the box is unticked.
+    function composedOverride() {
+      const ov = el("bkTitle").value.trim(); if (!ov) return "";
+      return el("bkKeepOrg").checked && org ? org.name + " \u2022 " + ov : ov;
+    }
+    function renderTitle() {
+      const box2 = el("bkTitlePrev"); if (!box2) return;
+      const ov = el("bkTitle").value.trim();
+      const t = ov ? (el("bkKeepOrg").checked ? (org ? org.name : "(organization)") + " \u2022 " + ov : ov) : [org ? org.name : "(organization)", pickedLabel() || byType(typeKey).label].join(" \u2022 ");
+      box2.innerHTML = "On the calendar: <strong>" + esc(t) + "</strong>" + (dayRows.length > 1 ? ' <span class="muted">(each extra day adds its own label after it)</span>' : "");
+      const gp = el("bkGp"), day = firstDay();
+      if (gp) gp.innerHTML = org && day ? gpCreateBlock({ org_name: org.name, title_label: pickedLabel(), type_key: typeKey, type_label: byType(typeKey).label, picture_day: day })
+        : '<div class="bk-sub" style="margin-top:6px">Pick the organization and the day to get the GotPhoto link.</div>';
+    }
+    function renderContacts() {
+      const list = el("bkContacts");
+      if (!org) { list.innerHTML = '<span class="bk-sub">Pick an organization first.</span>'; el("bkAddCBtn").classList.add("hidden"); return; }
+      el("bkAddCBtn").classList.remove("hidden");
+      if (!contacts.length) { list.innerHTML = '<span class="bk-sub">No contacts on file for ' + esc(org.name) + ' yet. Add one below.</span>'; return; }
+      list.innerHTML = contacts.map((c) => {
+        const ok = c.emailable !== false && !!c.email;
+        const name = [c.first_name, c.last_name].filter(Boolean).join(" ");
+        return '<label class="' + (ok ? "" : "off") + '"><input type="checkbox" data-cid="' + esc(c.id) + '"' + (chosen.has(c.id) && ok ? " checked" : "") + (ok ? "" : " disabled") + ' /><span>' +
+          (name ? "<strong>" + esc(name) + "</strong> " : "") + esc(c.email || "(no email)") + (c.role ? ' <span class="bk-sub">' + esc(c.role) + "</span>" : "") + (c.is_primary ? ' <span class="pill accent">Main</span>' : "") + (ok ? "" : ' <span class="pill muted">not emailable</span>') + "</span></label>";
+      }).join("");
+    }
+    function renderPreview() {
+      renderTitle();
+      const pd = firstDay();
+      const list = steps.filter((s) => seqOf(s.sequence_id) === typeKey);
+      const n = [...el("bkContacts").querySelectorAll("input:checked")].length;
+      if (!pd || !list.length) { el("bkPrev").innerHTML = '<strong>Emails:</strong> pick a picture day to see the schedule.'; return; }
+      const today = todayStr();
+      const items = list.flatMap((s) => {
+        if (s.kind === "coach" && s.trigger === "gallery_live") return { k: "3|" + String(s.offset_days).padStart(4, "0"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">coach</span>: ' + (s.offset_days ? s.offset_days + " days after the gallery goes live" : "when the gallery goes live") + " (to the coaches on file)</li>" };
+        if (s.kind === "hub" && s.trigger === "gallery_live") return { k: "3|" + String(s.offset_days).padStart(4, "0"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + (s.offset_days ? s.offset_days + " days after the gallery goes live" : "when the gallery goes live") + "</li>" };
+        if (s.kind === "hub" && s.trigger === "retake_day") return { k: "2|" + (isSchool() && el("bkRetake").value ? addDays(el("bkRetake").value, -s.offset_days) : "9999"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + s.offset_days + " day" + (s.offset_days === 1 ? "" : "s") + " before retake day" + (isSchool() && el("bkRetake").value ? " (" + esc(fmtDay(addDays(el("bkRetake").value, -s.offset_days))) + ")" : " (needs a retake day)") + "</li>" };
+        if (s.offset_days === 0) return { k: "0|", h: "<li><strong>" + esc(s.label) + "</strong>: " + (isSchool() ? (el("bkCode").value.trim() ? (isNew ? "about 10 minutes after you book" : "already scheduled") : "waits for the access code, then 10 minutes later") : (isNew ? "10 minutes after the GotPhoto job exists (it links itself within 5 minutes of the job being created)" : "already scheduled")) + "</li>" };
+        // the hub "day before" reminder goes once per night; everything else once, keyed off the first day
+        const nights = s.kind === "hub" && s.hub_key === "day" && s.trigger === "picture_day" ? readDays().filter((d) => d.day) : [{ day: pd }];
+        return nights.map((n) => {
+          const day = addDays(n.day, -s.offset_days);
+          const past = day < today;
+          return { k: "1|" + day, h: "<li><strong>" + esc(s.label) + "</strong>" + (nights.length > 1 ? " (" + esc(fmtDay(n.day)) + (n.label ? ", " + esc(n.label) : "") + ")" : "") + (s.kind === "hub" ? ' <span class="pill accent">hub</span>' : s.kind === "coach" ? ' <span class="pill accent">coach</span>' : "") + ": " + esc(fmtDay(day)) + " at " + esc(hhmmToLabel(s.send_time)) + (s.kind === "coach" ? " (to the coaches on file)" : "") + (past ? ' <span class="pill muted">already past, skipped</span>' : "") + (s.covered_by_gotphoto ? ' <span class="bk-sub">(skipped when GotPhoto emails the families)</span>' : "") + "</li>" };
+        });
+      });
+      items.sort((a, b) => a.k < b.k ? -1 : a.k > b.k ? 1 : 0);
+      let folded = true; try { folded = localStorage.getItem("aca-bkformmail") !== "open"; } catch (e) {}
+      el("bkPrev").classList.toggle("folded", folded);
+      el("bkPrev").innerHTML = '<button type="button" class="bk-mailtog" data-v="prevfold" aria-expanded="' + !folded + '"><span class="sl-chev"></span> ' + items.length + " email" + (items.length === 1 ? "" : "s") + "</button> to " + (n || "no") + " contact" + (n === 1 ? "" : "s") + (n > 1 ? " (first one To, the rest Cc)" : "") + '<div class="bk-prevbody"><ul>' + items.map((x) => x.h).join("") + "</ul>" +
+        (isSchool() ? '<div style="margin-top:6px"><strong>Hub:</strong> ' + (el("bkCode").value.trim() ? "school row + reminder signups are created now." : "school row is created when you add the access code.") + "</div>" : "") + "</div>";
+    }
+    async function pickOrg(o) {
+      org = o; chosen.clear();
+      el("bkOrgPick").innerHTML = "<strong>" + esc(o.name) + '</strong> <a href="#partners/orgs/' + esc(o.id) + '" class="bk-sub" target="_blank" rel="noopener">open organization</a> <button type="button" class="link" data-v="changeorg">change</button>';
+      el("bkOrgList").classList.add("hidden");
+      if (!el("bkLoc").value) el("bkLoc").value = o.town || "";
+      const { data } = await sb.from("prospect_contacts").select("id, first_name, last_name, email, role, is_primary, bounced_at, unsubscribed_at, stopped_at, history_only").eq("org_id", o.id);
+      contacts = (data || []).filter((c) => !c.history_only).map((c) => ({ ...c, emailable: !!c.email && !c.bounced_at && !c.unsubscribed_at && !c.stopped_at }))
+        .sort((a, b) => (b.is_primary - a.is_primary) || String(a.first_name || "").localeCompare(String(b.first_name || "")));
+      contacts.forEach((c) => { if (c.is_primary && c.emailable) chosen.add(c.id); });
+      if (!chosen.size) contacts.filter((c) => c.emailable).forEach((c) => chosen.add(c.id));
+      renderContacts(); renderPreview();
+    }
+    let searchTimer = null;
+    box.addEventListener("input", (e) => {
+      if (e.target.id === "aca-bkOrgQ") {
+        clearTimeout(searchTimer);
+        const q = e.target.value.trim();
+        if (q.length < 2) { el("bkOrgList").classList.add("hidden"); return; }
+        searchTimer = setTimeout(async () => {
+          const { data } = await sb.from("prospect_orgs").select("id, name, town, stage, audience").ilike("search_text", "%" + q.replace(/[%_]/g, "") + "%").order("name").limit(12);
+          const list = el("bkOrgList"); list.classList.remove("hidden");
+          list.innerHTML = (data || []).map((o) => '<button type="button" data-org="' + esc(o.id) + '"><strong>' + esc(o.name) + "</strong>" + (o.town ? ' <span class="bk-sub">' + esc(o.town) + "</span>" : "") + (o.stage === "client" ? ' <span class="pill ok">Client</span>' : "") + "</button>").join("") ||
+            '<div class="empty">No match. Add the organization under Partners &rsaquo; Organizations first.</div>';
+          list.querySelectorAll("button[data-org]").forEach((b) => b.addEventListener("click", () => pickOrg((data || []).find((o) => o.id === b.dataset.org))));
+        }, 220);
+      }
+      if (["aca-bkCode", "aca-bkRetake"].includes(e.target.id) || e.target.classList.contains("bk-d-day") || e.target.classList.contains("bk-d-label")) renderPreview();
+      if (e.target.id === "aca-bkTitle" || e.target.id === "aca-bkKeepOrg") renderTitle();
+    });
+    box.addEventListener("change", (e) => {
+      if (e.target.name === "bkType") {
+        typeKey = e.target.value;
+        box.querySelectorAll(".bk-card").forEach((c) => c.classList.toggle("sel", c.querySelector("input").checked));
+        renderLabels(); renderPreview();
+      }
+      if (e.target.dataset && e.target.dataset.cid) { if (e.target.checked) chosen.add(e.target.dataset.cid); else chosen.delete(e.target.dataset.cid); renderPreview(); }
+    });
+    box.addEventListener("click", async (e) => {
+      const lb = e.target.closest("button[data-label]");
+      if (lb) { el("bkLabels").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === lb ? "true" : "false")); renderTitle(); return; }
+      const b = e.target.closest("button[data-v]"); if (!b) return;
+      const v = b.dataset.v;
+      if (v === "close") return box.close();
+      if (v === "prevfold") { const open = el("bkPrev").classList.toggle("folded") === false; b.setAttribute("aria-expanded", String(open)); try { localStorage.setItem("aca-bkformmail", open ? "open" : "closed"); } catch (e2) {} return; }
+      if (v === "copyname") { try { await navigator.clipboard.writeText(b.dataset.name); b.textContent = "copied"; setTimeout(() => { b.textContent = "copy"; }, 1500); } catch (er) { toast("Couldn't copy: " + b.dataset.name, true); } return; }
+      if (v === "addday") { dayRows.push({ day: "", start_time: "", end_time: "", label: "" }); renderDays(); return; }
+      if (v === "rmday") { const i = Number(b.dataset.i); if (dayRows.length > 1) { dayRows.splice(i, 1); renderDays(); renderPreview(); } return; }
+      if (v === "changeorg") { org = null; contacts = []; chosen.clear(); el("bkOrgPick").innerHTML = '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'; renderContacts(); el("bkOrgQ").focus(); return; }
+      if (v === "showaddc") { el("bkAddC").classList.remove("hidden"); b.classList.add("hidden"); el("bkCFirst").focus(); return; }
+      if (v === "addc") {
+        const email = el("bkCEmail").value.trim().toLowerCase();
+        if (!org) return err("Pick an organization first.");
+        if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) return err("That does not look like an email address.");
+        b.disabled = true;
+        const { data, error } = await sb.from("prospect_contacts").insert({ org_id: org.id, email, first_name: el("bkCFirst").value.trim() || null, last_name: el("bkCLast").value.trim() || null, role: el("bkCRole").value.trim() || null }).select("*").single();
+        b.disabled = false;
+        if (error) return err(cleanErr(error));
+        contacts.push({ ...data, emailable: true }); chosen.add(data.id);
+        ["bkCFirst", "bkCLast", "bkCEmail", "bkCRole"].forEach((id) => { el(id).value = ""; });
+        clearError("bkFormErr"); renderContacts(); renderPreview(); return;
+      }
+      if (v === "save") {
+        clearError("bkFormErr");
+        if (!org) return err("Pick an organization.");
+        const days = readDays();
+        if (!days.length) return err("Pick the picture day.");
+        if (!chosen.size) return err("Tick at least one contact with an email address.");
+        const noEnd = days.filter((x) => x.start_time && !x.end_time);
+        if (noEnd.length && !confirm("No end time on " + noEnd.map((x) => fmtDay(x.day)).join(", ") + ". We use the end time to know when to pack up. Save without it?")) return;
+        const badEnd = days.filter((x) => x.start_time && x.end_time && x.end_time <= x.start_time);
+        if (badEnd.length) return err("The end time has to be after the start time (" + fmtDay(badEnd[0].day) + ").");
+        const p = { org_id: org.id, type_key: typeKey, picture_day: days[0].day, days,
+          title_label: pickedLabel(), title_override: composedOverride(), location: el("bkLoc").value.trim(), notes: el("bkNotes").value.trim(),
+          contact_ids: [...chosen], access_code: isSchool() ? el("bkCode").value.trim() : "", retake_day: isSchool() ? (el("bkRetake").value || "") : "" };
+        if (isNew && rows.some((r) => r.org_id === org.id && r.picture_day === p.picture_day && r.type_key === typeKey && r.status !== "cancelled")
+            && !confirm("There is already a " + byType(typeKey).label + " booking for " + org.name + " on that day. Book another one anyway?")) return;
+        b.disabled = true;
+        try {
+          const { data, error } = isNew ? await sb.rpc("booking_create", { p }) : await sb.rpc("booking_update", { p_id: d.id, p });
+          if (error) throw error;
+          box.close();
+          toast(isNew ? "Booked. Writing the calendar event…" : "Saved.");
+          await load(true);
+          openDetail(isNew ? data.id : d.id, true);
+        } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
+      }
+    });
+    renderLabels(); renderDays();
+    if (!isNew) { renderContacts(); renderPreview(); } else { renderPreview(); setTimeout(() => { const q = el("bkOrgQ"); if (q) q.focus(); }, 50); }
+  }
+  el("bkNew").addEventListener("click", () => openForm(null));
+
+  // ---- detail panel
+  let detail = null;
+  async function openDetail(id, poll) {
+    openId = id;
+    const panel = el("bkPanel");
+    panel.classList.remove("hidden");
+    if (window.innerWidth <= 900) { document.documentElement.classList.add("aca-sheet-open"); document.body.classList.add("aca-sheet-open"); }
+    Orgs.measureTop();
+    panel.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
+    const hash = "#jobs/bookings/" + id;
+    if (location.hash !== hash) history.replaceState(null, "", hash);
+    await refreshDetail();
+    clearTimeout(pollTimer);
+    if (poll || (detail && detail.calendar_status === "pending")) {
+      let n = 0;
+      const tick = async () => { if (openId !== id) return; await refreshDetail(); if (detail && detail.calendar_status !== "pending" || ++n > 12) { load(true); return; } pollTimer = setTimeout(tick, 2500); };
+      pollTimer = setTimeout(tick, 2500);
+    }
+  }
+  function closeDetail() {
+    document.documentElement.classList.remove("aca-sheet-open"); document.body.classList.remove("aca-sheet-open");
+    openId = null; clearTimeout(pollTimer);
+    el("bkPanel").classList.add("hidden");
+    if (/^#jobs\/bookings\//.test(location.hash)) history.replaceState(null, "", "#jobs/bookings");
+  }
+  async function refreshDetail() {
+    const { data, error } = await sb.rpc("admin_booking_detail", { p_id: openId });
+    if (error || !data) { el("bkPanel").innerHTML = '<div class="inline-error" style="margin:16px">' + esc(error ? cleanErr(error) : "Booking not found.") + '</div><div style="padding:0 16px"><button type="button" data-v="close">Close</button></div>'; return; }
+    detail = data; renderDetail();
+  }
+  const statusPill = (e) => {
+    const m = { scheduled: ["muted", "Scheduled"], waiting: ["warn", "Waiting"], sending: ["accent", "Sending…"], sent: ["ok", "Sent"], skipped: ["muted", "Skipped"], failed: ["err", "Failed"], cancelled: ["muted", "Cancelled"] };
+    const [c, t] = m[e.status] || ["muted", e.status]; return '<span class="pill ' + c + '">' + t + "</span>";
+  };
+  function renderDetail() {
+    const b = detail, isSchool = b.audience === "school", live = b.status === "booked";
+    let mailFolded = true; try { mailFolded = localStorage.getItem("aca-bkmailfold") !== "open"; } catch (e) {}
+    const calBtns = [];
+    if (b.google_event_id && b.calendar_status !== "deleted") calBtns.push('<a class="small" href="' + esc(gcalLink(b.google_event_id)) + '" target="_blank" rel="noopener" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:8px">Open in Google Calendar</a>');
+    if (live && (b.calendar_status === "moved" || b.calendar_status === "missing")) calBtns.push('<button type="button" class="small" data-v="adopt"' + (b.mirror ? "" : " disabled") + '>Use the calendar date' + (b.mirror ? " (" + esc(fmtDay(b.mirror.start_date)) + ")" : "") + "</button>");
+    if (live && ["error", "moved", "missing"].includes(b.calendar_status)) calBtns.push('<button type="button" class="small" data-v="rewrite">Rewrite the event</button>');
+    const rank = (e) => e.trigger === "retake_day" ? 1000 - (e.offset_days || 0) : e.trigger === "gallery_live" ? 500 + (e.offset_days || 0) : (e.offset_days || 0) === 0 ? -1000 : -(e.offset_days || 0);
+    const when = (e) => e.sent_at || e.send_at || null;
+    // one timeline: admin emails and hub reminders together, in the order the client receives them
+    const emails = (b.emails || []).slice().sort((x, y) => (when(x) && when(y) ? String(when(x)).localeCompare(String(when(y))) : 0) || rank(x) - rank(y) || (x.step_no || 0) - (y.step_no || 0));
+    el("bkPanel").innerHTML = `
+      <div class="bk-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <div><h3 style="font-size:15px">${esc(b.title)}</h3>
+          <div class="bk-sub">${daysLine(b)} · ${esc(b.type_label)}${b.status !== "booked" ? ' · <span class="pill muted">' + esc(b.status) + "</span>" : ""}</div>
+          ${b.time_set === false && live ? '<div class="bk-sub" style="margin-top:6px"><span class="pill warn">time not set</span> Emails that mention the time are waiting. <button type="button" class="small" data-v="edit">Set the times</button></div>' : ""}
+          <div class="bk-sub"><a href="#partners/orgs/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " · " + esc(b.location) : ""}</div></div>
+        <button type="button" data-v="close" aria-label="Close">✕</button>
+      </div>
+      <div class="bk-sec"><h3>Calendar</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${calPill(b)}${calBtns.join("")}</div>
+        ${b.calendar_error ? '<div class="bk-sub" style="margin-top:6px;color:var(--err-fg)">' + esc(b.calendar_error) + "</div>" : ""}
+        ${b.calendar_status === "pending" && !b.google_event_id ? '<div class="bk-sub" style="margin-top:6px">The event is written by the calendar function within a minute. If this never changes, the Google service account is not set up yet (see the to-do list).</div>' : ""}
+      </div>
+      ${!isSchool ? '<div class="bk-sec"><h3>GotPhoto job (sports hub)</h3>' + (b.gotphoto_job ? '<div class="bk-sub">Linked to <strong>' + esc(b.gotphoto_job.name) + '</strong> (' + esc(b.gotphoto_job.status || "") + '). The team shows on 207photo.com/sportsadmin.' + (live ? ' <button type="button" class="link" data-v="unlinkjob">unlink</button>' : "") + "</div>" :
+        (live ? '<div class="bk-sub">Not linked yet, so email 0 waits (the hub lists teams from GotPhoto jobs). Once the job exists in GotPhoto it links itself within 5 minutes, or pick it here.</div>' + gpCreateBlock(b) +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><select id="aca-bkDJob" class="small" style="max-width:360px"><option value="">' + ((b.job_candidates || []).length ? "Pick the GotPhoto job\u2026" : "No matching job in the sync yet") + '</option>' +
+          (b.job_candidates || []).map((j) => '<option value="' + esc(j.gotphoto_job_id) + '">' + esc(j.name) + (j.picture_day ? " (" + esc(fmtDay(j.picture_day)) + ")" : "") + "</option>").join("") + '</select><button type="button" class="small primary" data-v="linkjob">Link</button></div>' : '<div class="bk-sub">No GotPhoto job linked.</div>')) + "</div>" : ""}
+      ${isSchool ? '<div class="bk-sec"><h3>School hub</h3>' + (b.hub_school ? '<div class="bk-sub">On 207photo.com/schooladmin as <strong>' + esc(b.hub_school.name) + "</strong>, code <strong>" + esc(b.hub_school.access_code) + "</strong>" + (b.hub_school.retake_day ? ", retake " + esc(fmtDay(b.hub_school.retake_day)) : "") + ". Reminder signups were added for the contacts.</div>" + hubRowTools(b.hub_school) :
+        (live ? '<div class="bk-sub">Not on the hub yet. Email 0 waits until the school exists there. Create the job in GotPhoto first, then enter its access code here.</div>' + gpCreateBlock(b) + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkDCode" placeholder="GotPhoto access code" style="width:170px" /><input type="date" id="aca-bkDRetake" title="Retake day (optional)" /><button type="button" class="small primary" data-v="setcode">Create on the hub</button></div>' : '<div class="bk-sub">Not on the hub.</div>')) + "</div>" : ""}
+      ${!isSchool ? '<div class="bk-sec"><h3>Coaches</h3>' + coachesBlock(b, live) + "</div>" : ""}
+      <div class="bk-sec"><h3>Contacts</h3>${(b.contacts || []).map((c) => "<div>" + esc(c.name || "") + ' <span class="bk-sub">' + esc(c.email || "") + "</span></div>").join("") || '<span class="pill err">Nobody to email</span>'}</div>
+      <div class="bk-sec bk-mailsec${mailFolded ? " folded" : ""}"><h3><button type="button" class="bk-mailtog" data-v="mailfold" aria-expanded="${!mailFolded}"><span class="sl-chev"></span> Emails</button> <span class="bk-sub">${mailSummary(b)}</span></h3>
+        <div class="table-wrap bk-mailbody"><table class="bk-emails"><tbody>${emails.map((e, i) => '<tr><td><strong>' + esc((i + 1) + ". " + (e.label || "")) + ((b.days || []).length > 1 && e.day_index != null && b.days[e.day_index] ? " (" + esc(fmtDay(b.days[e.day_index].day)) + (b.days[e.day_index].label ? ", " + esc(b.days[e.day_index].label) : "") + ")" : "") + '</strong>' + (e.kind === "hub" ? ' <span class="pill accent">Hub</span>' : e.kind === "coach" ? ' <span class="pill accent">Coach</span>' : "") + (e.is_resend ? ' <span class="pill muted">resend</span>' : "") +
+          '<div class="bk-sub">to ' + (e.kind === "coach" ? esc((e.to_emails || []).join(", ") || "the coaches on file (none yet)") : esc(e.to_name || "") + " " + esc(e.to_email || "")) + ((e.cc_emails || []).length ? ' <span class="muted">cc ' + esc((e.cc_emails || []).join(", ")) + "</span>" : "") + "</div>" +
+          (e.status === "sent" ? '<div class="bk-sub">sent ' + esc(fmtWhen(e.sent_at)) + "</div>" : e.send_at && e.status === "scheduled" ? '<div class="bk-sub">' + esc(fmtWhen(e.send_at)) + "</div>" : "") +
+          (e.reason && e.status !== "sent" ? '<div class="bk-sub">' + esc(e.reason) + "</div>" : "") + (e.error ? '<div class="bk-sub" style="color:var(--err-fg)">' + esc(e.error) + "</div>" : "") + "</td>" +
+          "<td>" + statusPill(e) + "</td>" +
+          '<td class="bk-act"><button type="button" class="small" data-em="' + esc(e.id) + '" data-v="preview">Preview</button>' +
+          (live && ["scheduled", "waiting", "failed", "skipped"].includes(e.status) ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="sendnow">Send now</button>' : "") +
+          (live && e.status === "sent" ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="resend">Resend</button>' : "") + "</td></tr>").join("") || '<tr><td class="empty">No emails.</td></tr>'}</tbody></table></div>
+      </div>
+      ${b.notes ? '<div class="bk-sec"><h3>Notes</h3><div style="white-space:pre-line;font-size:13px">' + esc(b.notes) + "</div></div>" : ""}
+      <div class="bk-sec og-actions">${live ? '<button type="button" class="primary" data-v="edit">Edit booking</button><button type="button" data-v="cancel" style="margin-left:auto">Cancel booking</button>' : ""}</div>`;
+  }
+  // Coaches (sports, 2026-10-17): captured from the AD's Reply All by booking-sender every 15 minutes, or pasted here.
+  // Coach steps (kind "coach") go to this list, in their own Gmail thread, with no SMS and no consent forms.
+  function coachesBlock(b, live) {
+    const list = b.coaches || [];
+    return (list.length ? list.map((c) => '<div>' + (c.name ? "<strong>" + esc(c.name) + "</strong> " : "") + '<span class="bk-sub">' + esc(c.email) + '</span> <span class="pill muted">' + (c.source === "reply" ? "from reply" : "added") + "</span>" +
+        (live ? ' <button type="button" class="link" data-v="coachrm" data-coach="' + esc(c.id) + '">remove</button>' : "") + "</div>").join("") :
+      '<div class="bk-sub">' + (live ? "No coach emails yet. The coach checklist and gallery emails wait until there are some." : "No coach emails.") + "</div>") +
+      '<div class="bk-sub" style="margin-top:6px">Added automatically when the AD replies all to email 1 with coaches CC\'d (checked every 15 minutes). Coaches get email only: a checklist two days before picture day, the gallery link when photos are online, and a last call.</div>' +
+      (live ? '<div style="margin-top:8px"><textarea id="aca-bkCoachText" rows="2" style="width:100%" placeholder="Paste coach emails (one per line or comma separated)"></textarea>' +
+        '<div style="margin-top:6px"><button type="button" class="small" data-v="coachadd">Add coaches</button></div></div>' : "");
+  }
+  // The hub row used to have its own Schools tab. Dates come from the booking; the code, retake day and
+  // visibility are edited here (2026-10-12). Writes go straight to comm_hub_schools, like the old tab did.
+  function hubRowTools(h) {
+    return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">' +
+      '<span class="sw' + (h.active === false ? "" : " on") + '" role="switch" aria-checked="' + (h.active !== false) + '" tabindex="0" data-v="hubvis" aria-label="Shown on the hub"><span class="knob"></span></span>' +
+      '<span class="bk-sub">' + (h.active === false ? "Hidden from the hub" : "Shown on the hub") + '</span>' +
+      '<button type="button" class="small" data-v="hubedit" style="margin-left:auto">Change code or retake day</button></div>' +
+      '<div class="hidden" id="aca-bkHubEdit" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkHCode" value="' + esc(h.access_code || "") + '" placeholder="Access code" style="width:150px" />' +
+      '<input type="date" id="aca-bkHRetake" value="' + esc(h.retake_day || "") + '" title="Retake day (optional)" /><button type="button" class="small primary" data-v="hubsave">Save</button><button type="button" class="small" data-v="hubcancel">Cancel</button></div>';
+  }
+  el("bkPanel").addEventListener("click", async (e) => {
+    const sw = e.target.closest('[data-v="hubvis"]'); if (!sw || !detail || !detail.hub_school) return;
+    const on = sw.getAttribute("aria-checked") !== "true";
+    sw.classList.add("busy");
+    const { error } = await sb.from("comm_hub_schools").update({ active: on }).eq("id", detail.hub_school.id);
+    sw.classList.remove("busy");
+    if (error) return toast(cleanErr(error), true);
+    toast(on ? "Shown on the hub." : "Hidden from the hub."); openDetail(detail.id);
+  });
+  el("bkPanel").addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    const v = b.dataset.v, em = b.dataset.em;
+    try {
+      if (v === "close") return closeDetail();
+      if (v === "mailfold") { const sec = b.closest(".bk-mailsec"); const open = sec.classList.toggle("folded") === false; b.setAttribute("aria-expanded", String(open)); try { localStorage.setItem("aca-bkmailfold", open ? "open" : "closed"); } catch (e2) {} return; }
+      if (v === "copyname") { try { await navigator.clipboard.writeText(b.dataset.name); b.textContent = "copied"; setTimeout(() => { b.textContent = "copy"; }, 1500); } catch (er) { toast("Couldn't copy: " + b.dataset.name, true); } return; }
+      if (v === "hubedit") { el("bkHubEdit").classList.remove("hidden"); el("bkHubEdit").style.display = "flex"; return; }
+      if (v === "hubcancel") { el("bkHubEdit").classList.add("hidden"); return; }
+      if (v === "hubsave") {
+        const code = el("bkHCode").value.trim(); if (!code) return toast("Type the access code first.", true);
+        b.disabled = true;
+        const { error } = await sb.from("comm_hub_schools").update({ access_code: code, retake_day: el("bkHRetake").value || null }).eq("id", detail.hub_school.id);
+        if (error) throw error;
+        toast("Hub row updated."); await openDetail(detail.id); return;
+      }
+      if (v === "edit") return openForm(detail);
+      if (v === "coachadd") {
+        const text = (el("bkCoachText").value || "").trim(); if (!text) return toast("Paste at least one email first.", true);
+        b.disabled = true; const { data, error } = await sb.rpc("booking_coaches_add", { p_booking: detail.id, p_text: text, p_source: "manual" }); if (error) throw error;
+        toast(data.added ? "Added " + data.added + " coach email" + (data.added === 1 ? "" : "s") + "." : (data.seen ? "Nothing new. Our own addresses, no-reply senders and the org's contacts are left out." : "No email address found in that text."), !data.added);
+      }
+      if (v === "coachrm") { b.disabled = true; const { data, error } = await sb.rpc("booking_coach_remove", { p_id: b.dataset.coach }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Removed. The capture will not add them back; paste them to restore."); }
+      if (v === "preview") {
+        const { data, error } = await sb.rpc("booking_email_preview", { p_email: em });
+        if (error) throw error;
+        const box = dialog('<div class="bk-mail-head">To ' + esc(data.kind === "coach" ? ((data.to_emails || []).join(", ") || "the coaches on file (none yet)") : (data.to_name ? data.to_name + " " : "") + (data.to_email || "")) + "<strong>" + esc(data.subject) + '</strong></div><div class="bk-mail">' + mdToHtml(data.body) + "</div>" +
+          '<div class="og-actions" style="margin-top:14px"><button type="button" data-v="close">Close</button></div>', true);
+        box.addEventListener("click", (ev) => { if (ev.target.closest('button[data-v="close"]')) box.close(); });
+        return;
+      }
+      if (v === "sendnow") { if (!confirm("Send this email now?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_send_now", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Sending…" : "Queued. Sending is turned off, so it waits."); }
+      if (v === "resend") { if (!confirm("Send this email again to the same person?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_resend", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Resending…" : "Queued. Sending is turned off, so it waits."); }
+      if (v === "setcode") { const code = el("bkDCode").value.trim(); if (!code) return toast("Type the access code first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_set_access_code", { p_id: detail.id, p_code: code, p_retake: el("bkDRetake").value || null }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("School created on the hub."); }
+      if (v === "linkjob") { const job = el("bkDJob").value; if (!job) return toast("Pick the job first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: job }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Linked. Email 0 goes out in about 10 minutes."); }
+      if (v === "unlinkjob") { if (!confirm("Unlink the GotPhoto job? Email 0 waits again if it has not gone out.")) return; const { error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: null }); if (error) throw error; toast("Unlinked."); }
+      if (v === "adopt") { b.disabled = true; const { data, error } = await sb.rpc("booking_adopt_calendar_date", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Picture day is now " + fmtDay(data.picture_day) + ". Emails rescheduled."); }
+      if (v === "rewrite") { b.disabled = true; const { error } = await sb.rpc("booking_rewrite_calendar", { p_id: detail.id }); if (error) throw error; toast("Rewriting the event…"); await refreshDetail(); openDetail(detail.id, true); return; }
+      if (v === "cancel") {
+        if (!confirm("Cancel this booking? Unsent emails stop and the calendar event is removed.")) return;
+        b.disabled = true; const { data, error } = await sb.rpc("booking_cancel", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error(data.error);
+        toast("Booking cancelled.");
+      }
+      await refreshDetail(); load(true); loadAttention();
+    } catch (e2) { toast(cleanErr(e2), true); b.disabled = false; }
+  });
+
+  return { load: () => load(false), reload: () => load(true), loadAttention, open: (id) => openDetail(id), openId: (id) => openDetail(id), openNew: () => openForm(null), hide: () => { if (openId) closeDetail(); }, mdToHtml, fill };
+  })();

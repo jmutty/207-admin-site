@@ -1,0 +1,85 @@
+<!-- 207 Admin: JOBS section panels. Assembled by build.py. -->
+      <!-- ===== Bookings (replaces 17hats, 2026-10-11; rendered by src/bookings.js) ===== -->
+      <section class="panel" id="aca-panel-bookings" role="tabpanel"></section>
+
+      <!-- ===== Job calculator (2026-10-17; rendered by src/jobs-calculator.js) ===== -->
+      <section class="panel" id="aca-panel-calc" role="tabpanel"></section>
+
+      <!-- ===== Jobs ===== -->
+      <section class="panel" id="aca-panel-jobs" role="tabpanel">
+        <div class="pagehead"><div><h1>Galleries</h1><p>Every GotPhoto job, whether parents can find it on the website, and what they type to find it. Picture dates come from the booking.</p></div></div>
+        <div class="card">
+          <div class="toolbar">
+            <input type="text" id="aca-jobSearch" placeholder="Search jobs by name&#8230;" aria-label="Search jobs by name" />
+            <select id="aca-jobSort" class="small" aria-label="Sort jobs">
+              <option value="shoot">Upcoming shoots first, then most recent</option>
+              <option value="published">Newest published first</option>
+              <option value="name">Name A&#8211;Z</option>
+            </select>
+            <div class="chips" id="aca-jobFilters" role="group" aria-label="Filter jobs">
+              <button data-filter="all" aria-pressed="true">All <span class="tnum" data-count="all"></span></button>
+              <button data-filter="visible" aria-pressed="false">Visible <span class="tnum" data-count="visible"></span></button>
+              <button data-filter="hidden" class="warn" aria-pressed="false">Published but hidden <span class="tnum" data-count="hidden"></span></button>
+              <button data-filter="attention" class="warn" aria-pressed="false">Needs attention <span class="tnum" data-count="attention"></span></button>
+            </div>
+          </div>
+          <div class="scope hidden" id="aca-jobScope">Showing jobs for <span class="pill accent" id="aca-jobScopeLabel"></span><button class="link" id="aca-jobScopeClear">clear</button></div>
+          <div id="aca-jobsError" class="inline-error hidden"></div>
+          <div class="jobs-layout">
+            <div class="jobs-main">
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Job</th><th class="jstate">On the website?</th></tr></thead>
+                  <tbody id="aca-jobsBody"><tr><td colspan="2" class="empty">Loading&#8230;</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <aside class="drawer hidden" id="aca-jobDrawer" aria-label="Job details"></aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Search settings ===== -->
+      <section class="panel" id="aca-panel-settings" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Search settings</h2>
+              <p>Categories hold the default search fields and labels. Each GotPhoto job type belongs to one category and inherits from it. The switch on a type makes its jobs findable on the website. A single job can still override anything from its own drawer on the Jobs tab.</p>
+            </div>
+            <div class="toolbar" style="padding: 0; flex-wrap: nowrap;">
+              <input type="text" id="aca-newCatName" placeholder="New category name&#8230;" aria-label="New category name" maxlength="60" style="min-width: 180px;" />
+              <button class="primary small" id="aca-addCatBtn">Add category</button>
+            </div>
+          </div>
+          <div id="aca-settingsError" class="inline-error hidden"></div>
+          <div class="tree" id="aca-settingsTree"><div class="empty">Loading&#8230;</div></div>
+        </div>
+      </section>
+
+      <!-- ===== Blocked names ===== -->
+      <section class="panel" id="aca-panel-blocks" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Blocked names</h2>
+              <p>Children whose name must never unlock a code on <a href="https://207photo.com/find-my-photos/" target="_blank" rel="noopener">Find My Photos</a> &mdash; for parents who ask that their child not be findable by name. Nothing is deleted: the family&#39;s own code from the card keeps working, and the parent simply sees &ldquo;not found&rdquo;. A block covers every job, past and future, unless you pick one job. Help requests and the alert emails for a blocked name are flagged so nobody sends the code back by email. Matching is by exact name as spelled in GotPhoto &mdash; the On roster column tells you whether the block is actually hitting anyone.</p>
+            </div>
+            <span class="muted" id="aca-blockCount"></span>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="aca-newBlockFirst" placeholder="First name&hellip;" aria-label="First name" maxlength="80" />
+            <input type="text" id="aca-newBlockLast" placeholder="Last name&hellip;" aria-label="Last name" maxlength="80" />
+            <select id="aca-newBlockJob" class="small" aria-label="Which jobs" title="Which jobs" style="flex:0 1 260px;min-width:0"><option value="">All jobs (recommended)</option></select>
+            <input type="text" id="aca-newBlockNote" placeholder="Note &mdash; who asked, when&hellip;" aria-label="Note" maxlength="500" />
+            <button class="primary small" id="aca-addBlockBtn">Block name</button>
+          </div>
+          <div id="aca-blocksError" class="inline-error hidden"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Which jobs</th><th>On roster</th><th>Note</th><th>Added</th><th></th></tr></thead>
+              <tbody id="aca-blocksBody"><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>

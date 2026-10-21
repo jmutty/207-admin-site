@@ -1,0 +1,23 @@
+      <!-- ===== Team (2026-10-21): people and what they can see. Full-access only. ===== -->
+      <section class="panel" id="aca-panel-team" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Team</h2>
+              <p>Everyone who can sign in to 207 Admin. Give each person None, View or Edit for each part of the site; they only see the parts you give them, and the database enforces the same rules. New people get a temporary password from you and choose their own the first time they sign in (plus the emailed 6-digit code, like you).</p>
+            </div>
+            <button type="button" class="primary" id="aca-teamAdd">Add person</button>
+          </div>
+          <div id="aca-teamErr" class="inline-error hidden"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Access</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead>
+              <tbody id="aca-teamBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h2>Recent changes</h2><p>Who added whom, and every change to someone's access.</p></div></div>
+          <div id="aca-teamLog"><p class="muted">Loading&#8230;</p></div>
+        </div>
+      </section>

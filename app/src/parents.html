@@ -1,0 +1,71 @@
+<!-- 207 Admin: PARENTS section panels. Assembled into wordpress-embed.html by build-embed.sh. -->
+      <!-- ===== Help requests ===== -->
+      <section class="panel" id="aca-panel-requests" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div><h2>Pending help requests</h2><p>Parents who could not find their access code and asked for help. Click a job name to open it on the Jobs tab.</p></div>
+          </div>
+          <div id="aca-reqError" class="inline-error hidden"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Parent email</th><th>Job</th><th>What they typed</th><th>Requested</th><th></th></tr></thead>
+              <tbody id="aca-reqBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Makeups ===== -->
+      <section class="panel" id="aca-panel-makeups" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Makeup bookings</h2>
+              <p>Parents who booked a makeup session (the coupon script adds them within a minute of booking). After the makeup, confirm the team's job and send the &ldquo;photos are ready&rdquo; email with their gallery link and $30 coupon reminder. Nothing is emailed until you click Send.</p>
+            </div>
+            <span class="muted" id="aca-mkCount"></span>
+          </div>
+          <div class="toolbar">
+            <div class="chips" id="aca-mkChips" role="group" aria-label="Filter makeups">
+              <button data-f="todo" aria-pressed="true">To do</button>
+              <button data-f="upcoming" aria-pressed="false">Upcoming</button>
+              <button data-f="sent" aria-pressed="false">Sent</button>
+              <button data-f="dismissed" aria-pressed="false">Dismissed</button>
+              <button data-f="all" aria-pressed="false">All</button>
+            </div>
+            <input type="text" id="aca-mkSearch" placeholder="Athlete, parent, email, or team&#8230;" aria-label="Search makeups" />
+            <button class="small" id="aca-mkRefresh">Refresh</button>
+          </div>
+          <div id="aca-mkError" class="inline-error hidden"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Athlete</th><th>Parent</th><th>Makeup</th><th>Coupon</th><th>Job</th><th>Status</th><th></th></tr></thead>
+              <tbody id="aca-mkBody"><tr><td colspan="7" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Retakes (retake_requests, migration 20261016T03) ===== -->
+      <section class="panel" id="aca-panel-retakes" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Retake requests</h2>
+              <p>Parents ask for a school retake on Find My Photos. Each request is flagged on the student in Names List the next time that job is opened there. Nothing is emailed to the parent.</p>
+            </div>
+            <span class="muted" id="aca-rtCount"></span>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="aca-rtSearch" placeholder="Student, school, parent, or email&#8230;" aria-label="Search retake requests" />
+            <button class="small" id="aca-rtRefresh">Refresh</button>
+          </div>
+          <div id="aca-rtError" class="inline-error hidden"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Student</th><th>What to fix</th><th>Parent</th><th>Asked</th><th>Names List</th><th></th></tr></thead>
+              <tbody id="aca-rtBody"><tr><td colspan="6" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>

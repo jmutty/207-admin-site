@@ -1,0 +1,89 @@
+<!-- 207 Admin: SYSTEM section panels. Assembled into wordpress-embed.html by build-embed.sh. -->
+      <!-- ===== Search log ===== -->
+      <section class="panel" id="aca-panel-searchlog" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div><h2>Search log</h2><p>Every search a parent runs on /find-my-photos, whether or not they found their code. Use it to see if the feature is being used and where parents get stuck.</p></div>
+            <div class="chips" id="aca-slRange" role="group" aria-label="Date range">
+              <button data-days="7" aria-pressed="false">7 days</button>
+              <button data-days="30" aria-pressed="true">30 days</button>
+              <button data-days="90" aria-pressed="false">90 days</button>
+            </div>
+          </div>
+          <div id="aca-slError" class="inline-error hidden"></div>
+          <div class="tiles" id="aca-slTiles"></div>
+          <div class="bars" id="aca-slBars"></div>
+          <div class="barlbl" id="aca-slBarLbl"></div>
+        </div>
+        <div class="card sl-fold" data-fold="ip">
+          <div class="card-head"><div><h2><button type="button" class="sl-foldbtn" aria-expanded="true"><span class="sl-chev"></span>Look up an IP address</button></h2>
+            <p>Every search from one address, all time. Phone carriers share addresses between many people, so the pattern of searches tells you more than the address.</p></div></div>
+          <div class="table-wrap sl-ipbox">
+            <form id="aca-slIpForm" class="sl-ipform"><input type="text" id="aca-slIp" placeholder="e.g. 172.56.114.232" aria-label="IP address" autocomplete="off" spellcheck="false" /><button type="submit" class="small primary">Look up</button></form>
+            <div id="aca-slIpOut"></div>
+            <div class="sl-blocks"><h3>Blocked addresses</h3><div id="aca-slBlocks"><div class="empty">Loading&#8230;</div></div></div>
+            <div class="sl-blocks"><h3>Trusted addresses <span class="muted" style="font-weight:400">(no 3-children limit)</span></h3><div id="aca-slTrusted"></div></div>
+          </div>
+        </div>
+        <div class="card sl-fold" data-fold="byjob">
+          <div class="card-head"><div><h2><button type="button" class="sl-foldbtn" aria-expanded="true"><span class="sl-chev"></span>By job</button></h2><p>Which galleries parents are searching, and how often they succeed. Click a job to see every search on it and why each miss didn't match.</p></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Job</th><th class="tnum">Searches</th><th class="tnum">Found</th><th>Success rate</th><th>Last search</th></tr></thead>
+              <tbody id="aca-slJobsBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card sl-fold" data-fold="recent">
+          <div class="card-head"><div><h2><button type="button" class="sl-foldbtn" aria-expanded="true"><span class="sl-chev"></span>Recent searches</button></h2><p>Every job, newest first. Click a job to see why its misses didn&rsquo;t match. <span class="muted" id="aca-slLiveNote"></span></p></div>
+            <div class="chips"><button type="button" id="aca-slLive" aria-pressed="true"><span class="sl-dot"></span>Live</button><button type="button" id="aca-slMissOnly" aria-pressed="false">Only not found</button></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>When</th><th>Job</th><th>What they typed</th><th>IP</th><th>Result</th></tr></thead>
+              <tbody id="aca-slRecentBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Sync log ===== -->
+      <section class="panel" id="aca-panel-health" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div><h2>Recent sync runs</h2><p>GotPhoto is checked every 5 minutes. A run with nothing new takes a few seconds. A failed run simply retries on the next tick.</p></div>
+            <button class="primary" id="aca-syncNowBtn2">Sync now</button>
+          </div>
+          <div id="aca-syncResult" class="hidden" style="padding:12px 16px 0"></div>
+          <div id="aca-runsError" class="inline-error hidden"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Trigger</th><th>Started</th><th>Status</th><th class="tnum">Jobs updated</th><th class="tnum">Codes upserted</th><th>Error</th></tr></thead>
+              <tbody id="aca-runsBody"><tr><td colspan="6" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h2>Data-quality warnings</h2><p>Published jobs missing one or more required match fields. Parents may fail to find their code. Click a job to open it.</p></div></div>
+          <div id="aca-dqError" class="inline-error hidden"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Job</th><th>Missing fields</th></tr></thead>
+              <tbody id="aca-dqBody"><tr><td colspan="2" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Settings > Sending (rendered by src/settings-sending.js) ===== -->
+      <section class="panel" id="aca-panel-sending" role="tabpanel"></section>
+
+      <!-- ===== Settings > Sign-in ===== -->
+      <section class="panel" id="aca-panel-signin" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div><h2>Sign-in security</h2><p>A new browser needs a code emailed to you once; remembered devices skip it for 90 days. Without that step the database refuses admin data, so a stolen password alone is useless.</p></div>
+            <div id="aca-mfaStatus"><span class="pill muted">Checking&#8230;</span></div>
+          </div>
+          <div id="aca-mfaBody" style="padding:12px 16px 16px"></div>
+        </div>
+      </section>
