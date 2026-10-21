@@ -44,6 +44,12 @@
   .aca .bk-contacts label { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 13px; }
   .aca .bk-contacts label.off { color: var(--muted); }
   .aca .bk-contacts input[type=checkbox] { margin-top: 3px; }
+  .aca .bk-crew-dd { position: relative; display: inline-block; min-width: 240px; }
+  .aca .bk-crew-dd summary { list-style: none; cursor: pointer; border: 1px solid var(--border); border-radius: 8px; padding: 7px 30px 7px 10px; background: var(--surface); font-size: 14px; position: relative; }
+  .aca .bk-crew-dd summary::-webkit-details-marker { display: none; }
+  .aca .bk-crew-dd summary::after { content: "\\25BE"; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .aca .bk-crew-dd summary.none { color: var(--muted); }
+  .aca .bk-crew-dd > .bk-contacts { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; box-shadow: 0 6px 20px rgba(0,0,0,.12); max-height: 240px; overflow: auto; }
   .aca .bk-addc { display: grid; grid-template-columns: 1fr 1fr 1.4fr 1fr auto; gap: 6px; margin-top: 6px; }
   .aca .bk-addc input { width: 100%; }
   .aca .bk-preview { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-top: 12px; }
@@ -191,7 +197,7 @@
     return [b.org_name, b.title_label || b.type_label, season].filter(Boolean).join(" | ");
   };
   // A saved custom title splits back into the typed part and whether the organization was kept with it.
-  // Reads both orders: "Org • typed" (now) and "typed • Org" (titles saved before the organization moved to the front).
+  // Reads both orders: "Org \u2022 typed" (now) and "typed \u2022 Org" (titles saved before the organization moved to the front).
   const ovParts = (d) => { const ov = (d && d.title_override || "").trim(); const org = d && d.org_name || ""; const head = org + " \u2022 ", tail = " \u2022 " + org;
     if (ov && org && ov.startsWith(head)) return { text: ov.slice(head.length), keep: true };
     if (ov && org && ov.endsWith(tail)) return { text: ov.slice(0, -tail.length), keep: true };
@@ -296,7 +302,7 @@
   }
   function calPill(b) {
     if (b.status === "tracked") return '<span class="pill muted">No calendar event</span>';
-    const m = { pending: ["muted", "Calendar: writing…"], synced: ["ok", "On calendar"], error: ["err", "Calendar error"], moved: ["warn", "Moved in Google"], missing: ["err", "Missing in Google"], deleted: ["muted", "Removed"] };
+    const m = { pending: ["muted", "Calendar: writing\u2026"], synced: ["ok", "On calendar"], error: ["err", "Calendar error"], moved: ["warn", "Moved in Google"], missing: ["err", "Missing in Google"], deleted: ["muted", "Removed"] };
     const [cls, txt] = m[b.calendar_status] || ["muted", b.calendar_status];
     return '<span class="pill ' + cls + '">' + esc(txt) + "</span>";
   }
@@ -338,7 +344,7 @@
     if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty">' + (scope === "upcoming" && !sk ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : scope === "owed" ? "Nothing owed. Every deliverable is done or skipped." : "Nothing here.") + "</td></tr>"; return; }
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
       '<td class="bk-c-when"><div class="bk-date">' + esc(whenRange(b)) + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div></td>" +
-      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type">' + esc(b.type_label) + (b.location ? " · " + esc(b.location) : "") + "</div></td>" +
+      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-who">' + ((b.contacts || []).map((c) => esc(c.name || c.email)).join(", ") || (b.status === "tracked" ? '<span class="bk-sub">&mdash;</span>' : '<span class="pill err">no contact</span>')) + "</td>" +
       '<td class="bk-c-mail">' + mailSummary(b) + "</td>" +
@@ -407,7 +413,7 @@
     let typeKey = d.type_key || (types[0] && types[0].key) || "";
     const chosen = new Set(isNew ? [] : (d.contact_ids || []));
     const box = dialog(`
-      <div class="bk-fhead"><h2>${isNew ? "Book a job" : "Edit booking"}</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">✕</button></div>
+      <div class="bk-fhead"><h2>${isNew ? "Book a job" : "Edit booking"}</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">\u2715</button></div>
       <div class="og-grid">
         <label>Organization</label>
         <div>
@@ -427,6 +433,9 @@
           <div class="bk-sub" id="aca-bkTitlePrev" style="margin-top:6px"></div>
           <div id="aca-bkGp"></div></div>
         <label for="aca-bkLoc">Location</label><input type="text" id="aca-bkLoc" value="${esc(d.location || "")}" placeholder="Where we set up (goes on the calendar event)" />
+        ${isNew && canEdit("scheduling") ? `<label>Who's shooting</label>
+        <div><details class="bk-crew-dd" id="aca-bkCrewDd"><summary id="aca-bkCrewSum">Nobody yet</summary><div class="bk-contacts" id="aca-bkCrew"><span class="bk-sub">Loading the team&#8230;</span></div></details>
+          <div class="bk-sub">Optional. They go on the Schedule for each day with a time (with drive time when it can be looked up).</div></div>` : ""}
         <label>Who gets the emails</label>
         <div><div class="bk-contacts" id="aca-bkContacts"><span class="bk-sub">Pick an organization first.</span></div>
           <div class="bk-addc hidden" id="aca-bkAddC"><input type="text" id="aca-bkCFirst" placeholder="First" /><input type="text" id="aca-bkCLast" placeholder="Last" /><input type="email" id="aca-bkCEmail" placeholder="email@school.org" /><input type="text" id="aca-bkCRole" placeholder="Role (AD, secretary)" /><button type="button" class="small" data-v="addc">Add</button></div>
@@ -478,7 +487,7 @@
       box.querySelectorAll(".bk-school").forEach((x) => x.classList.toggle("hidden", !isSchool()));
     }
     const pickedLabel = () => { const b = el("bkLabels").querySelector('button[aria-pressed="true"]'); return b ? b.dataset.label : ""; };
-    // The exact calendar title, the way the calendar function writes it (title_override, else "Organization • Label").
+    // The exact calendar title, the way the calendar function writes it (title_override, else "Organization \u2022 Label").
     // The typed title, with the organization kept in front of it unless the box is unticked.
     function composedOverride() {
       const ov = el("bkTitle").value.trim(); if (!ov) return "";
@@ -632,17 +641,35 @@
           const { data, error } = isNew ? await sb.rpc("booking_create", { p }) : await sb.rpc("booking_update", { p_id: d.id, p });
           if (error) throw error;
           const typed = isNew ? el("bkFDlvNew").value.trim() : "";
+          const crew = el("bkCrew") ? [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.value) : [];
           const items = isNew ? [...fdPicked].map((id) => ({ template_id: id })).concat(fdNew.concat(typed ? [typed] : []).map((label) => ({ label, save: el("bkFDlvSave").checked }))) : [];
           box.close();
           let dlvErr = "";
           if (items.length) { try { await addDeliverables(data.id, items); } catch (e3) { dlvErr = cleanErr(e3); } }
-          toast(dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event…" : "Saved.", !!dlvErr);
+          let crewMsg = "";
+          if (crew.length) {
+            try {
+              const sr = await Schedule.staffBooking(data.id, days[0].day, days[days.length - 1].day, crew);
+              crewMsg = sr.untimed.length ? " " + (sr.added ? "On the schedule for the days with a time; " : "") + "add the crew on the Schedule once " + sr.untimed.map(fmtDay).join(", ") + (sr.untimed.length > 1 ? " have times." : " has a time.") : " Crew is on the schedule.";
+            } catch (e4) { crewMsg = " The crew was not put on the schedule: " + cleanErr(e4) + "."; }
+          }
+          toast((dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event\u2026" : "Saved.") + crewMsg, !!dlvErr || /not put/.test(crewMsg));
           await load(true);
           openDetail(isNew ? data.id : d.id, true);
         } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
       }
     });
+    box.addEventListener("click", (e) => { const dd = el("bkCrewDd"); if (dd && dd.open && !dd.contains(e.target)) dd.open = false; });
     renderLabels(); renderDays(); renderFormDlv();
+    if (el("bkCrew")) Schedule.team().then((ppl) => {
+      el("bkCrew").innerHTML = ppl.length ? ppl.map((x) => '<label class="bk-contact"><input type="checkbox" class="bk-crew" value="' + esc(x.user_id) + '" /> ' + esc(x.name) + "</label>").join("") : '<span class="bk-sub">Nobody on the team yet.</span>';
+      const sync = () => {
+        const names = [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.parentNode.textContent.trim());
+        el("bkCrewSum").textContent = names.length ? names.join(", ") : "Nobody yet";
+        el("bkCrewSum").classList.toggle("none", !names.length);
+      };
+      el("bkCrew").addEventListener("change", sync); sync();
+    }).catch(() => { el("bkCrew").innerHTML = '<span class="bk-sub">Could not load the team. Add people on the Schedule after booking.</span>'; });
     if (!isNew) { renderContacts(); renderPreview(); } else { renderPreview(); setTimeout(() => { const q = el("bkOrgQ"); if (q) q.focus(); }, 50); }
   }
   el("bkNew").addEventListener("click", () => openForm(null));
@@ -654,7 +681,7 @@
     const can = canEdit("bookings");
     let tk = (types[0] || {}).key || "";
     let st = [], tp = [];  // working copies for the chosen type: { id?, label, sort, auto?, due_days?, auto_add?, gone? }
-    const box = dialog(`<div class="bk-fhead"><h2>Stages &amp; deliverables</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">✕</button></div>
+    const box = dialog(`<div class="bk-fhead"><h2>Stages &amp; deliverables</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">\u2715</button></div>
       <div class="bk-sub" style="margin-bottom:10px">Each job type has its own stages and its own saved deliverables. Changes apply from now on: past bookings keep their history and their own copies.</div>
       <div class="bk-chips" id="aca-bkJtTypes" role="group">${types.map((t) => '<button type="button" class="small" data-jt="' + esc(t.key) + '">' + esc(t.label) + "</button>").join("")}<button type="button" class="small" data-jt="">All job types</button></div>
       <div class="bk-jt" id="aca-bkJtBody"></div>
@@ -744,7 +771,7 @@
     panel.classList.remove("hidden");
     if (window.innerWidth <= 900) { document.documentElement.classList.add("aca-sheet-open"); document.body.classList.add("aca-sheet-open"); }
     Orgs.measureTop();
-    panel.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
+    panel.innerHTML = '<div class="empty"><span class="spin"></span>Loading\u2026</div>';
     const hash = "#jobs/bookings/" + id;
     if (location.hash !== hash) history.replaceState(null, "", hash);
     await refreshDetail();
@@ -769,7 +796,7 @@
     detail = data; renderDetail();
   }
   const statusPill = (e) => {
-    const m = { scheduled: ["muted", "Scheduled"], waiting: ["warn", "Waiting"], sending: ["accent", "Sending…"], sent: ["ok", "Sent"], skipped: ["muted", "Skipped"], failed: ["err", "Failed"], cancelled: ["muted", "Cancelled"] };
+    const m = { scheduled: ["muted", "Scheduled"], waiting: ["warn", "Waiting"], sending: ["accent", "Sending\u2026"], sent: ["ok", "Sent"], skipped: ["muted", "Skipped"], failed: ["err", "Failed"], cancelled: ["muted", "Cancelled"] };
     const [c, t] = m[e.status] || ["muted", e.status]; return '<span class="pill ' + c + '">' + t + "</span>";
   };
   function renderDetail() {
@@ -786,10 +813,10 @@
     el("bkPanel").innerHTML = `
       <div class="bk-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
         <div><h3 style="font-size:15px">${esc(b.title)}</h3>
-          <div class="bk-sub">${daysLine(b)} · ${esc(b.type_label)}${b.status !== "booked" ? ' · <span class="pill muted">' + esc(tracked ? "tracking only" : b.status) + "</span>" : ""}</div>
+          <div class="bk-sub">${daysLine(b)} \u00b7 ${esc(b.type_label)}${b.status !== "booked" ? ' \u00b7 <span class="pill muted">' + esc(tracked ? "tracking only" : b.status) + "</span>" : ""}</div>
           ${b.time_set === false && live ? '<div class="bk-sub" style="margin-top:6px"><span class="pill warn">time not set</span> Emails that mention the time are waiting. <button type="button" class="small" data-v="edit">Set the times</button></div>' : ""}
-          <div class="bk-sub"><a href="#partners/orgs/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " · " + esc(b.location) : ""}</div></div>
-        <div style="display:flex;gap:6px;flex:0 0 auto">${live ? '<button type="button" class="small" data-v="edit">Edit</button>' : ""}<button type="button" data-v="close" aria-label="Close">✕</button></div>
+          <div class="bk-sub"><a href="#partners/orgs/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " \u00b7 " + esc(b.location) : ""}</div></div>
+        <div style="display:flex;gap:6px;flex:0 0 auto">${live ? '<button type="button" class="small" data-v="edit">Edit</button>' : ""}<button type="button" data-v="close" aria-label="Close">\u2715</button></div>
       </div>
       ${stageBlock(b)}
       ${dlvBlock(b)}
@@ -829,7 +856,7 @@
   }
   async function openTrack() {
     const can = canEdit("bookings");
-    const box = dialog(`<div class="bk-fhead"><h2>Track a job</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">✕</button></div>
+    const box = dialog(`<div class="bk-fhead"><h2>Track a job</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">\u2715</button></div>
       <div class="bk-sub" style="margin-bottom:10px">Put jobs that did not go through Book a job on this screen, to track their stages and deliverables. Nothing is sent for them: no emails, no calendar event, no hub reminders.</div>
       <div class="toolbar" style="padding:0;margin-bottom:8px"><input type="text" id="aca-bkTrQ" placeholder="Filter GotPhoto jobs&#8230;" /></div>
       <div id="aca-bkTrList" class="bk-jt-rows" style="max-height:46vh;overflow:auto"><div class="empty"><span class="spin"></span>Loading GotPhoto jobs&#8230;</div></div>
@@ -1082,13 +1109,13 @@
         box.addEventListener("click", (ev) => { if (ev.target.closest('button[data-v="close"]')) box.close(); });
         return;
       }
-      if (v === "sendnow") { if (!confirm("Send this email now?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_send_now", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Sending…" : "Queued. Sending is turned off, so it waits."); }
-      if (v === "resend") { if (!confirm("Send this email again to the same person?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_resend", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Resending…" : "Queued. Sending is turned off, so it waits."); }
+      if (v === "sendnow") { if (!confirm("Send this email now?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_send_now", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Sending\u2026" : "Queued. Sending is turned off, so it waits."); }
+      if (v === "resend") { if (!confirm("Send this email again to the same person?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_resend", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Resending\u2026" : "Queued. Sending is turned off, so it waits."); }
       if (v === "setcode") { const code = el("bkDCode").value.trim(); if (!code) return toast("Type the access code first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_set_access_code", { p_id: detail.id, p_code: code, p_retake: el("bkDRetake").value || null }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("School created on the hub."); }
       if (v === "linkjob") { const job = el("bkDJob").value; if (!job) return toast("Pick the job first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: job }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Linked. Email 0 goes out in about 10 minutes."); }
       if (v === "unlinkjob") { if (!confirm("Unlink the GotPhoto job? Email 0 waits again if it has not gone out.")) return; const { error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: null }); if (error) throw error; toast("Unlinked."); }
       if (v === "adopt") { b.disabled = true; const { data, error } = await sb.rpc("booking_adopt_calendar_date", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Picture day is now " + fmtDay(data.picture_day) + ". Emails rescheduled."); }
-      if (v === "rewrite") { b.disabled = true; const { error } = await sb.rpc("booking_rewrite_calendar", { p_id: detail.id }); if (error) throw error; toast("Rewriting the event…"); await refreshDetail(); openDetail(detail.id, true); return; }
+      if (v === "rewrite") { b.disabled = true; const { error } = await sb.rpc("booking_rewrite_calendar", { p_id: detail.id }); if (error) throw error; toast("Rewriting the event\u2026"); await refreshDetail(); openDetail(detail.id, true); return; }
       if (v === "cancel") {
         if (!confirm("Cancel this booking? Unsent emails stop and the calendar event is removed.")) return;
         b.disabled = true; const { data, error } = await sb.rpc("booking_cancel", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error(data.error);

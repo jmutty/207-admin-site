@@ -163,6 +163,11 @@
   .aca .today-l { min-width: 0; }
   .aca .today-l .today-where { color: var(--muted); }
   .aca .today-go { color: var(--muted); font-size: 13px; font-weight: 600; }
+  .aca .today-mine { margin-bottom: 28px; }
+  .aca .today-mine h2 { margin: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; height: 32px; border-bottom: 1px solid var(--border); }
+  .aca .today-mine h2 .c { color: var(--faint); font-weight: 400; }
+  .aca .today-mine h2 a { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .aca .today-mine .sched { margin: 8px 0 4px; font-size: 13.5px; color: var(--muted); }
   .aca .today-clear { padding: 14px 0; color: var(--ok-fg); }
   .aca .today-side h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--head); height: 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
   .aca .today-side section { margin-bottom: 28px; }
@@ -489,7 +494,7 @@
             <p class="today-lead" id="aca-todayLead"><span class="spin"></span>Checking everything&#8230;</p>
             <div id="aca-todayUnchecked" class="inline-error hidden"></div>
             <div class="today-cols">
-              <div id="aca-todayList"></div>
+              <div><section id="aca-todayMine" class="today-mine hidden"></section><div id="aca-todayList"></div></div>
               <div class="today-side">
                 <section id="aca-todayUpBox"><h2>Coming up</h2><div id="aca-todayUp"><p>Loading&#8230;</p></div></section>
                 <section id="aca-todayOutBox"><h2>Going out today</h2><p id="aca-todayOut">Loading&#8230;</p></section>
