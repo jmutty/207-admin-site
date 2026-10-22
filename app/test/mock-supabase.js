@@ -58,7 +58,8 @@
       { key: "scheduling", label: "Scheduling", section: "Staff", description: "The week's bar schedule.", sort: 200, status: "live", admin_only: false },
       { key: "assignments", label: "Assignments", section: "Staff", description: "Daily, weekly and monthly tasks.", sort: 205, status: "live", admin_only: false },
       { key: "staffrecords", label: "Staff records", section: "Staff", description: "Clearances and onboarding.", sort: 215, status: "live", admin_only: false },
-      { key: "timeclock", label: "Time clock & mileage", section: "Staff", description: "Clock in and out, timesheets, mileage.", sort: 210, status: "live", admin_only: false }],
+      { key: "timeclock", label: "Time clock & mileage", section: "Staff", description: "Clock in and out, timesheets, mileage.", sort: 210, status: "live", admin_only: false },
+      { key: "emails", label: "Email delivery", section: "System", description: "Every Resend email and how it went.", sort: 92, status: "live", admin_only: false }],
     prospect_enrollments: [{ org_id: "44444444-4444-4444-4444-444444444444", status: "paused", end_reason: "held for review" }],
     booking_types: [
       { key: "school", label: "School Photos", audience: "school", description: "Four emails: booked, student data (21 days), two weeks, day before. Creates the school on the hub.", title_labels: ["School Photos"], default_duration_min: 180, sort_order: 1 },
@@ -460,7 +461,50 @@
               { id: "mt2", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: "bk3", job_title: "Island Cheer & Tumbling \u2022 Cheer", location: "Deer Isle", day: add(sun, 3), miles: null, auto: true, note: "", est_miles: null, locked: false },
               { id: "mt3", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: null, job_title: "", location: null, day: add(sun, 1), miles: 12, auto: false, note: "Staples for paper", est_miles: null, locked: false }] };
     RPC.mileage_save = { ok: true, id: "mt9" }; RPC.mileage_remove = { ok: true }; RPC.mileage_refresh = { ok: true, filled: 0 }; RPC.mileage_from_schedule = { ok: true, added: 2 };
-    RPC.timeclock_attention = { open_long: 0, to_approve: AS_STAFF ? 0 : 1, last_week: add(sun, -7) };
+    RPC.timeclock_attention = { open_long: 0, to_approve: AS_STAFF ? 0 : 1, last_week: add(sun, -7), review: 1, expenses: AS_STAFF ? 0 : 1, near_ot: AS_STAFF ? 0 : 1 };
+    // Round two (2026-10-23): location, review flag, pay, expenses, rates, job time.
+    Object.assign(RPC.timeclock_status, { gps: true, overtime_after: 40, overtime_applies: true, review: 1 });
+    RPC.timesheet_week.people.forEach((p, i) => Object.assign(p, { pay: { basis: "hourly", rate: 22, source: "type", pay: 352.5 + i * 10 }, expenses: i ? 0 : 12.75, review: i ? 1 : 0 }));
+    Object.assign(RPC.timesheet_week.punches[0], { in_loc: { lat: 44.7449, lng: -68.837, acc: 12 }, out_loc: { lat: 44.745, lng: -68.84, acc: 20 } });
+    Object.assign(RPC.timesheet_week.punches[RPC.timesheet_week.punches.length - 1], { auto_out: true, needs_review: true, note: "Clocked out automatically at midnight" });
+    RPC.timesheet_payroll.people.forEach((p, i) => Object.assign(p, { pay: i === 2 ? null : { basis: i ? "day" : "hourly", rate: i ? 200 : 25, source: i ? "person" : "title", pay: i ? 400 : 1078.75 }, expenses: i ? 0 : 12.75 }));
+    RPC.timesheet_payroll.expense_rows = [{ id: "x1", name: "Jeremiah Mutty", day: add(sun, 1), amount: 12.75, category: "supplies", job_title: "", note: "AA batteries", reviewed_by: "Jeremiah Mutty" }];
+    RPC.timeclock_settings_get = { mileage_rate: 0.7, overtime_after: 40, gps_on: true, remind_before_min: 15, remind_out_after_min: 30, auto_out: true, ot_warn_hours: 4, half_day_hours: 5 };
+    RPC.expense_list = { can_edit: !AS_STAFF, me, month: today.slice(0, 8) + "01", jobs: [{ booking_id: "bk1", day: add(sun, 2), title: "Hampden Academy \u2022 School Photos" }],
+      expenses: [{ id: "x1", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", day: today, amount: 12.75, category: "supplies", booking_id: null, job_title: "", note: "AA batteries", receipt_path: me + "/r1.jpg", status: "submitted", reviewed_by: null, review_note: "" },
+                 { id: "x2", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", day: today, amount: 18, category: "meals", booking_id: "bk1", job_title: "Hampden Academy \u2022 School Photos", note: "Crew lunch", receipt_path: null, status: "rejected", reviewed_by: "Jeremiah Mutty", review_note: "Need the receipt" },
+                 { id: "x3", user_id: "u2", name: "Sam Helper", day: today, amount: 6, category: "parking", booking_id: null, job_title: "", note: "Garage", receipt_path: "u2/r3.pdf", status: "approved", reviewed_by: "Jeremiah Mutty", review_note: "" }]
+        .filter((x) => !AS_STAFF || x.user_id === "u2") };
+    RPC.expense_save = { ok: true, id: "x9" }; RPC.expense_remove = { ok: true, receipt_path: null }; RPC.expense_review = { ok: true };
+    RPC.timeclock_rates = { half_day_hours: 5, titles: ["lead photographer", "assistant"],
+      rates: [{ id: "r1", scope: "type", scope_key: "part_time", basis: "hourly", rate: 20, half_day_rate: null }, { id: "r2", scope: "title", scope_key: "lead photographer", basis: "hourly", rate: 25, half_day_rate: null },
+              { id: "r3", scope: "person", scope_key: "u2", name: "Sam Helper", basis: "day", rate: 200, half_day_rate: 120 }],
+      people: [{ user_id: "u1", name: "Jeremiah Mutty", employment_type: "salaried", job_title: "Owner", rate: null },
+               { user_id: "u2", name: "Sam Helper", employment_type: "part_time", job_title: "", rate: { basis: "day", rate: 200, half_day_rate: 120, source: "person" } }] };
+    RPC.timeclock_rate_save = { ok: true, id: "r9" }; RPC.timeclock_rate_remove = { ok: true };
+    RPC.timeclock_job = { can_edit: !AS_STAFF, mileage_rate: 0.7, half_day_hours: 5,
+      people: [{ user_id: "u2", name: "Sam Helper", minutes: 255, days: 1, open: false, miles: 26.1, expenses: 18, rate: AS_STAFF ? null : { basis: "hourly", rate: 20, source: "type" } }] };
+  }
+  // Email delivery (2026-10-23).
+  {
+    const ago = (h) => new Date(Date.now() - h * 3600e3).toISOString();
+    const row = (id, source, to, subject, status, h, extra) => Object.assign({ id, source, to: [to], from: "207 Admin <alerts@207photo.com>", subject, sent_at: ago(h), status, error: null, opened_at: null, clicked_at: null,
+      last_event: null, test_mode: false, resent_from: null, resent: false, can_resend: source !== "signin", handled_at: null }, extra || {});
+    RPC.email_list = { can_edit: !AS_STAFF, capturing: true, problems: 2, rows: [
+      row(6, "pictureday", "coach@example.org", "U10 Blue: your picture day time", "delivered", 0.5, { opened_at: ago(0.2), clicked_at: ago(0.1) }),
+      row(5, "makeup", "parent@example.com", "Ava's makeup photos are ready", "bounced", 3, { error: "Resend: bounced" }),
+      row(4, "day_email", "sam@207photo.com", "Your day: Thursday", "delivered", 9),
+      row(3, "signin", "sam@207photo.com", "Sign-in code", "delivered", 10),
+      row(2, "pictureday", "typo@exmaple.com", "Picture day times", "failed", 26, { error: "Invalid `to` field." }),
+      row(1, "hub", "watcher@example.com", "Hampden: your photo gallery is live", "sent", 0.1)] };
+    RPC.email_detail = Object.assign({}, RPC.email_list.rows[1], { reply_to: "hello@207photo.com", cc: null, bcc: null, text: "Hi,\n\nAva's makeup photos are ready.", html: "<p>Hi,</p><p>Ava's makeup photos are ready.</p>",
+      resend_id: "re_1", handled_by: null, resent_by: null, resends: [], bounced_contact: false });
+    RPC.email_resend = { ok: true, id: 7 }; RPC.email_mark_handled = { ok: true, n: 1 }; RPC.email_attention = { problems: 2 };
+    const ym = (n) => { const d = new Date(); d.setUTCDate(15); d.setUTCMonth(d.getUTCMonth() - n); return d.toISOString().slice(0, 7); };
+    RPC.email_report = { from: ym(2) + "-01", first_sent_at: ago(24 * 50),
+      months: [{ month: ym(1), sent: 412, delivered: 401, bounced: 6, complained: 1, failed: 4, delayed: 0, opened: 233, clicked: 61, test: 3 }, { month: ym(0), sent: 230, delivered: 224, bounced: 3, complained: 0, failed: 3, delayed: 1, opened: 140, clicked: 30, test: 0 }],
+      sources: [{ source: "pictureday", sent: 300, delivered: 292, bounced: 5, failed: 3, opened: 210 }, { source: "day_email", sent: 200, delivered: 200, bounced: 0, failed: 0, opened: 120 }, { source: "makeup", sent: 142, delivered: 133, bounced: 4, failed: 4, opened: 43 }],
+      bounced: [{ email: "parent@example.com", n: 2, last: ago(3) }] };
   }
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),

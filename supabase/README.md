@@ -42,6 +42,10 @@ psql -d shadow -v ON_ERROR_STOP=1    -f tests/staff_records_test.sql   # clearan
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023090000_employment_type.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/employment_type_test.sql   # job title + type (full access only), Open jobs to Part time / 1099, no overtime for salaried / 1099; rolls back
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql         # again: offers now follow the employment type
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141500_timeclock_round_two.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/timeclock_round_two_test.sql   # location, reminders (booked only), midnight clock-out, pay rates, expenses + receipts bucket, overtime warnings, job time, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141600_email_delivery.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/email_delivery_test.sql       # Resend sends recorded by the pg_net trigger, answers + look-ups, bounces, resend, report, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
