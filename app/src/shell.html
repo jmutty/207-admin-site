@@ -351,6 +351,45 @@
   .aca .field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 5px; }
   .aca .field label { font-weight: 600; } .aca .field input { width: 100%; }
   .aca .login-card button.primary { width: 100%; margin-top: 4px; height: 36px; justify-content: center; }
+  /* Welcome (#welcome): getting the phone app. welcome.js */
+  .aca .wl-card { max-width: 420px; padding: 22px 20px 18px; }
+  .aca .wl-top { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .aca .wl-top .sub { margin: 0; }
+  .aca .wl-logo { width: 48px; height: 48px; border-radius: 11px; border: 1px solid var(--border); flex: 0 0 48px; }
+  .aca .wl-lead { margin: 0 0 14px; font-size: 15px; line-height: 22px; }
+  .aca .wl-small { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+  .aca .login-card button.wl-install { height: 46px; font-size: 16px; }
+  .aca .wl-steps { list-style: none; margin: 0; padding: 0; }
+  .aca .wl-step { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line2); font-size: 15px; line-height: 22px; }
+  .aca .wl-n { flex: 0 0 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; line-height: 26px; text-align: center; }
+  .aca .wl-body { flex: 1; min-width: 0; }
+  .aca .wl-ic { display: inline-flex; vertical-align: -4px; color: #0a7aff; }
+  .aca .wl-pic { margin-top: 10px; padding: 10px; background: #eceae6; border-radius: 10px; font: 13px/18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1c1c1e; }
+  .aca .wl-bar { display: flex; align-items: center; justify-content: space-around; gap: 8px; height: 40px; padding: 0 10px; background: #fff; border-radius: 20px; color: #0a7aff; font-size: 20px; }
+  .aca .wl-addr { flex: 1; text-align: center; font-size: 13px; color: #1c1c1e; background: #f2f2f4; border-radius: 14px; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .aca .wl-hot { display: inline-flex; padding: 4px; border-radius: 50%; box-shadow: 0 0 0 3px var(--accent); }
+  .aca .wl-or { margin: 8px 0 6px; font-size: 12px; color: #6b675f; text-align: center; }
+  .aca .wl-sheet { background: #fff; border-radius: 10px; overflow: hidden; }
+  .aca .wl-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-top: 1px solid #e5e5ea; }
+  .aca .wl-row:first-child { border-top: 0; }
+  .aca .wl-hotrow { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 6px; font-weight: 600; }
+  .aca .wl-hotrow svg { color: #1c1c1e; }
+  .aca .wl-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; color: #0a7aff; }
+  .aca .wl-head b { color: #1c1c1e; font-weight: 600; }
+  .aca .wl-hottxt { font-weight: 700; padding: 1px 6px; border-radius: 6px; box-shadow: 0 0 0 2px var(--accent); }
+  .aca .wl-app { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid #e5e5ea; }
+  .aca .wl-app img { width: 36px; height: 36px; border-radius: 8px; }
+  .aca .wl-tog { width: 34px; height: 20px; border-radius: 10px; background: #34c759; position: relative; }
+  .aca .wl-tog::after { content: ""; position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  .aca .wl-home { display: flex; justify-content: space-around; align-items: flex-start; padding: 8px 4px 2px; background: linear-gradient(135deg, #f0b48f, #8fb3d9); border-radius: 10px; }
+  .aca .wl-dot { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,.45); }
+  .aca .wl-appic { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px; border-radius: 12px; box-shadow: 0 0 0 3px var(--accent); }
+  .aca .wl-appic img { width: 40px; height: 40px; border-radius: 10px; display: block; }
+  .aca .wl-appic small { font-size: 10px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  .aca .wl-tip { margin: 0 0 12px; padding: 10px 12px; background: var(--warn-bg); border-radius: 6px; font-size: 14px; line-height: 20px; }
+  .aca .wl-tip button { display: block; margin-top: 8px; }
+  .aca .wl-done p { font-size: 15px; line-height: 22px; }
+  .aca .login-card button.wl-skip { display: block; margin: 16px auto 0; font-size: 13.5px; }
   .aca .login-error { margin-top: 12px; padding: 9px 11px; border-radius: 4px; background: var(--err-bg); color: var(--err-fg); font-size: 13px; }
 
   #aca-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1f1e1b; color: #fbfaf8; padding: 10px 16px; border-radius: 4px; font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 9999; max-width: 90vw; font-family: "Source Sans 3", "Helvetica Neue", Arial, sans-serif; }
@@ -432,6 +471,13 @@
 </style>
 
 <div class="aca">
+  <div id="aca-welcomeView" class="login-wrap hidden">
+    <div class="login-card wl-card">
+      <div class="wl-top"><img src="https://socluffmclkdljtmiexw.supabase.co/storage/v1/object/public/admin-app/icons/apple-touch-icon.png" alt="" class="wl-logo" /><div><h1>Welcome to 207 Admin</h1><p class="sub">Get the app on your phone</p></div></div>
+      <div id="aca-wlBody"></div>
+      <button type="button" class="link wl-skip" id="aca-wlSkip">Already have it? Sign in here</button>
+    </div>
+  </div>
   <div id="aca-loginView" class="login-wrap hidden">
     <form class="login-card" id="aca-loginForm" autocomplete="on">
       <h1>207 Admin</h1>

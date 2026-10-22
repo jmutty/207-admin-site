@@ -6,11 +6,14 @@
 // re-check is_admin() (full access + trusted session) and write the audit log (public.team_audit).
 //
 // Routes (POST, JSON body):
-//   {action:"create", email, name, is_admin, permissions}  -> new login with a temporary password
+//   {action:"create", email, name, is_admin, permissions, send_welcome}  -> new login with a temporary password
 //   {action:"reset_password", user_id}                       -> new temporary password
+//   {action:"send_welcome", user_id, temp_password}          -> email them how to sign in + get the phone app
 //   {action:"set_active", user_id, active}                   -> deactivate / reactivate (bans the login)
 //   {action:"remove", user_id}                               -> take a deactivated person off the team, delete the login
 // Temporary passwords are returned once and never stored; the person is asked to change it at sign-in.
+// send_welcome (or create with send_welcome:true) emails it to them with the phone app link (SQL team_send_welcome,
+// which only sends while they are still on a temporary password). A failed email never undoes the login.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -101,7 +104,12 @@ Deno.serve(async (req) => {
         await authAdmin("DELETE", `users/${userId}`).catch((d) => console.error("team/create rollback:", d));
         throw e;
       }
-      return json({ ok: true, user_id: userId, email, temp_password: password });
+      let emailed = false, email_error: string | null = null;
+      if (body.send_welcome === true) {
+        try { await asCaller(jwt, "team_send_welcome", { p_user_id: userId, p_password: password }); emailed = true; }
+        catch (e) { email_error = e instanceof Refused ? e.message : "The email did not send."; console.error("team/create welcome:", e); }
+      }
+      return json({ ok: true, user_id: userId, email, temp_password: password, emailed, email_error });
     }
 
     const userId = String(body.user_id ?? "");
@@ -112,6 +120,11 @@ Deno.serve(async (req) => {
       const password = tempPassword();
       await authAdmin("PUT", `users/${userId}`, { password });
       return json({ ok: true, temp_password: password });
+    }
+
+    if (body.action === "send_welcome") {
+      const r = await asCaller(jwt, "team_send_welcome", { p_user_id: userId, p_password: String(body.temp_password ?? "") }) as { to?: string };
+      return json({ ok: true, to: r?.to ?? null });
     }
 
     if (body.action === "set_active") {
