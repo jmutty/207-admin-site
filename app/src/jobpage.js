@@ -178,7 +178,8 @@
     const timeOf = (ts) => (ts ? T.fmtTs(ts) : "");
     const money = (v) => "$" + num(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // Built-in tabs, then everyone else's, in order.
+    // Built-in tabs, then everyone else's, in order. A registered tab with a
+    // built-in's id replaces that built-in.
     function tabs() {
       const builtIn = [
         { id: "overview", label: "Overview", order: 10, render: renderOverview },
@@ -188,7 +189,8 @@
         { id: "notes", label: "Notes", order: 80, count: (j) => num(j.notes_count), render: renderNotes },
         { id: "history", label: "History", order: 90, render: renderHistory },
       ];
-      return builtIn.concat(registerJobTab.list || [])
+      const extra = registerJobTab.list || [];
+      return builtIn.filter((b) => !extra.some((t) => t.id === b.id)).concat(extra)
         .filter((t) => (!t.module || canSee(t.module)) && (!t.show || safe(() => t.show(J))))
         .sort((a, b) => (a.order || 50) - (b.order || 50));
     }
