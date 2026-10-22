@@ -203,7 +203,44 @@
     inventory_check_out: { ok: true, id: 3, holder_name: "Jeremiah Mutty" }, inventory_return: { ok: true },
     inventory_history: [{ id: 2, holder_name: "Gus Shooter", out_at: iso(-3), due_on: null, note: "Hampden", returned_at: null, with_kit: false }],
   });
+  // Partner follow-through (2026-10-22): rebooking, reviews, agreements, and the public #agree page.
+  {
+    const day = (n) => iso(n).slice(0, 10);
+    const A = "11111111-1111-1111-1111-111111111111", H = "22222222-2222-2222-2222-222222222222";
+    T.partner_followup_settings = [{ id: true, rebook_lead_days: 75, rebook_subject: "{{league}} {{year}}", rebook_body: "{{hi|Hi there}},", review_auto: true, review_link: "",
+      review_subject: "Thank you", review_body: "{{hi}}, {{review_link}}", agreement_subject: "{{title}}", agreement_body: "{{agreement_link}}", agreement_terms: "This agreement is between 207 Photo and {{league}}." }];
+    Object.assign(RPC, {
+      partner_rebook_list: [
+        { org_id: A, name: "Brewer Travel Basketball Club", town: "Brewer", stage: "client", last_date: day(-320), due_on: day(45), days: 45, open: true, job_count: 3, last_job: "League picture day",
+          status: "todo", waiting: false, email: null, contact: { id: "c1", name: "Chris Snowdeal", email: "csnowdeal75@gmail.com" }, agreement: { status: "accepted", renewal_date: day(40) } },
+        { org_id: H, name: "Hancock Grammar School", town: "Hancock", stage: "client", last_date: day(-260), due_on: day(105), days: 105, open: false, job_count: 1, last_job: "",
+          status: "todo", waiting: false, email: null, contact: { id: "c4", name: "Pat Lee", email: "plee@hancock.k12.me.us" } }],
+      partner_rebook_attention: { due: 1 }, partner_rebook_set: { ok: true },
+      partner_reviews_list: [
+        { id: "rv1", org_id: A, org: "Brewer Travel Basketball Club", booking_id: "b1", booking_status: "booked", job: "League picture day", picture_day: day(-30), reached_at: iso(-2),
+          outcome: "open", quote: "", quote_by: "", saved_quote: false, note: "", email: { id: "m9", status: "review", at: iso(0), to: "csnowdeal75@gmail.com" } },
+        { id: "rv2", org_id: H, org: "Hancock Grammar School", booking_id: "b2", booking_status: "tracked", job: "School picture day", picture_day: day(-40), reached_at: iso(-5),
+          outcome: "open", quote: "", quote_by: "", saved_quote: false, note: "", email: null }],
+      partner_review_log: { ok: true },
+      partner_compose: { org_id: A, org: "Brewer Travel Basketball Club", contacts: [{ id: "c1", name: "Chris Snowdeal", email: "csnowdeal75@gmail.com", role: "President", primary: true }, { id: "c2", name: "Jamie Emerson", email: "jemerson@breweredu.org", role: "", primary: false }],
+        contact_id: "c1", subject: "Brewer Travel Basketball Club 2027", body: "Hi Chris,\n\nLast year we photographed Brewer Travel Basketball Club on December 6, 2025.", warning: "" },
+      partner_queue: { ok: true, email_id: "m10", status: "review" },
+      agreements_list: [{ id: "ag1", org_id: A, org: "Brewer Travel Basketball Club", title: "Picture day agreement", status: "sent", picture_day: day(45), sent_at: iso(-3), viewed_at: null,
+        renewal_date: day(410), w9_status: "requested", coi_status: "on_file", coi_expires: day(20), token: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2", email: { status: "sent", at: iso(-3) } }],
+      agreement_get: { id: "ag1", org_id: A, org: "Brewer Travel Basketball Club", title: "Picture day agreement", status: "sent", picture_day: day(45), job: "League picture day", pricing: "Packages from $25.",
+        payout: "15% of sales.", terms: "This agreement is between 207 Photo and {{league}}.", rendered: "This agreement is between 207 Photo and Brewer Travel Basketball Club.", sent_at: iso(-3), viewed_at: null,
+        token: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2", renewal_date: day(410), w9_status: "requested", w9_at: null, w9_path: null, coi_status: "on_file", coi_at: day(-100), coi_expires: day(20), coi_path: "ag1/coi-1.pdf",
+        note: "", email: { status: "sent", at: iso(-3) }, bookings: [{ id: "b1", picture_day: day(45), label: "League picture day", status: "booked" }] },
+      agreement_orgs: [{ id: A, name: "Brewer Travel Basketball Club", town: "Brewer", stage: "client" }],
+      agreement_save: { ok: true, id: "ag1" }, agreement_set_status: { ok: true },
+      agreements_attention: { renew: 0, coi: 1 },
+      agreement_public: { found: true, title: "Picture day agreement", org: "Brewer Travel Basketball Club", picture_day: day(45), status: "sent",
+        text: "This agreement is between 207 Photo and Brewer Travel Basketball Club.\n\nPricing\nPackages from $25." },
+      agreement_accept: { ok: true, accepted_name: "Chris Snowdeal", accepted_at: iso(0) },
+    });
+  }
   const storage = { from: () => ({
+    createSignedUrl: async (path) => ({ data: { signedUrl: "logo.png" }, error: null }),
     createSignedUrls: async (paths) => ({ data: paths.map((p) => ({ path: p, signedUrl: "logo.png" })), error: null }),
     upload: async (path) => (window.__writes = (window.__writes || []).concat([["storage", "upload", path]]), { data: { path }, error: null }),
     remove: async (paths) => (window.__writes = (window.__writes || []).concat([["storage", "remove", paths]]), { data: [], error: null }),

@@ -108,6 +108,7 @@
   // ---- auth flow ----
   async function init() {
     if (Welcome.wanted()) { Welcome.show(init); return; } // #welcome: getting the phone app (welcome.js)
+    if (Agree.wanted()) { Agree.show(); return; } // #agree/<token>: a partner accepting their agreement (partners-follow.js)
     const { data: { session } } = await supabase.auth.getSession();
     if (session) afterSignIn(session);
     else showLogin();
