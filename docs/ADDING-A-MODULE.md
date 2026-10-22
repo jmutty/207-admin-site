@@ -136,6 +136,10 @@ A page for people outside 207 Photo (no sign-in, opened from an emailed link wit
 `registerPublicPage({ wanted: () => /^#mypage\//.test(location.hash), show() {...} })` and back it with
 `SECURITY DEFINER` RPCs granted to `anon` that look the token up (see `app/src/pictureday-public.js`).
 
+Saved views on a list page: `SavedViews.mount(hostEl, { page, get: () => filters, apply: (filters) => {...}, builtins })`, then
+call `.ensure()` when the page is shown. Add the page key to the `saved_views.page` check and `saved_view_module()`
+(migration 20261022234500) so the right module's View controls who sees its views.
+
 Helpers available everywhere: `supabase`, `el(id)`, `esc()`, `fmtDate()`, `fmtAgo()`, `toast()`,
 `showError()`/`clearError()`, `canSee(m)`, `canEdit(m)`, `openModal(html, {locked})`, `setAttention()`.
 
