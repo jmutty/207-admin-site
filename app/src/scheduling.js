@@ -5,6 +5,13 @@
   // (Team page). View = see the team's week; Edit = add, change and remove bars. Drive times come from the
   // drive-time edge function (Google Maps, from the studio address). Everything goes through RPCs:
   // schedule_week / schedule_save / schedule_remove / schedule_settings_save / schedule_attention.
+  // Crew (2026-10-23, crew.js): a job bar has a role and an answer (Waiting / Confirmed; "can't make it" takes
+  // the bar off and the job is back under Jobs not assigned until it has as many people as it needs). The
+  // crew picker shows roles, who is busy or off and the drive from home (CrewPick). "Still waiting" shows only
+  // unanswered jobs. A capacity strip under the days, the busiest days ahead, and "Email the week" (each
+  // person gets only their own schedule). RPCs: crew_options / crew_needed_set / crew_ask_now /
+  // crew_roles_list / crew_role_save / crew_role_archive / crew_settings_save / crew_capacity /
+  // week_email_preview / week_email_send.
   registerPage({ id: "schedule", group: "Staff", section: "staff", module: "scheduling", tabs: [["schedule", "Schedule"]], onShow: () => Schedule.load() });
   registerAttention("scheduleUnstaffed", { module: "scheduling", level: "soon", name: "job staffing",
     one: "A job in the next two weeks has nobody on the schedule.", many: "{n} jobs in the next two weeks have nobody on the schedule." });
@@ -108,6 +115,38 @@
     .aca .sc-b.cancelled { text-decoration: line-through; opacity: .6; }
     .aca .sc-b:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
     .aca .sc-tasks { position: absolute; right: 4px; bottom: 2px; font-size: 11px; color: var(--muted); }
+    .aca .sc-b .sc-cf { display: inline-block; width: 14px; height: 14px; line-height: 14px; margin: 0 4px 0 -1px; border-radius: 50%; text-align: center; font-size: 10px; font-weight: 700; font-style: normal; vertical-align: 0; }
+    .aca .sc-b .sc-cf.ok { background: #fff; color: #2e7d46; }
+    .aca .sc-b .sc-cf.wait { background: #f0b429; color: #3d2c00; }
+    .aca .sc-b.dim { opacity: .28; }
+    .aca .sc-b.asked { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(150,140,125,.18) 6px 12px); border: 1px dashed #a39d93; color: var(--muted); }
+    .aca .sc-chip .sc-no { display: block; color: var(--err-fg); font-size: 11.5px; }
+    .aca .sc-chip .sc-need { color: var(--accent); font-weight: 600; }
+    .aca .sc-cap { padding: 5px 8px; font-size: 11.5px; line-height: 15px; background: var(--surface); color: var(--muted); }
+    .aca .sc-cap b { color: var(--text); font-weight: 600; }
+    .aca .sc-cap.amber { background: #fdf6e3; } .aca .sc-cap.amber b { color: #8a6100; }
+    .aca .sc-cap.red { background: var(--err-bg); } .aca .sc-cap.red b { color: var(--err-fg); }
+    .aca .sc-cap.quiet { color: var(--faint); }
+    .aca .sc-pick { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+    .aca .sc-pick li { display: grid; grid-template-columns: 22px minmax(0, 1fr) 150px; gap: 8px; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--line2); }
+    .aca .sc-pick li:last-child { border-bottom: 0; }
+    .aca .sc-pick input[type=checkbox] { width: 18px; height: 18px; margin: 0; }
+    .aca .sc-pick .n { font-size: 13.5px; font-weight: 600; }
+    .aca .sc-pick .r { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; }
+    .aca .sc-pick .s { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+    .aca .sc-pick .s.warn { color: #8a6100; } .aca .sc-pick .s.bad { color: var(--err-fg); }
+    .aca .sc-pick select { width: 100%; height: 32px; font-size: 13px; }
+    .aca .sc-onit { list-style: none; margin: 0 0 12px; padding: 0; font-size: 13.5px; }
+    .aca .sc-onit li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid var(--line2); }
+    .aca .sc-onit .s { color: var(--muted); font-size: 12.5px; }
+    .aca .sc-modal .sc-sub { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .aca .sc-modal .sc-chk { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; font-size: 13.5px; margin: 0 0 10px; }
+    .aca .sc-modal .sc-chk input { width: 18px; height: 18px; flex: none; margin: 1px 0 0; }
+    .aca .sc-roles li { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+    .aca .sc-roles input[type=text] { flex: 1; }
+    .aca .sc-peak td, .aca .sc-peak th { text-align: right; }
+    .aca .sc-peak td:first-child, .aca .sc-peak th:first-child { text-align: left; }
+    .aca .sc-peak .red { color: var(--err-fg); font-weight: 600; } .aca .sc-peak .amber { color: #8a6100; font-weight: 600; }
     .aca .sc-modal .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .aca .sc-modal .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .aca .sc-modal .field input, .aca .sc-modal .field select, .aca .sc-modal .field textarea { width: 100%; }
@@ -139,7 +178,10 @@
       .aca .sc-legend { display: none; order: 10; flex: 1 0 100%; gap: 6px 12px; font-size: 12px; padding: 4px 0; }
       .aca .sc-showkey .sc-legend { display: flex; }
       .aca .sc-keybtn { display: inline-block; }
-      .aca .sc-bar button[data-v="studio"] { display: none; }
+      .aca .sc-bar button[data-v="studio"], .aca .sc-bar button[data-v="crewset"] { display: none; }
+      .aca .sc-pick li { grid-template-columns: 22px minmax(0, 1fr); }
+      .aca .sc-pick li select { grid-column: 2; }
+      .aca .sc-cap { padding: 4px 5px; font-size: 11px; }
       .aca .sc-bar .primary { margin-left: auto; }
       .aca .sc-grid { grid-template-columns: 92px repeat(var(--cols), minmax(var(--colmin), 1fr)); min-width: calc(92px + var(--cols) * var(--colmin)); }
       .aca .sc-name { padding: 6px 7px; font-size: 12.5px; }
@@ -164,10 +206,13 @@
         '<h2 id="aca-scTitle">Schedule</h2>' +
         '<div class="seg" role="radiogroup" aria-label="View"><label><input type="radio" name="aca-scView" value="week" checked /><span>Week</span></label><label><input type="radio" name="aca-scView" value="day" /><span>Day</span></label></div>' +
         '<label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="aca-scMine" /> Just me</label>' +
+        '<label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center" title="Only jobs where someone hasn&#39;t answered yet"><input type="checkbox" id="aca-scWait" /> Still waiting</label>' +
         '<span class="grow"></span>' +
         '<button type="button" class="small sc-keybtn" data-v="key" aria-expanded="false">Colors</button>' +
         '<div class="sc-legend"><span><i class="sc-k-job"></i>On site job</span><span><i class="sc-k-drive"></i>Drive</span><span><i class="sc-k-studio"></i>Studio</span><span><i class="sc-k-admin"></i>Admin</span><span><i class="sc-k-flex"></i>Flex</span><span><i class="sc-k-work"></i>Other</span><span><i class="sc-k-off"></i>Time off</span><span><i class="sc-k-gcal"></i>Google Calendar</span></div>' +
         '<button type="button" class="small sc-ed" data-v="studio">Studio address</button>' +
+        '<button type="button" class="small sc-ed" data-v="crewset">Crew settings</button>' +
+        '<button type="button" class="small sc-ed" data-v="weekmail">Email the week</button>' +
         '<button type="button" class="primary sc-ed" data-v="add">Add time</button>' +
         '<button type="button" class="primary sc-flexbtn hidden" data-v="addflex">Add flex time</button>' +
       "</div>" +
@@ -175,12 +220,13 @@
       '<div id="aca-scWarn" class="sc-warn hidden"></div>' +
       '<div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
-      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people.</span> Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
+      '<div class="sc-sum hidden" id="aca-scPeak"></div>' +
+      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people.</span> People put on a booked job get an email and a notification to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting. Someone who can&#39;t make it comes off the job, and it goes back under Jobs not assigned. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     let view = narrow() ? "day" : "week";
     let anchor = T.today();       // the day shown in day view; its week in week view
-    let data = null, mineOnly = false, loading = 0;
+    let data = null, mineOnly = false, waitOnly = false, loading = 0;
     root.querySelector('input[name="aca-scView"][value="' + view + '"]').checked = true;
 
     const editable = () => !!(data && data.can_edit);
@@ -200,16 +246,40 @@
         if (error) throw error;
         if (my !== loading) return;
         data = d; data.start = start;
+        data.crew = Object.assign({ roles: [], needed: {}, declined: [], requests: [], settings: {} }, d.crew || {});
         (d.people || []).forEach((p) => { p.name = T.shortName(p.name); });
+        // Time off someone asked for and nobody has answered yet: a faded bar on their row (not counted as hours)
+        data.asked = (data.crew.requests || []).map((r) => ({ id: "req:" + r.id, user_id: r.user_id, kind: "asked", booking_id: null, drive_before_min: 0, drive_after_min: 0,
+          starts_at: T.toIso(r.first_day, r.start_time || "00:00"), ends_at: r.start_time ? T.toIso(r.first_day, r.end_time) : T.toIso(T.addDays(r.last_day, 1), "00:00"), title: r.note || "", note: "", request: r }));
         // "Ryan Off" on the Google Calendar: time off on that person's row (read only; change it in Google)
         (d.calendar || []).filter((c) => c.off_user).forEach((c) => d.entries.push({ id: "gcal:" + c.event_id, user_id: c.off_user, kind: "off", booking_id: null,
           starts_at: c.all_day || !c.start_at ? T.toIso(c.start_date, "00:00") : c.start_at, ends_at: c.all_day || !c.end_at ? T.toIso(T.addDays(c.end_date, 1), "00:00") : c.end_at,
           drive_before_min: 0, drive_after_min: 0, title: c.summary, note: "", gcal: c }));
         render();
+        loadPeak();
       } catch (e) {
         if (my !== loading) return;
         showError("scErr", "Could not load the schedule: " + cleanErr(e));
       }
+    }
+
+    // Busiest days in the next 8 weeks (for seasonal hiring): jobs, people needed, and who is free.
+    let peakFor = "";
+    async function loadPeak() {
+      const box = el("scPeak");
+      if (narrow() || peakFor === T.today()) return;
+      try {
+        const { data: c, error } = await sb.rpc("crew_capacity", { p_from: T.today(), p_days: 56 });
+        if (error) throw error;
+        peakFor = T.today();
+        const days = (c.days || []).map((d) => Object.assign(d, { free: c.team - d.off - d.asked_off })).sort((a, b) => b.needed - a.needed || a.free - b.free || (a.day < b.day ? -1 : 1)).slice(0, 8);
+        box.classList.toggle("hidden", !days.length);
+        box.innerHTML = '<h3>Busiest days, next 8 weeks</h3><div class="table-wrap"><table class="sc-peak"><thead><tr><th>Day</th><th>Jobs</th><th>People needed</th><th>On jobs now</th><th>Off</th><th>Asked off</th><th>Free</th></tr></thead><tbody>' +
+          days.map((d) => { const lvl = d.needed > d.free ? "red" : d.needed === d.free ? "amber" : "";
+            return '<tr><td><button type="button" class="link" data-peak="' + esc(d.day) + '">' + esc(T.fmtDay(d.day)) + "</button></td><td>" + num(d.jobs) + "</td><td>" + num(d.needed) + "</td><td>" + num(d.on_jobs) + "</td><td>" + num(d.off) + "</td><td>" + num(d.asked_off) +
+              '</td><td class="' + lvl + '">' + num(d.free) + (lvl === "red" ? " (short " + num(d.needed - d.free) + ")" : "") + "</td></tr>"; }).join("") +
+          '</tbody></table></div><p class="sc-note">Free = everyone on the team minus time off (approved or asked for). Red: the jobs need more people than are free.</p>';
+      } catch (_e) { box.classList.add("hidden"); }
     }
 
     async function loadAttention() {
@@ -258,6 +328,23 @@
       return Math.max(1, ends.length);
     }
 
+    // ---------------------------------------------------------------- crew counts
+    const neededOf = (bookingId) => num((data.crew.needed || {})[bookingId]) || 1;
+    // people on a booking that day
+    const staffedCount = (bookingId, d) => new Set(data.entries.filter((e) => e.booking_id === bookingId && T.local(e.starts_at).day <= d && T.local(e.ends_at).day >= d).map((e) => e.user_id)).size;
+    function capacityOn(d) {
+      const dayStart = new Date(T.toIso(d, "00:00")).getTime(), dayEnd = new Date(T.toIso(T.addDays(d, 1), "00:00")).getTime();
+      const touches = (e) => new Date(e.starts_at).getTime() < dayEnd && new Date(e.ends_at).getTime() > dayStart;
+      const off = new Set(data.entries.filter((e) => e.kind === "off" && touches(e)).map((e) => e.user_id));
+      const asked = new Set((data.asked || []).filter((e) => touches(e) && !off.has(e.user_id)).map((e) => e.user_id));
+      const onJobs = new Set(data.entries.filter((e) => e.kind === "job" && touches(e)).map((e) => e.user_id));
+      const jobs = data.bookings.filter((b) => b.day === d && b.status === "booked");
+      const need = jobs.reduce((n, b) => n + Math.max(0, neededOf(b.booking_id) - staffedCount(b.booking_id, d)), 0);
+      const available = data.people.filter((p) => !off.has(p.user_id)).length;
+      const free = data.people.filter((p) => !off.has(p.user_id) && !asked.has(p.user_id) && !onJobs.has(p.user_id)).length;
+      return { jobs: jobs.length, off: off.size, asked: asked.size, onJobs: onJobs.size, available, free, need, short: need - free, spare: free - need };
+    }
+
     // ---------------------------------------------------------------- render
     function render() {
       const start = data.start, today = T.today();
@@ -286,15 +373,27 @@
         h += '<div class="sc-head' + (d === today ? " today" : "") + '">' + (view === "week" ? '<button type="button" class="link" data-day="' + d + '">' + esc(T.fmtDay(d)) + "</button>" : esc(T.fmtDay(d, { weekday: "long" }))) +
           '<div class="sc-ticks">' + ticks() + "</div></div>";
       });
-      // Jobs not assigned: a job leaves this lane once someone is on it that day (its bar is then on their row).
-      const staffedOn = (b, d) => data.entries.some((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day <= d && T.local(e.ends_at).day >= d);
-      const open = data.bookings.filter((b) => days.includes(b.day) && !staffedOn(b, b.day));
+      // Capacity: per day, who is free (not off) against the people that day's jobs still need.
+      if (data.people.length && !mineOnly) {
+        h += '<div class="sc-name sc-cap"><b>Capacity</b></div>';
+        days.forEach((d) => {
+          const c = capacityOn(d), lvl = !c.jobs ? "quiet" : c.short > 0 ? "red" : c.need > 0 && c.spare <= 0 ? "amber" : "";
+          h += '<div class="sc-cap ' + lvl + '" title="' + esc(c.available + " of " + data.people.length + " available (" + c.off + " off" + (c.asked ? ", " + c.asked + " asked off" : "") + "), " + c.onJobs + " on jobs, " + c.need + " more needed") + '">' +
+            (c.jobs ? "<b>" + num(c.free) + " free</b> &middot; " + (c.need ? num(c.need) + " needed" + (c.short > 0 ? " (short " + num(c.short) + ")" : "") : "jobs covered") : num(c.available) + " available") + "</div>";
+        });
+      }
+      // Jobs not assigned: a job stays in this lane until it has as many people as it needs that day.
+      const open = data.bookings.filter((b) => days.includes(b.day) && staffedCount(b.booking_id, b.day) < neededOf(b.booking_id));
       h += '<div class="sc-name"><b>Jobs not assigned</b><span class="sc-hrs">' + (open.length ? num(open.length) + " this " + (view === "week" ? "week" : "day") : "All jobs have someone") + "</span></div>";
       days.forEach((d) => {
         const list = open.filter((b) => b.day === d);
-        h += '<div class="sc-jobs">' + list.map((b) =>
-          '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : b.status === "booked" ? " none" : "") + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "")) + '">' +
-            esc(view === "week" ? shortTitle(b.title) : bookingLabel(b)) + "<small>" + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "time not set yet") + "</small></button>").join("") + "</div>";
+        h += '<div class="sc-jobs">' + list.map((b) => {
+          const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id);
+          const no = (data.crew.declined || []).filter((x) => x.booking_id === b.booking_id);
+          return '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : b.status === "booked" && !have ? " none" : have ? " part" : "") + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "") + no.map((x) => "\n" + T.shortName(x.name) + " can't make it" + (x.reason ? ": " + x.reason : "")).join("")) + '">' +
+            esc(view === "week" ? shortTitle(b.title) : bookingLabel(b)) + "<small>" + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "time not set yet") +
+            (have ? ' <span class="sc-need">&middot; ' + num(have) + " of " + num(need) + "</span>" : need > 1 ? ' <span class="sc-need">&middot; needs ' + num(need) + "</span>" : "") + "</small>" +
+            no.map((x) => '<span class="sc-no">' + esc(T.shortName(x.name)) + " can&#39;t make it</span>").join("") + "</button>"; }).join("") + "</div>";
       });
       // From Google Calendar: events that aren't bookings, until someone is on them ("X Off" ones are time off instead)
       const calOpen = (data.calendar || []).filter((c) => !c.off_user && !data.entries.some((e) => e.gcal_event_id === c.event_id) && days.some((d) => d >= c.start_date && d <= c.end_date));
@@ -307,10 +406,12 @@
         });
       }
       // People
-      const people = mineOnly ? data.people.filter((p) => p.user_id === data.me) : data.people;
-      if (!people.length) h += '<div class="sc-name"><span class="muted">' + (mineOnly ? "You are not on the team list." : "Nobody on the team yet.") + "</span></div>" + days.map(() => "<div></div>").join("");
+      const waiting = (e) => e.kind === "job" && e.confirm && e.confirm.status === "pending" && days.some((d) => piecesOn(e, d).length);
+      const people = (mineOnly ? data.people.filter((p) => p.user_id === data.me) : data.people).filter((p) => !waitOnly || data.entries.some((e) => e.user_id === p.user_id && waiting(e)));
+      if (!people.length) h += '<div class="sc-name"><span class="muted">' + (waitOnly ? "Everyone has answered." : mineOnly ? "You are not on the team list." : "Nobody on the team yet.") + "</span></div>" + days.map(() => "<div></div>").join("");
       people.forEach((p) => {
         const mine = data.entries.filter((e) => e.user_id === p.user_id);
+        const rowBars = mine.concat((data.asked || []).filter((e) => e.user_id === p.user_id));
         const weekHours = mine.reduce((s, e) => s + hoursOf(e), 0);
         let target = "";
         if (p.weekly_hours != null) {
@@ -323,25 +424,29 @@
           (view === "day" && narrow() ? "" : fmtH(weekHours) + target + (view === "day" ? " this week" : "")) + "</span></div>";
         days.forEach((d) => {
           const items = [];
-          mine.forEach((e) => {
+          rowBars.forEach((e) => {
             const ps = piecesOn(e, d);
             ps.forEach((x, i) => items.push(Object.assign(x, { entry: e, first: i === 0, last: i === ps.length - 1 })));
           });
           // lanes per entry (its pieces share a lane)
           const blocks = [];
-          mine.forEach((e) => { const ps = items.filter((x) => x.entry === e); if (ps.length) blocks.push({ entry: e, from: Math.min(...ps.map((x) => x.from)), to: Math.max(...ps.map((x) => x.to)), ps }); });
+          rowBars.forEach((e) => { const ps = items.filter((x) => x.entry === e); if (ps.length) blocks.push({ entry: e, from: Math.min(...ps.map((x) => x.from)), to: Math.max(...ps.map((x) => x.to)), ps }); });
           const n = lanesFor(blocks);
           const tc = (data.tasks || []).find((t) => t.user_id === p.user_id && t.day === d);
           const dh = view === "week" ? T.workHours(mine, d) : 0;
           let bars = "";
           blocks.forEach((bk) => bk.ps.forEach((x) => {
             const e = bk.entry, isDrive = x.part === "drive";
-            const label = isDrive ? "" : e.kind === "job" ? (view === "week" ? shortTitle(e.booking_title) : e.booking_title) : e.kind !== "off" ? (e.title || KIND[e.kind]) : "Off" + (e.title ? ": " + e.title : "");
-            const tip = (e.kind === "off" ? "Time off" : T.fmtTs(e.starts_at) + "\u2013" + T.fmtTs(e.ends_at)) + " " + (e.kind === "job" ? e.booking_title : e.kind !== "off" ? (e.title || KIND[e.kind]) : e.title) +
+            const cf = e.kind === "job" && e.confirm ? e.confirm.status : null;
+            const label = isDrive ? "" : e.kind === "asked" ? "Asked off" + (e.title ? ": " + e.title : "") : e.kind === "job" ? (view === "week" ? shortTitle(e.booking_title) : e.booking_title + (e.role ? " (" + e.role + ")" : "")) : e.kind !== "off" ? (e.title || KIND[e.kind]) : "Off" + (e.title ? ": " + e.title : "");
+            const tip = (e.kind === "asked" ? "Asked for time off (not answered yet)" : e.kind === "off" ? "Time off" : T.fmtTs(e.starts_at) + "\u2013" + T.fmtTs(e.ends_at)) + " " + (e.kind === "job" ? e.booking_title : e.kind !== "off" ? (e.title || KIND[e.kind] || "") : e.title) +
+              (e.role ? "\nRole: " + e.role : "") + (cf ? "\n" + (cf === "confirmed" ? "Confirmed" : e.confirm.asked_at ? "Asked, no answer yet" : "Will be asked to confirm in a few minutes") : "") +
               (e.kind === "job" && (e.drive_before_min || e.drive_after_min) ? "\nDrive " + e.drive_before_min + " min there, " + e.drive_after_min + " min back" : "") + (e.note ? "\n" + e.note : "") + (bk.clash ? "\nOverlaps another bar" : "");
             const cls = "sc-b sc-k-" + (isDrive ? "drive" : e.kind) + (isDrive ? " drive" + (x.first ? " first" : "") + (x.last ? " last" : "") : "") +
-              (e.kind === "job" && !isDrive && (bk.ps.length > 1) ? " mid" : "") + (bk.clash ? " clash" : "") + (e.booking_status === "cancelled" ? " cancelled" : "");
-            bars += '<button type="button" class="' + cls + '" data-entry="' + esc(e.id) + '" style="left:' + pct(x.from) + ";width:calc(" + pct(x.to) + " - " + pct(x.from) + ");top:" + (6 + bk.lane * 26) + 'px" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' + esc(label) + "</button>";
+              (e.kind === "job" && !isDrive && (bk.ps.length > 1) ? " mid" : "") + (bk.clash && e.kind !== "asked" ? " clash" : "") + (e.booking_status === "cancelled" ? " cancelled" : "") +
+              (e.kind === "asked" ? " asked" : "") + (waitOnly && !waiting(e) ? " dim" : "");
+            const mark = !isDrive && cf === "confirmed" ? '<i class="sc-cf ok" aria-hidden="true">\u2713</i>' : !isDrive && cf === "pending" ? '<i class="sc-cf wait" aria-hidden="true">?</i>' : "";
+            bars += '<button type="button" class="' + cls + '" data-entry="' + esc(e.id) + '" style="left:' + pct(x.from) + ";width:calc(" + pct(x.to) + " - " + pct(x.from) + ");top:" + (6 + bk.lane * 26) + 'px" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' + mark + esc(label) + "</button>";
           }));
           h += '<div class="sc-cell' + (editable() || isMine(p.user_id) ? " edit" : "") + (view === "day" ? " grid" : "") + (d === today && view === "week" ? " today" : "") + '" data-person="' + esc(p.user_id) + '" data-day="' + esc(d) + '" style="min-height:' + (n * 26 + 18) + 'px">' + bars +
             (dh > 0 ? '<span class="sc-dh' + (dh >= T.LUNCH_AFTER_H ? " sc-lunch" : "") + '"' + (dh >= T.LUNCH_AFTER_H ? ' title="6 hours or more: plan a lunch break"' : "") + ">" + fmtH(dh) + " h" + (dh >= T.LUNCH_AFTER_H ? " &middot; lunch" : "") + "</span>" : "") +
@@ -380,9 +485,13 @@
         if (a === "addflex") openEntry(null, { user_id: data.me, kind: "flex", day: view === "day" ? anchor : T.today() >= data.start && T.today() < T.addDays(data.start, 7) ? T.today() : data.start });
         if (a === "add") openEntry(null, { user_id: data && data.me, day: view === "day" ? anchor : T.today() >= data.start && T.today() < T.addDays(data.start, 7) ? T.today() : data.start });
         if (a === "studio") openStudio();
+        if (a === "crewset") openCrewSettings();
+        if (a === "weekmail") openWeekEmail();
         if (a === "key") v.setAttribute("aria-expanded", String(root.classList.toggle("sc-showkey")));
         return;
       }
+      const pk = e.target.closest("[data-peak]");
+      if (pk) { anchor = pk.dataset.peak; setView("day"); window.scrollTo(0, 0); return; }
       const dayBtn = e.target.closest(".sc-head [data-day]");
       if (dayBtn) { anchor = dayBtn.dataset.day; setView("day"); return; }
       const chip = e.target.closest("[data-booking]");
@@ -396,6 +505,7 @@
         return;
       }
       const bar = e.target.closest("[data-entry]");
+      if (bar && bar.dataset.entry.startsWith("req:")) { if (canEdit("timeoff")) showTab("timeoff"); else toast("Asked for time off. Nobody has answered yet."); return; }
       if (bar) { const en = data.entries.find((x) => x.id === bar.dataset.entry); if (en) en.gcal ? openCalInfo(en.gcal) : canChange(en) ? openEntry(en) : openInfo(en); return; }
       const cell = e.target.closest(".sc-cell");
       if (cell && (editable() || isMine(cell.dataset.person)) && !e.target.closest("a")) {
@@ -411,6 +521,7 @@
     root.addEventListener("change", (e) => {
       if (e.target.name === "aca-scView") setView(e.target.value);
       if (e.target.id === "aca-scMine") { mineOnly = e.target.checked; if (data) render(); }
+      if (e.target.id === "aca-scWait") { waitOnly = e.target.checked; if (data) render(); }
     });
     function setView(v) {
       view = v;
@@ -457,44 +568,165 @@
     function openAssign(b) {
       const already = data.entries.filter((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day === b.day);
       const s = b.start_at ? T.local(b.start_at).min : 9 * 60, en = b.end_at ? T.local(b.end_at).min : s + 120;
+      const roles = data.crew.roles || [];
+      const roleSel = (pick, cls) => '<select class="' + cls + '" aria-label="Role"><option value="">No role</option>' + roles.map((r) => '<option value="' + esc(r.id) + '"' + (r.id === pick ? " selected" : "") + ">" + esc(r.label) + "</option>").join("") + "</select>";
+      const cf = (e) => (e.confirm ? '<span class="pill ' + CREW_STATUS[e.confirm.status][1] + '">' + CREW_STATUS[e.confirm.status][0] + "</span>" : b.status && b.status !== "booked" ? "" : '<span class="muted">not asked</span>');
+      const no = (data.crew.declined || []).filter((x) => x.booking_id === b.booking_id);
       const m = openModal('<div class="sc-modal"><h2>' + esc(bookingLabel(b)) + "</h2>" +
-        '<p class="sc-facts">' + esc(T.fmtDay(b.day, { weekday: "long" })) + ", " + esc(b.start_at ? T.fmtTs(b.start_at) + "\u2013" + T.fmtTs(b.end_at) : "time not set yet") + (b.location ? "<br>" + esc(b.location) : "") + "</p>" +
-        (already.length ? '<p class="sc-facts"><b>On it:</b> ' + already.map((e) => esc(personName(e.user_id)) + ' <span class="muted">(' + esc(T.fmtTs(e.starts_at)) + "\u2013" + esc(T.fmtTs(e.ends_at)) + ', drive ' + num(e.drive_before_min) + "/" + num(e.drive_after_min) + ' min)</span> <button type="button" class="link" data-m="edit" data-id="' + esc(e.id) + '">change</button>').join(", ") + "</p>" : "") +
-        '<div class="field"><label>Add people</label><div class="sc-people">' + data.people.filter((p) => !already.some((e) => e.user_id === p.user_id)).map((p) =>
-          '<label><input type="checkbox" value="' + esc(p.user_id) + '" /> ' + esc(p.name) + "</label>").join("") + "</div></div>" +
+        '<p class="sc-facts">' + esc(T.fmtDay(b.day, { weekday: "long" })) + ", " + esc(b.start_at ? T.fmtTs(b.start_at) + "–" + T.fmtTs(b.end_at) : "time not set yet") + (b.location ? "<br>" + esc(b.location) : "") + "</p>" +
+        '<div class="field"><label for="aca-scNeed">People needed</label><input type="number" id="aca-scNeed" min="1" max="20" step="1" value="' + neededOf(b.booking_id) + '" style="width:90px" /></div>' +
+        (already.length ? '<h3 class="sc-sub">On it</h3><ul class="sc-onit">' + already.map((e) => "<li><b>" + esc(personName(e.user_id)) + "</b>" + (e.role ? " (" + esc(e.role) + ")" : "") + " " + cf(e) +
+          ' <span class="s">' + esc(T.fmtTs(e.starts_at)) + "–" + esc(T.fmtTs(e.ends_at)) + ", drive " + num(e.drive_before_min) + "/" + num(e.drive_after_min) + " min</span>" +
+          ' <button type="button" class="link" data-m="edit" data-id="' + esc(e.id) + '">change</button>' +
+          (!e.confirm || e.confirm.status !== "confirmed" ? ' <button type="button" class="link" data-m="ask" data-user="' + esc(e.user_id) + '">' + (e.confirm && e.confirm.asked_at ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</li>").join("") + "</ul>" : "") +
+        (no.length ? '<p class="sc-facts"><b>Can&#39;t make it:</b> ' + no.map((x) => esc(x.name) + (x.reason ? ' <span class="muted">(' + esc(x.reason) + ")</span>" : "")).join(", ") + "</p>" : "") +
+        '<div class="field"><label>Add people</label><ul class="sc-pick" id="aca-scPick"><li><span></span><span class="muted">Checking who is free&#8230;</span><span></span></li></ul></div>' +
         '<div class="row2"><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(en) + '" /></div></div>' +
         driveHtml(already[0] ? already[0].drive_before_min : 30, already[0] ? already[0].drive_after_min : 30) +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="#jobs/bookings" data-m="open" class="small">Open the booking</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
+      // Who is free, their roles and the drive from home (sorted: free first, then nearest).
+      const pick = m.querySelector("#aca-scPick");
+      const rows = (list, cp) => list.map((p) => {
+        const [line, lvl, rn] = cp ? CrewPick.describe(p, cp) : ["", "", []];
+        const first = (p.roles || [])[0] || "";
+        return '<li><input type="checkbox" value="' + esc(p.user_id) + '" aria-label="' + esc(p.name) + '" /><span><span class="n">' + esc(p.name) + "</span>" + (rn.length ? '<span class="r">' + esc(rn.join(", ")) + "</span>" : "") +
+          (line ? '<span class="s ' + lvl + '">' + esc(line) + "</span>" : "") + "</span>" + roleSel(first, "sc-role") + "</li>";
+      }).join("") || '<li><span></span><span class="muted">Everyone is already on it.</span><span></span></li>';
+      const free = data.people.filter((p) => !already.some((e) => e.user_id === p.user_id)).map((p) => Object.assign({}, p, { roles: p.roles || [] }));
+      CrewPick.options(b.booking_id, b.day).then((cp) => {
+        const byId = new Map(cp.people.map((p) => [p.user_id, p]));
+        const rank = (p) => (p.off ? 3 : p.declined ? 2 : p.asked_off || (p.busy || []).length ? 1 : 0);
+        const list = free.map((p) => Object.assign({}, byId.get(p.user_id) || { roles: p.roles, busy: [] }, { name: p.name, user_id: p.user_id }))
+          .sort((x, y) => rank(x) - rank(y) || (x.home_min == null ? 1e4 : x.home_min) - (y.home_min == null ? 1e4 : y.home_min) || x.name.localeCompare(y.name));
+        const was = new Set([...pick.querySelectorAll("input:checked")].map((x) => x.value));
+        pick.innerHTML = rows(list, cp);
+        pick.querySelectorAll("input[type=checkbox]").forEach((x) => { x.checked = was.has(x.value); });
+      }).catch(() => { pick.innerHTML = rows(free, null); });
+      const needIn = el("scNeed"), need0 = needIn.value;
+      async function saveNeed() {
+        if (needIn.value === need0) return;
+        const { error } = await sb.rpc("crew_needed_set", { p_booking: b.booking_id, p_needed: +needIn.value || 1 });
+        if (error) throw error;
+      }
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") m.close();
         if (t.dataset.m === "open") { ev.preventDefault(); m.close(); showTab("bookings"); Bookings.openId(b.booking_id); }
         if (t.dataset.m === "edit") { m.close(); openEntry(data.entries.find((x) => x.id === t.dataset.id)); }
+        if (t.dataset.m === "ask") {
+          t.disabled = true;
+          try { const { error } = await sb.rpc("crew_ask_now", { p_booking: b.booking_id, p_user: t.dataset.user }); if (error) throw error; toast("Sent. " + personName(t.dataset.user) + " got an email and a notification."); t.textContent = "Sent"; load(); }
+          catch (e) { mErr(cleanErr(e)); t.disabled = false; }
+        }
         if (t.dataset.m === "save") {
-          const who = [...m.querySelectorAll(".sc-people input:checked")].map((x) => x.value);
+          const who = [...pick.querySelectorAll("li")].filter((li) => li.querySelector("input:checked")).map((li) => ({ user_id: li.querySelector("input").value, role_id: li.querySelector(".sc-role").value || null }));
           const st = el("scS").value, et = el("scE").value;
+          if (!who.length && needIn.value !== need0) {
+            t.disabled = true;
+            try { await saveNeed(); m.close(); toast("Saved."); load(); } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
+            return;
+          }
           if (!who.length) return mErr("Pick at least one person.");
           if (!st || !et) return mErr("Enter the start and end time.");
           const endDay = et <= st ? T.addDays(b.day, 1) : b.day;
           t.disabled = true;
           try {
+            await saveNeed();
             let clashes = 0;
-            for (const u of who) {
-              const { data: r, error } = await sb.rpc("schedule_save", { p: { user_id: u, kind: "job", booking_id: b.booking_id, starts_at: T.toIso(b.day, st), ends_at: T.toIso(endDay, et),
+            for (const w of who) {
+              const { data: r, error } = await sb.rpc("schedule_save", { p: { user_id: w.user_id, kind: "job", booking_id: b.booking_id, role_id: w.role_id, starts_at: T.toIso(b.day, st), ends_at: T.toIso(endDay, et),
                 drive_before_min: +m.querySelector(".sc-db").value || 0, drive_after_min: +m.querySelector(".sc-da").value || 0 } });
               if (error) throw error;
               clashes += num(r && r.overlaps);
             }
             m.close();
-            toast(who.length === 1 ? "Added to the schedule." : who.length + " people added." + (clashes ? " Heads up: it overlaps other time on their schedule." : ""));
+            toast((who.length === 1 ? "Added to the schedule." : who.length + " people added.") + (data.crew.settings.crew_confirm_on !== false && (!b.status || b.status === "booked") ? " They'll be asked to confirm." : "") + (clashes ? " Heads up: it overlaps other time on their schedule." : ""));
             load(); loadAttention();
           } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
         }
       });
     }
     const mErr = (t) => { const n = el("scMErr"); if (n) { n.textContent = t; n.classList.remove("hidden"); } };
+
+    // ---------------------------------------------------------------- crew settings + email the week
+    const DOWS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    async function openCrewSettings() {
+      const st = data.crew.settings || {};
+      const m = openModal('<div class="sc-modal"><h2>Crew settings</h2>' +
+        '<h3 class="sc-sub">Roles</h3><p class="sc-note">What someone does on a job. Pick each person&#39;s roles on the Team page; the crew picker suggests their first one.</p>' +
+        '<ul class="sc-roles" id="aca-scRoles"></ul><div class="sc-drive"><div class="field" style="flex:1"><label for="aca-scRoleNew">New role</label><input type="text" id="aca-scRoleNew" maxlength="40" placeholder="Lighting, Group photos&#8230;" style="width:100%" /></div><button type="button" class="small" data-m="addrole">Add</button></div>' +
+        '<h3 class="sc-sub">Asking the crew</h3><label class="sc-chk"><input type="checkbox" id="aca-scCfOn"' + (st.crew_confirm_on !== false ? " checked" : "") + ' /> Ask people to confirm when they&#39;re put on a booked job (email and app notification, 7am to 9pm)</label>' +
+        '<h3 class="sc-sub">Weekly schedule email</h3><label class="sc-chk"><input type="checkbox" id="aca-scWkOn"' + (st.week_email_auto ? " checked" : "") + ' /> Email everyone their next week automatically</label>' +
+        '<div class="row2"><div class="field"><label for="aca-scWkD">Day</label><select id="aca-scWkD">' + DOWS.map((d, i) => '<option value="' + i + '"' + (i === num(st.week_email_dow == null ? 5 : st.week_email_dow) ? " selected" : "") + ">" + d + "</option>").join("") + "</select></div>" +
+        '<div class="field"><label for="aca-scWkH">Time</label><select id="aca-scWkH">' + Array.from({ length: 15 }, (_, i) => i + 6).map((h) => '<option value="' + h + '"' + (h === num(st.week_email_hour == null ? 15 : st.week_email_hour) ? " selected" : "") + ">" + T.hhmm(h * 60).replace(/^0/, "") + "</option>").join("") + "</select></div></div>" +
+        '<div class="inline-error hidden" id="aca-scMErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="primary" data-m="save">Save</button></div></div>');
+      const list = m.querySelector("#aca-scRoles");
+      async function loadRoles() {
+        const { data: d, error } = await sb.rpc("crew_roles_list");
+        if (error) { mErr(cleanErr(error)); return; }
+        list.innerHTML = (d.roles || []).map((r) => '<li data-id="' + esc(r.id) + '"><input type="text" maxlength="40" value="' + esc(r.label) + '" aria-label="Role name" data-was="' + esc(r.label) + '" /><button type="button" class="small" data-m="renrole">Rename</button><button type="button" class="small warn" data-m="delrole">Remove</button></li>').join("") || '<li class="muted">No roles yet.</li>';
+      }
+      loadRoles();
+      m.addEventListener("click", async (ev) => {
+        const t = ev.target.closest("[data-m]"); if (!t) return;
+        const li = t.closest("li[data-id]");
+        try {
+          if (t.dataset.m === "cancel") { m.close(); return; }
+          if (t.dataset.m === "addrole") {
+            const v = el("scRoleNew").value.trim(); if (!v) return mErr("Type the role's name.");
+            const { error } = await sb.rpc("crew_role_save", { p: { label: v, sort: 100 } }); if (error) throw error;
+            el("scRoleNew").value = ""; await loadRoles(); load();
+          }
+          if (t.dataset.m === "renrole" && li) {
+            const inp = li.querySelector("input"); if (inp.value.trim() === inp.dataset.was) return;
+            const { error } = await sb.rpc("crew_role_save", { p: { id: li.dataset.id, label: inp.value.trim() } }); if (error) throw error;
+            toast("Renamed."); await loadRoles(); load();
+          }
+          if (t.dataset.m === "delrole" && li) {
+            if (!confirm("Remove the role “" + li.querySelector("input").dataset.was + "”? Bars that had it keep their times, without a role.")) return;
+            const { error } = await sb.rpc("crew_role_archive", { p_id: li.dataset.id }); if (error) throw error;
+            await loadRoles(); load();
+          }
+          if (t.dataset.m === "save") {
+            t.disabled = true;
+            const { error } = await sb.rpc("crew_settings_save", { p: { crew_confirm_on: el("scCfOn").checked, week_email_auto: el("scWkOn").checked, week_email_dow: +el("scWkD").value, week_email_hour: +el("scWkH").value } });
+            if (error) throw error;
+            m.close(); toast("Saved."); load();
+          }
+        } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
+      });
+    }
+    async function openWeekEmail() {
+      const start = data.start;
+      const m = openModal('<div class="sc-modal"><h2>Email the week of ' + esc(T.fmtDay(start)) + '</h2><p class="sc-note">Each person gets only their own schedule, with Confirm buttons for jobs they haven&#39;t answered, and an app notification. People with nothing on that week get nothing.</p>' +
+        '<div id="aca-scWkList"><p class="empty">Loading&#8230;</p></div><div class="inline-error hidden" id="aca-scMErr"></div>' +
+        '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="send" disabled>Send</button></div></div>');
+      const box = m.querySelector("#aca-scWkList"), send = m.querySelector('[data-m="send"]');
+      const { data: d, error } = await sb.rpc("week_email_preview", { p_start: start });
+      if (error) { mErr(cleanErr(error)); box.innerHTML = ""; }
+      else if (!(d || []).length) box.innerHTML = '<p class="empty">Nobody has anything on this week.</p>';
+      else {
+        box.innerHTML = '<ul class="sc-pick">' + d.map((p) => '<li><input type="checkbox" value="' + esc(p.user_id) + '" checked aria-label="' + esc(p.name) + '" /><span><span class="n">' + esc(p.name) + '</span><span class="s">' + esc(p.subject) +
+          (p.sent_at ? " · sent " + esc(T.fmtDay(T.local(p.sent_at).day)) + " " + esc(T.fmtTs(p.sent_at)) : "") + "</span></span><span></span></li>").join("") + "</ul>";
+        send.disabled = false;
+      }
+      m.addEventListener("click", async (ev) => {
+        const t = ev.target.closest("[data-m]"); if (!t) return;
+        if (t.dataset.m === "cancel") m.close();
+        if (t.dataset.m === "send") {
+          const who = [...box.querySelectorAll("input:checked")].map((x) => x.value);
+          if (!who.length) return mErr("Pick at least one person.");
+          t.disabled = true;
+          try {
+            const { data: r, error: e2 } = await sb.rpc("week_email_send", { p_start: start, p_users: who });
+            if (e2) throw e2;
+            m.close(); toast("Sent to " + num(r && r.sent) + (num(r && r.sent) === 1 ? " person." : " people.") + (num(r && r.no_email) ? " " + r.no_email + " had no email address." : ""));
+          } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
+        }
+      });
+    }
 
     // ---------------------------------------------------------------- add / change one bar
     function openEntry(e, preset) {
@@ -512,6 +744,7 @@
         '<div class="field"><label>What</label><div class="seg" role="radiogroup" aria-label="What">' + (limited ? ["flex"] : KINDS).map((k) => '<label><input type="radio" name="aca-scK" value="' + k + '"' + (k === kind0 ? " checked" : "") + " /><span>" + KIND[k] + "</span></label>").join("") + "</div></div>" +
         '<div class="field sc-only-job"><label for="aca-scB">Job</label><select id="aca-scB"><option value="">Pick a job this week\u2026</option>' + weekBookings.map((b) => '<option value="' + esc(b.booking_id) + '" data-day="' + esc(b.day) + '"' + (e && e.booking_id === b.booking_id && b.day === day0 ? " selected" : "") + ">" + esc(T.fmtDay(b.day) + " \u00b7 " + bookingLabel(b) + (b.start_at ? " \u00b7 " + T.fmtTs(b.start_at) : "")) + "</option>").join("") +
           (e && e.booking_id && !weekBookings.some((b) => b.booking_id === e.booking_id) ? '<option value="' + esc(e.booking_id) + '" selected>' + esc(e.booking_title) + "</option>" : "") + "</select></div>" +
+        ((data.crew.roles || []).length ? '<div class="field sc-only-job"><label for="aca-scRole">Role</label><select id="aca-scRole"><option value="">No role</option>' + data.crew.roles.map((r) => '<option value="' + esc(r.id) + '"' + (e && e.role_id === r.id ? " selected" : "") + ">" + esc(r.label) + "</option>").join("") + "</select></div>" : "") +
         '<div class="field sc-not-job"><label for="aca-scT">Label</label><input type="text" id="aca-scT" maxlength="120" placeholder="Editing, ordering, delivery run\u2026" value="' + esc(e ? e.title : preset.title || "") + '" /></div>' +
         '<div class="row3 sc-not-off"><div class="field"><label for="aca-scD">Day</label><input type="date" id="aca-scD" value="' + esc(day0) + '" /></div><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s0) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(e0) + '" /></div></div>' +
         '<div class="row2 sc-only-off"><div class="field"><label for="aca-scO1">From</label><input type="date" id="aca-scO1" value="' + esc(day0) + '" /></div><div class="field"><label for="aca-scO2">Through</label><input type="date" id="aca-scO2" value="' + esc(offEnd) + '" /></div></div>' +
@@ -565,6 +798,7 @@
               p.booking_id = el("scB").value; p.title = "";
               if (!p.booking_id) return mErr("Pick the job.");
               p.drive_before_min = +m.querySelector(".sc-db").value || 0; p.drive_after_min = +m.querySelector(".sc-da").value || 0;
+              if (el("scRole")) p.role_id = el("scRole").value || null;
             }
           }
           t.disabled = true;

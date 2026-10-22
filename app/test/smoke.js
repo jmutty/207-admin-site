@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "crew", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -190,6 +190,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-bkCrewSum");
     await page.check("#aca-bkCrew .bk-crew >> nth=1");
     check((await page.textContent("#aca-bkCrewSum")) === "Sam H.", "the dropdown shows who's picked");
+    await page.waitForSelector("#aca-bkCrew .bk-crewnote", { timeout: 3000 }).catch(() => {});
+    check((await page.textContent("#aca-bkCrew")).includes("Posing") && (await page.textContent("#aca-bkCrew")).includes("Busy"), "Who's shooting notes roles and who is busy that day: " + (await page.textContent("#aca-bkCrew")));
     await page.click("#aca-bkLoc");
     check(!(await page.$eval("#aca-bkCrewDd", (n) => n.open)), "the dropdown closes when you click elsewhere");
     await page.fill("#aca-bkLoc", "doughty");
@@ -457,7 +459,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "?as=gear");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "inventory"]), "menu: Today and Inventory: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "crew", "inventory"]), "menu: Today, My jobs and Inventory: " + items.join(","));
     await page.click('#aca-nav button[data-tab="inventory"]');
     await page.waitForSelector("#aca-invResults .inv-h");
     check((await page.textContent("#aca-invResults")).includes("Checked out to you"), "Find starts with what they have");
@@ -554,7 +556,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   console.log("Season results view only");
   {
     const { page, errors } = await open(browser, port, "?as=money");
-    check(JSON.stringify(await rail(page)) === JSON.stringify(["today", "seasons"]), "menu: Today and Season results");
+    check(JSON.stringify(await rail(page)) === JSON.stringify(["today", "seasons", "crew"]), "menu: Today, Season results and My jobs");
     await page.click('#aca-nav button[data-tab="seasons"]');
     await page.waitForSelector("#aca-panel-seasons .tiles");
     await page.click('#aca-pagetabs button[data-tab="payouts"]');
@@ -600,23 +602,80 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent("#aca-scGrid")).includes("40 h") && (await page.textContent("#aca-scGrid")).includes("under"), "hours against the weekly target");
     check(await visible(page, "#aca-scWarn"), "asks for the studio address");
     check((await page.$$("#aca-scGrid .sc-chip.none")).length === 2, "jobs with nobody on them stand out");
-    check((await page.textContent("#aca-scGrid")).includes("Jobs not assigned") && (await page.$$("#aca-scGrid .sc-chip[data-booking]")).length === (await page.$$("#aca-scGrid .sc-chip.none")).length + (await page.$$("#aca-scGrid .sc-chip.tracked")).length, "only jobs nobody is on sit in Jobs not assigned");
+    check((await page.textContent("#aca-scGrid")).includes("Jobs not assigned") && (await page.$$("#aca-scGrid .sc-chip[data-booking]")).length === (await page.$$("#aca-scGrid .sc-chip.none")).length + (await page.$$("#aca-scGrid .sc-chip.tracked")).length + (await page.$$("#aca-scGrid .sc-chip.part")).length, "only jobs short of people sit in Jobs not assigned");
     await page.click("#aca-scGrid .sc-b.sc-k-job:not(.drive)");
     await page.waitForSelector('.sc-modal [data-m="more"]');
     await page.click('.sc-modal [data-m="more"]');
-    check(await page.isVisible(".sc-modal .sc-people"), "a job bar's More people opens the people picker");
+    check(await page.isVisible(".sc-modal .sc-pick"), "a job bar's More people opens the people picker");
     await page.click('.sc-modal [data-m="cancel"]');
     // put someone on a job
     await page.click("#aca-scGrid .sc-chip.none");
-    await page.waitForSelector(".sc-modal .sc-people input");
+    await page.waitForSelector(".sc-modal .sc-pick input[type=checkbox]");
     await page.click('.sc-modal [data-m="drive"]');
     await page.waitForTimeout(150);
     check(await page.$eval(".sc-modal .sc-db", (n) => n.value) === "25", "drive time looked up and rounded up to 25");
-    await page.check(".sc-modal .sc-people input >> nth=0");
+    await page.check(".sc-modal .sc-pick input[type=checkbox] >> nth=0");
     await page.click('.sc-modal [data-m="save"]');
     await page.waitForTimeout(150);
     const saved = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
     check(saved.length === 1 && saved[0].kind === "job" && saved[0].drive_before_min === 25 && /T\d\d:00:00.000Z$/.test(saved[0].starts_at), "saves a job bar with drive time");
+    // Crew (2026-10-23): answers on the bars, people needed, capacity, the crew picker, settings, the weekly email
+    await page.evaluate(() => { window.__rpcCalls.length = 0; });
+    check((await page.$$("#aca-scGrid .sc-b .sc-cf.ok")).length === 1 && (await page.$$("#aca-scGrid .sc-b .sc-cf.wait")).length === 1, "job bars show confirmed and still waiting");
+    check((await page.$$("#aca-scGrid .sc-b.sc-k-asked")).length === 1, "a time off request nobody answered shows on their row");
+    check((await page.$$("#aca-scGrid .sc-cap:not(.sc-name)")).length === 7 && (await page.textContent("#aca-scGrid")).includes("free"), "capacity strip under the days");
+    await page.waitForSelector("#aca-scPeak tr button[data-peak]");
+    check((await page.$$("#aca-scPeak tbody tr")).length === 3 && (await page.textContent("#aca-scPeak")).includes("short"), "busiest days ahead, short ones flagged");
+    const part = await page.textContent("#aca-scGrid .sc-chip.part");
+    check(part.includes("2 of 3") && part.includes("Alex A. can't make it"), "a job short of people stays in Jobs not assigned with who said no: " + part);
+    await page.check("#aca-scWait");
+    check((await page.$$("#aca-scGrid .sc-name b")).filter(Boolean).length >= 1 && !(await page.textContent("#aca-scGrid")).includes("Jeremiah") && (await page.textContent("#aca-scGrid")).includes("Sam"), "Still waiting shows only people who haven't answered");
+    await page.uncheck("#aca-scWait");
+    await page.click("#aca-scGrid .sc-chip.part");
+    await page.waitForSelector(".sc-modal .sc-pick .s");
+    const pick = await page.textContent(".sc-modal .sc-pick");
+    check(pick.includes("Alex") && pick.includes("Said they can't make it") && pick.includes("Busy") && pick.includes("Posing") && !pick.includes("Sam"), "crew picker: roles, busy, said no; people on it are listed above: " + pick);
+    check(await page.$eval(".sc-modal .sc-pick .sc-role", (n) => n.value) === "r3", "their first role is picked");
+    check((await page.textContent(".sc-modal .sc-onit")).includes("Confirmed") && (await page.textContent(".sc-modal .sc-onit")).includes("Waiting"), "who is on it, with their answers");
+    await page.click('.sc-modal [data-m="ask"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_ask_now" && c[1].p_booking === "bk1" && c[1].p_user === "u2")), "Ask again sends the ask now");
+    await page.click('.sc-modal [data-m="cancel"]');
+    await page.click("#aca-scGrid .sc-chip.part");
+    await page.waitForSelector(".sc-modal .sc-pick .s");
+    await page.fill("#aca-scNeed", "4");
+    await page.check(".sc-modal .sc-pick input[type=checkbox] >> nth=0");
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    const cs = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_needed_set" && c[1].p_booking === "bk1" && c[1].p_needed === 4)), "people needed saves");
+    check(cs.length === 1 && cs[0].user_id === "u5" && cs[0].role_id === "r3", "puts them on with their role: " + JSON.stringify(cs));
+    await page.click('[data-v="crewset"]');
+    await page.waitForSelector("#aca-scRoles li[data-id]");
+    check((await page.$$("#aca-scRoles li[data-id]")).length === 4 && await page.isChecked("#aca-scCfOn") && !(await page.isChecked("#aca-scWkOn")), "crew settings: roles, asking on, weekly email off");
+    await page.fill("#aca-scRoleNew", "Lighting");
+    await page.click('.sc-modal [data-m="addrole"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_role_save" && c[1].p.label === "Lighting")), "adds a role");
+    await page.check("#aca-scWkOn");
+    await page.selectOption("#aca-scWkD", "4");
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_settings_save" && c[1].p.week_email_auto === true && c[1].p.week_email_dow === 4 && c[1].p.week_email_hour === 15)), "turns on the weekly email for Thursdays");
+    await page.click('[data-v="weekmail"]');
+    await page.waitForSelector("#aca-scWkList .sc-pick li");
+    check((await page.textContent("#aca-scWkList")).includes("1 to confirm") && (await page.textContent("#aca-scWkList")).includes("sent"), "Email the week previews who gets what");
+    await page.uncheck("#aca-scWkList input >> nth=0");
+    await page.click('.sc-modal [data-m="send"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "week_email_send" && c[1].p_users.join() === "u2" && /^\d{4}-\d\d-\d\d$/.test(c[1].p_start))), "sends the week to the people picked");
+    await page.click("#aca-scGrid .sc-b.sc-k-job:not(.drive)");
+    await page.waitForSelector("#aca-scRole");
+    check(await page.$eval("#aca-scRole", (n) => n.value) === "r1", "a job bar's editor has its role");
+    await page.selectOption("#aca-scRole", "r2");
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").pop()[1].p.role_id === "r2"), "changes the role");
     // add time from an empty spot (day view)
     await page.click('input[name="aca-scView"][value="day"] + span');
     await page.waitForTimeout(150);
@@ -643,6 +702,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-asBody .as-task:nth-of-type(2) input");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "assignment_check" && c[1].p_done === true)), "checks a task off");
+    check((await page.textContent("#aca-asBody")).includes("Second shooter") && await page.$eval('#aca-asBody a.pill[href^="#crew/"]', (n) => n.textContent === "Confirm"), "my day: role and a Confirm link");
     // Tasks
     await page.click('#aca-pagetabs button[data-tab="tasks"]');
     await page.waitForSelector("#aca-asTBody tr.as-row");
@@ -675,6 +735,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_hours" && c[1].p_hours === 28 && c[1].p_user_id === "u2")), "saves weekly hours");
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_profile" && c[1].p_user_id === "u2" && c[1].p_type === "contractor" && c[1].p_title === "Second shooter")), "saves job title and employment type");
+    await page.click('#aca-teamBody [data-edit="u2"]');
+    await page.waitForSelector("#aca-tmRoles input");
+    check(await page.isChecked('#aca-tmRoles input[value="r2"]') && !(await page.isChecked('#aca-tmRoles input[value="r1"]')), "team editor: their crew roles");
+    await page.check('#aca-tmRoles input[value="r1"]');
+    await page.click("#aca-tmSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_roles" && c[1].p_user_id === "u2" && c[1].p_roles.slice().sort().join() === "r1,r2,r4")), "saves crew roles");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -793,11 +860,70 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
+  console.log("My jobs + Time off (staff)");
+  {
+    const { page, errors } = await open(browser, port, "?as=staff", "#staff/crew");
+    await page.waitForSelector("#aca-crMine .cr-card");
+    check((await page.$$("#aca-crMine .cr-card")).length === 2 && (await page.textContent("#aca-crMine")).includes("Second shooter") && (await page.textContent("#aca-crMine")).includes("Confirmed"), "my jobs with role and answer");
+    check((await page.textContent("#aca-panel-today")).length >= 0 && await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_attention")), "Today checks for jobs to confirm");
+    await page.click("#aca-crMine [data-yes]");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_answer" && c[1].p_answer === "confirm" && c[1].p_token === "c".repeat(32))), "Confirm from My jobs");
+    await page.click("#aca-crMine [data-no] >> nth=1");
+    await page.fill("#aca-crWhy", "Sick");
+    await page.click('.modal [data-m="go"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_answer" && c[1].p_answer === "decline" && c[1].p_reason === "Sick")), "Can't make it, with a reason");
+    await page.click('#aca-pagetabs button[data-tab="timeoff"]');
+    await page.waitForSelector("#aca-toMine .cr-card");
+    check(!(await visible(page, "#aca-toWaitSec")) && !(await visible(page, "#aca-toTeamSec")), "staff: no approval queue, no team list");
+    await page.check("#aca-toHours");
+    await page.fill("#aca-toNote", "Dentist");
+    await page.click("#aca-toSend");
+    await page.waitForTimeout(150);
+    const tr = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "time_off_request").pop()[1].p);
+    check(tr.first_day === tr.last_day && tr.start_time === "09:00" && tr.end_time === "12:00" && tr.note === "Dentist", "asks for some hours off: " + JSON.stringify(tr));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "fits a phone screen");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Time off approvals (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#staff/timeoff");
+    await page.waitForSelector("#aca-toWait .cr-card");
+    check((await page.textContent("#aca-toWait")).includes("Family wedding") && (await page.textContent("#aca-toWait")).includes("On a job"), "the request, with the job they're on that day");
+    await page.click("#aca-toWait [data-approve]");
+    await page.fill("#aca-toDec", "Have fun");
+    await page.click('.modal [data-m="go"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "time_off_decide" && c[1].p_id === "to1" && c[1].p_approve === true && c[1].p_note === "Have fun")), "approves with a note");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Crew confirm link (no sign-in)");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#crew/${"c".repeat(32)}/yes`);
+    await page.waitForSelector("#crp-yes");
+    check(!(await page.isVisible("#aca-loginView")) && !(await page.$("#aca-nav button[data-tab]")), "no sign-in, no menu");
+    check((await page.textContent("#aca-crewPublic")).includes("Second shooter") && (await page.textContent("#aca-crewPublic")).includes("Jeremiah Mutty (Lead)"), "the job, their role and who else is on it");
+    await page.click("#crp-yes");
+    await page.waitForSelector("#aca-crewPublic .ok");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_answer" && c[1].p_answer === "confirm")), "Confirm takes one tap");
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "fits a phone screen");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
   console.log("Staff (bookings edit, parents view)");
   {
     const { page, errors } = await open(browser, port, "?as=staff", "#partners/orgs");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday", "clock", "clearances"]), "menu limited to their pages: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday", "clock", "clearances", "crew"]), "menu limited to their pages: " + items.join(","));
     check(await page.$eval("#aca-panel-today", (n) => n.classList.contains("active")), "a link to a page they can't see lands on Today");
     const calls = await page.evaluate(() => window.__rpcCalls.map((c) => c[0]));
     const forbidden = calls.filter((n) => /^(admin_outbox|admin_hub|admin_lookup|prospect_|admin_morning|team_|admin_job)/.test(n));
@@ -860,7 +986,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "?as=parttime");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "openjobs"]), "menu: Today and Open jobs: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "openjobs", "crew"]), "menu: Today, Open jobs and My jobs: " + items.join(","));
     check((await page.textContent("#aca-panel-today")).includes("offered to you"), "Today says a job is waiting");
     await page.click('#aca-nav button[data-tab="openjobs"]');
     await page.waitForSelector("#aca-ojMine .oj-card");

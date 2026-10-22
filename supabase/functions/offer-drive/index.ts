@@ -6,6 +6,11 @@
 // driving, no traffic) is asked for those in batches of 25, and the answers are stored with
 // offer_drive_store(). The page then reads them from openjobs_candidates(). Returns {ok, asked, stored}.
 //
+// Mode "crew" (2026-10-23, the Schedule's crew picker): POST {mode: "crew", booking_id?, destination?}. Same
+// thing for everyone on the team with a home address, plus the studio, via crew_drive_targets() /
+// crew_drive_store() (they check can('scheduling','edit')). destination lets Book a job ask before the booking
+// is saved. The page then reads the minutes from crew_options().
+//
 // Uses the same secret as drive-time: GOOGLE_MAPS_API_KEY (Routes API enabled).
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -53,11 +58,15 @@ Deno.serve(async (req) => {
   if (!jwt) return json({ ok: false, error: "Not signed in." }, 401);
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ ok: false, error: "Bad request." }, 400); }
+  const crew = body.mode === "crew";
   const booking = String(body.booking_id ?? "");
-  if (!UUID.test(booking)) return json({ ok: false, error: "Bad request." }, 400);
+  const typed = typeof body.destination === "string" ? body.destination.trim().slice(0, 300) : "";
+  if (crew ? !(UUID.test(booking) || typed) : !UUID.test(booking)) return json({ ok: false, error: "Bad request." }, 400);
 
   try {
-    const t = await asCaller(jwt, "offer_drive_targets", { p_booking: booking });
+    const t = crew
+      ? await asCaller(jwt, "crew_drive_targets", { p_booking: UUID.test(booking) ? booking : null, p_destination: typed || null })
+      : await asCaller(jwt, "offer_drive_targets", { p_booking: booking });
     if (t.ok !== true) return json({ ok: false, error: t.error ?? "No address." });
     const destination = String(t.destination);
     const origins = (t.origins as string[]) ?? [];
@@ -89,7 +98,7 @@ Deno.serve(async (req) => {
         } else missed++;
       }
     }
-    const s = await asCaller(jwt, "offer_drive_store", { p_destination: destination, p_rows: rows });
+    const s = await asCaller(jwt, crew ? "crew_drive_store" : "offer_drive_store", { p_destination: destination, p_rows: rows });
     return json({ ok: true, asked: origins.length, stored: s.stored ?? rows.length, missed });
   } catch (e) {
     if (e instanceof Refused) return json({ ok: false, error: e.message }, 403);
