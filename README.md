@@ -24,7 +24,7 @@ docs/ADDING-A-MODULE.md            how to add a new area (scheduling, time clock
 - **People and access.** Full access is a row in `admin_users`. Everyone else is a row in
   `team_members`, with per-module `None / View / Edit` in `team_permissions`. Every policy and RPC
   asks `public.can('<module>', 'view' | 'edit')`. The app asks `my_access()` and shows only the pages
-  you can use. Manage people on the **Team** page. A new person gets a welcome email (Resend) with their temporary
+  you can use. Manage people on the **Team** page, including their job title and employment type (Full time, Salaried, Part time, 1099 contractor: Part time and 1099 get Open jobs offers; Salaried and 1099 get no overtime, and 1099 hours stay out of the payroll CSV). A new person gets a welcome email (Resend) with their temporary
   password and https://admin.207photo.com/#welcome, which shows how to put the app on their phone (`app/src/welcome.js`).
 - **Notifications.** Push notifications to phones and computers. `push_topics` lists the kinds of
   notification, one per module, and each goes only to people who can see that module. Triggers call

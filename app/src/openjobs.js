@@ -1,5 +1,5 @@
   // ================================================================ STAFF: Open jobs (2026-10-22)
-  // Jobs offered to part-time photographers near them. A manager (Edit) picks a booked job, sees each
+  // Jobs offered to part-time photographers and 1099 contractors near them (employment type on the Team page). A manager (Edit) picks a booked job, sees each
   // part-timer's drive from home (offer-drive edge function, Google Maps) and who is busy, and sends it to
   // the ones they tick. Each gets a push and answers here: Take it or Pass. First come, first served: taking
   // it puts them on the schedule with their own drive time; once every spot is taken the offer is filled.
@@ -62,7 +62,7 @@
 
     const root = el("panel-openjobs");
     root.innerHTML =
-      '<div class="oj-bar hidden" id="aca-ojBar"><button type="button" class="primary" id="aca-ojOffer">Offer a job</button><button type="button" class="small" id="aca-ojPeople">Part-timers</button><span class="grow"></span></div>' +
+      '<div class="oj-bar hidden" id="aca-ojBar"><button type="button" class="primary" id="aca-ojOffer">Offer a job</button><button type="button" class="small" id="aca-ojPeople">Part-timers &amp; 1099</button><span class="grow"></span></div>' +
       '<div id="aca-ojErr" class="inline-error hidden"></div>' +
       '<div class="oj-sec" id="aca-ojMineSec"><h3>Offered to you</h3><div id="aca-ojMine"><p class="empty">Loading&#8230;</p></div></div>' +
       '<div class="oj-sec hidden" id="aca-ojPostedSec"><h3>Offers you sent</h3><div id="aca-ojPosted"></div></div>';
@@ -158,7 +158,7 @@
 
     // ---------------------------------------------------------------- manager: offers sent
     function renderPosted(offers) {
-      if (!offers.length) { el("ojPosted").innerHTML = '<p class="empty">Nothing offered yet. Use Offer a job to send a booked job to part-timers near it.</p>'; return; }
+      if (!offers.length) { el("ojPosted").innerHTML = '<p class="empty">Nothing offered yet. Use Offer a job to send a booked job to part-timers and 1099 contractors near it.</p>'; return; }
       el("ojPosted").innerHTML = offers.map((o) => {
         const live = o.status === "open" && o.booking_status === "booked" && o.days.length;
         const state = o.booking_status !== "booked" ? '<span class="oj-tag err">Job ' + esc(o.booking_status) + "</span>"
@@ -189,7 +189,7 @@
       return j;
     }
     async function openOffer(bookingId) {
-      const m = openModal('<div class="oj-modal"><h2>Offer a job to part-timers</h2>' +
+      const m = openModal('<div class="oj-modal"><h2>Offer a job to part-timers and 1099</h2>' +
         '<div class="field"><label for="aca-ojJob">Job</label><select id="aca-ojJob"><option value="">Loading jobs&#8230;</option></select></div>' +
         '<div id="aca-ojJobFacts" class="oj-facts" style="margin:-4px 0 12px"></div>' +
         '<div class="field"><label>Who gets it</label><div id="aca-ojCands"><p class="empty">Pick a job first.</p></div></div>' +
@@ -228,7 +228,7 @@
         const b = d.booking;
         el("ojJobFacts").innerHTML = esc(daysText(b.days)) + (b.location ? "<br>" + esc(b.location) : "") + (driveNote ? '<br><span class="oj-tag warn">' + esc(driveNote) + "</span>" : "");
         const ppl = d.people || [];
-        if (!ppl.length) { el("ojCands").innerHTML = '<p class="empty">Nobody is marked part-time yet. Use Part-timers to set people up with their home address.</p>'; return; }
+        if (!ppl.length) { el("ojCands").innerHTML = '<p class="empty">Nobody is Part time or 1099 yet. Set their employment type on the Team page (or under Part-timers &amp; 1099) and add their home address.</p>'; return; }
         el("ojCands").innerHTML = '<ul class="oj-pick">' + ppl.map((p) => {
           const flags = [];
           if (p.on_job) flags.push('<span class="oj-tag ok">Already on this job</span>');
@@ -263,31 +263,50 @@
       });
     }
 
-    // ---------------------------------------------------------------- manager: part-timers
+    // ---------------------------------------------------------------- manager: part-timers + 1099
+    // Who gets offers comes from the employment type (Team page): Part time and 1099 contractor. Full-access
+    // people can change it here too; everyone with Edit sets home addresses and longest drives.
+    const TYPES = [["full_time", "Full time"], ["salaried", "Salaried"], ["part_time", "Part time"], ["contractor", "1099 contractor"]];
+    const OFFER_TYPES = ["part_time", "contractor"];
     async function openPeople() {
-      const m = openModal('<div class="oj-modal" style="max-width:820px"><h2>Part-timers</h2><p class="oj-facts">Part-timers get Open jobs offers. Their home address is where the drive to a job is measured from; offers start ticked for jobs within their longest drive.</p>' +
+      const m = openModal('<div class="oj-modal" style="max-width:860px"><h2>Part-timers and 1099</h2><p class="oj-facts">Part time and 1099 people get Open jobs offers. Their home address is where the drive to a job is measured from; offers start ticked for jobs within their longest drive.</p>' +
         '<div id="aca-ojPplBody"><p class="empty">Loading&#8230;</p></div><div class="modal-actions"><span class="grow"></span><button type="button" class="primary" data-m="done">Done</button></div></div>', { onClose: load });
       m.querySelector('[data-m="done"]').addEventListener("click", () => m.close());
       let d;
       try { const r = await sb.rpc("openjobs_people"); if (r.error) throw r.error; d = r.data; }
       catch (e) { el("ojPplBody").innerHTML = '<p class="inline-error">' + esc(cleanErr(e)) + "</p>"; return; }
-      const note = (p) => !p.part_time ? "" : !p.has_access ? (d.can_grant ? "Gets Open jobs access when saved." : "Needs Open jobs on the Team page to see offers.") : !p.has_device ? "Hasn't turned on notifications yet (account menu, Notifications)." : "";
-      el("ojPplBody").innerHTML = '<table class="oj-ppl"><thead><tr><th>Person</th><th>Part-timer</th><th>Home address</th><th>Longest drive</th></tr></thead><tbody>' + d.people.map((p) =>
-        '<tr data-u="' + esc(p.user_id) + '"><td><b>' + esc(T.shortName(p.name)) + '</b><span class="s oj-pnote">' + esc(note(p)) + "</span></td>" +
-        '<td><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="oj-pt"' + (p.part_time ? " checked" : "") + " /> Gets offers</label></td>" +
+      const gets = (p) => OFFER_TYPES.includes(p.employment_type);
+      const note = (p) => !gets(p) ? "No offers (" + ((TYPES.find((t) => t[0] === p.employment_type) || [0, "type not set"])[1]) + ")" : !p.has_access ? "Needs Open jobs on the Team page to see offers." : !p.has_device ? "Hasn't turned on notifications yet (account menu, Notifications)." : "Gets offers";
+      const typeCell = (p) => d.can_grant
+        ? '<select class="oj-type small"><option value="">Not set</option>' + TYPES.map((t) => '<option value="' + t[0] + '"' + (p.employment_type === t[0] ? " selected" : "") + ">" + t[1] + "</option>").join("") + "</select>"
+        : esc((TYPES.find((t) => t[0] === p.employment_type) || [0, "Not set"])[1]) + '<span class="s">Set on the Team page</span>';
+      const sorted = d.people.slice().sort((a, b) => gets(b) - gets(a));
+      el("ojPplBody").innerHTML = '<table class="oj-ppl"><thead><tr><th>Person</th><th>Type</th><th>Home address</th><th>Longest drive</th></tr></thead><tbody>' + sorted.map((p) =>
+        '<tr data-u="' + esc(p.user_id) + '"><td><b>' + esc(T.shortName(p.name)) + "</b>" + (p.job_title ? '<span class="s">' + esc(p.job_title) + "</span>" : "") + '<span class="s oj-pnote">' + esc(note(p)) + "</span></td>" +
+        "<td>" + typeCell(p) + "</td>" +
         '<td><input type="text" class="oj-home" maxlength="300" value="' + esc(p.home_address) + '" placeholder="Street, town" /><span class="s oj-homenote"></span></td>' +
         '<td><select class="oj-max small">' + DRIVES.concat(DRIVES.includes(p.max_drive_min) ? [] : [p.max_drive_min]).sort((a, b) => a - b).map((n) => '<option value="' + n + '"' + (n === p.max_drive_min ? " selected" : "") + ">" + n + " min</option>").join("") + "</select></td></tr>").join("") + "</tbody></table>";
       el("ojPplBody").querySelectorAll("tr[data-u]").forEach((tr) => {
         if (typeof Places !== "undefined") Places.attach(tr.querySelector(".oj-home"), { note: tr.querySelector(".oj-homenote") });
         const p = d.people.find((x) => x.user_id === tr.dataset.u);
-        async function save() {
-          const pt = tr.querySelector(".oj-pt").checked, home = tr.querySelector(".oj-home").value.trim(), max = +tr.querySelector(".oj-max").value;
-          if (pt === p.part_time && home === p.home_address && max === p.max_drive_min) return;
-          const { data, error } = await sb.rpc("openjobs_person_save", { p_user: p.user_id, p_part_time: pt, p_home: home, p_max_drive: max });
-          if (error) { toast(cleanErr(error), true); return; }
-          Object.assign(p, { part_time: pt, home_address: home, max_drive_min: max }, data.granted ? { has_access: true } : {});
+        async function save(ev) {
+          let granted = false;
+          if (ev.target.classList.contains("oj-type")) {
+            const type = ev.target.value || null;
+            if (type === (p.employment_type || null)) return;
+            const { data, error } = await sb.rpc("team_set_profile", { p_user_id: p.user_id, p_type: type || "", p_title: p.job_title || "" });
+            if (error) { toast(cleanErr(error), true); ev.target.value = p.employment_type || ""; return; }
+            p.employment_type = type; granted = data.granted;
+          } else {
+            const home = tr.querySelector(".oj-home").value.trim(), max = +tr.querySelector(".oj-max").value;
+            if (home === p.home_address && max === p.max_drive_min) return;
+            const { data, error } = await sb.rpc("openjobs_person_save", { p_user: p.user_id, p_part_time: gets(p), p_home: home, p_max_drive: max });
+            if (error) { toast(cleanErr(error), true); return; }
+            Object.assign(p, { home_address: home, max_drive_min: max }); granted = data.granted;
+          }
+          if (granted) p.has_access = true;
           tr.querySelector(".oj-pnote").textContent = note(p);
-          toast("Saved." + (data.granted ? " " + T.shortName(p.name) + " can now see Open jobs." : "") + (pt && !home ? " Add a home address so drive times work." : ""));
+          toast("Saved." + (granted ? " " + T.shortName(p.name) + " can now see Open jobs." : "") + (gets(p) && !p.home_address ? " Add a home address so drive times work." : ""));
         }
         tr.addEventListener("change", save);
       });
