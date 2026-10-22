@@ -25,7 +25,7 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022150000_schedule_kinds
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022160000_day_email.sql
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022170000_schedule_calendar.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/scheduling_test.sql   # schedule bars + kinds + flex, Google Calendar events, drive time cache, tasks + carry-over, evening push, morning email, access; rolls back
-psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022210500_picture_day_planner.sql
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213500_picture_day_planner.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/pictureday_test.sql   # form, teams, slots, coach answers, sending switch/test mode/quiet hours, booked only, roster bucket, access; rolls back
 ```
 

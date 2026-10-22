@@ -2,7 +2,7 @@
   // For each booked picture day: 1. email the organization a form (teams and coaches, on-site contact, fields,
   // uniforms and props, roster file; public page in pictureday-public.js), 2. lay out a time slot for each team by
   // field, 3. email each coach their time; they confirm or ask to move. View = see it all; Edit = change and send.
-  // Everything goes through RPCs (supabase/migrations/20261022210500_picture_day_planner.sql): pd_list, pd_get,
+  // Everything goes through RPCs (supabase/migrations/20261022213500_picture_day_planner.sql): pd_list, pd_get,
   // pd_save_plan, pd_save_team, pd_save_slots, pd_remove_team, pd_send_intake, pd_slot_preview, pd_send_slots,
   // pd_attention. Emails follow the Booking emails switch and test mode (Settings > Sending).
   registerPage({ id: "pictureday", label: "Picture days", group: "Jobs", section: "jobs", module: "pictureday",

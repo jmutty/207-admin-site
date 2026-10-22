@@ -1,4 +1,4 @@
--- Tests for 20261022210500_picture_day_planner. Run against a NON-production copy of the schema, inside a
+-- Tests for 20261022213500_picture_day_planner. Run against a NON-production copy of the schema, inside a
 -- transaction that is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/pictureday_test.sql
 -- "ALL PICTURE DAY TESTS PASSED" at the end means every check held.
