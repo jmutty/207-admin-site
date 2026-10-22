@@ -1,4 +1,4 @@
--- Tests for 20261022213000_season_results. Run against a NON-production copy of the schema, inside a
+-- Tests for 20261022213100_season_results. Run against a NON-production copy of the schema, inside a
 -- transaction that is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/season_results_test.sql
 -- "ALL SEASON RESULTS TESTS PASSED" at the end means every check held.

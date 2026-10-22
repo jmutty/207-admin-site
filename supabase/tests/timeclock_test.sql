@@ -1,4 +1,4 @@
--- Tests for 20261022213000_timeclock_mileage (Time clock and mileage). Run against a NON-production copy of the
+-- Tests for 20261022213200_timeclock_mileage (Time clock and mileage). Run against a NON-production copy of the
 -- schema after the migration, inside a transaction that is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/timeclock_test.sql
 -- "ALL TIMECLOCK TESTS PASSED" at the end means every check held.
