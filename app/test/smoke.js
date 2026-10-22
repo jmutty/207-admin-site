@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -679,6 +679,55 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
+  console.log("Partner follow-through (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#partners/rebook");
+    check(await page.$eval("#aca-panel-rebook", (n) => n.classList.contains("active")), "#partners/rebook opens Rebooking");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_rebook_attention") && window.__rpcCalls.some((c) => c[0] === "agreements_attention")), "Today asks about rebooking and agreements");
+    await page.waitForSelector("#aca-pfRbBody tr[data-org]");
+    check((await page.textContent("#aca-pfRbBody")).includes("Brewer Travel") && !(await page.textContent("#aca-pfRbBody")).includes("Hancock"), "Time to rebook shows the due client only");
+    check((await page.textContent("#aca-pfRbBody")).includes("Agreement renews"), "shows the agreement renewal date");
+    await page.click('#aca-pfRbChips button[data-k="soon"]');
+    check((await page.textContent("#aca-pfRbBody")).includes("Hancock"), "Coming up shows the later one");
+    await page.click('#aca-pfRbChips button[data-k="now"]');
+    await page.click('#aca-pfRbBody [data-do="draft"]');
+    await page.waitForSelector("#aca-pfCmSubj");
+    check(await page.$eval("#aca-pfCmSubj", (n) => n.value) === "Brewer Travel Basketball Club 2027", "rebook email is filled in");
+    check(await page.$eval("#aca-pfCmTo", (n) => n.options.length) === 2, "both contacts offered");
+    await page.click("#aca-pfCmHold");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_queue" && c[1].p_kind === "rebook" && c[1].p_contact === "c1" && c[1].p_approve === false)), "Hold for review queues it unapproved");
+
+    await page.evaluate(() => { location.hash = "#partners/reviews"; });
+    await page.waitForSelector('#aca-pfRvBody tr[data-id="rv2"]');
+    check((await page.textContent('#aca-pfRvBody tr[data-id="rv1"]')).includes("Waiting for your review"), "a drafted request shows it waits for review");
+    check(!!(await page.$('#aca-pfRvBody tr[data-id="rv2"] [data-do="draft"]')), "a track-only job can be drafted by hand");
+    await page.click('#aca-pfRvBody tr[data-id="rv1"] [data-do="log"]');
+    await page.waitForSelector("#aca-pfRvOut");
+    await page.selectOption("#aca-pfRvOut", "quote");
+    await page.fill("#aca-pfRvQuote", "Smoothest picture day ever.");
+    await page.fill("#aca-pfRvBy", "Chris, president");
+    await page.click("#aca-pfRvSaveBtn");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_review_log" && c[1].p_outcome === "quote" && c[1].p_save_quote === true && c[1].p_quote === "Smoothest picture day ever.")), "logs a quote and saves it to the library");
+
+    await page.evaluate(() => { location.hash = "#partners/agreements"; });
+    await page.waitForSelector('#aca-pfAgBody tr[data-id="ag1"]');
+    check((await page.textContent("#aca-pfAgBody")).includes("Requested") && (await page.textContent("#aca-pfAgBody")).includes("Expires"), "list shows W-9 and insurance");
+    await page.click('#aca-pfAgBody tr[data-id="ag1"] td:nth-child(2)');
+    await page.waitForSelector("#aca-pfAgTitle");
+    await page.fill("#aca-pfAgPrice", "Packages from $29.");
+    await page.click("#aca-pfAgSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_save" && c[1].p_id === "ag1" && c[1].p.pricing === "Packages from $29." && c[1].p.coi_path === "ag1/coi-1.pdf")), "saves the agreement and keeps the file");
+    await page.click("#aca-pfAgNew");
+    await page.waitForSelector('#aca-pfAgPick button[data-org]');
+    await page.click('#aca-pfAgPick button[data-org]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_save" && c[1].p_id === null && c[1].p.org_id === "11111111-1111-1111-1111-111111111111")), "New agreement starts one for the picked org");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
 
   console.log("Open jobs (owner)");
   {
@@ -714,6 +763,28 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await p2.page.$eval("#aca-ojJob", (s) => s.value) === "bk1", "#staff/openjobs/<booking> opens the offer on that job");
     check(errors.length === 0 && p2.errors.length === 0, "no page errors" + (errors.concat(p2.errors).length ? ": " + errors.concat(p2.errors).join(" | ") : ""));
     await p2.page.close();
+  }
+  console.log("Public agreement page (no sign-in)");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#agree/a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2`);
+    await page.waitForSelector("#aca-agName");
+    check((await page.textContent("#aca-agBody")).includes("between 207 Photo and Brewer Travel"), "shows the agreement text");
+    check(!(await page.isVisible("#aca-loginView")) && !(await page.$("#aca-nav button[data-tab]")), "no sign-in, no menu");
+    await page.fill("#aca-agName", "Chris Snowdeal");
+    await page.click("#aca-agGo");
+    await page.waitForTimeout(100);
+    check(!(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_accept"))), "must tick the box first");
+    await page.check("#aca-agOk");
+    await page.click("#aca-agGo");
+    await page.waitForSelector(".ag-done");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_accept" && c[1].p_token === "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2" && c[1].p_name === "Chris Snowdeal")), "accepts with the typed name");
+    check((await page.textContent(".ag-done")).includes("Chris Snowdeal"), "says who accepted");
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "fits a phone screen");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
   }
 
   console.log("Staff with a temporary password");

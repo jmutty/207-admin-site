@@ -31,6 +31,8 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213000_open_jobs.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql     # part-timers, drive cache, offers, take it / pass, first come first served, pushes, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213000_season_results.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/season_results_test.sql   # seasons, org matching, partner terms, payments, sales queue, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022210500_partner_followthrough.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/partner_followthrough_test.sql   # rebooking list, review requests on Deliverables sent, agreements + the public accept page, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
