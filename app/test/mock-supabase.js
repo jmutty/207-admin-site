@@ -121,8 +121,11 @@
   const AS_PART = /[?&]as=parttime\b/.test(location.search);
   // ?as=money: Season results view only.
   const AS_MONEY = /[?&]as=money\b/.test(location.search);
+  // ?as=setup: Season setup view only.
+  const AS_SETUP = /[?&]as=setup\b/.test(location.search);
   const RPC = {
     my_access: AS_PART ? { user_id: "u6", email: "pat@207photo.com", name: "Pat Parttime", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { openjobs: "view" } }
+      : AS_SETUP ? { user_id: "u6", email: "sky@207photo.com", name: "Sky Setup", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { jobsetup: "view" } }
       : AS_MONEY ? { user_id: "u6", email: "bo@207photo.com", name: "Bo Books", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { results: "view" } }
       : AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
@@ -423,6 +426,34 @@
     RPC.openjobs_people = { can_grant: true, people: [{ user_id: "u6", name: "Pat Parttime", part_time: true, home_address: "12 Elm St, Bangor ME", max_drive_min: 60, has_access: true, has_device: true },
       { user_id: "u2", name: "Sam Helper", part_time: false, home_address: "", max_drive_min: 60, has_access: false, has_device: true }] };
     RPC.openjobs_person_save = { ok: true, granted: true };
+  }
+  // Season setup (2026-10-23): CSV import, copy last season forward, a tracked job's dates.
+  {
+    const add = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }), ly = add(today, -364);
+    RPC.jobsetup_lookup = { can_edit: true, types: [{ key: "school", label: "School Photos", audience: "school", title_labels: ["School Photos"] },
+        { key: "sports_data", label: "Sports: Parent Contacts", audience: "sports", title_labels: ["Fall Sports", "Winter Sports", "Spring Sports"] },
+        { key: "sports_nodata", label: "Sports: Roster Only", audience: "sports", title_labels: ["Fall Sports", "Winter Sports", "Spring Sports"] }],
+      orgs: [{ id: "o-hll", name: "Hampden Little League", town: "Hampden", audience: "league", gotphoto_names: ["Hampden LL"] },
+        { id: "o-bhs", name: "Brewer High School", town: "Brewer", audience: "school", gotphoto_names: [] },
+        { id: "o-oro", name: "Orono Soccer", town: "Orono", audience: "league", gotphoto_names: [] }] };
+    RPC.jobsetup_history = [{ id: "imp1", kind: "csv", label: "spring-2027.csv", added: 12, skipped: 1, created_at: iso(-2), by: "Jeremiah Mutty", undone_at: null, tracked: 10, booked: 2, cancelled: 0, first_day: "2027-04-03", last_day: "2027-06-12" },
+      { id: "imp2", kind: "copy", label: "Mar 1 \u2013 Jun 30, 2026 + 52 weeks", added: 3, skipped: 0, created_at: iso(-5), by: "Jeremiah Mutty", undone_at: iso(-4), tracked: 0, booked: 0, cancelled: 3, first_day: "2027-03-06", last_day: "2027-05-22" }];
+    // Dry run and import answer the same: rows 0 and 1 ready, row 2 already on Bookings.
+    RPC.jobsetup_import = { ok: true, dry: true, import_id: "imp9", added: 2, skipped: 1, results: [
+      { i: 0, ok: true, title: "Spring Sports \u2022 Hampden Little League", days: [{ day: "2027-04-24" }, { day: "2027-04-25" }] },
+      { i: 1, ok: true, title: "School Photos \u2022 Brewer High School", days: [{ day: "2027-09-14" }] },
+      { i: 2, ok: false, error: "Already on the Bookings screen for that date.", duplicate_of: "bk1", title: "Fall Sports \u2022 Orono Soccer", days: [{ day: "2027-09-20" }] }] };
+    RPC.jobsetup_copy_candidates = [
+      { source: "booking", copied_from: "bk7", org_id: "o-hll", org_name: "Hampden Little League", type_key: "sports_data", type_label: "Sports: Parent Contacts", status: "done", title_label: "Spring Sports", title_override: null, location: "Hampden Rec",
+        title: "Spring Sports \u2022 Hampden Little League", from_days: [ly, add(ly, 1)], first_day: add(ly, 364), days: [{ day: add(ly, 364), start_time: "09:00", end_time: "13:00", label: "Majors" }, { day: add(ly, 365), start_time: "10:00", end_time: null, label: null }], duplicate_of: null, copied_already: null },
+      { source: "gotphoto", copied_from_job: "gp55", gotphoto_name: "Bangor Rec | Spring Sports", org_id: null, org_name: "Bangor Rec", type_key: "sports_data", type_label: "Sports: Parent Contacts", status: "active", title_label: "Spring Sports", title_override: null, location: null,
+        title: "Bangor Rec | Spring Sports", from_days: [add(ly, 7)], first_day: add(ly, 371), days: [{ day: add(ly, 371), start_time: null, end_time: null, label: null }], duplicate_of: null, copied_already: null },
+      { source: "booking", copied_from: "bk8", org_id: "o-bhs", org_name: "Brewer High School", type_key: "school", type_label: "School Photos", status: "booked", title_label: "School Photos", title_override: null, location: null,
+        title: "School Photos \u2022 Brewer High School", from_days: [add(ly, 9)], first_day: add(ly, 373), days: [{ day: add(ly, 373), start_time: "08:00", end_time: "14:00", label: null }], duplicate_of: null, copied_already: "bk9" }];
+    RPC.jobsetup_undo = { ok: true, cancelled: 10, kept: 2 };
+    RPC.jobsetup_set_days = { ok: true, days: ["2026-11-01", "2026-11-02"] };
+    RPC.jobsetup_copy_one = { ok: true, id: "bk10", days: [{ day: "2027-11-01" }], import_id: "imp10" };
   }
   // Time clock and mileage (2026-10-22). ?clockedin=1 starts clocked in.
   {

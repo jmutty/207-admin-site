@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "setup", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -1078,6 +1078,104 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const [dl2] = await Promise.all([page.waitForEvent("download"), page.click('#aca-panel-mileage [data-v="csv"]')]);
     const mcsv = fs.readFileSync(await dl2.path(), "utf8");
     check(mcsv.startsWith("Date,Name,Job or where,Address,Miles,Amount,Note,Source") && mcsv.includes("26.1,18.27"), "mileage CSV");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Season setup (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/setup");
+    await page.waitForSelector("#aca-jsHist table");
+    const hist = await page.textContent("#aca-jsHist");
+    check(hist.includes("spring-2027.csv") && hist.includes("10 tracking") && hist.includes("2 booked since") && hist.includes("undone"), "history: batches with what became of their jobs");
+    check((await page.$$("#aca-jsHist [data-undo]")).length === 1, "Undo only on a batch with tracked jobs");
+    await page.click("#aca-jsHist [data-undo]");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "jobsetup_undo" && c[1].p_id === "imp1")), "Undo sets the batch aside");
+    // CSV: a two-day weekend with an end date, a school, a duplicate, an unknown org and a bad date
+    await page.click("#aca-jsImport");
+    await page.waitForSelector("#aca-jsPaste", { state: "attached" });
+    await page.click(".modal details summary");
+    await page.fill("#aca-jsPaste", "Organization,Type,Date,End date,Start,End,Title,Location\n" +
+      "Hampden LL,Sports,4/24/2027,4/25/2027,9am,1pm,Spring Sports,Hampden Rec\n" +
+      "Brewer High School,,2027-09-14,,8:00,14:00,,Brewer HS gym\n" +
+      "Orono Soccer,Roster only,\"9/20/2027; 9/27/2027\",,10am-12pm,,Fall Sports,\n" +
+      "Nowhere FC,Sports,9/21/2027,,,,,\n" +
+      "Brewer High School,School,31/31/2027,,,,,\n");
+    await page.click("#aca-jsPasteGo");
+    await page.waitForSelector("#aca-jsRows tr");
+    await page.waitForTimeout(200);
+    check((await page.$$("#aca-jsRows tr")).length === 5, "five rows read");
+    const dry = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "jobsetup_import" && c[1].p_dry === true).pop());
+    check(dry && dry[1].p_items.length === 3, "dry run checks the 3 rows that can be checked");
+    const it = dry ? dry[1].p_items : [];
+    check(it[0] && it[0].org_id === "o-hll" && it[0].type_key === "sports_data" && it[0].days.length === 2 && it[0].days[1].day === "2027-04-25" && it[0].days[0].start_time === "09:00" && it[0].days[0].end_time === "13:00",
+          "GotPhoto name matches the org; end date makes a two-day job; 9am-1pm read");
+    check(it[1] && it[1].org_id === "o-bhs" && it[1].type_key === "school" && it[1].days[0].day === "2027-09-14", "blank type guessed from a school org");
+    check(it[2] && it[2].type_key === "sports_nodata" && it[2].days.length === 2 && it[2].days[1].day === "2027-09-27" && it[2].days[0].start_time === "10:00" && it[2].days[0].end_time === "12:00", "two dates in one cell, a time range in one cell, Roster only");
+    const rows = await page.textContent("#aca-jsRows");
+    check(rows.includes("Already on Bookings") && rows.includes("Pick the organization") && rows.includes("Can't read the date"), "duplicate, unknown org and bad date are marked");
+    check(await page.textContent("#aca-jsAdd") === "Add 2 jobs", "Add 2 jobs");
+    await page.fill('#aca-jsRows input[data-org="3"]', "Orono Soccer");
+    await page.dispatchEvent('#aca-jsRows input[data-org="3"]', "change");
+    await page.waitForTimeout(150);
+    const dry2 = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "jobsetup_import" && c[1].p_dry === true).pop());
+    check(dry2[1].p_items.length === 4 && dry2[1].p_items[3].org_id === "o-oro", "picking the organization checks that row too");
+    await page.click("#aca-jsAdd");
+    await page.waitForTimeout(150);
+    const real = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "jobsetup_import" && c[1].p_dry === false).pop());
+    check(real && real[1].p_kind === "csv" && real[1].p_label === "Pasted rows" && real[1].p_items.length === 2 && real[1].p_items[0].org_id === "o-hll", "adds only the ready rows");
+    check((await page.textContent(".modal")).includes("Added 2 jobs") && (await page.textContent(".modal")).includes("tracking only"), "says what was added");
+    await page.click('.modal [data-x="close"]');
+    // Copy last season
+    await page.click("#aca-jsCopy");
+    await page.waitForSelector("#aca-jsCopyRows tr");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "jobsetup_copy_candidates" && c[1].p_shift === 364)), "lists last season moved 52 weeks");
+    check(await page.textContent("#aca-jsCopyAdd") === "Copy 1 job", "only the clear one starts ticked (GotPhoto job needs its org, the copied one is left out)");
+    const ctext = await page.textContent("#aca-jsCopyRows");
+    check(ctext.includes("Copied already") && ctext.includes("GotPhoto job, not on Bookings") && ctext.includes("2 days, one job"), "copied-already, GotPhoto source and multi-day shown");
+    await page.fill('#aca-jsCopyRows input[data-org="1"]', "Hampden Little League");
+    await page.dispatchEvent('#aca-jsCopyRows input[data-org="1"]', "change");
+    await page.waitForTimeout(100);
+    check(await page.textContent("#aca-jsCopyAdd") === "Copy 2 jobs", "picking its organization adds the GotPhoto job");
+    await page.click("#aca-jsCopyAdd");
+    await page.waitForTimeout(150);
+    const cp = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "jobsetup_import" && c[1].p_kind === "copy").pop());
+    check(cp && cp[1].p_dry === false && cp[1].p_items.length === 2 && cp[1].p_items[0].copied_from === "bk7" && cp[1].p_items[0].days.length === 2 && cp[1].p_items[1].copied_from_job === "gp55" && cp[1].p_items[1].org_id === "o-hll",
+          "copies both, with their sources and every day");
+    await page.click('.modal [data-x="close"]');
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+    // A tracked job's dates: #jobs/setup/<booking id>
+    const p2 = await open(browser, port, "?tracked=1", "#jobs/setup/11111111-2222-3333-4444-555555555555");
+    await p2.page.waitForSelector(".modal .js-days");
+    await p2.page.click('.modal [data-v="add"]');
+    check((await p2.page.$$(".modal .js-days li")).length === 2, "Add a date");
+    await p2.page.fill('.modal input[data-k="label"][data-i="1"]', "Rain date");
+    await p2.page.dispatchEvent('.modal input[data-k="label"][data-i="1"]', "change");
+    await p2.page.click('.modal [data-v="save"]');
+    await p2.page.waitForTimeout(150);
+    const sd = await p2.page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "jobsetup_set_days").pop());
+    check(sd && sd[1].p_days.length === 2 && sd[1].p_days[1].label === "Rain date", "saves both dates");
+    await p2.page.click('.modal [data-v="copy"]');
+    await p2.page.waitForTimeout(150);
+    check(await p2.page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "jobsetup_copy_one" && c[1].p_shift === 364)) && (await p2.page.textContent(".modal")).includes("open the copy"), "Copy this job");
+    check(p2.errors.length === 0, "no page errors" + (p2.errors.length ? ": " + p2.errors.join(" | ") : ""));
+    await p2.page.close();
+    // A booked job: dates are read-only here
+    const p3 = await open(browser, port, "", "#jobs/setup/11111111-2222-3333-4444-555555555555");
+    await p3.page.waitForSelector(".modal .js-days");
+    check(!(await p3.page.$('.modal [data-v="save"]')) && (await p3.page.textContent(".modal")).includes("Edit booking"), "a booked job points to Edit booking");
+    await p3.page.close();
+  }
+
+  console.log("Season setup (view only)");
+  {
+    const { page, errors } = await open(browser, port, "?as=setup");
+    check(JSON.stringify(await rail(page)) === JSON.stringify(["today", "setup"]), "menu: Today and Season setup");
+    await page.click('#aca-nav button[data-tab="setup"]');
+    await page.waitForSelector("#aca-jsHist table");
+    check(!(await visible(page, "#aca-jsImport")) && !(await page.$("#aca-jsHist [data-undo]")), "no Import, Copy or Undo");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
