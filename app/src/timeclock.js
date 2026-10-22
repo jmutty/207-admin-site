@@ -190,7 +190,8 @@
       el("tsWho").value = who;
     }
     const total = (p, k) => (p.days || []).reduce((n, d) => n + num(d[k]), 0);
-    const overtime = (p) => Math.max(0, total(p, "worked_min") - Math.round(num(wk.overtime_after) * 60));
+    // Salaried and 1099 contractors get no overtime (employment type on the Team page).
+    const overtime = (p) => (p.overtime_applies === false ? 0 : Math.max(0, total(p, "worked_min") - Math.round(num(wk.overtime_after) * 60)));
     function diffHtml(w, s) {
       if (!s) return "";
       const d = w - s;
@@ -328,9 +329,15 @@
         '<div class="row2"><div class="field"><label for="aca-prW">Pay period</label><select id="aca-prW"><option value="1">1 week</option><option value="2">2 weeks</option></select></div>' +
         '<div class="field"><label>Ending</label><p style="margin:6px 0 0" id="aca-prEnd"></p></div></div>' +
         '<div id="aca-prBody"><p class="empty">Loading&#8230;</p></div><div class="inline-error hidden tc-merr"></div>' +
-        '<div class="modal-actions"><button type="button" class="small" data-m="detail" disabled>Every punch (CSV)</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="primary" data-m="csv" disabled>Download payroll CSV</button></div></div>');
+        '<div class="modal-actions"><button type="button" class="small" data-m="detail" disabled>Every punch (CSV)</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="small hidden" data-m="cont">1099 contractors (CSV)</button><button type="button" class="primary" data-m="csv" disabled>Download payroll CSV</button></div></div>');
       const mErr = mErrIn(m);
       let pr = null;
+      // 1099 contractors are kept out of the payroll CSV and listed on their own (employment type, Team page).
+      const isCont = (p) => p.employment_type === "contractor";
+      const TYPE = { full_time: "Full time", salaried: "Salaried", part_time: "Part time", contractor: "1099" };
+      const table = (list, ot) => '<div class="table-wrap"><table class="tc-week"><thead><tr><th>Person</th><th class="tc-num">' + (ot ? "Regular" : "Hours") + "</th>" + (ot ? '<th class="tc-num">Overtime</th>' : "") + '<th class="tc-num">Miles</th><th class="tc-num">Mileage</th></tr></thead><tbody>' +
+        list.map((p) => '<tr><td class="name">' + esc(p.name) + (p.employment_type === "salaried" ? ' <span class="pill muted">Salaried</span>' : "") + '</td><td class="tc-num">' + hrs2(ot ? p.regular_min : p.worked_min) + "</td>" + (ot ? '<td class="tc-num">' + (p.overtime_min ? hrs2(p.overtime_min) : "") + "</td>" : "") + '<td class="tc-num">' + mi(p.miles) + '</td><td class="tc-num">' + money(p.mileage_pay) + "</td></tr>").join("") +
+        "</tbody></table></div>";
       async function run() {
         const n = +el("prW").value, start = T.addDays(week, -7 * (n - 1));
         el("prEnd").textContent = T.fmtDay(T.addDays(week, 6)) + " (from " + T.fmtDay(start) + ")";
@@ -343,11 +350,12 @@
           const unapproved = pr.people.filter((p) => num(p.approved_weeks) < num(p.weeks)), open = pr.people.filter((p) => p.open);
           el("prBody").innerHTML = (open.length ? '<p class="tc-warn">Still clocked in: ' + esc(names(open)) + " Their open time counts up to now.</p>" : "") +
             (unapproved.length ? '<p class="tc-warn">Not approved yet: ' + esc(names(unapproved)) + "</p>" : "") +
-            (pr.people.length ? '<div class="table-wrap"><table class="tc-week"><thead><tr><th>Person</th><th class="tc-num">Regular</th><th class="tc-num">Overtime</th><th class="tc-num">Miles</th><th class="tc-num">Mileage</th></tr></thead><tbody>' +
-              pr.people.map((p) => '<tr><td class="name">' + esc(p.name) + '</td><td class="tc-num">' + hrs2(p.regular_min) + '</td><td class="tc-num">' + (p.overtime_min ? hrs2(p.overtime_min) : "") + '</td><td class="tc-num">' + mi(p.miles) + '</td><td class="tc-num">' + money(p.mileage_pay) + "</td></tr>").join("") +
-              "</tbody></table></div>" : '<p class="empty">No time in this period.</p>') +
-            '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Sunday\u2013Saturday). Mileage at " + rateTxt(pr.mileage_rate) + ".</p>";
-          m.querySelectorAll('[data-m="csv"], [data-m="detail"]').forEach((b) => (b.disabled = !pr.people.length));
+            (pr.people.filter((p) => !isCont(p)).length ? table(pr.people.filter((p) => !isCont(p)), true) : pr.people.length ? "" : '<p class="empty">No time in this period.</p>') +
+            (pr.people.some(isCont) ? '<h3 style="margin:16px 0 6px;font-size:14px">1099 contractors</h3><p class="tc-sum" style="margin:0 0 6px">Not in the payroll CSV. Pay them from their own CSV.</p>' + table(pr.people.filter(isCont), false) : "") +
+            '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Sunday\u2013Saturday); salaried people and 1099 contractors get none. Mileage at " + rateTxt(pr.mileage_rate) + ".</p>";
+          m.querySelector('[data-m="csv"]').disabled = !pr.people.some((p) => !isCont(p));
+          m.querySelector('[data-m="detail"]').disabled = !pr.people.length;
+          m.querySelector('[data-m="cont"]').classList.toggle("hidden", !pr.people.some(isCont));
         } catch (e) { mErr(cleanErr(e)); }
       }
       el("prW").addEventListener("change", run);
@@ -358,8 +366,12 @@
         if (!pr) return;
         const tag = pr.from + "_to_" + pr.to;
         if (t.dataset.m === "csv") {
-          download("207-payroll-" + tag + ".csv", [["Name", "Email", "Period start", "Period end", "Regular hours", "Overtime hours", "Total hours", "Miles", "Mileage pay", "Weeks approved"]]
-            .concat(pr.people.map((p) => [p.name, p.email || "", pr.from, pr.to, hrs2(p.regular_min), hrs2(p.overtime_min), hrs2(p.worked_min), (Math.round(num(p.miles) * 10) / 10).toFixed(1), num(p.mileage_pay).toFixed(2), p.approved_weeks + " of " + p.weeks])));
+          download("207-payroll-" + tag + ".csv", [["Name", "Email", "Type", "Period start", "Period end", "Regular hours", "Overtime hours", "Total hours", "Miles", "Mileage pay", "Weeks approved"]]
+            .concat(pr.people.filter((p) => !isCont(p)).map((p) => [p.name, p.email || "", TYPE[p.employment_type] || "", pr.from, pr.to, hrs2(p.regular_min), hrs2(p.overtime_min), hrs2(p.worked_min), (Math.round(num(p.miles) * 10) / 10).toFixed(1), num(p.mileage_pay).toFixed(2), p.approved_weeks + " of " + p.weeks])));
+        }
+        if (t.dataset.m === "cont") {
+          download("207-1099-" + tag + ".csv", [["Name", "Email", "Job title", "Period start", "Period end", "Hours", "Miles", "Mileage pay", "Weeks approved"]]
+            .concat(pr.people.filter(isCont).map((p) => [p.name, p.email || "", p.job_title || "", pr.from, pr.to, hrs2(p.worked_min), (Math.round(num(p.miles) * 10) / 10).toFixed(1), num(p.mileage_pay).toFixed(2), p.approved_weeks + " of " + p.weeks])));
         }
         if (t.dataset.m === "detail") {
           download("207-punches-" + tag + ".csv", [["Name", "Date", "Clock in", "Clock out", "Hours", "What", "Job", "Note", "Edited"]]
