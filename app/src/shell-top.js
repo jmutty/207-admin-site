@@ -106,8 +106,14 @@
   }
 
   // ---- auth flow ----
+  // Pages for people outside 207 Photo, opened from a link with a token and shown instead of sign-in.
+  // A module calls registerPublicPage({ wanted: () => bool, show: () => void }) (pictureday-public.js).
+  const PUBLIC_PAGES = [];
+  function registerPublicPage(p) { PUBLIC_PAGES.push(p); }
   async function init() {
     if (Welcome.wanted()) { Welcome.show(init); return; } // #welcome: getting the phone app (welcome.js)
+    const pub = PUBLIC_PAGES.find((p) => p.wanted());
+    if (pub) { pub.show(); return; }
     const { data: { session } } = await supabase.auth.getSession();
     if (session) afterSignIn(session);
     else showLogin();

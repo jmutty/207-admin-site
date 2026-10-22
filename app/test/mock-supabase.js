@@ -203,8 +203,46 @@
     inventory_check_out: { ok: true, id: 3, holder_name: "Jeremiah Mutty" }, inventory_return: { ok: true },
     inventory_history: [{ id: 2, holder_name: "Gus Shooter", out_at: iso(-3), due_on: null, note: "Hampden", returned_at: null, with_kit: false }],
   });
+  // Picture day planner (2026-10-22): one league picture day with a form back, three teams, two fields.
+  {
+    const pd = iso(12).slice(0, 10), at = (hm) => pd + "T" + hm + ":00-04:00";
+    T.app_modules.push({ key: "pictureday", label: "Picture day planner", section: "Jobs", description: "Forms, team times and coach confirmations.", sort: 15, status: "live", admin_only: false });
+    const team = (id, name, coach, email, field, slot, status, extra) => Object.assign({ id, name, coach_name: coach, coach_email: email, coach_phone: "", players: 12, field, slot_at: slot ? at(slot) : null, slot_min: null, sort: 0,
+      status, changed: false, coach_note: "", responded_at: null, email_status: status === "new" ? null : "sent", link: "https://admin.207photo.com/#slot/" + "c".repeat(36) }, extra || {});
+    Object.assign(RPC, {
+      pd_list: [{ booking_id: "bk1", title: "Brewer Travel Basketball Club \u2022 Winter Sports", org_name: "Brewer Travel Basketball Club", audience: "sports", picture_day: pd, start_at: at("09:00"), time_set: true, location: "Brewer Rec Center",
+                  plan_id: "pl1", intake_sent_at: iso(-3), submitted_at: iso(-1), teams: 3, timed: 2, sent: 2, confirmed: 1, move: 1, changed: 0 },
+                { booking_id: "bk3", title: "Island Cheer & Tumbling \u2022 Cheer", org_name: "Island Cheer & Tumbling", audience: "sports", picture_day: iso(3).slice(0, 10), start_at: iso(3), time_set: false, location: "Deer Isle",
+                  plan_id: null, intake_sent_at: null, submitted_at: null, teams: 0, timed: 0, sent: 0, confirmed: 0, move: 0, changed: 0 }],
+      pd_get: { booking: { id: "bk1", title: "Brewer Travel Basketball Club \u2022 Winter Sports", org_id: "11111111-1111-1111-1111-111111111111", org_name: "Brewer Travel Basketball Club", status: "booked",
+                           picture_day: pd, start_at: at("09:00"), end_at: at("12:00"), time_set: true, location: "Brewer Rec Center" },
+        plan: { id: "pl1", booking_id: "bk1", contact_id: "c1", contact_name: "Chris Snowdeal", contact_email: "csnowdeal75@gmail.com", intake_sent_at: iso(-3), submitted_at: iso(-1), updated_by_contact_at: iso(-1),
+                onsite_name: "Chris", onsite_phone: "207-555-0100", location: "Brewer Rec Center", fields: ["Court 1", "Court 2"], uniforms: "Home jerseys", props: "One ball per team", notes: "", roster_path: "a".repeat(36) + "/roster.csv", roster_name: "Roster.csv", roster_at: iso(-1), slot_min: 10 },
+        link: "https://admin.207photo.com/#plan/" + "a".repeat(36),
+        teams: [team("pt1", "U10 Blue", "Sam Coach", "sam@example.org", "Court 1", "09:00", "confirmed"),
+                team("pt2", "U10 Red", "Alex Coach", "alex@example.org", "Court 2", "09:00", "move", { coach_note: "After 10 works better", responded_at: iso(-0.2), changed: true }),
+                team("pt3", "U12 Green", "Pat Coach", "pat@example.org", "", null, "new")],
+        contacts: [{ id: "c1", name: "Chris Snowdeal", email: "csnowdeal75@gmail.com", role: "President", on_booking: true }, { id: "c2", name: "Jamie Emerson", email: "jemerson@breweredu.org", role: null, on_booking: false }],
+        booking_coaches: ["sam@example.org"],
+        emails: [{ id: 2, kind: "slot", team_id: "pt1", to_email: "sam@example.org", to_name: "Sam Coach", subject: "U10 Blue: picture day", status: "sent", created_at: iso(-1), sent_at: iso(-1) },
+                 { id: 1, kind: "intake", to_email: "csnowdeal75@gmail.com", to_name: "Chris Snowdeal", subject: "Brewer picture day", status: "sent", created_at: iso(-3), sent_at: iso(-3) }],
+        sending: { enabled: true, test_mode: false } },
+      pd_attention: { move: 1, to_plan: 0 },
+      pd_save_plan: { ok: true }, pd_save_team: { ok: true, id: "pt9" }, pd_save_slots: { ok: true, saved: 1 }, pd_remove_team: { ok: true },
+      pd_send_intake: { ok: true, to: "csnowdeal75@gmail.com", sending_enabled: true }, pd_send_slots: { ok: true, queued: 1, sending_enabled: true },
+      pd_slot_preview: { to_email: "pat@example.org", subject: "U12 Green: picture day Sat, Nov 7 at 9:10 AM", text: "Hi Pat,\n\nHere is U12 Green's picture day time..." },
+      pd_public_plan: { closed: false, org_name: "Brewer Travel Basketball Club", title: "Brewer Travel Basketball Club \u2022 Winter Sports", picture_day: pd, start_at: at("09:00"), booking_location: "Brewer Rec Center",
+        contact_name: "Chris Snowdeal", submitted_at: null, onsite_name: "", onsite_phone: "", location: "", fields: [], uniforms: "", props: "", notes: "", roster_name: null,
+        teams: [{ id: "pt1", name: "U10 Blue", coach_name: "Sam Coach", coach_email: "sam@example.org", coach_phone: "", players: 12, slot_at: at("09:00"), field: "Court 1", status: "confirmed" }] },
+      pd_public_submit: { ok: true, teams: 3 }, pd_public_roster: { ok: true },
+      pd_public_slot: { closed: false, org_name: "Brewer Travel Basketball Club", team: "U10 Blue", coach_name: "Sam Coach", slot_at: at("09:00"), slot_min: 10, field: "Court 1", where: "Brewer Rec Center",
+        uniforms: "Home jerseys", props: "One ball per team", onsite_name: "Chris", onsite_phone: "207-555-0100", status: "sent", coach_note: "", responded_at: null },
+      pd_public_slot_reply: { ok: true, status: "confirmed" },
+    });
+  }
   const storage = { from: () => ({
     createSignedUrls: async (paths) => ({ data: paths.map((p) => ({ path: p, signedUrl: "logo.png" })), error: null }),
+    createSignedUrl: async (p) => ({ data: { signedUrl: "logo.png" }, error: null }),
     upload: async (path) => (window.__writes = (window.__writes || []).concat([["storage", "upload", path]]), { data: { path }, error: null }),
     remove: async (paths) => (window.__writes = (window.__writes || []).concat([["storage", "remove", paths]]), { data: [], error: null }),
   }) };

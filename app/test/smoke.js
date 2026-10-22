@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -472,6 +472,86 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-tmSave");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_hours" && c[1].p_hours === 28 && c[1].p_user_id === "u2")), "saves weekly hours");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Picture day planner (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/pictureday");
+    await page.waitForSelector("#aca-pdList tr[data-open]");
+    check((await page.$$("#aca-pdList tr[data-open]")).length === 2, "list shows two picture days");
+    check((await page.textContent("#aca-pdList")).includes("1 want to move"), "list says a coach wants to move");
+    await page.click('#aca-pdList tr[data-open="bk1"]');
+    await page.waitForSelector(".pd-board");
+    check(page.url().endsWith("#jobs/pictureday/bk1"), "opening one puts it in the address");
+    check((await page.$$(".pd-col")).length === 3, "board: two courts plus No time yet");
+    check((await page.textContent(".pd-board")).includes("After 10 works better"), "board shows the coach's note");
+    check((await page.textContent(".pd-dl")).includes("Home jerseys"), "form answers shown");
+    await page.click("#aca-pdLayout");
+    await page.waitForTimeout(200);
+    const lay = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "pd_save_slots").pop());
+    check(lay && lay[1].p_slots.length === 1 && lay[1].p_slots[0].id === "pt3" && /T13:10:00\.000Z$|T14:10:00\.000Z$/.test(lay[1].p_slots[0].slot_at) && lay[1].p_slots[0].field === "Court 1",
+      "lay out: the team without a time gets the next free slot (9:10, Court 1): " + JSON.stringify(lay && lay[1].p_slots));
+    await page.click("#aca-pdSendSlots");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pd_send_slots" && c[1].p_teams === null)), "email coaches sends to everyone not told yet");
+    await page.selectOption("#aca-pdContact", "c2");
+    await page.click("#aca-pdSendForm");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pd_send_intake" && c[1].p_contact === "c2")), "form goes to the chosen contact");
+    await page.click('[data-team="pt2"]');
+    await page.waitForSelector("#aca-pdtName");
+    await page.fill(".pd-modal .dp-time", "1020");
+    await page.press(".pd-modal .dp-time", "Tab");
+    await page.click("#aca-pdtSave");
+    await page.waitForTimeout(200);
+    const save = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "pd_save_team").pop());
+    check(save && save[1].p.id === "pt2" && /T14:20:00\.000Z$|T15:20:00\.000Z$/.test(save[1].p.slot_at), "editing a team saves its new time");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pd_attention")), "Today asks for coach answers");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Picture day: the organization's form (no sign-in)");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#plan/${"a".repeat(36)}`);
+    await page.waitForSelector("#pdp-send");
+    check(!(await page.isVisible("#aca-loginView")) && !(await page.isVisible("#aca-dashView")), "no sign-in, no admin");
+    check((await page.textContent(".pdp h1")) === "Brewer Travel Basketball Club", "shows the organization");
+    check((await page.$$("#pdp-teams .pdp-team")).length === 1, "teams already on file are filled in");
+    await page.click("#pdp-pasteBtn");
+    await page.fill("#pdp-pasteText", "Team\tCoach\tEmail\nU10 Red\tAlex Coach\talex@example.org\t\t11\nU12 Green, Pat, pat@example.org");
+    await page.click("#pdp-pasteGo");
+    check((await page.$$("#pdp-teams .pdp-team")).length === 3, "a pasted list adds a row per team (header skipped)");
+    await page.fill("#pdp-onName", "Chris");
+    await page.fill("#pdp-fields", "Court 1\nCourt 2");
+    await page.click("#pdp-send");
+    await page.waitForSelector(".pdp .ok");
+    const sub = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "pd_public_submit").pop());
+    check(sub && sub[1].p.teams.length === 3 && sub[1].p.teams[0].id === "pt1" && sub[1].p.teams[1].coach_email === "alex@example.org" && sub[1].p.teams[1].players === "11", "sends the teams, keeping the existing team's id");
+    check(sub && JSON.stringify(sub[1].p.fields) === '["Court 1","Court 2"]', "sends the fields one per line");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Picture day: a coach's time (no sign-in)");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#slot/${"c".repeat(36)}`);
+    await page.waitForSelector("#pdp-yes");
+    check((await page.textContent(".pdp-big")).includes("Court 1"), "shows the field");
+    await page.click("#pdp-move");
+    await page.click("#pdp-moveGo");
+    check(await page.isVisible("#pdp-err"), "asking to move needs a note");
+    await page.click("#pdp-yes");
+    await page.waitForSelector(".pdp .ok");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pd_public_slot_reply" && c[1].p_answer === "confirm")), "confirm is sent");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
