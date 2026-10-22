@@ -78,6 +78,7 @@
         "<h2>" + (isNew ? "Add a person" : "Edit " + esc(p.name || p.email)) + "</h2>" +
         '<div class="field"><label for="aca-tmName">Name</label><input type="text" id="aca-tmName" maxlength="120" value="' + esc(p.name) + '" /></div>' +
         '<div class="field"><label for="aca-tmEmail">Email</label><input type="email" id="aca-tmEmail" value="' + esc(p.email) + '"' + (isNew ? "" : " disabled") + " /></div>" +
+        (isNew ? '<label class="tm-full"><input type="checkbox" id="aca-tmWelcome" checked /> <span><b>Email them a welcome</b><br><span class="muted">Their temporary password, how to sign in, and a link that puts 207 Admin on their phone.</span></span></label>' : "") +
         '<div class="field"><label for="aca-tmHours">Default hours per week</label><input type="number" id="aca-tmHours" min="0" max="80" step="0.5" style="width:110px" value="' + esc(p.weekly_hours == null ? "" : String(Number(p.weekly_hours))) + '" placeholder="e.g. 32" />' +
         '<span class="muted" style="font-size:12.5px">The Schedule shows how many hours they are scheduled against this each week. Leave empty if it doesn&#39;t apply.</span></div>' +
         '<label class="tm-full"><input type="checkbox" id="aca-tmAdmin"' + (p.is_admin ? " checked" : "") + (p.is_me ? " disabled" : "") + ' /> <span><b>Full access</b><br><span class="muted">Everything, including Settings and this Team page. For owners and managers only.</span></span></label>' +
@@ -103,10 +104,10 @@
         el("tmSave").disabled = true;
         try {
           if (isNew) {
-            const r = await teamFn({ action: "create", email, name, is_admin: isAdmin, permissions: isAdmin ? {} : picked() });
+            const r = await teamFn({ action: "create", email, name, is_admin: isAdmin, permissions: isAdmin ? {} : picked(), send_welcome: el("tmWelcome").checked });
             try { await setHours(r.user_id); } catch (_e) { toast("Added, but the hours did not save. Edit them on the Team page.", true); }
             m.close();
-            showPassword(name, email, r.temp_password, true);
+            showPassword({ user_id: r.user_id, name, email }, r.temp_password, true, r);
           } else {
             const { error } = await supabase.rpc("team_save", { p_user_id: p.user_id, p_name: name, p_is_admin: isAdmin, p_permissions: isAdmin ? {} : picked() });
             if (error) throw error;
@@ -121,7 +122,7 @@
       if (isNew || p.is_me) return;
       el("tmReset").addEventListener("click", async () => {
         if (!confirm("Give " + (p.name || p.email) + " a new temporary password? Their current password stops working.")) return;
-        try { const r = await teamFn({ action: "reset_password", user_id: p.user_id }); m.close(); showPassword(p.name, p.email, r.temp_password, false); load(); }
+        try { const r = await teamFn({ action: "reset_password", user_id: p.user_id }); m.close(); showPassword(p, r.temp_password, false, null); load(); }
         catch (e) { err(e.message || String(e)); }
       });
       el("tmActive").addEventListener("click", async () => {
@@ -137,17 +138,29 @@
       });
     }
 
-    function showPassword(name, email, pw, isNew) {
+    // sent: the create result ({emailed, email_error}) when a welcome email was asked for, else null.
+    function showPassword(person, pw, isNew, sent) {
+      const name = person.name, email = person.email;
+      const emailed = !!(sent && sent.emailed), failed = !!(sent && !sent.emailed && sent.email_error);
       const m = openModal("<h2>" + (isNew ? esc(name) + " can sign in now" : "New temporary password") + "</h2>" +
-        "<p>Give " + esc(name || email) + " this temporary password. It is shown only once. They sign in at <b>admin.207photo.com</b> with <b>" + esc(email) +
-        "</b>, enter the 6-digit code emailed to them, then choose their own password.</p>" +
+        (emailed ? '<p><span class="pill ok">Welcome email sent</span></p><p>We emailed <b>' + esc(email) + "</b> this temporary password, how to sign in, and the link that puts 207 Admin on their phone. It is also shown here, only once, in case they need it.</p>"
+          : (failed ? '<div class="inline-error">The welcome email did not send: ' + esc(sent.email_error) + "</div>" : "") +
+            "<p>Give " + esc(name || email) + " this temporary password. It is shown only once. They sign in at <b>admin.207photo.com</b> with <b>" + esc(email) +
+            "</b>, enter the 6-digit code emailed to them, then choose their own password.</p>") +
         '<div class="tm-pw"><code id="aca-tmPw">' + esc(pw) + '</code><button type="button" class="small" id="aca-tmCopy">Copy</button></div>' +
-        '<div class="modal-actions"><span class="grow"></span><button type="button" class="primary" id="aca-tmDone">Done</button></div>', { locked: true });
+        '<div class="modal-actions">' + (emailed ? "" : '<button type="button" class="small" id="aca-tmMail">Email it to them</button>') +
+        '<span class="grow"></span><button type="button" class="primary" id="aca-tmDone">Done</button></div>', { locked: true });
       el("tmCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(pw); toast("Copied."); } catch (_e) { toast("Select the password and copy it.", true); } });
       el("tmDone").addEventListener("click", () => m.close());
+      if (emailed) return;
+      el("tmMail").addEventListener("click", async () => {
+        const b = el("tmMail"); b.disabled = true;
+        try { await teamFn({ action: "send_welcome", user_id: person.user_id, temp_password: pw }); b.textContent = "Emailed"; toast("Emailed " + email + "."); loadLog(); }
+        catch (e) { b.disabled = false; toast(e.message || String(e), true); }
+      });
     }
 
-    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for", hours_set: "changed the weekly hours for" };
+    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for", hours_set: "changed the weekly hours for", welcome_sent: "emailed sign-in details to" };
     async function loadLog() {
       const { data, error } = await supabase.rpc("team_audit_list", { p_limit: 30 });
       el("teamLog").innerHTML = error ? '<span class="inline-error">' + esc(error.message) + "</span>"

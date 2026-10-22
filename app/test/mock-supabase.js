@@ -252,8 +252,9 @@
   const realFetch = window.fetch;
   window.fetch = async (url, opts) => {
     if (String(url).includes("/functions/v1/team")) {
-      window.__teamCalls = (window.__teamCalls || []).concat([JSON.parse(opts.body)]);
-      return new Response(JSON.stringify({ ok: true, user_id: "u9", temp_password: "k7mp-2qrx-h8vt-w3nd" }), { status: 200 });
+      const b = JSON.parse(opts.body);
+      window.__teamCalls = (window.__teamCalls || []).concat([b]);
+      return new Response(JSON.stringify({ ok: true, user_id: "u9", temp_password: "k7mp-2qrx-h8vt-w3nd", emailed: b.send_welcome === true, email_error: null }), { status: 200 });
     }
     if (String(url).includes("/functions/v1/drive-time")) {
       window.__driveCalls = (window.__driveCalls || []).concat([JSON.parse(opts.body)]);
