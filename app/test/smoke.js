@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "portal", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -784,6 +784,68 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#pdp-yes");
     await page.waitForSelector(".pdp .ok");
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pd_public_slot_reply" && c[1].p_answer === "confirm")), "confirm is sent");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Partner portal: staff");
+  {
+    const { page, errors } = await open(browser, port, "", "#partners/portal");
+    await page.waitForSelector("#aca-ptBody tr[data-org]");
+    check((await page.$$("#aca-ptBody tr[data-org]")).length === 2, "lists the portals");
+    await page.click("#aca-ptBody tr[data-org]");
+    await page.waitForSelector("#aca-ptCopy");
+    check(/#partners\/portal\/1111/.test(await page.evaluate(() => location.hash)), "opening one puts it in the address");
+    check((await page.$$(".pt-proof")).length === 3, "shows the proofs");
+    check((await page.$$(".pt-files li.new")).length === 1, "a file they sent is marked new");
+    await page.click("#aca-ptAddProof");
+    await page.fill("#aca-ptPrLabel", "U12 composite");
+    await page.fill("#aca-ptPrLink", "https://www.dropbox.com/s/u12");
+    await page.selectOption("#aca-ptPrBk", "bk1");
+    await page.click("#aca-ptPrS");
+    await page.waitForTimeout(200);
+    const ps = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "portal_proof_save").pop());
+    check(ps && ps[1].p_id === null && ps[1].p.label === "U12 composite" && ps[1].p.booking_id === "bk1" && ps[1].p.link === "https://www.dropbox.com/s/u12", "adds a proof with a link and its job");
+    await page.click("#aca-ptEmail");
+    await page.waitForSelector("#aca-ptCmBody");
+    check((await page.inputValue("#aca-ptCmBody")).includes("#portal/"), "the link email carries the link");
+    await page.click("#aca-ptCmHold");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "portal_queue" && c[1].p_kind === "invite" && c[1].p_approve === false)), "hold for review queues it unapproved");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "portal_attention")), "Today asks for proof changes and new files");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Partner portal: the organization's page (no sign-in)");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("dialog", (d) => d.accept());
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#portal/${"b".repeat(36)}`);
+    await page.waitForSelector(".ptl h1");
+    check(!(await page.isVisible("#aca-loginView")) && !(await page.isVisible("#aca-dashView")), "no sign-in, no admin");
+    check((await page.textContent(".ptl h1")) === "Brewer Travel Basketball Club", "shows the organization");
+    check((await page.$$(".ptl-todo li")).length === 2, "waiting on you: a proof and the agreement");
+    check(!!(await page.$('a[href="#plan/' + "a".repeat(36) + '"]')), "links to the picture day form");
+    check(!!(await page.$(".ptl-tiles")), "shows the sales statement");
+    await page.click('[data-proof="pp1"] [data-ans="changes"]');
+    await page.click('[data-proof="pp1"] [data-go="changes"]');
+    check(await page.isVisible('[data-proof="pp1"] [data-err]'), "an answer needs a name");
+    await page.fill('[data-proof="pp1"] [data-k="name"]', "Chris");
+    await page.click('[data-proof="pp1"] [data-go="changes"]');
+    check(await page.isVisible('[data-proof="pp1"] [data-err]'), "changes need a note");
+    await page.fill('[data-proof="pp1"] [data-k="note"]', "Fix Jaden's name");
+    await page.click('[data-proof="pp1"] [data-go="changes"]');
+    await page.waitForSelector(".ptl .ok");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "portal_public_proof" && c[1].p_answer === "changes" && c[1].p_note === "Fix Jaden's name")), "sends the changes");
+    await page.setInputFiles("#ptl-file", { name: "roster.csv", mimeType: "text/csv", buffer: Buffer.from("a,b\n") });
+    await page.fill("#ptl-from", "Chris");
+    await page.click("#ptl-send");
+    await page.waitForTimeout(300);
+    const up = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "portal_public_upload").pop());
+    check(up && /^f{32}\/in\/\d+-roster\.csv$/.test(up[1].p_path) && up[1].p_from === "Chris", "uploads into their in folder and records it");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
