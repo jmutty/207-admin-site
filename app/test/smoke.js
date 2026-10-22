@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "photocheck", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "shootlog", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -1082,6 +1082,121 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
+  console.log("Photographed check (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/photocheck");
+    await page.waitForSelector("#aca-paList tr[data-open]");
+    check((await page.$$("#aca-paList tr[data-open]")).length === 2, "list shows two picture days");
+    check((await page.textContent("#aca-paList")).includes("2 still need a photo"), "list says how many still need a photo");
+    await page.click('#aca-paList tr[data-open="bk5"]');
+    await page.waitForSelector("#aca-paPeople");
+    check(page.url().endsWith("#jobs/photocheck/bk5"), "opening one puts it in the address");
+    check((await page.$$("#aca-paPeople [data-mark]")).length === 2, "missing filter shows the two still needing a photo");
+    check((await page.textContent("#aca-panel-photocheck .tiles")).includes("Still need a photo"), "summary tiles");
+    check((await page.textContent("#aca-panel-photocheck")).includes("Ben Brown (sick)"), "absences from the shoot log show");
+    check((await page.textContent("#aca-paPeople")).includes("On Retakes"), "a student already on Retakes is marked");
+    await page.selectOption("#aca-paFilter", "all");
+    check((await page.$$("#aca-paPeople [data-mark]")).length === 4, "Everyone shows the whole roster");
+    // upload a photographed list: the photo count column drops rows with 0
+    await page.click("#aca-paShotFile");
+    await page.setInputFiles("#aca-paFile", { name: "photographed.csv", mimeType: "text/csv",
+      buffer: Buffer.from('Student ID,First Name,Last Name,Class,Access code,Photos\nS100,Ava,Adams,3 - Boone,P1CODE,4\n,"Brown, Jr.",Ben,3 - Boone,,0\n,Finn,Ford,4 - Diaz,,2\n') });
+    await page.waitForSelector("#aca-paMap-first");
+    check(await page.$eval("#aca-paMap-photos", (n) => n.value) === "5" && await page.$eval("#aca-paMap-id", (n) => n.value) === "0" && await page.$eval("#aca-paMap-group", (n) => n.value) === "3",
+      "columns guessed from the headers");
+    check((await page.textContent("#aca-paMapCount")).startsWith("2 people photographed"), "rows with 0 photos are left out");
+    await page.click("#aca-paFileSave");
+    await page.waitForTimeout(200);
+    const up = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "pa_photographed").pop());
+    check(up && up[1].p_rows.length === 2 && up[1].p_rows[0].id === "S100" && up[1].p_rows[0].code === "P1CODE" && up[1].p_rows[1].first === "Finn" && up[1].p_name === "photographed.csv",
+      "photographed list sent: " + JSON.stringify(up && up[1].p_rows));
+    await page.click('#aca-paPeople [data-mark="p2"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pa_mark" && c[1].p_person === "p2" && c[1].p_photographed === true)), "mark someone photographed by hand");
+    await page.click("#aca-paRetakes");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pa_to_retakes" && c[1].p_booking === "bk5")), "adds the missing students to Retakes");
+    await page.click("#aca-paPrevSchool");
+    await page.waitForSelector(".modal .pa-pre");
+    check((await page.textContent(".modal")).includes("2 students still need a picture"), "preview of the school email");
+    await page.click(".modal [data-x]");
+    await page.click("#aca-paSendSchool");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pa_send" && c[1].p_kind === "school" && c[1].p_contact === "c4")), "emails the school contact the list");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Photographed check: a league job");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/photocheck/bk1");
+    await page.waitForSelector("#aca-paPeople");
+    check(!(await page.$("#aca-paRetakes")), "no Retakes button for a league");
+    check((await page.textContent("#aca-paPeople")).includes("Makeup"), "a booked makeup shows next to the player");
+    check((await page.textContent("#aca-panel-photocheck")).includes("1 missing player is on a team with a coach email"), "says how many coaches can be told");
+    await page.fill("#aca-paMakeup", "https://207photo.com/makeups");
+    await page.click("#aca-paMakeupSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pa_settings_save" && c[1].p_makeup_link === "https://207photo.com/makeups")), "saves the makeup link");
+    await page.click("#aca-paSendCoach");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pa_send" && c[1].p_kind === "coach")), "emails the coaches");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Picture day readiness");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/pictureday");
+    await page.waitForSelector("#aca-pdList [data-rd] .rd-dots");
+    check((await page.textContent('#aca-pdList [data-rd="bk1"]')).includes("3 of 5 ready"), "list: readiness dots per picture day");
+    check((await page.getAttribute('#aca-pdList [data-rd="bk1"] .rd-dots', "title")).includes("1 of 3 coaches confirmed"), "dots explain themselves");
+    await page.click('#aca-pdList tr[data-open="bk1"]');
+    await page.waitForSelector("#aca-rdStrip .pill");
+    check((await page.textContent("#aca-rdStrip")).includes("Gear not packed"), "detail: the strip in words");
+    await page.click("#aca-rdGear");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "rd_gear" && c[1].p_booking === "bk1" && c[1].p_packed === true)), "mark gear packed");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Shoot log: crew on a phone");
+  {
+    const { page, errors } = await open(browser, port, "?as=crew", "#staff/shootlog");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForSelector("#aca-sgList .sg-item");
+    const items = await rail(page);
+    check(JSON.stringify(items) === JSON.stringify(["today", "shootlog"]), "crew menu: Today and Shoot log: " + items.join(","));
+    check(!(await visible(page, "#aca-viewOnly")), "no view-only notice for crew");
+    check((await page.textContent("#aca-sgList")).includes("Log today"), "today's job asks to be logged");
+    await page.click('#aca-sgList [data-id="bk1"]');
+    await page.waitForSelector("#aca-sgSave");
+    check(/#staff\/shootlog\/bk1\/\d{4}-\d{2}-\d{2}$/.test(page.url()), "the job day is in the address");
+    check((await page.$$(".sg-days button")).length === 2, "a two-day job can switch days");
+    await page.click('[data-step="sgCards"][data-d="1"]');
+    await page.click('[data-step="sgCards"][data-d="1"]');
+    await page.click('[data-g="0"]');
+    await page.click('[data-g="2"]');
+    check((await page.textContent("#aca-sgGCount")) === "2 of 3", "ticked teams are counted");
+    await page.fill("#aca-sgSubjects", "28");
+    await page.fill("#aca-sgAbs", "Ivy Irwin");
+    await page.fill("#aca-sgIssues", "Backdrop stand broke");
+    await page.click("#aca-sgSave");
+    await page.waitForTimeout(200);
+    const sv = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "sl_save").pop());
+    check(sv && sv[1].p_booking === "bk1" && sv[1].p.cards === 2 && JSON.stringify(sv[1].p.groups) === '["U10 Blue","U12 Green"]' && sv[1].p.subjects_shot === 28 && sv[1].p.issues === "Backdrop stand broke",
+      "saves the log: " + JSON.stringify(sv && sv[1]));
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= 392), "shoot log: no sideways scroll on a phone");
+    await page.click("#aca-sgBack");
+    await page.click('#aca-sgList [data-id="bk5"]');
+    await page.waitForSelector("#aca-sgAbs");
+    check(await page.$eval("#aca-sgAbs", (n) => n.value) === "Ben Brown (sick)" && (await page.textContent("#aca-panel-shootlog")).includes("Logged by Riley Second"), "a saved log opens filled in");
+    await page.evaluate(() => { location.hash = "#today"; });
+    await page.waitForTimeout(300);
+    check((await page.textContent("#aca-panel-today")).includes("Log your shoot"), "Today asks them to log their shoot");
+    const calls = await page.evaluate(() => window.__rpcCalls.map((c) => c[0]));
+    check(!calls.some((n) => /^(pa_|rd_|pd_)/.test(n)), "crew never calls the check, readiness or planner RPCs");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
   console.log("Staff with a temporary password");
   {
     const { page, errors } = await open(browser, port, "?as=staff&temp=1");

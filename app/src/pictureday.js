@@ -86,7 +86,7 @@
       if (error) { box.innerHTML = '<div class="inline-error">' + esc(cleanErr(error)) + "</div>"; return; }
       const rows = data || [];
       if (!rows.length) { box.innerHTML = '<div class="empty">No booked picture days coming up.</div>'; return; }
-      box.innerHTML = '<table class="pd-list"><thead><tr><th>Date</th><th>Job</th><th>Form</th><th class="hide-sm">Teams</th><th>Coaches</th></tr></thead><tbody>' +
+      box.innerHTML = '<table class="pd-list"><thead><tr><th>Date</th><th>Job</th><th>Form</th><th class="hide-sm">Teams</th><th>Coaches</th><th class="hide-sm">Ready</th></tr></thead><tbody>' +
         rows.map((b) => {
           const form = b.submitted_at ? '<span class="pill ok">Filled in</span>' : b.intake_sent_at ? '<span class="pill">Sent ' + esc(fmtAgo(b.intake_sent_at)) + "</span>" : '<span class="pill muted">Not sent</span>';
           const n = num(b.teams);
@@ -97,11 +97,12 @@
           return '<tr class="go" data-open="' + esc(b.booking_id) + '"><td class="tnum">' + esc(fmtDayIso(b.picture_day)) +
             '<span class="sub">' + (b.time_set ? esc(timeOf(b.start_at)) : "time not set") + "</span></td>" +
             "<td><b>" + esc(b.title) + '</b><span class="sub">' + esc(b.location || "") + "</span></td><td>" + form + '</td><td class="hide-sm tnum">' +
-            n + (n ? '<span class="sub">' + num(b.timed) + " with a time</span>" : "") + "</td><td>" + coach + "</td></tr>";
+            n + (n ? '<span class="sub">' + num(b.timed) + " with a time</span>" : "") + "</td><td>" + coach + '</td><td class="hide-sm rd-cell" data-rd="' + esc(b.booking_id) + '"></td></tr>';
         }).join("") + "</tbody></table>";
       box.querySelectorAll("[data-open]").forEach((tr) => tr.addEventListener("click", () => {
         history.replaceState(null, "", "#jobs/pictureday/" + tr.dataset.open); open(tr.dataset.open);
       }));
+      Readiness.fillList(box);
     }
 
     // ---------------------------------------------------------------- one picture day
@@ -141,11 +142,11 @@
       let h = '<p style="margin:0 0 8px"><button type="button" class="link" id="aca-pdBack">&#8592; Picture days</button></p>' +
         '<div class="pd-head"><h2>' + esc(b.title) + "</h2></div>" +
         '<p class="pd-meta">' + esc(fmtDayIso(b.picture_day)) + (b.time_set ? ", " + esc(timeOf(b.start_at)) + (b.end_at ? " to " + esc(timeOf(b.end_at)) : "") : ", time not set") +
-        (b.location ? " &#183; " + esc(b.location) : "") + "</p>";
+        (b.location ? " &#183; " + esc(b.location) : "") + "</p>" + '<div class="rd-strip" id="aca-rdStrip"></div>';
       if (b.status !== "booked") h += '<div class="pd-banner">This job is ' + esc(b.status) + ". Only booked jobs send anything.</div>";
       else if (!s.enabled) h += '<div class="pd-banner"><b>Booking emails are switched off.</b> Emails you send here wait until they are switched back on (Settings &#8250; Sending).</div>';
       else if (s.test_mode) h += '<div class="pd-banner"><b>Test mode.</b> Every email goes to ' + esc(s.test_recipient || "the test address") + " with a [TEST] subject.</div>";
-      if (!p) { r.innerHTML = h + '<div class="empty">Nobody has started planning this picture day yet.</div>'; el("pdBack").onclick = back; return; }
+      if (!p) { r.innerHTML = h + '<div class="empty">Nobody has started planning this picture day yet.</div>'; el("pdBack").onclick = back; Readiness.fillDetail(el("rdStrip"), b.id, false); return; }
 
       // 1. the form
       const sentLine = p.submitted_at ? '<span class="pill ok">Filled in ' + esc(fmtDate(p.submitted_at)) + "</span>" +
@@ -222,6 +223,7 @@
           '<span class="muted">' + esc(fmtDate(e.sent_at || e.created_at)) + (e.test_mode ? " (test: " + esc(e.sent_to || "") + ")" : "") + (e.error ? " &#183; " + esc(e.error) : "") + "</span></li>").join("") + "</ul></div>";
       }
       r.innerHTML = h;
+      Readiness.fillDetail(el("rdStrip"), b.id, canEdit("pictureday"));
       wire(edit);
     }
 

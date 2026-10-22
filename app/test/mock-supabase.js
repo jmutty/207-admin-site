@@ -121,8 +121,11 @@
   const AS_PART = /[?&]as=parttime\b/.test(location.search);
   // ?as=money: Season results view only.
   const AS_MONEY = /[?&]as=money\b/.test(location.search);
+  // ?as=crew: a photographer with Shoot log view only.
+  const AS_CREW = /[?&]as=crew\b/.test(location.search);
   const RPC = {
-    my_access: AS_PART ? { user_id: "u6", email: "pat@207photo.com", name: "Pat Parttime", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { openjobs: "view" } }
+    my_access: AS_CREW ? { user_id: "u7", email: "riley@207photo.com", name: "Riley Second", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { shootlog: "view" } }
+      : AS_PART ? { user_id: "u6", email: "pat@207photo.com", name: "Pat Parttime", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { openjobs: "view" } }
       : AS_MONEY ? { user_id: "u6", email: "bo@207photo.com", name: "Bo Books", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { results: "view" } }
       : AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
@@ -461,11 +464,59 @@
     RPC.mileage_save = { ok: true, id: "mt9" }; RPC.mileage_remove = { ok: true }; RPC.mileage_refresh = { ok: true, filled: 0 }; RPC.mileage_from_schedule = { ok: true, added: 2 };
     RPC.timeclock_attention = { open_long: 0, to_approve: AS_STAFF ? 0 : 1, last_week: add(sun, -7) };
   }
+  // Photographed check, readiness and the shoot log (2026-10-22). bk5 = a school two days ago, bk1 = the league planner job.
+  {
+    const nyDay = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const add = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    const today = nyDay(Date.now()), past = add(today, -2), at = (d, hm) => d + "T" + hm + ":00-04:00";
+    T.app_modules.push({ key: "photocheck", label: "Photographed check", section: "Jobs", description: "Roster against who was photographed.", sort: 16, status: "live", admin_only: false },
+                       { key: "shootlog", label: "Shoot log", section: "Staff", description: "The crew logs the shoot.", sort: 212, status: "live", admin_only: false });
+    const person = (id, first, last, group, shot, extra) => Object.assign({ id, first, last, group, identifier: "", code: id.toUpperCase() + "CODE", photographed: shot, matched_by: shot ? "name" : null, retake: false, makeup: null }, extra || {});
+    const school = { booking: { id: "bk5", title: "Hampden Academy \u2022 School Photos", org_id: "22222222-2222-2222-2222-222222222222", org_name: "Hampden Academy", status: "booked", audience: "school",
+                                picture_day: past, location: "Gym", retake_day: add(today, 10) },
+      job: { id: "JOB-S", name: "Hampden Academy 2026", codes: 4 },
+      audit: { id: "au1", booking_id: "bk5", roster_source: "gotphoto", roster_name: "Hampden Academy 2026", roster_at: iso(-1), shot_name: "photographed.csv", shot_at: iso(-0.5), shot_rows: 3,
+               unmatched: [{ name: "Nobody Here", group: "5 - X", id: "" }], retakes_at: null },
+      people: [person("p1", "Ava", "Adams", "3 - Boone", true, { identifier: "S100", matched_by: "id" }), person("p2", "Ben", "Brown", "3 - Boone", false),
+               person("p3", "Cara", "Cole", "4 - Diaz", false, { retake: true }), person("p4", "Finn", "Ford", "4 - Diaz", true)],
+      logs: [{ day: past, by_name: "Riley Second", absences: "Ben Brown (sick)", issues: "", subjects_shot: 3, groups_shot: 2 }],
+      contacts: [{ id: "c4", name: "Pat Lee", email: "plee@hancock.k12.me.us", role: "Principal" }],
+      teams: [], emails: [], makeup_link: "", sending: { enabled: true, test_mode: false } };
+    const league = Object.assign({}, school, { booking: Object.assign({}, school.booking, { id: "bk1", title: "Brewer Travel Basketball Club \u2022 Winter Sports", audience: "sports", retake_day: null }),
+      people: [person("q1", "Gia", "Gray", "U10 Blue", true), person("q2", "Hal", "Hart", "U10 Blue", false, { makeup: { at: iso(3), sent_at: null } }), person("q3", "Ivy", "Irwin", "U12 Green", false)],
+      teams: [{ name: "U10 Blue", coach_name: "Sam Coach", coach_email: "sam@example.org", key: "u10blue" }, { name: "U12 Green", coach_name: "Pat Coach", coach_email: "", key: "u12green" }],
+      emails: [{ id: 1, kind: "coach", team: "U10 Blue", to_email: "sam@example.org", to_name: "Sam Coach", subject: "U10 Blue: 1 player missed picture day", status: "sent", created_at: iso(-0.1), sent_at: iso(-0.1) }] });
+    Object.assign(RPC, {
+      pa_list: [{ booking_id: "bk5", title: school.booking.title, audience: "school", picture_day: past, location: "Gym", job_id: "JOB-S", retake_day: add(today, 10), roster: 4, photographed: 2, shot_at: iso(-0.5), retakes_at: null, logged: true },
+                { booking_id: "bk1", title: league.booking.title, audience: "sports", picture_day: add(today, -1), location: "", job_id: "JOB-L", retake_day: null, roster: 0, photographed: 0, shot_at: null, retakes_at: null, logged: false }],
+      pa_get: (a) => (a && a.p_booking === "bk1" ? league : school),
+      pa_attention: { to_check: 1 },
+      pa_roster_gotphoto: { ok: true, people: 4 }, pa_roster_upload: { ok: true, people: 3 },
+      pa_photographed: { ok: true, rows: 2, matched: 2, unmatched: 0, missing: 2 }, pa_mark: { ok: true },
+      pa_to_retakes: { ok: true, added: 1, already: 0, no_code: 0 },
+      pa_email_preview: (a) => (a.p_kind === "school" ? [{ to_email: "plee@hancock.k12.me.us", subject: "Hampden Academy: 2 students still need a picture", text: "Hi Pat,\n\n3 - Boone: Ben Brown" }]
+        : [{ to_email: "sam@example.org", team: "U10 Blue", subject: "U10 Blue: 1 player missed picture day", text: "Hi Sam,\n\nHal Hart" }]),
+      pa_send: { ok: true, queued: 1, sending_enabled: true }, pa_settings_save: { ok: true },
+      rd_get: (a) => (a.p_bookings || []).map((id) => ({ booking_id: id, day: id === "bk1" ? add(today, 12) : add(today, 3), form: id === "bk1" ? "in" : "none", roster: id === "bk1",
+        teams: id === "bk1" ? 3 : 0, coach_emails: 3, confirmed: 1, crew: id === "bk1" ? 2 : 0, gear_packed_at: null, gear_by: null, logged: false, checked: false })),
+      rd_gear: { ok: true },
+      sl_mine: { can_edit: !AS_CREW, today, jobs: [{ booking_id: "bk1", day: today, title: league.booking.title, location: "Brewer Rec Center", mine: true, logged_at: null, by_name: null, issues: false },
+                                                   { booking_id: "bk5", day: past, title: school.booking.title, location: "Gym", mine: true, logged_at: iso(-1.5), by_name: "Riley Second", issues: true }] },
+      sl_get: (a) => (a.p_booking === "bk5"
+        ? { booking: { id: "bk5", title: school.booking.title, status: "booked", location: "Gym", picture_day: past, audience: "school" }, day: past, days: [past], can_edit: true, crew: ["Riley Second"],
+            log: { id: "sl1", booking_id: "bk5", day: past, by_name: "Riley Second", cards: 2, card_labels: "A, B", groups: ["3 - Boone"], groups_shot: 1, subjects_shot: 40, absences: "Ben Brown (sick)", issues: "Light stand wobbly", notes: "", updated_at: iso(-1.5) },
+            groups: ["3 - Boone", "4 - Diaz"] }
+        : { booking: { id: "bk1", title: league.booking.title, status: "booked", location: "Brewer Rec Center", picture_day: today, audience: "sports" }, day: today, days: [today, add(today, 1)], can_edit: true,
+            crew: ["Riley Second", "Jeremiah Mutty"], log: null, groups: ["U10 Blue", "U10 Red", "U12 Green"] }),
+      sl_save: { ok: true, id: "sl9", stage: false },
+      sl_attention: { to_log: 1 },
+    });
+  }
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
             updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }) },
-    from: q, storage, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: RPC[n] !== undefined ? RPC[n] : [], error: null }),
+    from: q, storage, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: typeof RPC[n] === "function" ? RPC[n](a) : RPC[n] !== undefined ? RPC[n] : [], error: null }),
   }) };
   // Edge functions: the Team page's account actions.
   const realFetch = window.fetch;
