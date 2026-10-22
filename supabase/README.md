@@ -37,6 +37,8 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022233000_staff_gear_rec
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/staff_records_test.sql   # clearances, school-job warnings (booked only), onboarding + auto ticks, morning push, gear value + service log, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213000_timeclock_mileage.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/timeclock_test.sql    # clock in/switch/out, own fixes, approval locks, payroll + overtime, mileage trips + look-ups, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213500_picture_day_planner.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/pictureday_test.sql   # form, teams, slots, coach answers, sending switch/test mode/quiet hours, booked only, roster bucket, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new

@@ -132,6 +132,10 @@ Then add the files to `app/build.py` (`JS_PARTS` before `src/shell-end.js`, and 
 A Today line: `registerAttention(...)` plus `registerTodayLoader("<module>", () => Thing.loadAttention())`, which runs
 with the other Today checks for people who can see the module (see `app/src/scheduling.js`).
 
+A page for people outside 207 Photo (no sign-in, opened from an emailed link with a token): call
+`registerPublicPage({ wanted: () => /^#mypage\//.test(location.hash), show() {...} })` and back it with
+`SECURITY DEFINER` RPCs granted to `anon` that look the token up (see `app/src/pictureday-public.js`).
+
 Helpers available everywhere: `supabase`, `el(id)`, `esc()`, `fmtDate()`, `fmtAgo()`, `toast()`,
 `showError()`/`clearError()`, `canSee(m)`, `canEdit(m)`, `openModal(html, {locked})`, `setAttention()`.
 
