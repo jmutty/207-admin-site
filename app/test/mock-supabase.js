@@ -115,8 +115,11 @@
   // ?as=viewer: bookings view only (read-only booking panel).
   const AS_VIEWER = /[?&]as=viewer\b/.test(location.search);
   const AS_GEAR = /[?&]as=gear\b/.test(location.search);
+  // ?as=parttime: a part-time photographer (Open jobs view only).
+  const AS_PART = /[?&]as=parttime\b/.test(location.search);
   const RPC = {
-    my_access: AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
+    my_access: AS_PART ? { user_id: "u6", email: "pat@207photo.com", name: "Pat Parttime", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { openjobs: "view" } }
+      : AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
       : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view" } }
       : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
@@ -256,6 +259,35 @@
     RPC.workflow_step_save = { ok: true, id: "ws9" }; RPC.workflow_step_archive = { ok: true }; RPC.workflow_attention = { overdue: 1 };
     RPC.assignment_check = { ok: true }; RPC.assignment_save = { ok: true, id: "t9" }; RPC.assignment_archive = { ok: true }; RPC.staff_settings_save = { ok: true }; RPC.day_email_status = { on: true, hour: 7, mine: true }; RPC.day_email_settings_save = { ok: true }; RPC.day_email_mine = { ok: true, on: false }; RPC.team_set_hours = { ok: true };
   }
+  // Open jobs (2026-10-22): offers to part-timers.
+  {
+    const nyDay = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const add = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    const today = nyDay(Date.now()), at = (d, hm) => d + "T" + hm + ":00-04:00";
+    const offer = (id, extra) => Object.assign({ id, booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", location: "89 Western Ave, Hampden ME", booking_status: "booked",
+      spots: 1, note: "Bring the white backdrop.", pay: "$150 flat", status: "open", created_at: iso(-0.1), created_by: "Jeremiah Mutty", taken: 0,
+      days: [{ day: add(today, 3), start_at: at(add(today, 3), "09:00"), end_at: at(add(today, 3), "12:00") }] }, extra);
+    RPC.openjobs_mine = { me: "u6", offers: [offer("of1", { mine: { drive_min: 35, answer: null, answered_at: null, reason: "" } }),
+      offer("of2", { booking_id: "bk2", title: "Brewer Travel Basketball \u2022 Winter Sports", status: "filled", spots: 2, taken: 2, pay: "", note: "", mine: { drive_min: 50, answer: "declined", answered_at: iso(-1), reason: "Busy" } })] };
+    RPC.openjobs_answer = { ok: true, answer: "accepted", scheduled: 1, untimed: 0 };
+    RPC.openjobs_attention = { waiting: 1, no_takers: AS_PART ? 0 : 1 };
+    RPC.openjobs_list = [Object.assign(offer("of1"), { recipients: [
+      { user_id: "u6", name: "Pat Parttime", drive_min: 35, notified: true, seen_at: iso(-0.05), answer: null, answered_at: null, reason: "" },
+      { user_id: "u7", name: "Riley Second", drive_min: 52, notified: true, seen_at: iso(-0.05), answer: "declined", answered_at: iso(-0.02), reason: "Out of town" },
+      { user_id: "u8", name: "Casey Third", drive_min: null, notified: false, seen_at: null, answer: null, answered_at: null, reason: "" }] })];
+    RPC.openjobs_upcoming = [{ booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", first_day: add(today, 3), days: 1, location: "89 Western Ave, Hampden ME", crew: 1, open_offers: 1 },
+      { booking_id: "bk2", title: "Brewer Travel Basketball \u2022 Winter Sports", type_label: "Sports", first_day: add(today, 5), days: 2, location: "", crew: 0, open_offers: 0 }];
+    RPC.openjobs_candidates = { booking: { booking_id: "bk2", title: "Brewer Travel Basketball \u2022 Winter Sports", location: "Brewer, Maine", days: [{ day: add(today, 5), start_at: at(add(today, 5), "16:00"), end_at: at(add(today, 5), "19:00") }, { day: add(today, 6), start_at: null, end_at: null }] },
+      people: [{ user_id: "u6", name: "Pat Parttime", home_set: true, max_drive_min: 60, drive_min: 35, meters: 40000, in_range: true, has_access: true, has_device: true, on_job: false, offered: false, busy: [] },
+        { user_id: "u7", name: "Riley Second", home_set: true, max_drive_min: 45, drive_min: 40, meters: 50000, in_range: true, has_access: true, has_device: false, on_job: false, offered: false, busy: [add(today, 5)] },
+        { user_id: "u8", name: "Casey Third", home_set: true, max_drive_min: 30, drive_min: 70, meters: 90000, in_range: false, has_access: true, has_device: true, on_job: false, offered: false, busy: [] },
+        { user_id: "u9", name: "Dana Nohome", home_set: false, max_drive_min: 60, drive_min: null, meters: null, in_range: false, has_access: false, has_device: false, on_job: false, offered: false, busy: [] }] };
+    RPC.openjobs_post = { ok: true, id: "of9", sent: 2, pushed: 1 };
+    RPC.openjobs_close = { ok: true };
+    RPC.openjobs_people = { can_grant: true, people: [{ user_id: "u6", name: "Pat Parttime", part_time: true, home_address: "12 Elm St, Bangor ME", max_drive_min: 60, has_access: true, has_device: true },
+      { user_id: "u2", name: "Sam Helper", part_time: false, home_address: "", max_drive_min: 60, has_access: false, has_device: true }] };
+    RPC.openjobs_person_save = { ok: true, granted: true };
+  }
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
@@ -269,6 +301,10 @@
       const b = JSON.parse(opts.body);
       window.__teamCalls = (window.__teamCalls || []).concat([b]);
       return new Response(JSON.stringify({ ok: true, user_id: "u9", temp_password: "k7mp-2qrx-h8vt-w3nd", emailed: b.send_welcome === true, email_error: null }), { status: 200 });
+    }
+    if (String(url).includes("/functions/v1/offer-drive")) {
+      window.__offerDriveCalls = (window.__offerDriveCalls || []).concat([JSON.parse(opts.body)]);
+      return new Response(JSON.stringify({ ok: true, asked: 3, stored: 3, missed: 0 }), { status: 200 });
     }
     if (String(url).includes("/functions/v1/drive-time")) {
       window.__driveCalls = (window.__driveCalls || []).concat([JSON.parse(opts.body)]);

@@ -27,6 +27,8 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022170000_schedule_calen
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/scheduling_test.sql   # schedule bars + kinds + flex, Google Calendar events, drive time cache, tasks + carry-over, evening push, morning email, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022180000_job_workflows.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/workflows_test.sql    # job checklists: tasks per job, follow picture day and crew, hand edits, cancel, track-only, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213000_open_jobs.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql     # part-timers, drive cache, offers, take it / pass, first come first served, pushes, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new

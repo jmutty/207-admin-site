@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -572,6 +572,66 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!(await shown(page, "#aca-asAdd")) && !(await shown(page, "#aca-asSetCard")), "tasks: no add, no settings");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
+  }
+
+  console.log("Open jobs (part-timer)");
+  {
+    const { page, errors } = await open(browser, port, "?as=parttime");
+    const items = await rail(page);
+    check(JSON.stringify(items) === JSON.stringify(["today", "openjobs"]), "menu: Today and Open jobs: " + items.join(","));
+    check((await page.textContent("#aca-panel-today")).includes("offered to you"), "Today says a job is waiting");
+    await page.click('#aca-nav button[data-tab="openjobs"]');
+    await page.waitForSelector("#aca-ojMine .oj-card");
+    check(!(await visible(page, "#aca-viewOnly")), "no view-only notice");
+    check(!(await visible(page, "#aca-ojOffer")) && !(await visible(page, "#aca-ojPosted")), "no manager controls");
+    check((await page.$$("#aca-ojMine [data-take]")).length === 1 && (await page.$$("#aca-ojMine [data-pass]")).length === 1, "open offer has Take it + Pass; filled one has neither");
+    check((await page.textContent("#aca-ojMine")).includes("35 min drive") && (await page.textContent("#aca-ojMine")).includes("You passed"), "shows drive and past answer");
+    await page.click('#aca-ojMine [data-pass="of1"]');
+    await page.fill("#aca-ojReason", "Too far");
+    await page.click('.modal [data-m="pass"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "openjobs_answer" && c[1].p_offer === "of1" && c[1].p_accept === false && c[1].p_reason === "Too far")), "Pass sends the reason");
+    await page.click('#aca-ojMine [data-take="of1"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "openjobs_answer" && c[1].p_offer === "of1" && c[1].p_accept === true)), "Take it");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Open jobs (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#staff/openjobs");
+    await page.waitForSelector("#aca-ojPosted .oj-card");
+    check(await visible(page, "#aca-ojOffer"), "Offer a job shown");
+    const posted = await page.textContent("#aca-ojPosted");
+    check(posted.includes("Took it") || (posted.includes("Passed") && posted.includes("Out of town") && posted.includes("No notifications on")), "answers + reasons shown");
+    await page.click("#aca-ojOffer");
+    await page.waitForSelector('#aca-ojJob option[value="bk2"]', { state: "attached" });
+    await page.selectOption("#aca-ojJob", "bk2");
+    await page.waitForSelector("#aca-ojCands .oj-cand");
+    check(await page.evaluate(() => (window.__offerDriveCalls || []).some((c) => c.booking_id === "bk2")), "asks for drive times");
+    const ticked = await page.$$eval(".oj-cand:checked", (xs) => xs.map((x) => x.value));
+    check(JSON.stringify(ticked) === JSON.stringify(["u6"]), "only in-range, free part-timers start ticked: " + ticked.join(","));
+    check(await page.$eval('.oj-cand[value="u9"]', (x) => x.disabled), "no-access person can't be picked");
+    await page.check('.oj-cand[value="u8"]');
+    await page.selectOption("#aca-ojSpots", "2");
+    await page.fill("#aca-ojPay", "$200");
+    await page.click('.modal [data-m="send"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "openjobs_post" && c[1].p.booking_id === "bk2" && c[1].p.spots === 2 && c[1].p.pay === "$200" && c[1].p.user_ids.join() === "u6,u8")), "sends the offer");
+    check(!(await page.$(".modal")), "dialog closes");
+    await page.click("#aca-ojPeople");
+    await page.waitForSelector(".oj-ppl tr[data-u]");
+    await page.check('.oj-ppl tr[data-u="u2"] .oj-pt');
+    await page.waitForTimeout(100);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "openjobs_person_save" && c[1].p_user === "u2" && c[1].p_part_time === true)), "marks someone part-time");
+    await page.click('.modal [data-m="done"]');
+    await page.close();
+    const p2 = await open(browser, port, "", "#staff/openjobs/bk1");
+    await p2.page.waitForSelector("#aca-ojCands .oj-cand");
+    check(await p2.page.$eval("#aca-ojJob", (s) => s.value) === "bk1", "#staff/openjobs/<booking> opens the offer on that job");
+    check(errors.length === 0 && p2.errors.length === 0, "no page errors" + (errors.concat(p2.errors).length ? ": " + errors.concat(p2.errors).join(" | ") : ""));
+    await p2.page.close();
   }
 
   console.log("Staff with a temporary password");
