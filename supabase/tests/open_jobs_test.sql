@@ -1,5 +1,5 @@
--- Open jobs tests (20261022213000_open_jobs). Run on a NON-production schema copy after the team, push and
--- scheduling migrations; everything is rolled back:
+-- Open jobs tests (20261022213000_open_jobs + 20261023090000_employment_type). Run on a NON-production schema copy after the team, push,
+-- scheduling, open jobs and employment type migrations; everything is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/open_jobs_test.sql
 begin;
 
@@ -27,14 +27,15 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a2', 'p1@example.com'), ('00000000-0000-0000-0000-0000000000a3', 'p2@example.com'),
   ('00000000-0000-0000-0000-0000000000a4', 'x@example.com'), ('00000000-0000-0000-0000-0000000000a5', 'p3@example.com');
 insert into public.admin_users values ('00000000-0000-0000-0000-0000000000a0') on conflict do nothing;
-insert into public.team_members (user_id, display_name, part_time, home_address, max_drive_min) values
-  ('00000000-0000-0000-0000-0000000000a0', 'Owner', false, '', 60),
-  ('00000000-0000-0000-0000-0000000000a1', 'Manager Person', false, '', 60),
-  ('00000000-0000-0000-0000-0000000000a2', 'Pat One', true, '1 Elm St, Bangor ME', 45),
-  ('00000000-0000-0000-0000-0000000000a3', 'Riley Two', true, '2 Oak St, Ellsworth ME', 30),
-  ('00000000-0000-0000-0000-0000000000a4', 'Xavier', false, '', 60),
-  ('00000000-0000-0000-0000-0000000000a5', 'Casey Three', false, '3 Pine St, Orono ME', 60)
-on conflict (user_id) do update set part_time = excluded.part_time, home_address = excluded.home_address, max_drive_min = excluded.max_drive_min;
+-- (after 20261023090000_employment_type) offers go to Part time and 1099: Pat is part time, Riley a 1099 contractor
+insert into public.team_members (user_id, display_name, employment_type, home_address, max_drive_min) values
+  ('00000000-0000-0000-0000-0000000000a0', 'Owner', 'salaried', '', 60),
+  ('00000000-0000-0000-0000-0000000000a1', 'Manager Person', 'full_time', '', 60),
+  ('00000000-0000-0000-0000-0000000000a2', 'Pat One', 'part_time', '1 Elm St, Bangor ME', 45),
+  ('00000000-0000-0000-0000-0000000000a3', 'Riley Two', 'contractor', '2 Oak St, Ellsworth ME', 30),
+  ('00000000-0000-0000-0000-0000000000a4', 'Xavier', 'full_time', '', 60),
+  ('00000000-0000-0000-0000-0000000000a5', 'Casey Three', null, '3 Pine St, Orono ME', 60)
+on conflict (user_id) do update set employment_type = excluded.employment_type, home_address = excluded.home_address, max_drive_min = excluded.max_drive_min;
 insert into public.team_permissions values
   ('00000000-0000-0000-0000-0000000000a1', 'openjobs', 'edit'), ('00000000-0000-0000-0000-0000000000a2', 'openjobs', 'view'),
   ('00000000-0000-0000-0000-0000000000a3', 'openjobs', 'view'), ('00000000-0000-0000-0000-0000000000a4', 'scheduling', 'view');
@@ -135,10 +136,12 @@ update public.bookings set status = 'booked' where id = '00000000-0000-0000-0000
 
 -- ---------------------------------------------------------------- part-timer setup
 select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
-select pg_temp.ok(not (public.openjobs_person_save('00000000-0000-0000-0000-0000000000a5', true, '3 Pine St, Orono ME', 60) ->> 'granted')::boolean, 'a manager marks Casey part-time but cannot grant access');
+select pg_temp.ok(not (public.openjobs_person_save('00000000-0000-0000-0000-0000000000a5', true, '3 Pine St, Orono ME', 60) ->> 'granted')::boolean, 'a manager saves Casey''s address; no access granted');
 select pg_temp.raises($$select public.openjobs_person_save('00000000-0000-0000-0000-0000000000a5', true, '', 999)$$, 'longest drive is capped');
+select pg_temp.raises($$select public.team_set_profile('00000000-0000-0000-0000-0000000000a5', 'part_time', '')$$, 'only full access sets the employment type');
 select pg_temp.act('00000000-0000-0000-0000-0000000000a0');
-select pg_temp.ok((public.openjobs_person_save('00000000-0000-0000-0000-0000000000a5', true, '3 Pine St, Orono ME', 60) ->> 'granted')::boolean, 'the owner marking them part-time gives them Open jobs');
+select pg_temp.ok(not (public.openjobs_person_save('00000000-0000-0000-0000-0000000000a5', true, '3 Pine St, Orono ME', 60) ->> 'granted')::boolean, 'no type set: saving the address grants nothing');
+select pg_temp.ok((public.team_set_profile('00000000-0000-0000-0000-0000000000a5', 'part_time', 'Assistant') ->> 'granted')::boolean, 'the owner setting them to Part time gives them Open jobs');
 reset role;
 select pg_temp.ok(exists (select 1 from public.team_permissions where user_id = '00000000-0000-0000-0000-0000000000a5' and module_key = 'openjobs' and level = 'view')
               and exists (select 1 from public.team_audit where target = '00000000-0000-0000-0000-0000000000a5'), 'view access granted and audited');

@@ -133,7 +133,7 @@
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
       : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view", staffrecords: "view", timeclock: "view", taskboard: "view" } }
       : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
-    team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, weekly_hours: 40, last_sign_in_at: iso(-0.01), modules: {} },
+    team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, weekly_hours: 40, employment_type: "salaried", job_title: "Owner", last_sign_in_at: iso(-0.01), modules: {} },
       { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, is_me: false, active: true, must_change_password: true, last_sign_in_at: null, modules: { bookings: "edit", parents: "view" } },
       { user_id: "u3", email: "old@207photo.com", name: "Former Staff", is_admin: false, is_me: false, active: false, must_change_password: false, last_sign_in_at: iso(-90), modules: { partners: "view" } }],
     team_audit_list: [{ at: iso(-1), action: "added", actor: "Jeremiah Mutty", target: "Sam Helper" }, { at: iso(-0.5), action: "updated", actor: "Jeremiah Mutty", target: "Sam Helper" }],
@@ -451,9 +451,9 @@
         { user_id: "u9", name: "Dana Nohome", home_set: false, max_drive_min: 60, drive_min: null, meters: null, in_range: false, has_access: false, has_device: false, on_job: false, offered: false, busy: [] }] };
     RPC.openjobs_post = { ok: true, id: "of9", sent: 2, pushed: 1 };
     RPC.openjobs_close = { ok: true };
-    RPC.openjobs_people = { can_grant: true, people: [{ user_id: "u6", name: "Pat Parttime", part_time: true, home_address: "12 Elm St, Bangor ME", max_drive_min: 60, has_access: true, has_device: true },
-      { user_id: "u2", name: "Sam Helper", part_time: false, home_address: "", max_drive_min: 60, has_access: false, has_device: true }] };
-    RPC.openjobs_person_save = { ok: true, granted: true };
+    RPC.openjobs_people = { can_grant: true, people: [{ user_id: "u6", name: "Pat Parttime", part_time: true, employment_type: "part_time", job_title: "Photographer", home_address: "12 Elm St, Bangor ME", max_drive_min: 60, has_access: true, has_device: true },
+      { user_id: "u2", name: "Sam Helper", part_time: false, employment_type: null, job_title: "", home_address: "", max_drive_min: 60, has_access: false, has_device: true }] };
+    RPC.openjobs_person_save = { ok: true, granted: true }; RPC.team_set_profile = { ok: true, granted: true };
   }
   // Time clock and mileage (2026-10-22). ?clockedin=1 starts clocked in.
   {
@@ -481,8 +481,9 @@
         .filter((p) => !AS_STAFF || p.user_id === "u2") };
     RPC.timepunch_save = { ok: true, id: "tp11" }; RPC.timepunch_remove = { ok: true }; RPC.timesheet_approve = { ok: true }; RPC.timeclock_settings_save = { ok: true };
     RPC.timesheet_payroll = { from: sun, to: add(sun, 6), mileage_rate: 0.7, overtime_after: 40,
-      people: [{ user_id: "u1", name: "Jeremiah Mutty", email: "jmutty@207photo.com", worked_min: 2610, overtime_min: 210, regular_min: 2400, miles: 26.1, mileage_pay: 18.27, weeks: 1, approved_weeks: 0, open: false },
-               { user_id: "u2", name: "Sam Helper", email: "sam@207photo.com", worked_min: 975, overtime_min: 0, regular_min: 975, miles: 0, mileage_pay: 0, weeks: 1, approved_weeks: 1, open: false }],
+      people: [{ user_id: "u1", name: "Jeremiah Mutty", email: "jmutty@207photo.com", employment_type: "full_time", job_title: "Owner", worked_min: 2610, overtime_min: 210, regular_min: 2400, miles: 26.1, mileage_pay: 18.27, weeks: 1, approved_weeks: 0, open: false },
+               { user_id: "u2", name: "Sam Helper", email: "sam@207photo.com", employment_type: "part_time", job_title: "", worked_min: 975, overtime_min: 0, regular_min: 975, miles: 0, mileage_pay: 0, weeks: 1, approved_weeks: 1, open: false },
+               { user_id: "u7", name: "Riley Second", email: "riley@example.com", employment_type: "contractor", job_title: "Second shooter", worked_min: 300, overtime_min: 0, regular_min: 300, miles: 40, mileage_pay: 28, weeks: 1, approved_weeks: 1, open: false }],
       punches: [Object.assign(punch("tp1", "u2", add(sun, 1), "08:00", "16:00", "studio"), { name: "Sam Helper" })] };
     RPC.mileage_list = { can_edit: !AS_STAFF, me, month: today.slice(0, 8) + "01", mileage_rate: 0.7, studio_address: "60 Main Rd, N Hampden",
       jobs: [{ booking_id: "bk1", day: add(sun, 2), title: "Hampden Academy \u2022 School Photos" }],
