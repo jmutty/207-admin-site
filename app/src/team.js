@@ -39,6 +39,10 @@
       loadLog();
     }
 
+    // Employment type (2026-10-23): Part time and 1099 get Open jobs offers; Salaried and 1099 get no overtime.
+    const TYPES = [["full_time", "Full time"], ["salaried", "Salaried"], ["part_time", "Part time"], ["contractor", "1099 contractor"]];
+    const typeLabel = (t) => (TYPES.find((x) => x[0] === t) || [null, ""])[1];
+
     function accessText(p) {
       if (p.is_admin) return "<b>Full access</b>";
       const parts = modules.filter((m) => p.modules[m.key]).map((m) => esc(m.label) + ' <span class="muted">(' + LEVEL_WORD[p.modules[m.key]] + ")</span>");
@@ -48,7 +52,7 @@
     function render() {
       el("teamBody").innerHTML = people.length ? people.map((p) =>
         "<tr" + (p.active ? "" : ' class="muted"') + '><td class="name">' + esc(p.name || p.email) + (p.is_me ? ' <span class="muted">(you)</span>' : "") +
-        '<div class="muted" style="font-size:12.5px">' + esc(p.email) + (p.weekly_hours != null ? " &middot; " + esc(String(Number(p.weekly_hours))) + " h/week" : "") + "</div></td>" +
+        '<div class="muted" style="font-size:12.5px">' + [p.job_title, typeLabel(p.employment_type)].filter(Boolean).map(esc).join(" &middot; ") + ((p.job_title || p.employment_type) ? "<br>" : "") + esc(p.email) + (p.weekly_hours != null ? " &middot; " + esc(String(Number(p.weekly_hours))) + " h/week" : "") + "</div></td>" +
         "<td>" + accessText(p) + "</td>" +
         "<td>" + esc(p.last_sign_in_at ? fmtAgo(p.last_sign_in_at) : "never") + "</td>" +
         "<td>" + (!p.active ? '<span class="pill muted">Deactivated</span>' : p.must_change_password ? '<span class="pill warn">Temporary password</span>' : '<span class="pill ok">Active</span>') + "</td>" +
@@ -73,12 +77,15 @@
 
     function openEditor(p) {
       const isNew = !p;
-      p = p || { name: "", email: "", is_admin: false, active: true, modules: {}, weekly_hours: null };
+      p = p || { name: "", email: "", is_admin: false, active: true, modules: {}, weekly_hours: null, employment_type: null, job_title: "" };
       const m = openModal(
         "<h2>" + (isNew ? "Add a person" : "Edit " + esc(p.name || p.email)) + "</h2>" +
         '<div class="field"><label for="aca-tmName">Name</label><input type="text" id="aca-tmName" maxlength="120" value="' + esc(p.name) + '" /></div>' +
         '<div class="field"><label for="aca-tmEmail">Email</label><input type="email" id="aca-tmEmail" value="' + esc(p.email) + '"' + (isNew ? "" : " disabled") + " /></div>" +
         (isNew ? '<label class="tm-full"><input type="checkbox" id="aca-tmWelcome" checked /> <span><b>Email them a welcome</b><br><span class="muted">Their temporary password, how to sign in, and a link that puts 207 Admin on their phone.</span></span></label>' : "") +
+        '<div class="tm-two"><div class="field"><label for="aca-tmTitle">Job title</label><input type="text" id="aca-tmTitle" maxlength="80" value="' + esc(p.job_title || "") + '" placeholder="e.g. Lead photographer" /></div>' +
+        '<div class="field"><label for="aca-tmType">Employment type</label><select id="aca-tmType"><option value="">Not set</option>' + TYPES.map((t) => '<option value="' + t[0] + '"' + (p.employment_type === t[0] ? " selected" : "") + ">" + t[1] + "</option>").join("") + "</select></div></div>" +
+        '<p class="muted" id="aca-tmTypeNote" style="font-size:12.5px;margin:-6px 0 12px"></p>' +
         '<div class="field"><label for="aca-tmHours">Default hours per week</label><input type="number" id="aca-tmHours" min="0" max="80" step="0.5" style="width:110px" value="' + esc(p.weekly_hours == null ? "" : String(Number(p.weekly_hours))) + '" placeholder="e.g. 32" />' +
         '<span class="muted" style="font-size:12.5px">The Schedule shows how many hours they are scheduled against this each week. Leave empty if it doesn&#39;t apply.</span></div>' +
         '<label class="tm-full"><input type="checkbox" id="aca-tmAdmin"' + (p.is_admin ? " checked" : "") + (p.is_me ? " disabled" : "") + ' /> <span><b>Full access</b><br><span class="muted">Everything, including Settings and this Team page. For owners and managers only.</span></span></label>' +
@@ -90,6 +97,9 @@
         '<span class="grow"></span><button type="button" class="small" id="aca-tmCancel">Cancel</button><button type="button" class="primary" id="aca-tmSave">' + (isNew ? "Add and create login" : "Save") + "</button></div>");
       const err = (t) => { const n = el("tmErr"); n.textContent = t; n.classList.remove("hidden"); };
       el("tmAdmin").addEventListener("change", () => el("tmGrid").classList.toggle("hidden", el("tmAdmin").checked));
+      const typeNote = () => { el("tmTypeNote").textContent = ({ full_time: "Hourly, with overtime on the time clock.", salaried: "Hours are tracked, but no overtime on the time clock.",
+        part_time: "Gets Open jobs offers near them (and Open jobs access). Overtime applies.", contractor: "Gets Open jobs offers near them (and Open jobs access). No overtime; kept out of the payroll CSV and listed separately." })[el("tmType").value] || ""; };
+      el("tmType").addEventListener("change", typeNote); typeNote();
       el("tmCancel").addEventListener("click", () => m.close());
       const picked = () => { const o = {}; modules.forEach((x) => { const r = m.querySelector('input[name="tm-' + x.key + '"]:checked'); if (r && r.value !== "none") o[x.key] = r.value; }); return o; };
 
@@ -101,17 +111,20 @@
         if (hours != null && !(hours >= 0 && hours <= 80)) return err("Hours per week is 0 to 80.");
         const hoursChanged = hours !== (p.weekly_hours == null ? null : Number(p.weekly_hours));
         const setHours = async (uid) => { if (!hoursChanged) return; const { error } = await supabase.rpc("team_set_hours", { p_user_id: uid, p_hours: hours }); if (error) throw error; };
+        const type = el("tmType").value || null, title = el("tmTitle").value.trim();
+        const setProfile = async (uid) => { if (type === (p.employment_type || null) && title === (p.job_title || "")) return; const { error } = await supabase.rpc("team_set_profile", { p_user_id: uid, p_type: type || "", p_title: title }); if (error) throw error; };
         el("tmSave").disabled = true;
         try {
           if (isNew) {
             const r = await teamFn({ action: "create", email, name, is_admin: isAdmin, permissions: isAdmin ? {} : picked(), send_welcome: el("tmWelcome").checked });
-            try { await setHours(r.user_id); } catch (_e) { toast("Added, but the hours did not save. Edit them on the Team page.", true); }
+            try { await setHours(r.user_id); await setProfile(r.user_id); } catch (_e) { toast("Added, but the hours, job title or type did not save. Edit them on the Team page.", true); }
             m.close();
             showPassword({ user_id: r.user_id, name, email }, r.temp_password, true, r);
           } else {
             const { error } = await supabase.rpc("team_save", { p_user_id: p.user_id, p_name: name, p_is_admin: isAdmin, p_permissions: isAdmin ? {} : picked() });
             if (error) throw error;
             await setHours(p.user_id);
+            await setProfile(p.user_id);
             m.close();
             toast("Saved. " + (name || email) + " sees the change the next time they load the page.");
           }
@@ -160,7 +173,7 @@
       });
     }
 
-    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for", hours_set: "changed the weekly hours for", welcome_sent: "emailed sign-in details to" };
+    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for", hours_set: "changed the weekly hours for", profile_set: "changed the job title or employment type for", welcome_sent: "emailed sign-in details to" };
     async function loadLog() {
       const { data, error } = await supabase.rpc("team_audit_list", { p_limit: 30 });
       el("teamLog").innerHTML = error ? '<span class="inline-error">' + esc(error.message) + "</span>"

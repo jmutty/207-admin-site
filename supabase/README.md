@@ -41,6 +41,9 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022233000_staff_gear_rec
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/staff_records_test.sql   # clearances, school-job warnings (booked only), onboarding + auto ticks, morning push, gear value + service log, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022235500_photocheck_shootlog.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/photocheck_shootlog_test.sql   # roster vs photographed matching, retakes, coach/school emails, makeups, readiness, shoot log + stage tick + pushes, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023090000_employment_type.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/employment_type_test.sql   # job title + type (full access only), Open jobs to Part time / 1099, no overtime for salaried / 1099; rolls back
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql         # again: offers now follow the employment type
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
