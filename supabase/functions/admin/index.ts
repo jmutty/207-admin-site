@@ -9,6 +9,9 @@
 //                 step) and have edit access to Galleries (can('galleries','edit'): full-access people
 //                 always pass), then invoke gotphoto-sync with the x-sync-secret so the trigger secret
 //                 stays off the wire.
+//   POST /sales -> the same, with edit access to Season results (can('results','edit')): invoke
+//                 gotphoto-sales. ?probe=<job id> passes through (field names and numbers of that job's
+//                 first orders, to check how sales are read).
 //   anything else -> 404.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -33,34 +36,39 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
 
-  if (req.method === "POST" && url.pathname.endsWith("/sync")) {
+  const route = req.method !== "POST" ? null
+    : url.pathname.endsWith("/sync") ? { name: "sync", module: "galleries", target: "gotphoto-sync?trigger=manual" }
+    : url.pathname.endsWith("/sales") ? { name: "sales", module: "results", target: "gotphoto-sales?trigger=manual" +
+        (url.searchParams.get("probe") ? "&probe=" + encodeURIComponent(url.searchParams.get("probe")!) : "") }
+    : null;
+  if (route) {
     try {
       const authz = req.headers.get("Authorization") ?? "";
       const jwt = authz.replace(/^Bearer\s+/i, "").trim();
       if (!jwt) return json({ ok: false, error: "Not signed in." }, 401);
       // Ask Postgres with the caller's own token: can() runs as that user and is false for anyone
-      // without Galleries edit access or who has not completed the sign-in second step.
+      // without edit access to the module or who has not completed the sign-in second step.
       const who = await fetch(`${SUPABASE_URL}/rest/v1/rpc/can`, {
         method: "POST",
         headers: { apikey: ANON_KEY, Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ p_module: "galleries", p_level: "edit" }),
+        body: JSON.stringify({ p_module: route.module, p_level: "edit" }),
       });
       const allowed = who.ok && (await who.text()).trim() === "true";
       if (!allowed) {
-        console.error(`admin/sync: refused (auth status ${who.status})`);
+        console.error(`admin/${route.name}: refused (auth status ${who.status})`);
         return json({ ok: false, error: "Invalid or expired session." }, 401);
       }
       if (!SYNC_TRIGGER_SECRET) return json({ ok: false, error: "Sync trigger secret is not configured." }, 500);
-      // Invoke gotphoto-sync exactly the way pg_cron does: only the x-sync-secret header.
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/gotphoto-sync?trigger=manual`, {
+      // Invoke the function exactly the way pg_cron does: only the x-sync-secret header.
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/${route.target}`, {
         method: "POST",
         headers: { "x-sync-secret": SYNC_TRIGGER_SECRET },
       });
       const body = await resp.text();
       return new Response(body, { status: resp.status, headers: { ...CORS, "Content-Type": "application/json" } });
     } catch (e) {
-      console.error("admin/sync:", e);
-      return json({ ok: false, error: "Sync failed." }, 500);
+      console.error(`admin/${route.name}:`, e);
+      return json({ ok: false, error: route.name === "sync" ? "Sync failed." : "Sales refresh failed." }, 500);
     }
   }
 

@@ -25,6 +25,20 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022150000_schedule_kinds
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022160000_day_email.sql
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022170000_schedule_calendar.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/scheduling_test.sql   # schedule bars + kinds + flex, Google Calendar events, drive time cache, tasks + carry-over, evening push, morning email, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022180000_job_workflows.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/workflows_test.sql    # job checklists: tasks per job, follow picture day and crew, hand edits, cancel, track-only, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022210500_partner_followthrough.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/partner_followthrough_test.sql   # rebooking list, review requests on Deliverables sent, agreements + the public accept page, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213000_open_jobs.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql     # part-timers, drive cache, offers, take it / pass, first come first served, pushes, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213100_season_results.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/season_results_test.sql   # seasons, org matching, partner terms, payments, sales queue, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213200_timeclock_mileage.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/timeclock_test.sql    # clock in/switch/out, own fixes, approval locks, payroll + overtime, mileage trips + look-ups, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213500_picture_day_planner.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/pictureday_test.sql   # form, teams, slots, coach answers, sending switch/test mode/quiet hours, booked only, roster bucket, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022233000_staff_gear_records.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/staff_records_test.sql   # clearances, school-job warnings (booked only), onboarding + auto ticks, morning push, gear value + service log, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new

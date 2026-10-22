@@ -3,10 +3,15 @@
   // Tables and views: inventory_bins / _kits / _items (+ _v views with place and holder), inventory_out_v.
   // RPCs: inventory_search, inventory_people, inventory_check_out, inventory_return, inventory_history.
   // Photos: private storage bucket `inventory`, shrunk in the browser, shown through signed URLs.
+  // Gear (2026-10-22): purchase date, price, value today and a service interval per item, a service log
+  // (inventory_service_log / _remove; anyone with View can log a sensor clean) and the insurance list (CSV).
   // View = search and check things out to yourself; Edit = change everything (the database enforces both).
   registerPage({ id: "inventory", group: "Operations", section: "ops", module: "inventory", title: "Inventory",
-                 tabs: [["inventory", "Find"], ["invbins", "Bins"], ["invkits", "Kits"], ["invout", "Checked out"]],
+                 tabs: [["inventory", "Find"], ["invbins", "Bins"], ["invkits", "Kits"], ["invout", "Checked out"], ["invgear", "Gear"]],
                  onShow: (tab) => Inventory.show(tab) });
+  registerAttention("gearServiceDue", { module: "inventory", level: "soon", name: "gear service",
+    one: "A piece of gear is due for service in the next two weeks.", many: "{n} pieces of gear are due for service in the next two weeks." });
+  registerTodayLoader("inventory", () => Inventory.loadAttention());
 
   const Inventory = (function () {
     const sb = supabase;
@@ -38,6 +43,12 @@
   .aca .inv-hist { margin: 6px 0 0; padding: 0; list-style: none; font-size: 12.5px; line-height: 20px; color: var(--muted); }
   .aca .modal textarea.inv-note { width: 100%; height: 64px; padding: 6px 10px; resize: vertical; }
   .aca .modal .field select { width: 100%; }
+  .aca .inv-care { margin: 0 0 14px; font-size: 13.5px; line-height: 21px; }
+  .aca .inv-late { color: var(--err-fg); font-weight: 600; }
+  .aca .inv-gear-sum { margin: 0 0 4px; font-size: 13.5px; color: var(--muted); }
+  .aca .inv-gear-sum b { color: var(--text); }
+  .aca td.money, .aca th.money { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @media (max-width: 700px) { .aca .inv-sm-hide { display: none; } }
   @media (max-width: 700px) { .aca .inv-row2 { grid-template-columns: 1fr; } .aca .inv-res { grid-template-columns: auto minmax(0, 1fr); } .aca .inv-res .inv-thumb { display: none; } }
 `;
     const styleTag = document.createElement("style"); styleTag.textContent = css; document.head.appendChild(styleTag);
@@ -128,6 +139,14 @@
     const overdue = (d) => d && d < new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
     const outLine = (r) => r.holder_name ? '<span class="inv-out">Out with ' + esc(r.holder_name) + (r.out_with_kit ? " (with the kit)" : "") + "</span>" +
       (r.due_on ? ' <span class="muted">due ' + esc(dueTxt(r.due_on)) + (overdue(r.due_on) ? ", late" : "") + "</span>" : "") : "";
+
+    // ---------------------------------------------------------------- gear helpers
+    const money = (v) => (v == null || v === "" ? "" : "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: Number(v) % 1 ? 2 : 0, maximumFractionDigits: 2 }));
+    const monthTxt = (d) => (d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "");
+    const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const soonStr = () => { const t = new Date(todayStr() + "T12:00:00"); t.setDate(t.getDate() + 14); return t.toISOString().slice(0, 10); };
+    const serviceDue = (r) => r.next_service_on && r.next_service_on <= soonStr();
+    const KIND = { service: "Service", sensor: "Sensor clean", repair: "Repair", other: "Other" };
 
     // ---------------------------------------------------------------- Find
     let qSeq = 0, qTimer = null;
@@ -381,14 +400,67 @@
         '<p style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' + binTag(r.bin_code) + " " + esc(r.bin_location || "") + (r.kit_name ? ' <span class="muted">in kit ' + esc(r.kit_name) + "</span>" : "") + "</p>" +
         (r.serial ? "<p>Serial number <b>" + esc(r.serial) + "</b></p>" : "") +
         (r.note ? "<p>" + esc(r.note) + "</p>" : "") +
+        careBlock(r) +
         statusStrip(r, what) +
         '<div class="inv-h">History</div><ul class="inv-hist"><li>Loading&#8230;</li></ul>' +
+        '<div class="inv-h">Service</div><ul class="inv-hist" id="aca-invSvc"><li>Loading&#8230;</li></ul>' +
         '<div class="modal-actions">' + (edit() ? '<button type="button" class="small" id="aca-invIEdit">Edit item</button>' : "") +
+        '<button type="button" class="small" id="aca-invISvc">Log service</button>' +
         '<span class="grow"></span><button type="button" class="primary" id="aca-invIClose">Done</button></div>');
       el("invIClose").addEventListener("click", () => m.close());
       wireStatus(m, what);
       history(m, what);
+      serviceLog(r);
+      el("invISvc").addEventListener("click", () => { m.close(); logService(r); });
       if (edit()) el("invIEdit").addEventListener("click", () => { m.close(); editItem(r); });
+    }
+
+    // Purchase, value and service lines on an item.
+    function careBlock(r) {
+      const bits = [];
+      if (r.purchased_on || r.purchase_price != null) bits.push("Bought" + (r.purchased_on ? " " + esc(monthTxt(r.purchased_on)) : "") + (r.purchase_price != null ? " for " + esc(money(r.purchase_price)) : ""));
+      if (r.value != null) bits.push("Worth " + esc(money(r.value)) + (num(r.qty) > 1 ? " each (" + esc(money(Number(r.value) * num(r.qty))) + " for " + num(r.qty) + ")" : ""));
+      if (r.service_every_months) bits.push("Service every " + num(r.service_every_months) + (num(r.service_every_months) === 1 ? " month" : " months") +
+        (r.next_service_on ? ', next <span class="' + (serviceDue(r) ? "inv-late" : "") + '">' + esc(dueTxt(r.next_service_on)) + (r.next_service_on < todayStr() ? ", overdue" : "") + "</span>" : ""));
+      else if (r.last_service_on) bits.push("Last serviced " + esc(dueTxt(r.last_service_on)));
+      return bits.length ? '<p class="inv-care">' + bits.join("<br>") + "</p>" : "";
+    }
+    async function serviceLog(r) {
+      const { data } = await sb.from("inventory_service").select("*").eq("item_id", r.id).order("done_on", { ascending: false }).limit(12);
+      const box = el("invSvc");
+      if (!box) return;
+      box.innerHTML = data && data.length ? data.map((h) => "<li>" + esc(dueTxt(h.done_on)) + ": " + esc(KIND[h.kind] || h.kind) + (h.cost != null ? " &middot; " + esc(money(h.cost)) : "") +
+        (h.note ? " &middot; " + esc(h.note) : "") + (edit() || h.created_by === me() ? ' <button type="button" class="link small" data-svc-rm="' + num(h.id) + '">remove</button>' : "") + "</li>").join("") : "<li>Nothing logged yet.</li>";
+      box.onclick = async (e) => {
+        const b = e.target.closest("[data-svc-rm]"); if (!b) return;
+        if (!confirm("Remove this service entry?")) return;
+        const { error } = await sb.rpc("inventory_service_remove", { p_id: Number(b.dataset.svcRm) });
+        if (error) { toast(cleanErr(error), true); return; }
+        toast("Removed."); serviceLog(r); refresh();
+      };
+    }
+    function logService(r) {
+      const m = openModal("<h2>Log service: " + esc(r.name) + "</h2>" +
+        '<div class="inv-row2"><div class="field"><label for="aca-invSvKind">What was done</label><select id="aca-invSvKind">' +
+          Object.keys(KIND).map((k) => '<option value="' + k + '">' + KIND[k] + "</option>").join("") + "</select></div>" +
+        '<div class="field"><label for="aca-invSvDay">When</label><input type="date" id="aca-invSvDay" value="' + esc(todayStr()) + '" /></div></div>' +
+        '<div class="inv-row2"><div class="field"><label for="aca-invSvCost">Cost <span class="muted">(optional)</span></label><input type="number" id="aca-invSvCost" min="0" step="0.01" placeholder="0.00" /></div>' +
+        '<div class="field"><label for="aca-invSvNote">Note <span class="muted">(optional)</span></label><input type="text" id="aca-invSvNote" maxlength="500" placeholder="Canon service center" /></div></div>' +
+        '<p class="muted" style="font-size:12.5px">A service or sensor clean restarts the countdown to the next one. A repair doesn&#39;t.</p>' +
+        '<div class="inline-error hidden" id="aca-invSvErr"></div>' +
+        '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" id="aca-invSvCancel">Cancel</button><button type="button" class="primary" id="aca-invSvSave">Log it</button></div>');
+      const err = (t) => { const n = el("invSvErr"); n.textContent = t; n.classList.remove("hidden"); };
+      el("invSvCancel").addEventListener("click", () => { m.close(); openItem(r.id); });
+      el("invSvSave").addEventListener("click", async () => {
+        const day = el("invSvDay").value, costTxt = el("invSvCost").value.trim();
+        if (!day) return err("Pick the day it was done.");
+        if (costTxt !== "" && !(Number(costTxt) >= 0)) return err("Cost should be a number.");
+        el("invSvSave").disabled = true;
+        const { error } = await sb.rpc("inventory_service_log", { p_item: r.id, p_done_on: day, p_kind: el("invSvKind").value, p_cost: costTxt === "" ? null : Number(costTxt), p_note: el("invSvNote").value.trim() });
+        el("invSvSave").disabled = false;
+        if (error) return err(cleanErr(error));
+        m.close(); toast("Logged."); refresh(); openItem(r.id);
+      });
     }
 
     async function editItem(r, preset) {
@@ -404,6 +476,11 @@
           '<optgroup label="Bins">' + bins.map((b) => '<option value="b:' + esc(b.id) + '"' + (place === "b:" + b.id ? " selected" : "") + ">" + esc(b.code) + (b.location ? " · " + esc(b.location) : "") + "</option>").join("") + "</optgroup>" +
           (kits.length ? '<optgroup label="In a kit">' + kits.map((k) => '<option value="k:' + esc(k.id) + '"' + (place === "k:" + k.id ? " selected" : "") + ">" + esc(k.name) + (k.bin_code ? " (bin " + esc(k.bin_code) + ")" : "") + "</option>").join("") + "</optgroup>" : "") +
         "</select></div>" +
+        '<div class="inv-h">Purchase and care <span class="muted">(optional, for the insurance list and service reminders)</span></div>' +
+        '<div class="inv-row2"><div class="field"><label for="aca-invIBought">Bought on</label><input type="date" id="aca-invIBought" value="' + esc(r.purchased_on || "") + '" /></div>' +
+        '<div class="field"><label for="aca-invIPrice">Price paid (each)</label><input type="number" id="aca-invIPrice" min="0" step="0.01" placeholder="0.00" value="' + esc(r.purchase_price == null ? "" : String(r.purchase_price)) + '" /></div></div>' +
+        '<div class="inv-row2"><div class="field"><label for="aca-invIValue">Worth today (each)</label><input type="number" id="aca-invIValue" min="0" step="0.01" placeholder="Replacement value" value="' + esc(r.value == null ? "" : String(r.value)) + '" /></div>' +
+        '<div class="field"><label for="aca-invIEvery">Service every (months)</label><input type="number" id="aca-invIEvery" min="1" max="120" placeholder="e.g. 12" value="' + esc(r.service_every_months == null ? "" : String(r.service_every_months)) + '" /></div></div>' +
         '<div class="field"><label for="aca-invINote">Note</label><textarea id="aca-invINote" class="inv-note" maxlength="1000">' + esc(r.note) + "</textarea></div>" +
         '<div class="inv-photo"></div>' +
         '<div class="inline-error hidden" id="aca-invIErr"></div>' +
@@ -418,12 +495,17 @@
         const name = el("invIName").value.trim(), qty = parseInt(el("invIQty").value, 10), pl = el("invIPlace").value;
         if (!name) return err("Say what the item is.");
         if (!(qty >= 0)) return err("How many should be a number (0 or more).");
+        const amt = (id) => { const t = el(id).value.trim(); return t === "" ? null : Number(t); };
+        const price = amt("invIPrice"), value = amt("invIValue"), every = amt("invIEvery");
+        if ((price != null && !(price >= 0)) || (value != null && !(value >= 0))) return err("Prices should be numbers (0 or more).");
+        if (every != null && !(every >= 1 && every <= 120 && every % 1 === 0)) return err("Service every 1 to 120 months, or leave it empty.");
         el("invISave").disabled = true;
         try {
           const id = r.id || crypto.randomUUID();
           const p = await photo.upload("items", id);
           const row = { name, qty, serial: el("invISerial").value.trim(), note: el("invINote").value.trim(),
-                        bin_id: pl.startsWith("b:") ? pl.slice(2) : null, kit_id: pl.startsWith("k:") ? pl.slice(2) : null };
+                        bin_id: pl.startsWith("b:") ? pl.slice(2) : null, kit_id: pl.startsWith("k:") ? pl.slice(2) : null,
+                        purchased_on: el("invIBought").value || null, purchase_price: price, value, service_every_months: every };
           if (p !== undefined) row.photo_path = p;
           const { error } = isNew ? await sb.from("inventory_items").insert(Object.assign({ id }, row)) : await sb.from("inventory_items").update(row).eq("id", id);
           if (error) throw error.code === "23505" ? new Error("Another item already has serial number " + row.serial + ".") : error;
@@ -517,6 +599,65 @@
       });
     }
 
+    // ---------------------------------------------------------------- Gear tab
+    let gear = [], gearFilter = "all";
+    async function loadGear() {
+      clearError("invGearErr");
+      const { data, error } = await sb.from("inventory_items_v").select("*").order("name");
+      if (error) { showError("invGearErr", "Could not load gear: " + cleanErr(error)); return; }
+      gear = data || [];
+      renderGear();
+    }
+    function renderGear() {
+      const f = el("invGearFilter").value.trim().toLowerCase();
+      const valued = gear.filter((r) => r.value != null || r.purchase_price != null);
+      const total = gear.reduce((n, r) => n + (r.value != null ? Number(r.value) * num(r.qty) : 0), 0);
+      const due = gear.filter(serviceDue).length;
+      el("invGearSum").innerHTML = valued.length ? "Worth <b>" + esc(money(total)) + "</b> across " + valued.length + (valued.length === 1 ? " item" : " items") + " with a value" +
+        (due ? ' &middot; <span class="inv-late">' + due + " due for service</span>" : "") : "Add a value, price or service interval to an item (Edit item) and it shows here.";
+      document.querySelectorAll("#aca-invGearChips [data-f]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.f === gearFilter)));
+      const rows = gear.filter((r) => (gearFilter === "all" ? r.value != null || r.purchase_price != null || r.service_every_months || r.serial
+          : gearFilter === "due" ? serviceDue(r) : gearFilter === "novalue" ? r.value == null : true) &&
+        (!f || [r.name, r.serial, r.bin_code, r.kit_name, r.note].join(" ").toLowerCase().includes(f)));
+      el("invGearBody").innerHTML = rows.length ? rows.map((r) => '<tr data-item="' + esc(r.id) + '" style="cursor:pointer"><td class="name">' + esc(r.name) +
+        (num(r.qty) !== 1 ? ' <span class="muted">&times; ' + num(r.qty) + "</span>" : "") + (r.serial ? '<div class="muted" style="font-size:12.5px">S/N ' + esc(r.serial) + "</div>" : "") + "</td>" +
+        '<td class="inv-sm-hide">' + esc(monthTxt(r.purchased_on)) + '</td><td class="money inv-sm-hide">' + esc(money(r.purchase_price)) + '</td><td class="money">' + esc(money(r.value)) +
+        (r.value != null && num(r.qty) > 1 ? '<div class="muted" style="font-size:12px">' + esc(money(Number(r.value) * num(r.qty))) + " total</div>" : "") + "</td>" +
+        "<td>" + (r.next_service_on ? (serviceDue(r) ? '<span class="pill err">' + esc(dueTxt(r.next_service_on)) + "</span>" : esc(dueTxt(r.next_service_on))) : '<span class="muted">&mdash;</span>') + "</td>" +
+        "<td>" + binTag(r.bin_code) + "</td></tr>").join("")
+        : '<tr><td colspan="6" class="empty">' + (gearFilter === "due" ? "Nothing is due for service." : gear.length ? "Nothing matches." : "No items yet.") + "</td></tr>";
+    }
+    el("invGearFilter").addEventListener("input", renderGear);
+    el("invGearChips").addEventListener("click", (e) => { const b = e.target.closest("[data-f]"); if (b) { gearFilter = b.dataset.f; renderGear(); } });
+    el("invGearBody").addEventListener("click", (e) => openFrom(e.target.closest("[data-item]")));
+    // The insurance list: every item with a value or a price, as a CSV the insurer can open in Excel.
+    el("invGearExport").addEventListener("click", async () => {
+      if (!gear.length) await loadGear();
+      const rows = gear.filter((r) => r.value != null || r.purchase_price != null);
+      if (!rows.length) { toast("No item has a value or price yet. Add them with Edit item.", true); return; }
+      const cell = (v) => { let t = v == null ? "" : String(v); if (/^[=+\-@]/.test(t)) t = "'" + t; return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+      const head = ["Item", "Serial number", "Quantity", "Value each", "Total value", "Purchased on", "Price paid each", "Bin", "Where", "Kit", "Note"];
+      const lines = [head].concat(rows.map((r) => [r.name, r.serial, num(r.qty), r.value, r.value != null ? (Number(r.value) * num(r.qty)).toFixed(2) : "", r.purchased_on, r.purchase_price,
+        r.bin_code, r.bin_location, r.kit_name, r.note]));
+      const total = rows.reduce((n, r) => n + (r.value != null ? Number(r.value) * num(r.qty) : 0), 0);
+      lines.push([], ["Total", "", "", "", total.toFixed(2)]);
+      const csv = "\ufeff" + lines.map((l) => l.map(cell).join(",")).join("\r\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      a.download = "207-photo-gear-insurance-" + todayStr() + ".csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      toast("Exported " + rows.length + (rows.length === 1 ? " item" : " items") + ", worth " + money(total) + ".");
+    });
+
+    async function loadAttention() {
+      try {
+        const { data: d, error } = await sb.rpc("inventory_attention");
+        if (error) throw error;
+        setAttention("gearServiceDue", num(d && d.service_due), "Gear due for service", "invgear");
+      } catch (_e) { /* Today reports it as unchecked */ }
+    }
+
     // ---------------------------------------------------------------- tabs
     let current = "inventory";
     function show(tab) {
@@ -526,7 +667,8 @@
       else if (tab === "invbins") loadBins();
       else if (tab === "invkits") loadKits();
       else if (tab === "invout") loadOut();
+      else if (tab === "invgear") loadGear();
     }
 
-    return { show };
+    return { show, loadAttention };
   })();
