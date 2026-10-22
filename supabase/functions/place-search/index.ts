@@ -1,11 +1,13 @@
-// place-search: Google Maps place suggestions for the Location box on Book a job / Edit booking in 207 Admin.
+// place-search: Google Maps place suggestions for the address boxes in 207 Admin (app/src/places.js): the booking
+// Location, the studio address on Schedule, and the organization Town.
 //
 // Deployed with verify_jwt=false; this function does its own checks. POST with the caller's token:
-//   {q, session}         -> {ok, places: [{id, name, detail}]}   (Places API (New) Autocomplete, biased to Maine)
+//   {q, session, kind}   -> {ok, places: [{id, name, detail}]}   (Places API (New) Autocomplete, biased to Maine;
+//                                                                  kind "town" = cities and towns only)
 //   {place_id, session}  -> {ok, name, address, location}        (Place Details: name + formatted address)
 // `session` is a UUID the page makes per search so Google bills the typing and the pick as one session.
-// The caller must have can('bookings','edit'). The picked text goes in bookings.location, which drive-time
-// already sends to the Routes API, so drive times use the exact address.
+// The caller must be able to edit bookings, scheduling or organizations (can_any). A picked booking location goes
+// in bookings.location, which drive-time sends to the Routes API, so drive times use the exact address.
 //
 // Needs the secret GOOGLE_MAPS_API_KEY with "Places API (New)" enabled (as well as the Routes API). Without
 // it the page says so and the location is typed by hand like before.
@@ -31,10 +33,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
 
 async function allowed(jwt: string): Promise<boolean> {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/can`, {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/can_any`, {
     method: "POST",
     headers: { apikey: ANON_KEY, Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ p_module: "bookings", p_level: "edit" }),
+    body: JSON.stringify({ p_modules: ["bookings", "scheduling", "partners"], p_level: "edit" }),
   });
   return r.ok && (await r.json().catch(() => false)) === true;
 }
@@ -78,7 +80,7 @@ Deno.serve(async (req) => {
     const r = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Goog-Api-Key": MAPS_KEY },
-      body: JSON.stringify({ input: q, includedRegionCodes: ["us"], locationBias: MAINE, ...(session ? { sessionToken: session } : {}) }),
+      body: JSON.stringify({ input: q, includedRegionCodes: ["us"], locationBias: MAINE, ...(body.kind === "town" ? { includedPrimaryTypes: ["(cities)"] } : {}), ...(session ? { sessionToken: session } : {}) }),
     });
     const g = await r.json().catch(() => ({}));
     if (!r.ok) { console.error("place-search autocomplete:", r.status, JSON.stringify(g).slice(0, 500)); return json({ ok: false, error: googleError(r.status, g) }); }
