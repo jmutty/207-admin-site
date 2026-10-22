@@ -775,11 +775,16 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-nav button[data-tab="team"]');
     await page.waitForSelector("#aca-teamBody [data-edit]");
     check((await page.textContent("#aca-teamBody")).includes("40 h/week"), "team list shows weekly hours");
+    check((await page.textContent("#aca-teamBody")).includes("Owner \u00b7 Salaried"), "team list shows job title and employment type");
     await page.click('#aca-teamBody [data-edit="u2"]');
     await page.fill("#aca-tmHours", "28");
+    await page.fill("#aca-tmTitle", "Second shooter");
+    await page.selectOption("#aca-tmType", "contractor");
+    check((await page.textContent("#aca-tmTypeNote")).includes("Open jobs"), "1099 explains offers + payroll");
     await page.click("#aca-tmSave");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_hours" && c[1].p_hours === 28 && c[1].p_user_id === "u2")), "saves weekly hours");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_profile" && c[1].p_user_id === "u2" && c[1].p_type === "contractor" && c[1].p_title === "Second shooter")), "saves job title and employment type");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -1058,9 +1063,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!(await page.$(".modal")), "dialog closes");
     await page.click("#aca-ojPeople");
     await page.waitForSelector(".oj-ppl tr[data-u]");
-    await page.check('.oj-ppl tr[data-u="u2"] .oj-pt');
+    await page.selectOption('.oj-ppl tr[data-u="u2"] .oj-type', "contractor");
     await page.waitForTimeout(100);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "openjobs_person_save" && c[1].p_user === "u2" && c[1].p_part_time === true)), "marks someone part-time");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_profile" && c[1].p_user_id === "u2" && c[1].p_type === "contractor")), "sets someone to 1099 (gets offers)");
+    await page.fill('.oj-ppl tr[data-u="u2"] .oj-home', "5 Birch St, Brewer ME");
+    await page.selectOption('.oj-ppl tr[data-u="u2"] .oj-max', "45");
+    await page.waitForTimeout(100);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "openjobs_person_save" && c[1].p_user === "u2" && c[1].p_max_drive === 45)), "saves their longest drive");
     await page.click('.modal [data-m="done"]');
     await page.close();
     const p2 = await open(browser, port, "", "#staff/openjobs/bk1");
@@ -1172,7 +1181,12 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent(".tc-modal")).includes("Not approved yet: Jeremiah M."), "payroll warns about unapproved weeks");
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click('.tc-modal [data-m="csv"]')]);
     const csv = fs.readFileSync(await dl.path(), "utf8");
-    check(/^Name,Email,Period start,Period end,Regular hours,Overtime hours,Total hours,Miles,Mileage pay,Weeks approved\r\nJeremiah Mutty,jmutty@207photo.com,.*,40\.00,3\.50,43\.50,26\.1,18\.27,0 of 1\r\n/.test(csv), "payroll CSV: " + csv.split("\r\n")[1]);
+    check(/^Name,Email,Type,Period start,Period end,Regular hours,Overtime hours,Total hours,Miles,Mileage pay,Weeks approved\r\nJeremiah Mutty,jmutty@207photo.com,Full time,.*,40\.00,3\.50,43\.50,26\.1,18\.27,0 of 1\r\n/.test(csv), "payroll CSV: " + csv.split("\r\n")[1]);
+    check(!csv.includes("Riley"), "1099 contractor left out of the payroll CSV");
+    check((await page.textContent(".tc-modal")).includes("1099 contractors"), "contractors listed separately");
+    const [dlc] = await Promise.all([page.waitForEvent("download"), page.click('.tc-modal [data-m="cont"]')]);
+    const csvc = fs.readFileSync(await dlc.path(), "utf8");
+    check(/^Name,Email,Job title,Period start,Period end,Hours,Miles,Mileage pay,Weeks approved\r\nRiley Second,riley@example\.com,Second shooter,.*,5\.00,40\.0,28\.00,1 of 1\r\n$/.test(csvc), "1099 CSV: " + csvc.split("\r\n")[1]);
     await page.click('.tc-modal [data-m="cancel"]');
     await page.click('#aca-panel-timesheets [data-w="settings"]');
     await page.waitForSelector("#aca-tsR");
