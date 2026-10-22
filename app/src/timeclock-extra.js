@@ -315,7 +315,7 @@
       });
     }
     // registerJobTab is the job page's (jobpage.js, hoisted); without a job page in the build this does nothing.
-    if (typeof registerJobTab === "function") registerJobTab({ id: "time", label: "Time", order: 60, module: "timeclock", render: renderJob });
+    if (typeof registerJobTab === "function") registerJobTab({ id: "time", label: "Time", order: 65, module: "timeclock", render: renderJob });
 
     return { loadExpenses, openRates, renderJob };
   })();
