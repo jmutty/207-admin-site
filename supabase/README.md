@@ -25,6 +25,8 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022150000_schedule_kinds
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022160000_day_email.sql
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022170000_schedule_calendar.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/scheduling_test.sql   # schedule bars + kinds + flex, Google Calendar events, drive time cache, tasks + carry-over, evening push, morning email, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022233000_staff_gear_records.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/staff_records_test.sql   # clearances, school-job warnings (booked only), onboarding + auto ticks, morning push, gear value + service log, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new

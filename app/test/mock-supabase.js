@@ -56,7 +56,8 @@
       { key: "settings", label: "Settings", section: "System", description: "", sort: 90, status: "live", admin_only: true },
       { key: "team", label: "Team", section: "System", description: "", sort: 95, status: "live", admin_only: true },
       { key: "scheduling", label: "Scheduling", section: "Staff", description: "The week's bar schedule.", sort: 200, status: "live", admin_only: false },
-      { key: "assignments", label: "Assignments", section: "Staff", description: "Daily, weekly and monthly tasks.", sort: 205, status: "live", admin_only: false }],
+      { key: "assignments", label: "Assignments", section: "Staff", description: "Daily, weekly and monthly tasks.", sort: 205, status: "live", admin_only: false },
+      { key: "staffrecords", label: "Staff records", section: "Staff", description: "Clearances and onboarding.", sort: 215, status: "live", admin_only: false }],
     prospect_enrollments: [{ org_id: "44444444-4444-4444-4444-444444444444", status: "paused", end_reason: "held for review" }],
     booking_types: [
       { key: "school", label: "School Photos", audience: "school", description: "Four emails: booked, student data (21 days), two weeks, day before. Creates the school on the hub.", title_labels: ["School Photos"], default_duration_min: 180, sort_order: 1 },
@@ -118,7 +119,7 @@
   const RPC = {
     my_access: AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
-      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view" } }
+      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view", staffrecords: "view" } }
       : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
     team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, weekly_hours: 40, last_sign_in_at: iso(-0.01), modules: {} },
       { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, is_me: false, active: true, must_change_password: true, last_sign_in_at: null, modules: { bookings: "edit", parents: "view" } },
@@ -188,11 +189,14 @@
     inventory_kits_v: [{ id: "ik1", name: "Sports kit 1", note: "", photo_path: null, bin_id: "ib2", bin_code: "V-1", bin_location: "Van", item_count: 2,
       checkout_id: 2, holder_user: "u5", holder_name: "Gus Shooter", out_at: iso(-3), due_on: iso(-1).slice(0, 10) }],
     inventory_items_v: [
-      { id: "ii1", name: "AA batteries", qty: 24, serial: "", note: "", photo_path: null, bin_id: "ib1", kit_id: null, place_bin_id: "ib1", bin_code: "A-01", bin_location: "Studio, back shelf", kit_name: null, checkout_id: null, holder_name: null },
+      { id: "ii1", name: "AA batteries", qty: 24, serial: "", note: "", photo_path: null, bin_id: "ib1", kit_id: null, place_bin_id: "ib1", bin_code: "A-01", bin_location: "Studio, back shelf", kit_name: null, checkout_id: null, holder_name: null, value: null, purchase_price: null },
       { id: "ii2", name: "Canon R6 body", qty: 1, serial: "SN-12345", note: "Main body", photo_path: "items/ii2/1.jpg", bin_id: "ib1", kit_id: null, place_bin_id: "ib1", bin_code: "A-01", bin_location: "Studio, back shelf", kit_name: null,
-        checkout_id: 1, holder_user: "u2", holder_name: "Sam Helper", out_at: iso(-1), due_on: iso(2).slice(0, 10), out_with_kit: false },
+        checkout_id: 1, holder_user: "u2", holder_name: "Sam Helper", out_at: iso(-1), due_on: iso(2).slice(0, 10), out_with_kit: false,
+        purchased_on: iso(-500).slice(0, 10), purchase_price: 2499, value: 1800, service_every_months: 12, last_service_on: iso(-370).slice(0, 10), next_service_on: iso(-5).slice(0, 10) },
       { id: "ii3", name: "Godox AD600 flash", qty: 1, serial: "GX-9", note: "", photo_path: null, bin_id: null, kit_id: "ik1", place_bin_id: "ib2", bin_code: "V-1", bin_location: "Van", kit_name: "Sports kit 1",
-        checkout_id: 2, holder_user: "u5", holder_name: "Gus Shooter", out_at: iso(-3), due_on: iso(-1).slice(0, 10), out_with_kit: true }],
+        checkout_id: 2, holder_user: "u5", holder_name: "Gus Shooter", out_at: iso(-3), due_on: iso(-1).slice(0, 10), out_with_kit: true,
+        purchased_on: null, purchase_price: 349, value: 300, service_every_months: null, last_service_on: null, next_service_on: null }],
+    inventory_service: [{ id: 1, item_id: "ii2", done_on: iso(-370).slice(0, 10), kind: "sensor", cost: 49, note: "Camera shop", created_by: "u1" }],
     inventory_out_v: [
       { id: 1, item_id: "ii2", kit_id: null, what: "Canon R6 body", serial: "SN-12345", holder_user: "u2", holder_name: "Sam Helper", out_at: iso(-1), due_on: iso(2).slice(0, 10), note: "", bin_code: "A-01" },
       { id: 2, item_id: null, kit_id: "ik1", what: "Sports kit 1", serial: "", holder_user: "u5", holder_name: "Gus Shooter", out_at: iso(-3), due_on: iso(-1).slice(0, 10), note: "Hampden", bin_code: "V-1" }],
@@ -202,7 +206,30 @@
     inventory_people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }, { user_id: "u5", name: "Gus Shooter" }],
     inventory_check_out: { ok: true, id: 3, holder_name: "Jeremiah Mutty" }, inventory_return: { ok: true },
     inventory_history: [{ id: 2, holder_name: "Gus Shooter", out_at: iso(-3), due_on: null, note: "Hampden", returned_at: null, with_kit: false }],
+    inventory_attention: { service_due: 1 }, inventory_service_log: { ok: true, id: 2 }, inventory_service_remove: { ok: true },
   });
+  // Staff records (2026-10-22): owner sees the team; ?as=staff (Sam, view) sees only their own.
+  {
+    const day = (n) => iso(n).slice(0, 10);
+    const steps = [["sp1", "Hiring paperwork", false, null], ["sp2", "Background check", false, "background"], ["sp3", "Watch the training videos", true, null], ["sp4", "Shadow day", false, null]]
+      .map(([id, title, self_check, clearance_key], i) => ({ id, title, detail: "", link: id === "sp3" ? "https://example.com/videos" : "", self_check, clearance_key, sort: (i + 1) * 10, archived_at: null }));
+    const sam = { user_id: "u2", name: "Sam Helper", is_me: AS_STAFF,
+      clearances: [{ type_key: "background", done_on: day(-720), expires_on: day(9), reference: "BC-77", note: "", state: "soon" }],
+      onboarding: { started_on: day(-6), finished_at: null, done: [{ step_id: "sp1", done_at: iso(-5), done_by: "Jeremiah Mutty", auto: false }, { step_id: "sp2", done_at: null, done_by: null, auto: true }] } };
+    const people = [{ user_id: "u1", name: "Jeremiah Mutty", is_me: !AS_STAFF, clearances: [{ type_key: "background", done_on: day(-100), expires_on: day(995), reference: "", note: "", state: "ok" }, { type_key: "safesport", done_on: day(-30), expires_on: null, reference: "", note: "", state: "ok" }], onboarding: null },
+      sam, { user_id: "u5", name: "Alex Assistant", is_me: false, clearances: [], onboarding: { started_on: day(-1), finished_at: null, done: [] } }];
+    const school = [{ booking_id: "bk2", day: day(25), title: "Hancock Grammar School", user_id: "u5", name: "Alex Assistant", type_key: "background", type_label: "Background check", problem: "missing", expires_on: null }];
+    Object.assign(RPC, {
+      staff_records: { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", today: day(0),
+        types: [{ key: "background", label: "Background check", school_required: true, warn_days: 30, sort: 10, archived: false },
+                { key: "fingerprint", label: "School fingerprinting (CHRC)", school_required: false, warn_days: 30, sort: 20, archived: false },
+                { key: "safesport", label: "SafeSport training", school_required: false, warn_days: 30, sort: 30, archived: false }],
+        steps, people: AS_STAFF ? [sam] : people, school: AS_STAFF ? [] : school },
+      staff_records_attention: AS_STAFF ? { school: 0, expiring: 1, onboarding: 0 } : { school: 1, expiring: 1, onboarding: 2 },
+      staff_clearance_save: { ok: true }, staff_clearance_remove: { ok: true }, staff_clearance_type_save: { ok: true, key: "x" },
+      staff_onboarding_set: { ok: true }, staff_onboarding_check: { ok: true, finished: false }, staff_onboarding_step_save: { ok: true, id: "sp9" },
+    });
+  }
   const storage = { from: () => ({
     createSignedUrls: async (paths) => ({ data: paths.map((p) => ({ path: p, signedUrl: "logo.png" })), error: null }),
     upload: async (path) => (window.__writes = (window.__writes || []).concat([["storage", "upload", path]]), { data: { path }, error: null }),
