@@ -213,8 +213,28 @@
     inventory_people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }, { user_id: "u5", name: "Gus Shooter" }],
     inventory_check_out: { ok: true, id: 3, holder_name: "Jeremiah Mutty" }, inventory_return: { ok: true },
     inventory_history: [{ id: 2, holder_name: "Gus Shooter", out_at: iso(-3), due_on: null, note: "Hampden", returned_at: null, with_kit: false }],
-    inventory_attention: { service_due: 1 }, inventory_service_log: { ok: true, id: 2 }, inventory_service_remove: { ok: true },
+    inventory_attention: { service_due: 1, gear_missing: 1, past_due: 1, needs_repair: 1 }, inventory_service_log: { ok: true, id: 2 }, inventory_service_remove: { ok: true },
+    // Gear per job (2026-10-23): Hampden tomorrow is missing gear; the light stand is at repair.
+    inventory_condition_set: { ok: true },
+    job_gear_jobs: [{ booking_id: "bkg1", title: "Hampden Rec \u2022 Sports: Parent Contacts", picture_day: iso(1).slice(0, 10), type_label: "Sports: Parent Contacts", lines: 3, got: 1, out: 1 },
+      { booking_id: "bkg2", title: "Testville Elementary \u2022 School Photos", picture_day: iso(9).slice(0, 10), type_label: "School Photos", lines: 0, got: 0, out: 0 }],
+    job_gear: { can_edit: !AS_GEAR, booking: { id: "bkg1", title: "Hampden Rec \u2022 Sports: Parent Contacts", picture_day: iso(1).slice(0, 10), status: "booked", type_label: "Sports: Parent Contacts" },
+      lines: [{ id: "gl1", label: "Sports kit 1", qty: 1, note: "", kit_id: "ik1", item_id: null, from_list: true, got: true, checkout_id: 2, holder_name: "Gus Shooter", returned_at: null, out_what: "Sports kit 1" },
+        { id: "gl2", label: "Canon R6 body", qty: 1, note: "Bring both batteries", kit_id: null, item_id: "ii2", from_list: true, got: false, warn: "Out with Sam Helper, due Fri Oct 24" },
+        { id: "gl3", label: "AA batteries", qty: 24, note: "", kit_id: null, item_id: null, from_list: true, got: false }],
+      extras: [] },
+    job_gear_check_out: { ok: true, id: 9, holder_name: "Jeremiah Mutty", line_id: "gl2" }, job_gear_pack: { ok: true }, job_gear_line_add: { ok: true }, job_gear_line_remove: { ok: true },
+    gear_templates_list: { can_edit: !AS_GEAR, types: [{ key: "school", label: "School Photos" }, { key: "sports_data", label: "Sports: Parent Contacts" }],
+      lines: [{ id: "gt1", type_key: null, kit_id: null, item_id: null, label: "AA batteries", name: "AA batteries", qty: 24, note: "" },
+        { id: "gt2", type_key: "sports_data", kit_id: "ik1", item_id: null, label: "", name: "Sports kit 1", qty: 1, note: "" }] },
+    gear_template_save: { ok: true }, gear_template_archive: { ok: true },
   });
+  T.inventory_items_v.push({ id: "00000000-0000-0000-0000-0000000000a4", name: "Light stand", qty: 1, serial: "", note: "", photo_path: null, bin_id: "ib1", kit_id: null, place_bin_id: "ib1",
+    bin_code: "A-01", bin_location: "Studio, back shelf", kit_name: null, checkout_id: null, holder_name: null, condition: "repair", condition_note: "Sent to the shop", condition_since: iso(-2) });
+  T.inventory_items_v.forEach((r) => { if (!r.condition) r.condition = "ok"; });
+  T.inventory_out_v[1].job_title = "Hampden Rec (Fri Oct 24)";
+  // Labels: a stand-in for the QR library (the real one loads from jsDelivr).
+  window.qrcode = () => ({ addData() {}, make() {}, createSvgTag: () => '<svg class="fake-qr" viewBox="0 0 1 1"></svg>' });
   // Season results (2026-10-22): two falls, a winter and a spring of jobs; Brewer gets 10%, Hampden 5%.
   {
     const BR = "11111111-1111-1111-1111-111111111111", HG = "22222222-2222-2222-2222-222222222222", IC = "44444444-4444-4444-4444-444444444444";
