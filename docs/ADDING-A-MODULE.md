@@ -1,7 +1,7 @@
 # Adding a module to 207 Admin
 
-A "module" is one area of the site that people can be given access to: Bookings, Galleries, and the
-planned Employee scheduling, Time clock, Inventory and Workflows. Every module follows the same
+A "module" is one area of the site that people can be given access to: Bookings, Galleries, Scheduling,
+Inventory, Job checklists (`workflows`) and the planned Time clock. Every module follows the same
 pattern, so access control comes for free.
 
 There are four pieces, and each one is small:

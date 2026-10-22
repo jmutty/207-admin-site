@@ -240,6 +240,20 @@
         { id: "t2", user_id: "u2", title: "Order print supplies", notes: "", repeat: "weekly", weekdays: [1], month_day: null, due_on: null, starts_on: today, est_minutes: null, priority: "normal", last_done: null },
         { id: "t5", user_id: "u1", title: "Month-end numbers", notes: "", repeat: "monthly", weekdays: [], month_day: 31, due_on: null, starts_on: today, est_minutes: 60, priority: "normal", last_done: null },
         { id: "t4", user_id: "u2", title: "Call Hampden about retakes", notes: "", repeat: "once", weekdays: [], month_day: null, due_on: add(today, -1), starts_on: today, est_minutes: null, priority: "urgent", last_done: null }] };
+    // Job checklists (2026-10-22)
+    RPC.workflow_jobs = [
+      { booking_id: "bk3", title: "Island Cheer & Tumbling \u2022 Cheer", picture_day: add(today, 3), type_key: "sports_nodata", lead: "Sam Helper", open_count: 2, overdue_count: 1,
+        tasks: [{ task_id: "w1", title: "Confirm start time and crew with the contact", due_on: add(today, -1), user_name: "Sam Helper", done_at: null, done_by: null, priority: "normal", manual: false },
+          { task_id: "w2", title: "Pack the kit and charge batteries", due_on: add(today, 2), user_name: "Sam Helper", done_at: null, done_by: null, priority: "normal", manual: false }] },
+      { booking_id: "bk1", title: "Brewer Travel Basketball Club \u2022 Winter Sports", picture_day: add(today, 12), type_key: "sports_data", lead: null, open_count: 0, overdue_count: 0,
+        tasks: [{ task_id: "w3", title: "Order team banners", due_on: add(today, -2), user_name: "Jeremiah Mutty", done_at: new Date().toISOString(), done_by: "Jeremiah Mutty", priority: "urgent", manual: false }] }];
+    RPC.workflow_templates = { can_edit: true,
+      types: [{ key: "school", label: "School Photos" }, { key: "sports_data", label: "Sports: league with parent contacts" }, { key: "sports_nodata", label: "Sports: school teams, roster only" }],
+      people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }],
+      steps: [{ id: "ws1", type_key: null, title: "Confirm start time and crew with the contact", notes: "Call or email the contact on the booking.", anchor: "picture_day", offset_days: -7, assign_to: "crew", user_id: null, user_name: null, priority: "normal", sort: 10 },
+        { id: "ws2", type_key: null, title: "Send the partner a thank-you", notes: "", anchor: "launch", offset_days: 14, assign_to: "crew", user_id: "u1", user_name: "Jeremiah Mutty", priority: "normal", sort: 50 },
+        { id: "ws3", type_key: "sports_data", title: "Order team banners", notes: "", anchor: "booked", offset_days: 2, assign_to: "person", user_id: "u1", user_name: "Jeremiah Mutty", priority: "urgent", sort: 10 }] };
+    RPC.workflow_step_save = { ok: true, id: "ws9" }; RPC.workflow_step_archive = { ok: true }; RPC.workflow_attention = { overdue: 1 };
     RPC.assignment_check = { ok: true }; RPC.assignment_save = { ok: true, id: "t9" }; RPC.assignment_archive = { ok: true }; RPC.staff_settings_save = { ok: true }; RPC.day_email_status = { on: true, hour: 7, mine: true }; RPC.day_email_settings_save = { ok: true }; RPC.day_email_mine = { ok: true, on: false }; RPC.team_set_hours = { ok: true };
   }
   window.supabase = { createClient: () => ({

@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -472,6 +472,41 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-tmSave");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_hours" && c[1].p_hours === 28 && c[1].p_user_id === "u2")), "saves weekly hours");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Job checklists (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/checklists");
+    check(await page.$eval("#aca-panel-checklists", (n) => n.classList.contains("active")), "#jobs/checklists opens Jobs");
+    await page.waitForSelector("#aca-wfJobs .wf-job");
+    check((await page.$$("#aca-wfJobs .wf-job")).length === 1, "shows only jobs with tasks to do");
+    check((await page.textContent("#aca-wfJobs")).includes("1 overdue"), "flags the overdue task");
+    await page.selectOption("#aca-wfShow", "all");
+    check((await page.$$("#aca-wfJobs .wf-job")).length === 2, "All jobs shows the finished one too");
+    await page.click('#aca-pagetabs button[data-tab="wfsteps"]');
+    await page.waitForSelector("#aca-wfSteps tr.wf-row");
+    check((await page.textContent("#aca-wfSteps")).includes("7 days before picture day"), "step says when it is due");
+    check((await page.textContent("#aca-wfSteps")).includes("Sports: league with parent contacts"), "steps grouped by job type");
+    await page.click("#aca-wfAdd");
+    await page.waitForSelector("#aca-wsTitle");
+    await page.fill("#aca-wsTitle", "Print the team list");
+    await page.selectOption("#aca-wsType", "school");
+    await page.fill("#aca-wsDays", "2");
+    await page.selectOption("#aca-wsDir", "before");
+    await page.click('.modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "workflow_step_save" && c[1].p.title === "Print the team list" && c[1].p.type_key === "school" && c[1].p.anchor === "picture_day" && c[1].p.offset_days === -2 && c[1].p.assign_to === "crew")), "adds a step 2 days before picture day");
+    await page.click('#aca-wfSteps tr.wf-row[data-id="ws3"]');
+    await page.waitForSelector("#aca-wsTitle");
+    check(await page.$eval("#aca-wsDir", (n) => n.value) === "booked" && await page.$eval("#aca-wsTo", (n) => n.value) === "person", "opens a step with its settings");
+    await page.click('.modal [data-m="remove"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "workflow_step_archive" && c[1].p_id === "ws3")), "removes a step");
+    await page.click('#aca-nav button[data-tab="today"]');
+    await page.waitForTimeout(300);
+    check((await page.textContent("#aca-panel-today")).includes("job checklist task is overdue"), "Today flags the overdue checklist task");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
