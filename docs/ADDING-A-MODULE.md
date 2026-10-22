@@ -136,6 +136,11 @@ A page for people outside 207 Photo (no sign-in, opened from an emailed link wit
 `registerPublicPage({ wanted: () => /^#mypage\//.test(location.hash), show() {...} })` and back it with
 `SECURITY DEFINER` RPCs granted to `anon` that look the token up (see `app/src/pictureday-public.js`).
 
+A tab on the job page (`#jobs/job/<booking id>`, `app/src/jobpage.js`): call `registerJobTab({ id, label, order, module, show(job), render(booking, el, job) })`
+from your own file. It's a hoisted function, so file order doesn't matter. `job` is the `job_get()` result. Built-in tabs use
+orders 10 (Overview), 20 (Picture day), 30 (Checklist), 60 (Results), 80 (Notes) and 90 (History). Link to a job with `jobLink(id, tab)`.
+`HistoryView.open(kind, id, title)` shows the change history (`history_get`: `job`, `org`, `punches`).
+
 Helpers available everywhere: `supabase`, `el(id)`, `esc()`, `fmtDate()`, `fmtAgo()`, `toast()`,
 `showError()`/`clearError()`, `canSee(m)`, `canEdit(m)`, `openModal(html, {locked})`, `setAttention()`.
 

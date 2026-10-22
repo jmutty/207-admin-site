@@ -87,8 +87,10 @@
         '<div class="modal-actions">' +
         (isNew || p.is_me ? "" : '<button type="button" class="small" id="aca-tmReset">Reset password</button><button type="button" class="small" id="aca-tmActive">' + (p.active ? "Deactivate" : "Reactivate") + "</button>" +
           (p.active ? "" : '<button type="button" class="small warn" id="aca-tmRemove">Remove</button>')) +
+        (isNew ? "" : '<button type="button" class="small" id="aca-tmSignins">Sign-ins</button>') +
         '<span class="grow"></span><button type="button" class="small" id="aca-tmCancel">Cancel</button><button type="button" class="primary" id="aca-tmSave">' + (isNew ? "Add and create login" : "Save") + "</button></div>");
       const err = (t) => { const n = el("tmErr"); n.textContent = t; n.classList.remove("hidden"); };
+      if (el("tmSignins")) el("tmSignins").addEventListener("click", () => HistoryView.signins(p.user_id, "Sign-ins: " + (p.name || p.email)));
       el("tmAdmin").addEventListener("change", () => el("tmGrid").classList.toggle("hidden", el("tmAdmin").checked));
       el("tmCancel").addEventListener("click", () => m.close());
       const picked = () => { const o = {}; modules.forEach((x) => { const r = m.querySelector('input[name="tm-' + x.key + '"]:checked'); if (r && r.value !== "none") o[x.key] = r.value; }); return o; };

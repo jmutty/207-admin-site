@@ -819,7 +819,7 @@
           <div class="bk-sub">${daysLine(b)} \u00b7 ${esc(b.type_label)}${b.status !== "booked" ? ' \u00b7 <span class="pill muted">' + esc(tracked ? "tracking only" : b.status) + "</span>" : ""}</div>
           ${b.time_set === false && live ? '<div class="bk-sub" style="margin-top:6px"><span class="pill warn">time not set</span> Emails that mention the time are waiting. <button type="button" class="small" data-v="edit">Set the times</button></div>' : ""}
           <div class="bk-sub"><a href="#partners/orgs/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " \u00b7 " + esc(b.location) : ""}</div></div>
-        <div style="display:flex;gap:6px;flex:0 0 auto">${live ? '<button type="button" class="small" data-v="edit">Edit</button>' : ""}<button type="button" data-v="close" aria-label="Close">\u2715</button></div>
+        <div style="display:flex;gap:6px;flex:0 0 auto"><a class="small" href="${jobLink(b.id)}" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:4px">Job page</a>${live ? '<button type="button" class="small" data-v="edit">Edit</button>' : ""}<button type="button" data-v="close" aria-label="Close">\u2715</button></div>
       </div>
       ${stageBlock(b)}
       ${dlvBlock(b)}

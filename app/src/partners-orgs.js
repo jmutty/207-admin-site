@@ -1076,6 +1076,7 @@
           <div class="og-pnav">
             <button type="button" class="small" data-act="prev" ${i <= 0 ? "disabled" : ""} title="Previous (up arrow)" aria-label="Previous">&#9650;</button>
             <button type="button" class="small" data-act="next" ${i < 0 || i >= visible.length - 1 ? "disabled" : ""} title="Next (down arrow)" aria-label="Next">&#9660;</button>
+            <button type="button" class="small" data-act="history" title="Who changed what">History</button>
             <button type="button" class="small" data-act="close" title="Close (Esc)" aria-label="Close">&#10005;</button>
           </div>
         </div>
@@ -1677,6 +1678,7 @@
     if (act === "cdone") { renderPanel(); return; }
     const o = byId.get(openId);
     if (act === "close") return closePanel(false);
+    if (act === "history" && o) return HistoryView.open("org", o.id, "History: " + o.name);
     if (act === "prev") return step(-1);
     if (act === "next") return step(1);
     if (act === "note") { const n = el("ogNoteText"); n.scrollIntoView({ block: "center" }); n.focus(); return; }
