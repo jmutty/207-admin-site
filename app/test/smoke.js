@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -713,7 +713,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "?as=staff", "#partners/orgs");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday", "clearances"]), "menu limited to their pages: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday", "clock", "clearances"]), "menu limited to their pages: " + items.join(","));
     check(await page.$eval("#aca-panel-today", (n) => n.classList.contains("active")), "a link to a page they can't see lands on Today");
     const calls = await page.evaluate(() => window.__rpcCalls.map((c) => c[0]));
     const forbidden = calls.filter((n) => /^(admin_outbox|admin_hub|admin_lookup|prospect_|admin_morning|team_|admin_job)/.test(n));
@@ -899,6 +899,106 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_accept" && c[1].p_token === "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2" && c[1].p_name === "Chris Snowdeal")), "accepts with the typed name");
     check((await page.textContent(".ag-done")).includes("Chris Snowdeal"), "says who accepted");
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "fits a phone screen");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Time clock: staff on a phone");
+  {
+    const { page, errors } = await open(browser, port, "?as=staff", "#staff/clock");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForSelector("#aca-tcBody .tc-pick button");
+    check(await page.$eval("#aca-panel-clock", (n) => n.classList.contains("active")), "#staff/clock opens the clock");
+    check(!(await visible(page, "#aca-viewOnly")), "clock: no view-only notice for staff");
+    check((await page.textContent("#aca-tcBody .tc-pick button.mine")).includes("Hampden Academy"), "their scheduled job is listed first and marked");
+    await page.fill("#aca-tcNote", "Running late");
+    await page.click("#aca-tcBody .tc-pick button.mine");
+    await page.waitForTimeout(150);
+    const ci = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "timeclock_in").pop());
+    check(ci && ci[1].p_kind === "job" && ci[1].p_booking === "bk1" && ci[1].p_note === "Running late", "clocks in to the job: " + JSON.stringify(ci && ci[1]));
+    await page.click('#aca-tcBody [data-in="studio"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_in" && c[1].p_kind === "studio" && c[1].p_booking === null)), "clocks in to Studio");
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= 392), "clock: no sideways scroll on a phone");
+    await page.click('#aca-pagetabs button[data-tab="timesheets"]');
+    await page.waitForSelector("#aca-tsBody .tc-person");
+    check(!(await shown(page, "#aca-tsWhoWrap")) && !(await shown(page, '#aca-panel-timesheets [data-w="payroll"]')), "timesheets: their own only, no payroll");
+    check((await page.textContent("#aca-tsBody")).includes("Approved"), "approved week shows approved");
+    check(!(await page.$("#aca-tsBody [data-approve]")), "no approve button for staff");
+    await page.click('#aca-panel-timesheets [data-w="add"]');
+    await page.waitForSelector(".tc-modal");
+    check(!(await page.$("#aca-tpP")), "add time: no person picker for staff");
+    await page.click('.tc-modal input[name="aca-tpK"][value="admin"]', { force: true });
+    await page.click('.tc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    const ps = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "timepunch_save").pop());
+    check(ps && ps[1].p.kind === "admin" && ps[1].p.clock_in && ps[1].p.clock_out && ps[1].p.user_id === "u2", "adds their own forgotten time: " + JSON.stringify(ps && ps[1].p));
+    await page.click('#aca-pagetabs button[data-tab="mileage"]');
+    await page.waitForSelector("#aca-miBody table");
+    check(!(await shown(page, "#aca-miWhoWrap")), "mileage: their own only");
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => (window.__driveCalls || []).some((b) => b.booking_id === "bk3")), "a trip without miles is looked up on Google");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "mileage_refresh")), "and filled in");
+    await page.click('#aca-panel-mileage [data-v="add"]');
+    await page.waitForSelector(".tc-modal");
+    await page.fill("#aca-mtM", "8");
+    await page.click('.tc-modal [data-m="save"]');
+    await page.waitForTimeout(100);
+    check(await page.isVisible(".tc-modal .tc-merr") && !(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "mileage_save"))), "a trip without a job needs a note");
+    await page.fill("#aca-mtN", "Bank deposit");
+    await page.click('.tc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "mileage_save" && c[1].p.miles === "8" && c[1].p.note === "Bank deposit")), "adds a trip by hand");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Time clock: owner");
+  {
+    const { page, errors } = await open(browser, port, "?clockedin=1", "#today");
+    await page.waitForSelector("#aca-todayClock [data-tc]");
+    check((await page.textContent("#aca-todayClock")).includes("Hampden Academy"), "Today shows what they are clocked in to");
+    await page.click('#aca-todayClock [data-tc="out"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_out")), "Clock out from Today");
+    check((await page.textContent("#aca-todayList")).includes("timesheet from last week"), "Today: last week's timesheet waits for approval");
+    await page.click('#aca-nav button[data-tab="clock"]');
+    await page.waitForSelector("#aca-tcTimer");
+    check(await page.isVisible('#aca-tcBody [data-c="out"]'), "clocked in: big Clock out button");
+    await page.click('#aca-tcBody [data-c="switch"]');
+    check(await page.isVisible("#aca-tcBody .tc-pick"), "Switch shows what to switch to");
+    await page.click('#aca-pagetabs button[data-tab="timesheets"]');
+    await page.waitForSelector("#aca-tsBody .tc-person");
+    await page.selectOption("#aca-tsWho", "all");
+    await page.waitForSelector("#aca-tsBody tr.tc-row");
+    check((await page.$$("#aca-tsBody tr.tc-row")).length === 2, "everyone: one row per person");
+    check((await page.textContent("#aca-tsBody")).includes("Not approved"), "shows who is not approved");
+    await page.click('#aca-tsBody [data-approve="u1"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timesheet_approve" && c[1].p_user === "u1" && c[1].p_approve === true)), "approves a week");
+    await page.click('#aca-tsBody tr.tc-row[data-person="u2"] td.name');
+    await page.waitForSelector('#aca-tsBody [data-punch="tp3"]');
+    check((await page.textContent('#aca-tsBody [data-punch="tp3"]')).includes("edited"), "a typed-in punch is marked edited");
+    await page.click('#aca-panel-timesheets [data-w="payroll"]');
+    await page.waitForSelector('.tc-modal [data-m="csv"]:not([disabled])');
+    check((await page.textContent(".tc-modal")).includes("Not approved yet: Jeremiah M."), "payroll warns about unapproved weeks");
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click('.tc-modal [data-m="csv"]')]);
+    const csv = fs.readFileSync(await dl.path(), "utf8");
+    check(/^Name,Email,Period start,Period end,Regular hours,Overtime hours,Total hours,Miles,Mileage pay,Weeks approved\r\nJeremiah Mutty,jmutty@207photo.com,.*,40\.00,3\.50,43\.50,26\.1,18\.27,0 of 1\r\n/.test(csv), "payroll CSV: " + csv.split("\r\n")[1]);
+    await page.click('.tc-modal [data-m="cancel"]');
+    await page.click('#aca-panel-timesheets [data-w="settings"]');
+    await page.waitForSelector("#aca-tsR");
+    await page.fill("#aca-tsR", "0.725");
+    await page.click('.tc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_settings_save" && c[1].p_rate === 0.725 && c[1].p_overtime === 40)), "changes the mileage rate");
+    await page.click('#aca-pagetabs button[data-tab="mileage"]');
+    await page.waitForSelector("#aca-miBody table");
+    await page.click('#aca-panel-mileage [data-v="sched"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "mileage_from_schedule")), "Add from schedule");
+    const [dl2] = await Promise.all([page.waitForEvent("download"), page.click('#aca-panel-mileage [data-v="csv"]')]);
+    const mcsv = fs.readFileSync(await dl2.path(), "utf8");
+    check(mcsv.startsWith("Date,Name,Job or where,Address,Miles,Amount,Note,Source") && mcsv.includes("26.1,18.27"), "mileage CSV");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

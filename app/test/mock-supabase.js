@@ -57,7 +57,8 @@
       { key: "team", label: "Team", section: "System", description: "", sort: 95, status: "live", admin_only: true },
       { key: "scheduling", label: "Scheduling", section: "Staff", description: "The week's bar schedule.", sort: 200, status: "live", admin_only: false },
       { key: "assignments", label: "Assignments", section: "Staff", description: "Daily, weekly and monthly tasks.", sort: 205, status: "live", admin_only: false },
-      { key: "staffrecords", label: "Staff records", section: "Staff", description: "Clearances and onboarding.", sort: 215, status: "live", admin_only: false }],
+      { key: "staffrecords", label: "Staff records", section: "Staff", description: "Clearances and onboarding.", sort: 215, status: "live", admin_only: false },
+      { key: "timeclock", label: "Time clock & mileage", section: "Staff", description: "Clock in and out, timesheets, mileage.", sort: 210, status: "live", admin_only: false }],
     prospect_enrollments: [{ org_id: "44444444-4444-4444-4444-444444444444", status: "paused", end_reason: "held for review" }],
     booking_types: [
       { key: "school", label: "School Photos", audience: "school", description: "Four emails: booked, student data (21 days), two weeks, day before. Creates the school on the hub.", title_labels: ["School Photos"], default_duration_min: 180, sort_order: 1 },
@@ -125,7 +126,7 @@
       : AS_MONEY ? { user_id: "u6", email: "bo@207photo.com", name: "Bo Books", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { results: "view" } }
       : AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
-      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view", staffrecords: "view" } }
+      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view", staffrecords: "view", timeclock: "view" } }
       : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
     team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, weekly_hours: 40, last_sign_in_at: iso(-0.01), modules: {} },
       { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, is_me: false, active: true, must_change_password: true, last_sign_in_at: null, modules: { bookings: "edit", parents: "view" } },
@@ -384,6 +385,43 @@
     RPC.openjobs_people = { can_grant: true, people: [{ user_id: "u6", name: "Pat Parttime", part_time: true, home_address: "12 Elm St, Bangor ME", max_drive_min: 60, has_access: true, has_device: true },
       { user_id: "u2", name: "Sam Helper", part_time: false, home_address: "", max_drive_min: 60, has_access: false, has_device: true }] };
     RPC.openjobs_person_save = { ok: true, granted: true };
+  }
+  // Time clock and mileage (2026-10-22). ?clockedin=1 starts clocked in.
+  {
+    const nyDay = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const add = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    const today = nyDay(Date.now()), sun = add(today, -new Date(today + "T12:00:00Z").getUTCDay());
+    const at = (d, hm) => d + "T" + hm + ":00-04:00";
+    const me = AS_STAFF ? "u2" : "u1";
+    const punch = (id, user, day, a, b, kind, extra) => Object.assign({ id, user_id: user, kind, booking_id: null, job_title: "", clock_in: at(day, a), clock_out: b ? at(day, b) : null, day,
+      minutes: b ? (+b.slice(0, 2) * 60 + +b.slice(3)) - (+a.slice(0, 2) * 60 + +a.slice(3)) : 75, note: "", edited: false, edited_by: null, locked: false }, extra || {});
+    const open = /[?&]clockedin=1\b/.test(location.search) ? punch("tp9", me, today, "08:00", null, "job", { booking_id: "bk1", job_title: "Hampden Academy \u2022 School Photos" }) : null;
+    RPC.timeclock_status = { me, can_edit: !AS_STAFF, open,
+      jobs: [{ booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", start_at: at(today, "09:00"), location: "89 Western Ave, Hampden ME", mine: true },
+             { booking_id: "bk2", title: "Brewer Travel Basketball Club \u2022 Winter Sports", start_at: at(today, "16:00"), location: "", mine: false }],
+      today: open ? [open] : [], week_start: sun, week_worked_min: 610, week_scheduled_min: 1440, today_scheduled_min: 240 };
+    RPC.timeclock_in = { ok: true, id: "tp10", switched: !!open }; RPC.timeclock_out = { ok: true, minutes: 135 };
+    const days = (w) => Array.from({ length: 7 }, (_, i) => ({ day: add(sun, i), worked_min: w[i] || 0, scheduled_min: [0, 480, 480, 240, 0, 240, 0][i] }));
+    RPC.timesheet_week = { can_edit: !AS_STAFF, me, week_start: sun, overtime_after: 40,
+      jobs: [{ booking_id: "bk1", day: add(sun, 2), title: "Hampden Academy \u2022 School Photos", start_at: at(add(sun, 2), "09:00") }],
+      people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40, days: days([0, 500, 470]), miles: 26.1, open: false, approved_at: null, approved_by: null },
+               { user_id: "u2", name: "Sam Helper", weekly_hours: 24, days: days([0, 480, 495, 0, 0, 0, 0]), miles: 0, open: false, approved_at: new Date().toISOString(), approved_by: "Jeremiah Mutty" }]
+        .filter((p) => !AS_STAFF || p.user_id === "u2"),
+      punches: [punch("tp1", "u2", add(sun, 1), "08:00", "16:00", "studio"), punch("tp2", "u2", add(sun, 2), "08:15", "12:30", "job", { booking_id: "bk1", job_title: "Hampden Academy \u2022 School Photos", note: "on site" }),
+                punch("tp3", "u2", add(sun, 2), "12:45", "16:45", "admin", { edited: true, edited_by: "Sam Helper" }), punch("tp4", "u1", add(sun, 1), "08:00", "16:20", "studio")]
+        .filter((p) => !AS_STAFF || p.user_id === "u2") };
+    RPC.timepunch_save = { ok: true, id: "tp11" }; RPC.timepunch_remove = { ok: true }; RPC.timesheet_approve = { ok: true }; RPC.timeclock_settings_save = { ok: true };
+    RPC.timesheet_payroll = { from: sun, to: add(sun, 6), mileage_rate: 0.7, overtime_after: 40,
+      people: [{ user_id: "u1", name: "Jeremiah Mutty", email: "jmutty@207photo.com", worked_min: 2610, overtime_min: 210, regular_min: 2400, miles: 26.1, mileage_pay: 18.27, weeks: 1, approved_weeks: 0, open: false },
+               { user_id: "u2", name: "Sam Helper", email: "sam@207photo.com", worked_min: 975, overtime_min: 0, regular_min: 975, miles: 0, mileage_pay: 0, weeks: 1, approved_weeks: 1, open: false }],
+      punches: [Object.assign(punch("tp1", "u2", add(sun, 1), "08:00", "16:00", "studio"), { name: "Sam Helper" })] };
+    RPC.mileage_list = { can_edit: !AS_STAFF, me, month: today.slice(0, 8) + "01", mileage_rate: 0.7, studio_address: "60 Main Rd, N Hampden",
+      jobs: [{ booking_id: "bk1", day: add(sun, 2), title: "Hampden Academy \u2022 School Photos" }],
+      trips: [{ id: "mt1", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: "bk1", job_title: "Hampden Academy \u2022 School Photos", location: "89 Western Ave, Hampden ME", day: add(sun, 2), miles: 26.1, auto: true, note: "", est_miles: null, locked: false },
+              { id: "mt2", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: "bk3", job_title: "Island Cheer & Tumbling \u2022 Cheer", location: "Deer Isle", day: add(sun, 3), miles: null, auto: true, note: "", est_miles: null, locked: false },
+              { id: "mt3", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: null, job_title: "", location: null, day: add(sun, 1), miles: 12, auto: false, note: "Staples for paper", est_miles: null, locked: false }] };
+    RPC.mileage_save = { ok: true, id: "mt9" }; RPC.mileage_remove = { ok: true }; RPC.mileage_refresh = { ok: true, filled: 0 }; RPC.mileage_from_schedule = { ok: true, added: 2 };
+    RPC.timeclock_attention = { open_long: 0, to_approve: AS_STAFF ? 0 : 1, last_week: add(sun, -7) };
   }
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
