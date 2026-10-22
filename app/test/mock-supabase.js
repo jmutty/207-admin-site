@@ -117,8 +117,11 @@
   const AS_GEAR = /[?&]as=gear\b/.test(location.search);
   // ?as=parttime: a part-time photographer (Open jobs view only).
   const AS_PART = /[?&]as=parttime\b/.test(location.search);
+  // ?as=money: Season results view only.
+  const AS_MONEY = /[?&]as=money\b/.test(location.search);
   const RPC = {
     my_access: AS_PART ? { user_id: "u6", email: "pat@207photo.com", name: "Pat Parttime", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { openjobs: "view" } }
+      : AS_MONEY ? { user_id: "u6", email: "bo@207photo.com", name: "Bo Books", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { results: "view" } }
       : AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
       : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view" } }
@@ -206,6 +209,36 @@
     inventory_check_out: { ok: true, id: 3, holder_name: "Jeremiah Mutty" }, inventory_return: { ok: true },
     inventory_history: [{ id: 2, holder_name: "Gus Shooter", out_at: iso(-3), due_on: null, note: "Hampden", returned_at: null, with_kit: false }],
   });
+  // Season results (2026-10-22): two falls, a winter and a spring of jobs; Brewer gets 10%, Hampden 5%.
+  {
+    const BR = "11111111-1111-1111-1111-111111111111", HG = "22222222-2222-2222-2222-222222222222", IC = "44444444-4444-4444-4444-444444444444";
+    const names = { [BR]: "Brewer Travel Basketball Club", [HG]: "Hancock Grammar School", [IC]: "Island Cheer & Tumbling" };
+    const pct = { [BR]: 10, [HG]: 5 };
+    const job = (id, name, org, day, type, season, year, sales, orders, extra) => {
+      const p = org && pct[org] ? pct[org] : 0, due = sales == null ? 0 : Math.round(sales * p) / 100, paid = (extra && extra.paid) || 0;
+      return Object.assign({ id, name, org_id: org, org_name: org ? names[org] : null, org_set: false, picture_day: day, job_type: type, booking_type: null, gallery_status: "published",
+        season, season_year: year, gp_sales: sales, gp_orders: orders, gp_synced_at: iso(-0.05), gp_error: null, manual_sales: null, manual_orders: null,
+        sales, orders, pct: p, pct_source: p ? "partner" : "none", payout_pct: null, payout_amount: null, due, paid, last_paid_on: paid ? "2026-03-02" : null,
+        balance: Math.max(due - paid, 0), state: sales == null && p ? "waiting" : !due && !paid ? "none" : paid >= due ? "paid" : "owed", note: "" }, extra || {});
+    };
+    RPC.results_jobs = [
+      job("r1", "Brewer Travel | Fall 2026", BR, "2026-09-19", "sport_other", "fall", 2026, 5200, 118),
+      job("r2", "Hancock Grammar | Fall 2026", HG, "2026-09-24", "school_k_12", "fall", 2026, 3100, 96),
+      job("r3", "Bangor Rec | Fall Soccer 2026", null, "2026-10-04", "sport_soccer", "fall", 2026, 1800, 52),
+      job("r4", "Island Cheer | Fall 2026", IC, "2026-10-18", "sport_other", "fall", 2026, 900, 30),
+      job("r5", "Brewer Travel | Fall 2025", BR, "2025-09-20", "sport_other", "fall", 2025, 4600, 104, { paid: 460, gallery_status: "archived" }),
+      job("r6", "Hancock Grammar | Fall 2025", HG, "2025-09-25", "school_k_12", "fall", 2025, 2700, 90, { paid: 135, gallery_status: "archived" }),
+      job("r7", "Old Town Soccer | Fall 2025", null, "2025-10-11", "sport_soccer", "fall", 2025, 2200, 61, { gallery_status: "archived" }),
+      job("r8", "Brewer Travel | Winter 2026", BR, "2026-01-17", "sport_other", "winter", 2026, 3900, 88, { paid: 380, gallery_status: "archived" }),
+      job("r9", "Hancock Grammar | Spring 2026", HG, "2026-04-14", "school_k_12", "spring", 2026, 1500, 44, { manual_sales: 1500, gp_sales: 1450 })];
+    RPC.results_partners = [{ id: BR, name: names[BR], payout_pct: 10, note: "Partner Plan", jobs: 4 }, { id: HG, name: names[HG], payout_pct: 5, note: "", jobs: 3 },
+      { id: IC, name: names[IC], payout_pct: null, note: "", jobs: 1 }];
+    RPC.results_payments = [{ id: 1, amount: 380, paid_on: "2026-03-02", method: "Check", ref: "1042", by: "Jeremiah Mutty" }];
+    RPC.results_attention = { owed: 2, total: 395 };
+    RPC.results_pay = { ok: true, jobs: 2, total: 520 }; RPC.results_save = { ok: true }; RPC.results_set_terms = { ok: true }; RPC.results_payment_remove = { ok: true };
+    T.results_settings = { id: true, gp_amount_field: null, gp_amount_cents: false, gp_field_used: "total_net", last_run_at: iso(-0.03), last_run_ok: true, last_run_error: null, last_run_jobs: 12 };
+    T.app_modules.push({ key: "results", label: "Season results", section: "Jobs", description: "Sales per job, partner payouts, seasons against last year.", sort: 35, status: "live", admin_only: false });
+  }
   const storage = { from: () => ({
     createSignedUrls: async (paths) => ({ data: paths.map((p) => ({ path: p, signedUrl: "logo.png" })), error: null }),
     upload: async (path) => (window.__writes = (window.__writes || []).concat([["storage", "upload", path]]), { data: { path }, error: null }),
@@ -305,6 +338,10 @@
     if (String(url).includes("/functions/v1/offer-drive")) {
       window.__offerDriveCalls = (window.__offerDriveCalls || []).concat([JSON.parse(opts.body)]);
       return new Response(JSON.stringify({ ok: true, asked: 3, stored: 3, missed: 0 }), { status: 200 });
+    }
+    if (String(url).includes("/functions/v1/admin/sales")) {
+      window.__salesCalls = (window.__salesCalls || 0) + 1;
+      return new Response(JSON.stringify({ ok: true, jobs: 3, left: 0, errors: {} }), { status: 200 });
     }
     if (String(url).includes("/functions/v1/drive-time")) {
       window.__driveCalls = (window.__driveCalls || []).concat([JSON.parse(opts.body)]);

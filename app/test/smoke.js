@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "schedule", "myday", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -369,6 +369,88 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-invCoSave");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_check_out" && c[1].p_holder === "u5")), "checks out to themselves");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Season results (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/seasons");
+    await page.waitForSelector("#aca-panel-seasons .tiles");
+    check(await page.$eval("#aca-panel-seasons", (n) => n.classList.contains("active")), "#jobs/seasons opens Seasons");
+    check(await page.$eval("#aca-rsSeason", (s) => s.value) === "fall:2026", "starts on the latest season");
+    const tiles = await page.textContent("#aca-panel-seasons .tiles");
+    check(tiles.includes("$11,000") && tiles.includes("vs $9,500"), "sales against the same season last year: " + tiles.replace(/\s+/g, " ").slice(0, 120));
+    check(tiles.includes("+16%"), "change shown");
+    const orgs = await page.textContent("#aca-panel-seasons table");
+    check(orgs.includes("Old Town Soccer") === false && orgs.includes("No organization"), "jobs without an organization are grouped");
+    check(orgs.includes("Island Cheer") && orgs.includes("new"), "a new partner says new");
+    await page.selectOption("#aca-rsSeason", "year:2026");
+    await page.waitForTimeout(100);
+    check((await page.textContent("#aca-panel-seasons .tiles")).includes("$16,400"), "whole year adds every season");
+
+    await page.click('#aca-pagetabs button[data-tab="payouts"]');
+    await page.waitForSelector("#aca-panel-payouts .rs-org");
+    const pay = await page.textContent("#aca-panel-payouts");
+    check(pay.includes("$760.00 owed on 4 jobs"), "owed total: " + pay.replace(/\s+/g, " ").slice(0, 140));
+    check((await page.$$("#aca-panel-payouts .rs-org")).length === 2, "one block per partner owed");
+    await page.click('#aca-panel-payouts [data-payall="r1,r8"]');
+    await page.waitForSelector("#aca-rsPayRef");
+    await page.fill("#aca-rsPayRef", "1101");
+    await page.click(".modal [data-go]");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_pay" && c[1].p_jobs.join() === "r1,r8" && c[1].p_method === "Check" && c[1].p_ref === "1101" && c[1].p_amount === undefined)), "records a payment for what is owed");
+    await page.click('#aca-panel-payouts [data-f="paid"]');
+    await page.waitForTimeout(100);
+    check((await page.textContent("#aca-panel-payouts")).includes("Brewer Travel | Fall 2025"), "Paid filter lists paid jobs");
+    await page.click("#aca-rsAddTerms");
+    await page.waitForSelector("#aca-rsTOrg");
+    check(await page.$eval("#aca-rsTOrg", (s) => [...s.options].map((o) => o.textContent).join()) === "Island Cheer & Tumbling", "add terms offers partners without terms");
+    await page.fill("#aca-rsTPct", "7.5");
+    await page.click(".modal [data-go]");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_set_terms" && c[1].p_pct === 7.5 && c[1].p_org === "44444444-4444-4444-4444-444444444444")), "saves a partner's share");
+
+    await page.click('#aca-pagetabs button[data-tab="resjobs"]');
+    await page.waitForSelector('#aca-panel-resjobs tr[data-job="r9"]');
+    check((await page.textContent('#aca-panel-resjobs tr[data-job="r9"]')).includes("typed in"), "typed-in sales are marked");
+    await page.fill("#aca-rsQ", "hancock");
+    await page.waitForTimeout(100);
+    check((await page.$$("#aca-panel-resjobs tbody tr[data-job]")).length === 3, "search narrows the list");
+    await page.click('#aca-panel-resjobs tr[data-job="r2"]');
+    await page.waitForSelector("#aca-rsJSales");
+    await page.fill("#aca-rsJSales", "3300");
+    await page.selectOption("#aca-rsJOrg", "11111111-1111-1111-1111-111111111111");
+    await page.click(".modal [data-go]");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_save" && c[1].p_job === "r2" && c[1].p.manual_sales === "3300" && c[1].p.org_id === "11111111-1111-1111-1111-111111111111")), "saves typed sales and an organization");
+    await page.click("#aca-rsRefresh");
+    await page.waitForTimeout(250);
+    check(await page.evaluate(() => window.__salesCalls === 1), "Refresh sales calls the admin function");
+
+    await page.click('#aca-nav button[data-tab="today"]');
+    await page.waitForTimeout(250);
+    check((await page.textContent("#aca-panel-today")).includes("partner payouts are owed"), "Today says payouts are owed");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Season results view only");
+  {
+    const { page, errors } = await open(browser, port, "?as=money");
+    check(JSON.stringify(await rail(page)) === JSON.stringify(["today", "seasons"]), "menu: Today and Season results");
+    await page.click('#aca-nav button[data-tab="seasons"]');
+    await page.waitForSelector("#aca-panel-seasons .tiles");
+    await page.click('#aca-pagetabs button[data-tab="payouts"]');
+    await page.waitForSelector("#aca-panel-payouts .rs-org");
+    check(!(await page.$("#aca-panel-payouts [data-payall]")) && !(await page.$("#aca-rsAddTerms")), "no Record payment, no terms editing");
+    check(!!(await page.$("#aca-panel-payouts [data-copy]")), "can still copy a statement");
+    await page.click('#aca-pagetabs button[data-tab="resjobs"]');
+    await page.waitForSelector('#aca-panel-resjobs tr[data-job="r1"]');
+    check(!(await page.$("#aca-rsRefresh")), "no Refresh sales");
+    await page.click('#aca-panel-resjobs tr[data-job="r1"]');
+    await page.waitForSelector("#aca-rsJSales");
+    check(await page.$eval("#aca-rsJSales", (i) => i.disabled) && !(await page.$(".modal [data-go]")), "job is read-only");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
