@@ -262,7 +262,10 @@
     if (String(url).includes("/functions/v1/place-search")) {
       const b = JSON.parse(opts.body);
       window.__placeCalls = (window.__placeCalls || []).concat([b]);
+      if (b.place_id === "ChIJstudio00000001") return new Response(JSON.stringify({ ok: true, name: "60 Main Rd N", address: "60 Main Rd N, Hampden, ME 04444, USA" }), { status: 200 });
       if (b.place_id) return new Response(JSON.stringify({ ok: true, name: "James F. Doughty Middle School", address: "143 Fifth St, Bangor, ME 04401, USA" }), { status: 200 });
+      if (b.kind === "town") return new Response(JSON.stringify({ ok: true, places: [{ id: "ChIJbangor00000001", name: "Bangor", detail: "ME, USA" }, { id: "ChIJbangor00000002", name: "Bangor", detail: "PA, USA" }] }), { status: 200 });
+      if (/main/i.test(b.q)) return new Response(JSON.stringify({ ok: true, places: [{ id: "ChIJstudio00000001", name: "60 Main Road North", detail: "Hampden, ME, USA" }] }), { status: 200 });
       return new Response(JSON.stringify({ ok: true, places: [
         { id: "ChIJdoughty0000001", name: "James F. Doughty Middle School", detail: "Fifth Street, Bangor, ME, USA" },
         { id: "ChIJdoughty0000002", name: "Doughty Field", detail: "Hampden, ME, USA" }] }), { status: 200 });

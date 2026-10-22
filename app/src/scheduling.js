@@ -608,8 +608,9 @@
 
     function openStudio() {
       const m = openModal('<div class="sc-modal"><h2>Studio address</h2><p>Drive times are measured from here to each job&#39;s location (or the organization and town when a booking has no location), using Google Maps.</p>' +
-        '<div class="field"><label for="aca-scAddr">Address</label><input type="text" id="aca-scAddr" maxlength="300" value="' + esc(data.studio_address || "") + '" placeholder="Street, town, state" /></div>' +
+        '<div class="field"><label for="aca-scAddr">Address</label><input type="text" id="aca-scAddr" maxlength="300" value="' + esc(data.studio_address || "") + '" placeholder="Search Google Maps or type street, town, state" /><div id="aca-scAddrNote" style="margin-top:4px;font-size:12px;color:var(--muted)"></div></div>' +
         '<div class="inline-error hidden" id="aca-scMErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Save</button></div></div>');
+      Places.attach(el("scAddr"), { note: el("scAddrNote"), hint: "Pick the studio from the list so drive times start from the exact spot." });
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") m.close();

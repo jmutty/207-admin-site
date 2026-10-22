@@ -40,12 +40,6 @@
   .aca .bk-orgs { border: 1px solid var(--border); border-radius: 8px; max-height: 200px; overflow: auto; margin-top: 6px; }
   .aca .bk-orgs button { display: block; width: 100%; text-align: left; border: none; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--surface); padding: 8px 10px; white-space: normal; }
   .aca .bk-orgs button:last-child { border-bottom: none; }
-  .aca .bk-loc { position: relative; min-width: 0; }
-  .aca .bk-places { position: absolute; z-index: 6; left: 0; right: 0; max-height: 300px; box-shadow: 0 6px 18px rgba(0,0,0,.12); background: var(--surface); }
-  .aca .bk-places button { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; text-align: left; gap: 2px; height: auto; padding: 10px 12px; min-height: 48px; font-weight: 400; white-space: normal; }
-  .aca .bk-places button.on, .aca .bk-places button:hover { background: var(--surface-2); }
-  .aca .bk-places .empty { padding: 10px 12px; font-size: 13px; color: var(--muted); }
-  .aca .bk-places-by { padding: 6px 12px; font-size: 11px; color: var(--muted); text-align: right; border-top: 1px solid var(--border); }
   .aca .bk-orgpick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .aca .bk-contacts label { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 13px; }
   .aca .bk-contacts label.off { color: var(--muted); }
@@ -409,75 +403,6 @@
     return box;
   }
 
-  // ---- Location: Google Maps suggestions (edge fn place-search, key stays server-side). The pick is saved as
-  // "Name, full address" in bookings.location, which the calendar event and drive-time both use. Typing by hand
-  // still works; if Google is unreachable or refuses, the box quietly becomes a plain text box again.
-  const PLACES_FN_URL = SUPABASE_URL + "/functions/v1/place-search";
-  const mapLink = (loc) => '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(loc) + '" target="_blank" rel="noopener">Open in Google Maps</a>';
-  async function placesCall(body) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) throw new Error("Signed out.");
-    const r = await fetch(PLACES_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const j = await r.json().catch(() => ({}));
-    if (!j.ok) throw new Error(j.error || "HTTP " + r.status);
-    return j;
-  }
-  const newSession = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : "");
-  function wirePlaces(input, list, note) {
-    let timer = null, seq = 0, places = [], active = -1, off = false, session = newSession();
-    const hint = "Goes on the calendar event and is used for drive times.";
-    const close = () => { list.classList.add("hidden"); input.setAttribute("aria-expanded", "false"); active = -1; };
-    const paint = () => list.querySelectorAll("button").forEach((b, i) => b.classList.toggle("on", i === active));
-    function show(q) {
-      list.innerHTML = places.map((p, i) => '<button type="button" role="option" data-i="' + i + '"><strong>' + esc(p.name) + "</strong>" + (p.detail ? '<span class="bk-sub">' + esc(p.detail) + "</span>" : "") + "</button>").join("") +
-        (places.length ? "" : '<div class="empty">No Google Maps match for \u201c' + esc(q) + '\u201d. Keep typing, or leave it as typed.</div>') +
-        '<div class="bk-places-by">Suggestions from Google Maps</div>';
-      list.classList.remove("hidden"); input.setAttribute("aria-expanded", "true"); active = -1;
-    }
-    async function pick(i) {
-      const p = places[i]; if (!p) return;
-      close(); input.value = p.name + (p.detail ? ", " + p.detail : ""); input.blur();
-      note.textContent = "Getting the address\u2026";
-      try {
-        const g = await placesCall({ place_id: p.id, session });
-        const addr = (g.address || "").replace(/, USA$/, "");
-        const name = g.name || p.name;
-        input.value = addr ? (addr.toLowerCase().startsWith(name.toLowerCase()) ? addr : name + ", " + addr) : input.value;
-      } catch (e) { /* keep the suggestion text; it is still a good address */ }
-      session = newSession();
-      note.innerHTML = mapLink(input.value);
-    }
-    // The town filled in from the organization is a placeholder: the first tap selects it so typing replaces it.
-    input.addEventListener("focus", () => { if (input.dataset.auto) { delete input.dataset.auto; const v = input.value; input.select(); setTimeout(() => { if (input.value === v) input.select(); }, 0); } });
-    input.addEventListener("input", () => {
-      clearTimeout(timer); delete input.dataset.auto;
-      const q = input.value.trim();
-      note.textContent = hint;
-      if (off || q.length < 3) { close(); return; }
-      timer = setTimeout(async () => {
-        const mine = ++seq;
-        try {
-          const j = await placesCall({ q, session });
-          if (mine !== seq || input.value.trim() !== q) return;
-          places = j.places || []; show(q);
-        } catch (e) {
-          if (mine !== seq) return;
-          off = true; close(); note.textContent = cleanErr(e);
-        }
-      }, 250);
-    });
-    input.addEventListener("keydown", (e) => {
-      if (list.classList.contains("hidden") || !places.length) return;
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); active = (active + (e.key === "ArrowDown" ? 1 : places.length - 1)) % places.length; paint(); }
-      else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(active); }
-      else if (e.key === "Escape") { e.stopPropagation(); close(); }
-    });
-    // Keep the input focused while a suggestion is tapped (iPhone fires blur before click), then close on blur.
-    list.addEventListener("mousedown", (e) => e.preventDefault());
-    list.addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) pick(Number(b.dataset.i)); });
-    input.addEventListener("blur", () => setTimeout(close, 150));
-  }
-
   // ---- Book a job / Edit booking
   async function openForm(existing) {
     try { await ensureMeta(); } catch (e) { toast(cleanErr(e), true); return; }
@@ -508,9 +433,8 @@
           <div class="bk-sub" id="aca-bkTitlePrev" style="margin-top:6px"></div>
           <div id="aca-bkGp"></div></div>
         <label for="aca-bkLoc">Location</label>
-        <div class="bk-loc"><input type="text" id="aca-bkLoc" value="${esc(d.location || "")}" placeholder="Search Google Maps or type where we set up" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="aca-bkLocList" style="width:100%" />
-          <div class="bk-orgs bk-places hidden" id="aca-bkLocList" role="listbox"></div>
-          <div class="bk-sub" id="aca-bkLocNote" style="margin-top:4px">${d.location ? mapLink(d.location) : "Goes on the calendar event and is used for drive times."}</div></div>
+        <div class="bk-loc"><input type="text" id="aca-bkLoc" value="${esc(d.location || "")}" placeholder="Search Google Maps or type where we set up" style="width:100%" />
+          <div class="bk-sub" id="aca-bkLocNote" style="margin-top:4px"></div></div>
         ${isNew && canEdit("scheduling") ? `<label>Who's shooting</label>
         <div><details class="bk-crew-dd" id="aca-bkCrewDd"><summary id="aca-bkCrewSum">Nobody yet</summary><div class="bk-contacts" id="aca-bkCrew"><span class="bk-sub">Loading the team&#8230;</span></div></details>
           <div class="bk-sub">Optional. They go on the Schedule for each day with a time (with drive time when it can be looked up).</div></div>` : ""}
@@ -642,7 +566,7 @@
       if (!chosen.size) contacts.filter((c) => c.emailable).forEach((c) => chosen.add(c.id));
       renderContacts(); renderPreview();
     }
-    wirePlaces(el("bkLoc"), el("bkLocList"), el("bkLocNote"));
+    Places.attach(el("bkLoc"), { note: el("bkLocNote"), hint: "Goes on the calendar event and is used for drive times." });
     let searchTimer = null;
     box.addEventListener("input", (e) => {
       if (e.target.id === "aca-bkOrgQ") {

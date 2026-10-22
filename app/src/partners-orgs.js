@@ -981,6 +981,7 @@
     });
     document.addEventListener("keydown", onKey);
     document.querySelector(".aca").appendChild(wrap);
+    Places.attach(el("ogNewTown"), { kind: "town" });
     el("ogNewName").focus();
   });
 
@@ -1138,6 +1139,7 @@
           ${timelineHtml(d, cById)}
         </div>
       </div>`;
+    const town = panel.querySelector('input[data-f="town"]'); if (town) Places.attach(town, { kind: "town" });
   }
   function contactsHtml(d) {
     const rows = d.contacts.map((c) => {
