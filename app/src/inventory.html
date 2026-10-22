@@ -71,3 +71,26 @@
           </div>
         </div>
       </section>
+      <section class="panel" id="aca-panel-invgear" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Gear</h2>
+              <p>When each piece was bought, what it cost, what it's worth today, and when it's due for service or a sensor clean. Export the insurance list for your insurer.</p>
+            </div>
+            <button type="button" class="primary" id="aca-invGearExport">Export for insurance</button>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="aca-invGearFilter" placeholder="Filter gear&#8230;" aria-label="Filter gear" />
+            <div class="chips" id="aca-invGearChips"><button type="button" data-f="all" aria-pressed="true">Gear</button><button type="button" data-f="due">Service due</button><button type="button" data-f="novalue">No value yet</button><button type="button" data-f="every">Everything</button></div>
+          </div>
+          <p class="inv-gear-sum" id="aca-invGearSum"></p>
+          <div id="aca-invGearErr" class="inline-error hidden"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Item</th><th class="inv-sm-hide">Bought</th><th class="money inv-sm-hide">Paid</th><th class="money">Worth</th><th>Next service</th><th>Bin</th></tr></thead>
+              <tbody id="aca-invGearBody"><tr><td colspan="6" class="empty">Loading&#8230;</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>

@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -333,6 +333,122 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-invOutBody [data-ret="2"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_return" && c[1].p_checkout === 2)), "Return");
+    // Gear: value, service due, insurance export, item care, log a service, edit purchase fields
+    await page.click('#aca-pagetabs button[data-tab="invgear"]');
+    await page.waitForSelector("#aca-invGearBody tr[data-item]");
+    check((await page.textContent("#aca-invGearSum")).includes("$2,100"), "gear: total worth (1,800 + 300): " + (await page.textContent("#aca-invGearSum")));
+    check((await page.textContent("#aca-invGearSum")).includes("1 due for service"), "gear: counts service due");
+    check((await page.$$("#aca-invGearBody tr[data-item]")).length === 2, "gear: lists items with a value or serial");
+    await page.click('#aca-invGearChips [data-f="due"]');
+    check((await page.$$("#aca-invGearBody tr[data-item]")).length === 1, "gear: Service due filter");
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#aca-invGearExport")]);
+    const csv = fs.readFileSync(await dl.path(), "utf8");
+    check(dl.suggestedFilename().startsWith("207-photo-gear-insurance-") && csv.includes("Canon R6 body,SN-12345,1,1800,1800.00") && csv.includes("Total,,,,2100.00"), "gear: insurance CSV has items and total");
+    await page.click('#aca-invGearBody tr[data-item="ii2"]');
+    await page.waitForSelector("#aca-invISvc");
+    const care = await page.textContent(".modal .inv-care");
+    check(care.includes("$2,499") && care.includes("$1,800") && care.includes("overdue"), "item shows bought, worth and overdue service: " + care);
+    await page.waitForFunction(() => document.querySelector("#aca-invSvc") && document.querySelector("#aca-invSvc").textContent.includes("Sensor clean"));
+    check(true, "item shows its service log");
+    await page.click("#aca-invISvc");
+    await page.waitForSelector("#aca-invSvKind");
+    await page.selectOption("#aca-invSvKind", "service");
+    await page.fill("#aca-invSvCost", "120");
+    await page.click("#aca-invSvSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_service_log" && c[1].p_item === "ii2" && c[1].p_kind === "service" && c[1].p_cost === 120)), "logs a service");
+    await page.waitForSelector("#aca-invIEdit");
+    await page.click("#aca-invIEdit");
+    await page.waitForSelector("#aca-invIValue");
+    check(await page.$eval("#aca-invIValue", (n) => n.value) === "1800", "edit item shows the value");
+    await page.fill("#aca-invIValue", "1650");
+    await page.fill("#aca-invIEvery", "6");
+    await page.click("#aca-invISave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "inventory_items" && w[1] === "update" && w[2].value === 1650 && w[2].service_every_months === 6 && w[2].purchase_price === 2499)), "saves value and service interval");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Staff records (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#staff/clearances");
+    await page.waitForSelector("#aca-srBody [data-u]");
+    check(await page.$eval("#aca-panel-clearances", (n) => n.classList.contains("active")), "#staff/clearances opens");
+    check(await visible(page, "#aca-srSchoolCard") && (await page.textContent("#aca-srSchool")).includes("Alex Assistant"), "school-job warning names who isn't cleared");
+    check((await page.$$("#aca-srBody tr")).length === 3, "clearances grid: one row per person");
+    check((await page.textContent("#aca-srHead")).includes("for schools"), "school-required kinds are marked");
+    check((await page.textContent('#aca-srBody [data-u="u2"][data-t="background"]')).includes("Runs out soon"), "Sam's check runs out soon");
+    check((await page.textContent('#aca-srBody [data-u="u5"][data-t="background"]')).includes("Missing"), "missing school clearance shows");
+    await page.click('#aca-srBody [data-u="u5"][data-t="background"]');
+    await page.waitForSelector("#aca-srRef");
+    await page.evaluate(() => { document.getElementById("aca-srDone").value = "2026-10-01"; });   // date picker face; the value is what counts
+    await page.click('.sr-quick [data-y="2"]');
+    check(await page.$eval("#aca-srExp", (n) => n.value) === "2028-10-01", "+2 years fills the end date");
+    await page.fill("#aca-srRef", "BC-900");
+    await page.click("#aca-srCSave");
+    await page.waitForTimeout(150);
+    const cs = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "staff_clearance_save").pop());
+    check(cs && cs[1].p.user_id === "u5" && cs[1].p.type_key === "background" && cs[1].p.expires_on === "2028-10-01" && cs[1].p.reference === "BC-900", "saves a clearance");
+    await page.click("#aca-srTypes");
+    await page.waitForSelector("#aca-srNewType");
+    await page.fill("#aca-srNewType", "Mandated reporter");
+    await page.click("#aca-srTSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "staff_clearance_type_save" && c[1].p.label === "Mandated reporter")), "adds a kind of clearance");
+    // Onboarding
+    await page.click('#aca-pagetabs button[data-tab="onboarding"]');
+    await page.waitForSelector("#aca-srOb [data-person]");
+    check((await page.$$("#aca-srOb [data-person]")).length === 2, "onboarding shows the two people on it");
+    check(await page.$eval('#aca-srOb [data-person="u2"] [data-step="sp2"]', (n) => n.checked && n.disabled), "a clearance step ticks itself");
+    await page.click('#aca-srOb [data-person="u2"] [data-step="sp4"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "staff_onboarding_check" && c[1].p_user === "u2" && c[1].p_step === "sp4" && c[1].p_done === true)), "ticks a step");
+    await page.click("#aca-srStart");
+    await page.waitForSelector("#aca-srWho");
+    await page.click("#aca-srWGo");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "staff_onboarding_set" && c[1].p_user === "u1" && c[1].p_on === true)), "starts someone on the checklist");
+    await page.click("#aca-srSteps");
+    await page.waitForSelector("#aca-srStepList [data-id]");
+    await page.click('#aca-srStepList [data-id="sp3"] [data-up]');
+    await page.waitForTimeout(250);
+    const moved = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "staff_onboarding_step_save").map((c) => [c[1].p.id, c[1].p.sort]));
+    check(JSON.stringify(moved) === JSON.stringify([["sp3", 20], ["sp2", 30]]), "moves a step up: " + JSON.stringify(moved));
+    await page.waitForSelector("#aca-srStepAdd");
+    await page.click("#aca-srStepAdd");
+    await page.waitForSelector("#aca-srSTitle");
+    await page.fill("#aca-srSTitle", "Sign the photo release");
+    await page.check("#aca-srSSelf");
+    await page.click("#aca-srSSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "staff_onboarding_step_save" && c[1].p.title === "Sign the photo release" && c[1].p.self_check === true && c[1].p.id === null)), "adds a step");
+    await page.waitForSelector("#aca-srStepDone");
+    await page.click("#aca-srStepDone");   // back on the step list after adding
+    // Today
+    await page.click('#aca-nav button[data-tab="today"]');
+    await page.waitForTimeout(300);
+    const today = await page.textContent("#aca-panel-today");
+    check(today.includes("isn't cleared") && today.includes("gear is due for service"), "Today: school clearance and gear service lines");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Staff records (staff, view = own)");
+  {
+    const { page, errors } = await open(browser, port, "?as=staff", "#staff/clearances");
+    await page.waitForSelector("#aca-srBody [data-u]");
+    check((await page.$$("#aca-srBody tr")).length === 1, "sees only their own row");
+    check(!(await visible(page, "#aca-srTypes")) && !(await visible(page, "#aca-viewOnly")), "no Kinds button and no view-only notice");
+    check(await page.$eval('#aca-srBody [data-u="u2"][data-t="background"]', (n) => n.disabled), "cannot edit their clearance");
+    await page.click('#aca-pagetabs button[data-tab="onboarding"]');
+    await page.waitForSelector('#aca-srOb [data-person="u2"]');
+    check((await page.textContent("#aca-srOb h3")).includes("Your checklist"), "shows their checklist");
+    check(await page.$eval('#aca-srOb [data-step="sp4"]', (n) => n.disabled) && !(await page.$eval('#aca-srOb [data-step="sp3"]', (n) => n.disabled)), "can tick only their own steps");
+    check(!(await visible(page, "#aca-srStart")), "no Start someone");
+    await page.click('#aca-srOb [data-step="sp3"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "staff_onboarding_check" && c[1].p_step === "sp3")), "ticks the training videos");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -597,7 +713,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "?as=staff", "#partners/orgs");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday"]), "menu limited to their pages: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday", "clearances"]), "menu limited to their pages: " + items.join(","));
     check(await page.$eval("#aca-panel-today", (n) => n.classList.contains("active")), "a link to a page they can't see lands on Today");
     const calls = await page.evaluate(() => window.__rpcCalls.map((c) => c[0]));
     const forbidden = calls.filter((n) => /^(admin_outbox|admin_hub|admin_lookup|prospect_|admin_morning|team_|admin_job)/.test(n));
