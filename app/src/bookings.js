@@ -710,7 +710,7 @@
           <div class="bk-addc hidden" id="aca-bkAddC"><input type="text" id="aca-bkCFirst" placeholder="First" /><input type="text" id="aca-bkCLast" placeholder="Last" /><input type="email" id="aca-bkCEmail" placeholder="email@school.org" /><input type="text" id="aca-bkCRole" placeholder="Role (AD, secretary)" /><button type="button" class="small" data-v="addc">Add</button></div>
           <button type="button" class="link hidden" id="aca-bkAddCBtn" data-v="showaddc">+ Add a contact</button></div>
         <label for="aca-bkCode" class="bk-school">Access code</label>
-        <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Leave it empty and 207 Admin sets one when it creates the GotPhoto job (you pick it on the check screen).</span></span>
+        <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Suggested in your usual pattern; change it if you like. With "Create the GotPhoto job after booking" ticked, 207 Admin sets it in GotPhoto and then puts the school on 207photo.com/schooladmin. Otherwise the school goes on the hub with it right away.</span></span>
         <label for="aca-bkRetake" class="bk-school">Retake day</label><span class="bk-school"><input type="date" id="aca-bkRetake" value="${esc(d.retake_day || "")}" /> <span class="bk-sub">optional</span></span>
         ${DirectorFields.formHtml()}
         <label for="aca-bkWifi">WiFi</label>
@@ -767,7 +767,7 @@
       const ov = el("bkTitle").value.trim(); if (!ov) return "";
       return el("bkKeepOrg").checked && org ? org.name + " \u2022 " + ov : ov;
     }
-    let gpAfter = true, gpOffered = false;
+    let gpAfter = true, gpOffered = false, codeTouched = !isNew || !!d.access_code;
     function renderTitle() {
       const box2 = el("bkTitlePrev"); if (!box2) return;
       const ov = el("bkTitle").value.trim();
@@ -777,6 +777,9 @@
       if (gp && !isNew) { gp.innerHTML = ""; return; }
       // A new booking: 207 Admin makes the GotPhoto job right after booking, through the check screen (gpCheck).
       gpOffered = !!(gp && org && day);
+      // A school: the access code box gets the suggested registration code (OHS2627) until it is typed in by hand.
+      const cb = el("bkCode");
+      if (cb && isNew && isSchool() && !codeTouched) cb.value = org && day ? gpCodeSuggest({ org_name: org.name, picture_day: day }) : "";
       if (gp) gp.innerHTML = org && day ? '<label class="bk-sub" style="display:flex;gap:6px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="aca-bkGpAfter"' + (gpAfter ? " checked" : "") +
           ' /><span>Create the GotPhoto job after booking. You check its settings first. It will be named <strong>' +
           esc(gpJobName({ org_name: org.name, title_override: composedOverride(), title_label: pickedLabel(), type_key: typeKey, type_label: byType(typeKey).label, picture_day: day })) + "</strong>.</span></label>"
@@ -863,7 +866,7 @@
         if (s.kind === "hub" && s.trigger === "gallery_live") return { k: "3|" + String(s.offset_days).padStart(4, "0"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + (s.offset_days ? s.offset_days + " days after the gallery goes live" : "when the gallery goes live") + "</li>" };
         if (s.kind === "hub" && s.trigger === "retake_day") return { k: "2|" + (isSchool() && el("bkRetake").value ? addDays(el("bkRetake").value, -s.offset_days) : "9999"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + s.offset_days + " day" + (s.offset_days === 1 ? "" : "s") + " before retake day" + (isSchool() && el("bkRetake").value ? " (" + esc(fmtDay(addDays(el("bkRetake").value, -s.offset_days))) + ")" : " (needs a retake day)") + "</li>" };
         if (s.trigger === "booking") return { k: "0|0", h: "<li><strong>" + esc(s.label) + "</strong>: " + (isNew ? "right after you book (after the undo window)" : "already scheduled") + "</li>" };
-        if (s.offset_days === 0) return { k: "0|", h: "<li><strong>" + esc(s.label) + "</strong>: " + (isSchool() ? (el("bkCode").value.trim() ? (isNew ? "about 10 minutes after you book" : "already scheduled") : "waits for the access code, then 10 minutes later") : (isNew ? "10 minutes after the GotPhoto job exists (it links itself within 5 minutes of the job being created)" : "already scheduled")) + "</li>" };
+        if (s.offset_days === 0) return { k: "0|", h: "<li><strong>" + esc(s.label) + "</strong>: " + (isSchool() ? (el("bkCode").value.trim() ? (isNew ? (gpAfter && gpOffered ? "about 10 minutes after the GotPhoto job is made with the code" : "about 10 minutes after you book") : "already scheduled") : "waits for the access code, then 10 minutes later") : (isNew ? "10 minutes after the GotPhoto job exists (it links itself within 5 minutes of the job being created)" : "already scheduled")) + "</li>" };
         // the hub "day before" reminder goes once per night; everything else once, keyed off the first day
         const nights = s.kind === "hub" && s.hub_key === "day" && s.trigger === "picture_day" ? readDays().filter((d) => d.day) : [{ day: pd }];
         return nights.map((n) => {
@@ -876,7 +879,7 @@
       let folded = true; try { folded = localStorage.getItem("aca-bkformmail") !== "open"; } catch (e) {}
       el("bkPrev").classList.toggle("folded", folded);
       el("bkPrev").innerHTML = '<button type="button" class="bk-mailtog" data-v="prevfold" aria-expanded="' + !folded + '"><span class="sl-chev"></span> ' + items.length + " email" + (items.length === 1 ? "" : "s") + "</button> to " + (n || "no") + " contact" + (n === 1 ? "" : "s") + (n > 1 ? " (first one To, the rest Cc)" : "") + '<div class="bk-prevbody"><ul>' + items.map((x) => x.h).join("") + "</ul>" +
-        (isSchool() ? '<div style="margin-top:6px"><strong>Hub:</strong> ' + (el("bkCode").value.trim() ? "school row + reminder signups are created now." : "school row is created when you add the access code.") + "</div>" : "") + "</div>";
+        (isSchool() ? '<div style="margin-top:6px"><strong>Hub:</strong> ' + (el("bkCode").value.trim() ? (isNew && gpAfter && gpOffered ? "school row + reminder signups are created once GotPhoto has the code." : "school row + reminder signups are created now.") : "school row is created when you add the access code.") + "</div>" : "") + "</div>";
     }
     // Pick a job type as if it was clicked.
     function setType(k) {
@@ -967,12 +970,13 @@
           const add = list.querySelector("button[data-addorg]"); if (add) add.addEventListener("click", () => addOrg(add.dataset.addorg, add));
         }, 220);
       }
+      if (e.target.id === "aca-bkCode") codeTouched = true;
       if (["aca-bkCode", "aca-bkRetake"].includes(e.target.id) || e.target.classList.contains("bk-d-day") || e.target.classList.contains("bk-d-label")) renderPreview();
       if (e.target.closest && e.target.closest("#aca-bkDays")) renderMoveNote();
       if (e.target.id === "aca-bkTitle" || e.target.id === "aca-bkKeepOrg") renderPreview();
     });
     box.addEventListener("change", (e) => {
-      if (e.target.id === "aca-bkGpAfter") { gpAfter = e.target.checked; return; }
+      if (e.target.id === "aca-bkGpAfter") { gpAfter = e.target.checked; renderPreview(); return; }
       if (e.target.name === "bkType") {
         typeKey = e.target.value; typeTouched = true;
         box.querySelectorAll(".bk-card").forEach((c) => c.classList.toggle("sel", c.querySelector("input").checked));
@@ -1036,10 +1040,11 @@
         if (noEnd.length && !confirm("No end time on " + noEnd.map((x) => fmtDay(x.day)).join(", ") + ". We use the end time to know when to pack up. Save without it?")) return;
         const badEnd = days.filter((x) => x.start_time && x.end_time && x.end_time <= x.start_time);
         if (badEnd.length) return err("The end time has to be after the start time (" + fmtDay(badEnd[0].day) + ").");
+        const heldCode = isSchool() ? el("bkCode").value.trim().toUpperCase() : "", holdCode = isNew && isSchool() && gpAfter && gpOffered && !!heldCode;
         const p = { org_id: org.id, type_key: typeKey, picture_day: days[0].day, days,
           title_label: pickedLabel(), title_override: composedOverride(), location: el("bkLoc").value.trim(), notes: el("bkNotes").value.trim(),
           wifi_network: el("bkWifi").value.trim(), wifi_password: el("bkWifiPw").value.trim(),
-          contact_ids: [...chosen], access_code: isSchool() ? el("bkCode").value.trim() : "", retake_day: isSchool() ? (el("bkRetake").value || "") : "" };
+          contact_ids: [...chosen], access_code: isSchool() && !holdCode ? el("bkCode").value.trim() : "", retake_day: isSchool() ? (el("bkRetake").value || "") : "" };
         if (isNew && rows.some((r) => r.org_id === org.id && r.picture_day === p.picture_day && r.type_key === typeKey && r.status !== "cancelled")
             && !confirm("There is already a " + byType(typeKey).label + " booking for " + org.name + " on that day. Book another one anyway?")) return;
         b.disabled = true;
@@ -1085,7 +1090,8 @@
           if (isNew) {
             pollNew = data.id; await load(true); openJob(data.id, "booking");
             // "Create the GotPhoto job after booking" ticked: the check screen opens over the new job.
-            if (gpAfter && gpOffered) { const { data: nb } = await sb.rpc("admin_booking_detail", { p_id: data.id }); if (nb && !nb.gotphoto_job_id) gpCheck(nb); }
+            // A school's code waits for it: saved (hub + emails) only once GotPhoto has it too.
+            if (gpAfter && gpOffered) { const { data: nb } = await sb.rpc("admin_booking_detail", { p_id: data.id }); if (nb && !nb.gotphoto_job_id) gpCheck(holdCode ? Object.assign(nb, { access_code: nb.access_code || heldCode }) : nb); }
           }
           else { load(true); if (typeof JobPage !== "undefined" && currentTab === "job") JobPage.reload(); }
         } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
