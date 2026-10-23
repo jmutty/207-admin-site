@@ -1409,7 +1409,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const { page, errors } = await open(browser, port, "", "#partners/rebook");
     check(await page.$eval("#aca-panel-rebook", (n) => n.classList.contains("active")), "#partners/rebook opens Rebooking");
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_rebook_attention") && window.__rpcCalls.some((c) => c[0] === "agreements_attention")), "Today asks about rebooking and agreements");
-    await page.waitForSelector("#aca-pfRbBody tr[data-org]");
+    await page.waitForSelector("#aca-pfRbBody .pf-item[data-org]");
     check((await page.textContent("#aca-pfRbBody")).includes("Brewer Travel") && !(await page.textContent("#aca-pfRbBody")).includes("Hancock"), "Time to rebook shows the due client only");
     check((await page.textContent("#aca-pfRbBody")).includes("Agreement renews"), "shows the agreement renewal date");
     await page.click('#aca-pfRbChips button[data-k="soon"]');
@@ -1424,10 +1424,10 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_queue" && c[1].p_kind === "rebook" && c[1].p_contact === "c1" && c[1].p_approve === false)), "Hold for review queues it unapproved");
 
     await page.evaluate(() => { location.hash = "#partners/reviews"; });
-    await page.waitForSelector('#aca-pfRvBody tr[data-id="rv2"]');
-    check((await page.textContent('#aca-pfRvBody tr[data-id="rv1"]')).includes("Waiting for your review"), "a drafted request shows it waits for review");
-    check(!!(await page.$('#aca-pfRvBody tr[data-id="rv2"] [data-do="draft"]')), "a track-only job can be drafted by hand");
-    await page.click('#aca-pfRvBody tr[data-id="rv1"] [data-do="log"]');
+    await page.waitForSelector('#aca-pfRvBody .pf-item[data-id="rv2"]');
+    check((await page.textContent('#aca-pfRvBody .pf-item[data-id="rv1"]')).includes("Waiting for your review"), "a drafted request shows it waits for review");
+    check(!!(await page.$('#aca-pfRvBody .pf-item[data-id="rv2"] [data-do="draft"]')), "a track-only job can be drafted by hand");
+    await page.click('#aca-pfRvBody .pf-item[data-id="rv1"] [data-do="log"]');
     await page.waitForSelector("#aca-pfRvOut");
     await page.selectOption("#aca-pfRvOut", "quote");
     await page.fill("#aca-pfRvQuote", "Smoothest picture day ever.");
@@ -1437,9 +1437,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_review_log" && c[1].p_outcome === "quote" && c[1].p_save_quote === true && c[1].p_quote === "Smoothest picture day ever.")), "logs a quote and saves it to the library");
 
     await page.evaluate(() => { location.hash = "#partners/agreements"; });
-    await page.waitForSelector('#aca-pfAgBody tr[data-id="ag1"]');
+    await page.waitForSelector('#aca-pfAgBody .pf-item[data-id="ag1"]');
     check((await page.textContent("#aca-pfAgBody")).includes("Requested") && (await page.textContent("#aca-pfAgBody")).includes("Expires"), "list shows W-9 and insurance");
-    await page.click('#aca-pfAgBody tr[data-id="ag1"] td:nth-child(2)');
+    await page.click('#aca-pfAgBody .pf-item[data-id="ag1"] > div:nth-child(2)');
     await page.waitForSelector("#aca-pfAgTitle");
     await page.fill("#aca-pfAgPrice", "Packages from $29.");
     await page.click("#aca-pfAgSave");
@@ -1565,8 +1565,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   console.log("Agreement builder (school agreements)");
   {
     const { page, errors } = await open(browser, port, "", "#partners/agreements");
-    await page.waitForSelector('#aca-pfAgBody tr[data-id="ag2"]');
-    check(await page.$('#aca-pfAgBody tr[data-id="ag2"] [data-do="builder"]') && !(await page.$('#aca-pfAgBody tr[data-id="ag1"] [data-do="builder"]')), "Edit in builder only on builder agreements");
+    await page.waitForSelector('#aca-pfAgBody .pf-item[data-id="ag2"]');
+    check(await page.$('#aca-pfAgBody .pf-item[data-id="ag2"] [data-do="builder"]') && !(await page.$('#aca-pfAgBody .pf-item[data-id="ag1"] [data-do="builder"]')), "Edit in builder only on builder agreements");
     await page.click("#aca-pfAgNew");
     await page.waitForSelector('#aca-pfAgPick button[data-aud="school"]');
     check((await page.textContent(".modal")).includes("Schools open the agreement builder"), "picker says schools open the builder");
@@ -1601,7 +1601,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_compose" && c[1].p_kind === "agreement" && c[1].p_ref === "ag9")), "then the usual agreement email (held or approved)");
     await page.click("#aca-pfCmCancel");
     // Edit an existing one: its saved choices come back.
-    await page.click('#aca-pfAgBody tr[data-id="ag2"] [data-do="builder"]');
+    await page.click('#aca-pfAgBody .pf-item[data-id="ag2"] [data-do="builder"]');
     await page.waitForSelector("#aca-abForm");
     check(await page.$eval('[data-val="BUILDINGS"]', (n) => n.value) === "Main building" && await page.$eval('[data-val="RATIO"]', (n) => n.value) === "250" &&
           !(await page.$eval('[data-on="RETAKE"]', (n) => n.checked)), "Edit in builder brings back the saved choices");
