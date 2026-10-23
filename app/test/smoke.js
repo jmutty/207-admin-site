@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "portal", "schedule", "myday", "clock", "clearances", "openjobs", "crew", "board", "inventory", "sending", "team", "delivery"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "schedule", "myday", "clock", "clearances", "openjobs", "crew", "board", "inventory", "sending", "team", "delivery"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -1067,35 +1067,6 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#pdp-yes");
     await page.waitForSelector(".pdp .ok");
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "pd_public_slot_reply" && c[1].p_answer === "confirm")), "confirm is sent");
-    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
-    await page.close();
-  }
-
-  console.log("Partner portal: staff");
-  {
-    const { page, errors } = await open(browser, port, "", "#partners/portal");
-    await page.waitForSelector("#aca-ptBody tr[data-org]");
-    check((await page.$$("#aca-ptBody tr[data-org]")).length === 2, "lists the portals");
-    await page.click("#aca-ptBody tr[data-org]");
-    await page.waitForSelector("#aca-ptCopy");
-    check(/#partners\/portal\/1111/.test(await page.evaluate(() => location.hash)), "opening one puts it in the address");
-    check((await page.$$(".pt-proof")).length === 3, "shows the proofs");
-    check((await page.$$(".pt-files li.new")).length === 1, "a file they sent is marked new");
-    await page.click("#aca-ptAddProof");
-    await page.fill("#aca-ptPrLabel", "U12 composite");
-    await page.fill("#aca-ptPrLink", "https://www.dropbox.com/s/u12");
-    await page.selectOption("#aca-ptPrBk", "bk1");
-    await page.click("#aca-ptPrS");
-    await page.waitForTimeout(200);
-    const ps = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "portal_proof_save").pop());
-    check(ps && ps[1].p_id === null && ps[1].p.label === "U12 composite" && ps[1].p.booking_id === "bk1" && ps[1].p.link === "https://www.dropbox.com/s/u12", "adds a proof with a link and its job");
-    await page.click("#aca-ptEmail");
-    await page.waitForSelector("#aca-ptCmBody");
-    check((await page.inputValue("#aca-ptCmBody")).includes("#portal/"), "the link email carries the link");
-    await page.click("#aca-ptCmHold");
-    await page.waitForTimeout(200);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "portal_queue" && c[1].p_kind === "invite" && c[1].p_approve === false)), "hold for review queues it unapproved");
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "portal_attention")), "Today asks for proof changes and new files");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

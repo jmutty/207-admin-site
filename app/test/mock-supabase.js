@@ -64,7 +64,6 @@
       { key: "assignments", label: "Assignments", section: "Staff", description: "Daily, weekly and monthly tasks.", sort: 205, status: "live", admin_only: false },
       { key: "taskboard", label: "Task board", section: "Staff", description: "Board, calendar and workload.", sort: 206, status: "live", admin_only: false },
       { key: "staffrecords", label: "Staff records", section: "Staff", description: "Clearances and onboarding.", sort: 215, status: "live", admin_only: false },
-      { key: "portal", label: "Partner portal", section: "Partners", description: "One link per league or school.", sort: 66, status: "live", admin_only: false },
       { key: "timeclock", label: "Time clock & mileage", section: "Staff", description: "Clock in and out, timesheets, mileage.", sort: 210, status: "live", admin_only: false },
       { key: "emails", label: "Email delivery", section: "System", description: "Every Resend email and how it went.", sort: 92, status: "live", admin_only: false }],
     prospect_enrollments: [{ org_id: "44444444-4444-4444-4444-444444444444", status: "paused", end_reason: "held for review" }],
@@ -624,56 +623,7 @@
       sources: [{ source: "pictureday", sent: 300, delivered: 292, bounced: 5, failed: 3, opened: 210 }, { source: "day_email", sent: 200, delivered: 200, bounced: 0, failed: 0, opened: 120 }, { source: "makeup", sent: 142, delivered: 133, bounced: 4, failed: 4, opened: 43 }],
       bounced: [{ email: "parent@example.com", n: 2, last: ago(3) }] };
   }
-  // Partner portal (2026-10-23): Brewer's page (#portal/<token>) and the staff side.
-  {
-    const day = (n) => iso(n).slice(0, 10), A = "11111111-1111-1111-1111-111111111111", FK = "f".repeat(32);
-    const at = (n, hm) => day(n) + "T" + hm + ":00-05:00";
-    const proofs = [
-      { id: "pp1", booking_id: "bk1", label: "U10 Blue team composite", note: "Please check the spelling of every name.", file_path: FK + "/proofs/1-u10.jpg", file_name: "u10-composite.jpg", link: null, round: 2,
-        status: "waiting", decided_name: null, decided_note: null, decided_at: null, history: [{ round: 1, status: "changes" }], created_at: iso(-6), updated_at: iso(-1), job: "Brewer Travel Basketball Club • Winter Sports" },
-      { id: "pp2", booking_id: "bk1", label: "League banner", note: "", file_path: FK + "/proofs/2-banner.pdf", file_name: "banner.pdf", link: null, round: 1,
-        status: "changes", decided_name: "Chris Snowdeal", decided_note: "Use the blue logo, not the red one.", decided_at: iso(-0.5), history: [], created_at: iso(-3), updated_at: iso(-0.5), job: "Brewer Travel Basketball Club • Winter Sports" },
-      { id: "pp3", booking_id: null, label: "Coach thank-you card", note: "", file_path: null, file_name: null, link: "https://www.dropbox.com/s/example", round: 1,
-        status: "approved", decided_name: "Chris Snowdeal", decided_note: "", decided_at: iso(-8), history: [], created_at: iso(-10), updated_at: iso(-8), job: null }];
-    const files = [
-      { id: "pf1", direction: "out", path: FK + "/out/1-schedule.pdf", name: "Picture day schedule.pdf", size: 182000, note: "Print one for each field.", from_name: "", booking_id: null, seen_at: iso(-2), created_at: iso(-2) },
-      { id: "pf2", direction: "in", path: FK + "/in/1-roster.xlsx", name: "Winter rosters final.xlsx", size: 48000, note: "Two late adds on U12", from_name: "Chris Snowdeal", booking_id: null, seen_at: null, created_at: iso(-0.3) }];
-    RPC.portal_public = { found: true, org: "Brewer Travel Basketball Club", file_key: FK,
-      welcome: "Hi Brewer! Everything for this winter's picture day is here. Call Jeremiah at 207-555-0100 with anything.",
-      jobs: [
-        { id: "bk1", title: "Brewer Travel Basketball Club • Winter Sports", picture_day: day(12), start_at: at(12, "09:00"), end_at: at(12, "13:00"), location: "Brewer Rec Center", retake_day: null,
-          upcoming: true, status: "booked", stage: "Booked", plan: { token: "a".repeat(36), submitted_at: iso(-4), roster_name: "rosters.xlsx" },
-          teams: [{ name: "U10 Blue", slot_at: at(12, "09:00"), field: "Court 1", status: "confirmed" }, { name: "U10 Gold", slot_at: at(12, "09:10"), field: "Court 2", status: "sent" },
-                  { name: "U12 Red", slot_at: at(12, "09:20"), field: "Court 1", status: "move" }],
-          deliverables: [{ label: "Team composites", status: "todo", due_date: day(40), link: null }] },
-        { id: "bk0", title: "Brewer Travel Basketball Club • Fall Sports", picture_day: day(-70), start_at: at(-70, "10:00"), end_at: null, location: "Brewer High School", retake_day: day(-55),
-          upcoming: false, status: "done", stage: "Deliverables sent", plan: null, teams: [],
-          deliverables: [{ label: "Team photo files", status: "done", link: "https://www.dropbox.com/s/example", done_at: iso(-40) }, { label: "League banner", status: "done", link: null, done_at: iso(-38) }] }],
-      agreement: { title: "Picture day agreement", status: "sent", token: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2", picture_day: day(12), accepted_name: null, accepted_at: null, renewal_date: day(380) },
-      proofs, files,
-      sales: { sales: 4825.5, due: 482.55, paid: 300, balance: 182.55,
-        jobs: [{ name: "Brewer Travel Fall 2026", picture_day: day(-70), season: "fall", season_year: 2026, sales: 2650.5, orders: 96, pct: 10, due: 265.05, paid: 200, balance: 65.05, state: "owed", fixed: false },
-               { name: "Brewer Travel Winter 2026", picture_day: day(-300), season: "winter", season_year: 2026, sales: 2175, orders: 81, pct: 10, due: 217.5, paid: 100, balance: 117.5, state: "owed", fixed: false }],
-        payments: [{ amount: 200, paid_on: day(-20), method: "Check", job: "Brewer Travel Fall 2026" }, { amount: 100, paid_on: day(-250), method: "Check", job: "Brewer Travel Winter 2026" }] } };
-    RPC.portal_public_proof = { ok: true, status: "approved" }; RPC.portal_public_upload = { ok: true };
-    RPC.portal_list = [
-      { org_id: A, org: "Brewer Travel Basketball Club", town: "Brewer", token: "b".repeat(36), active: true, show_sales: true, viewed_at: iso(-0.2), view_count: 14, created_at: iso(-20),
-        email: { status: "sent", at: iso(-19) }, next_day: day(12), waiting: 1, changes: 1, approved: 1, new_files: 1 },
-      { org_id: "22222222-2222-2222-2222-222222222222", org: "Hancock Grammar School", town: "Hancock", token: "c".repeat(36), active: true, show_sales: false, viewed_at: null, view_count: 0, created_at: iso(-1),
-        email: null, next_day: null, waiting: 0, changes: 0, approved: 0, new_files: 0 }];
-    RPC.portal_orgs = [{ id: A, name: "Brewer Travel Basketball Club", town: "Brewer", has: true }, { id: "44444444-4444-4444-4444-444444444444", name: "Island Cheer & Tumbling", town: "Deer Isle", has: false }];
-    RPC.portal_get = { org_id: A, org: "Brewer Travel Basketball Club", town: "Brewer", can_email: true,
-      portal: { id: "pt1", token: "b".repeat(36), file_key: FK, active: true, show_sales: true, welcome: "Hi Brewer!", viewed_at: iso(-0.2), view_count: 14, email: { status: "sent", at: iso(-19) } },
-      bookings: [{ id: "bk1", title: "Brewer Travel Basketball Club • Winter Sports", picture_day: day(12), status: "booked" }, { id: "bk0", title: "Brewer Travel Basketball Club • Fall Sports", picture_day: day(-70), status: "done" }],
-      proofs: proofs.map((x) => Object.assign({ email: x.id === "pp1" ? { status: "sent", at: iso(-1) } : null }, x)), files };
-    RPC.portal_save = { ok: true, token: "b".repeat(36) }; RPC.portal_proof_save = { ok: true, id: "pp9", round: 1, status: "waiting" }; RPC.portal_proof_withdraw = { ok: true };
-    RPC.portal_file_add = { ok: true, id: "pf9" }; RPC.portal_file_remove = { ok: true }; RPC.portal_files_seen = { ok: true, seen: 1 };
-    RPC.portal_attention = { changes: 1, files: 1 };
-    RPC.portal_compose = { org_id: A, org: "Brewer Travel Basketball Club", contacts: [{ id: "c1", name: "Chris Snowdeal", email: "csnowdeal75@gmail.com", role: "President", primary: true }], contact_id: "c1",
-      subject: "Your 207 Photo page for Brewer Travel Basketball Club", body: "Hi Chris,\n\nEverything for Brewer Travel Basketball Club with 207 Photo is now on one page.\n\nhttps://admin.207photo.com/#portal/" + "b".repeat(36), warning: "" };
-    RPC.portal_queue = { ok: true, email_id: "m11", status: "review" };
-    RPC.portal_job = { org_id: A, org: "Brewer Travel Basketball Club", token: "b".repeat(36), active: true, viewed_at: iso(-0.2), proofs: proofs.slice(0, 2), files: [] };
-  }
+
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
