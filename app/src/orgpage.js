@@ -295,11 +295,12 @@
     async function changeTerms() { await Results.ensure(); Results.openTerms(O.id, () => refresh(["results"]), O.name); }
     async function copyStatement() { await Results.ensure(); Results.copyStatement(O.id); }
     function newAgreement() {
-      if (typeof AgreementBuilder !== "undefined" && AgreementBuilder && typeof AgreementBuilder.open === "function") return AgreementBuilder.open(O.id);
+      // Schools get the agreement builder; leagues the plain agreement (sports version later).
+      if (O.audience === "school" && typeof AgreementBuilder !== "undefined" && AgreementBuilder && typeof AgreementBuilder.open === "function")
+        return AgreementBuilder.open(O.id, { onDone: () => refresh(["agreements"]) });
       return Follow.newAgreement(O.id);
     }
     function openAgreement(id) {
-      if (typeof AgreementBuilder !== "undefined" && AgreementBuilder && typeof AgreementBuilder.edit === "function") return AgreementBuilder.edit(id);
       return Follow.openAgreement(id);
     }
     async function emailVerb(row, v) {
