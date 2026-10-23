@@ -675,6 +675,39 @@
     T.booking_settings.day_of_phone = "(207) 558-3185";
     T.booking_settings.weather_plan = "Outdoor shoots move to your backup date or an indoor space. We decide together by 7:00 AM on picture day, and we email and call you either way.";
   }
+  // ws/agreement (2026-10-24): the school agreement builder. Hancock Grammar School is the school partner.
+  {
+    const day = (n) => iso(n).slice(0, 10);
+    const H = "22222222-2222-2222-2222-222222222222";
+    const STD = { RATIO: "300", TA_GALLERY: "10", TA_FILES: "15", TA_COMPOSITE: "30", TA_CARDS: "15", TA_SHIP: "3", INS_OCC: "1000000", INS_AGG: "2000000", INS_SAM_AMT: "1000000",
+      FIX_RATE: "75", RESCHED_FEE: "250", LIAB_CAP: "10000", COUNTY: "Penobscot", SPACE_SIZE: "20 ft by 30 ft", SETUP_MIN: "30", BREAKDOWN: "30", NET_DAYS: "30", ROSTER_EMAIL: "info@207photo.com" };
+    RPC.agreement_orgs = RPC.agreement_orgs.concat([{ id: H, name: "Hancock Grammar School", town: "Hancock", stage: "client", audience: "school" }]);
+    RPC.agreements_list = RPC.agreements_list.concat([{ id: "ag2", org_id: H, org: "Hancock Grammar School", title: "School Photography Service Agreement 2026-2027", status: "draft",
+      picture_day: day(30), renewal_date: day(250), w9_status: "not_needed", coi_status: "needed", token: "b1b2c3d4e5f60718293a4b5c6d7e8f90a1b2", email: null, has_builder: true, audience: "school" }]);
+    const ctx = {
+      org: { id: H, name: "Hancock Grammar School", town: "Hancock", audience: "school", legal_name: "", billing_address: "" },
+      contacts: [{ id: "c4", name: "Pat Lee", role: "Principal", email: "plee@hancock.k12.me.us", phone: "207-555-0144", primary: true },
+                 { id: "c6", name: "Ann Office", role: "Secretary", email: "office@hancock.k12.me.us", phone: "", primary: false }],
+      bookings: [{ id: "bk2", picture_day: day(30), retake_day: day(58), status: "booked", type_key: "school", audience: "school", label: "School Photos" }],
+      defaults: STD, last: null, agreement: null, from: null };
+    // With p_id: the saved draft (ag2) and its choices.
+    Object.defineProperty(RPC, "agreement_builder_context", { enumerable: true, get() {
+      const last = window.__rpcCalls[window.__rpcCalls.length - 1] || [];
+      const a = last[1] || {};
+      if (a.p_id === "ag2") return Object.assign({}, ctx, { agreement: { id: "ag2", status: "draft", title: "School Photography Service Agreement 2026-2027", booking_id: "bk2", token: "b1b2c3d4e5f60718293a4b5c6d7e8f90a1b2",
+        builder: { on: { FALL: true, YEARBOOK: true, EXCLUSIVITY: true }, val: { SCHOOL_NAME: "Hancock Grammar School", BUILDINGS: "Main building", YEAR_START: "2026", YEAR_END: "2027", FALL: day(30), RATIO: "250" } } } });
+      return ctx;
+    } });
+    RPC.agreement_builder_save = { ok: true, id: "ag9" };
+    RPC.agreement_builder_apply = { ok: true, jobs: 1, added: 4, message: "Added 4 deliverables to 1 job." };
+    RPC.agreement_defaults_save = { ok: true };
+    // The public page: the builder token shows stored HTML (with junk the page must strip).
+    const plain = RPC.agreement_public;
+    const built = { found: true, title: "School Photography Service Agreement 2026-2027", org: "Hancock Grammar School", picture_day: day(30), status: "sent", text: "SCHOOL PHOTOGRAPHY SERVICE AGREEMENT",
+      html: '<div class="ab-doc-in"><h1 class="ab-p ab-title">SCHOOL PHOTOGRAPHY SERVICE AGREEMENT</h1><h2 class="ab-sec">8. EXCLUSIVITY</h2><p class="ab-p evil" style="color:red">For the term of this Agreement.</p>' +
+        '<script>window.__pwn = 1<\/script><img src="x" onerror="window.__pwn = 2"><a href="javascript:window.__pwn=3">link text</a><table class="ab-table ab-w190"><tbody><tr><td class="ab-b">School or SAU</td><td class="ab-b">Hancock Grammar School</td></tr></tbody></table></div>' };
+    Object.defineProperty(RPC, "agreement_public", { enumerable: true, get() { return /#agree\/b1b2/.test(location.hash) ? built : plain; } });
+  }
 
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({

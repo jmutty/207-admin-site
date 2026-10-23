@@ -1340,6 +1340,89 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
+  // ws/agreement (2026-10-24)
+  console.log("Agreement builder (school agreements)");
+  {
+    const { page, errors } = await open(browser, port, "", "#partners/agreements");
+    await page.waitForSelector('#aca-pfAgBody tr[data-id="ag2"]');
+    check(await page.$('#aca-pfAgBody tr[data-id="ag2"] [data-do="builder"]') && !(await page.$('#aca-pfAgBody tr[data-id="ag1"] [data-do="builder"]')), "Edit in builder only on builder agreements");
+    await page.click("#aca-pfAgNew");
+    await page.waitForSelector('#aca-pfAgPick button[data-aud="school"]');
+    check((await page.textContent(".modal")).includes("Schools open the agreement builder"), "picker says schools open the builder");
+    await page.click('#aca-pfAgPick button[data-aud="school"]');
+    await page.waitForSelector("#aca-abForm");
+    const prev = () => page.textContent("#aca-abPrev");
+    let p = await prev();
+    check(p.includes("SCHOOL PHOTOGRAPHY SERVICE AGREEMENT") && p.includes("Hancock Grammar School") && p.includes("Pat Lee") && p.includes("Principal"), "preview prefilled with the school and main contact");
+    check(p.includes("8. EXCLUSIVITY") && p.includes("12. SIGNATURES") && !p.includes("FUNDRAISING"), "default choices: Exclusivity is section 8");
+    check(p.includes("$75 per hour") && p.includes("$10,000") && p.includes("Penobscot County"), "standard terms fill in");
+    check(await page.$eval('[data-val="CONTACT_PHONE"]', (n) => n.value) === "207-555-0144" && await page.$eval('[data-val="FALL"]', (n) => !!n.value) && await page.$eval('[data-val="RETAKE"]', (n) => !!n.value), "contact phone, picture day and retake day from the job");
+    check(!(await page.$eval("#aca-abStd", (n) => n.open)) && (await page.textContent("#aca-abStd summary")).includes("Using our standard terms"), "standard terms start collapsed");
+    await page.uncheck('[data-on="STAFF_PORTRAITS"]');
+    await page.check('[data-on="REBATE_PCT"]');
+    await page.fill('[data-val="REBATE_PCT"]', "10");
+    await page.waitForTimeout(250);
+    p = await prev();
+    check(!p.includes("Individual digital staff portraits"), "an unticked service disappears");
+    check(p.includes("8. FUNDRAISING AND REBATE") && p.includes("9. EXCLUSIVITY") && p.includes("10 percent of net sales"), "a rebate adds section 8 and renumbers");
+    check((await page.textContent("#aca-abApplyTxt")).includes("set this partner\u2019s payout to 10% of sales") && await page.$eval("#aca-abApply", (n) => n.checked), "Apply to jobs and payout terms is on and says what it does");
+    await page.click("#aca-abView");
+    await page.waitForSelector(".ag-text.ab-doc");
+    check((await page.textContent(".ag-text.ab-doc")).includes("9. EXCLUSIVITY"), "Preview as the school sees it");
+    await page.click("#aca-abVClose");
+    await page.click("#aca-abSend");
+    await page.waitForSelector("#aca-pfCmSubj");
+    const sv = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "agreement_builder_save").pop());
+    check(sv && sv[1].p_id === null && sv[1].p_org === "22222222-2222-2222-2222-222222222222" && sv[1].p_builder.on.REBATE_PCT === true && !sv[1].p_builder.on.STAFF_PORTRAITS &&
+          sv[1].p_html.includes('class="ab-sec"') && sv[1].p_text.includes("8. FUNDRAISING AND REBATE") && sv[1].p.title === "School Photography Service Agreement 2026-2027" && sv[1].p.booking_id === "bk2", "Send saves the choices, HTML and text");
+    const ap = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "agreement_builder_apply").pop());
+    check(ap && ap[1].p_id === "ag9" && ap[1].p_deliverables.includes("Yearbook files") && !ap[1].p_deliverables.includes("Staff portraits"), "then applies the ticked deliverables to the jobs");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_compose" && c[1].p_kind === "agreement" && c[1].p_ref === "ag9")), "then the usual agreement email (held or approved)");
+    await page.click("#aca-pfCmCancel");
+    // Edit an existing one: its saved choices come back.
+    await page.click('#aca-pfAgBody tr[data-id="ag2"] [data-do="builder"]');
+    await page.waitForSelector("#aca-abForm");
+    check(await page.$eval('[data-val="BUILDINGS"]', (n) => n.value) === "Main building" && await page.$eval('[data-val="RATIO"]', (n) => n.value) === "250" &&
+          !(await page.$eval('[data-on="RETAKE"]', (n) => n.checked)), "Edit in builder brings back the saved choices");
+    check((await page.textContent("#aca-abStd summary")).includes("Changed for this school: Photographers"), "says which standard terms were changed");
+    await page.click("#aca-abSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_builder_save" && c[1].p_id === "ag2")) && !(await page.$("#aca-abForm")), "Save draft keeps it a draft");
+    // Phone
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.click("#aca-pfAgNew");
+    await page.waitForSelector('#aca-pfAgPick button[data-aud="school"]');
+    await page.click('#aca-pfAgPick button[data-aud="school"]');
+    await page.waitForSelector("#aca-abForm");
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1 && document.querySelector(".ab-modal").scrollWidth <= document.querySelector(".ab-modal").clientWidth + 1), "builder fits a phone (form above the preview)");
+    check(await page.evaluate(() => document.querySelector("#aca-abPrev").getBoundingClientRect().top > document.querySelector("#aca-abForm").getBoundingClientRect().bottom - 1), "on a phone the preview is under the form");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Public agreement page: a builder agreement");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#agree/b1b2c3d4e5f60718293a4b5c6d7e8f90a1b2`);
+    await page.waitForSelector("#aca-agName");
+    check(await page.$eval("#aca-agBody h2.ab-sec", (n) => n.textContent) === "8. EXCLUSIVITY" && await page.$eval("#aca-agBody h2.ab-sec", (n) => getComputedStyle(n).color) === "rgb(225, 98, 57)", "shows the agreement as built, orange headings");
+    check(await page.evaluate(() => window.__pwn === undefined && !document.querySelector(".ag-text script, .ag-text img, .ag-text a, .ag-text [style], .ag-text .evil, .ag-text [onerror]")), "only the builder's markup survives");
+    check((await page.textContent("#aca-agBody")).includes("link text"), "text of dropped tags is kept");
+    await page.fill("#aca-agName", "Pat Lee");
+    await page.fill("#aca-agEmail", "pat@nowhere");
+    await page.check("#aca-agOk");
+    await page.click("#aca-agGo");
+    await page.waitForTimeout(100);
+    check(!(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_accept"))), "a bad email is caught before accepting");
+    await page.fill("#aca-agEmail", "plee@hancock.k12.me.us");
+    await page.click("#aca-agGo");
+    await page.waitForSelector(".ag-done");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_accept" && c[1].p_email === "plee@hancock.k12.me.us" && c[1].p_name === "Pat Lee")), "accepts with the email for their copy");
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "fits a phone screen");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
   console.log("Time clock: staff on a phone");
   {
     const { page, errors } = await open(browser, port, "?as=staff", "#staff/clock");
