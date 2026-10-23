@@ -42,6 +42,7 @@ psql -d shadow -v ON_ERROR_STOP=1    -f tests/staff_records_test.sql   # clearan
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022234500_checklist_flow_views.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/workflows_test.sql    # the job checklist tests still hold after it
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/checklist_flow_test.sql   # waits for, groups, reminders (owner push, manager push + email), partner email on done (booking settings, booked only), task board + bulk + workload, saved views, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023010000_job_page.sql
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023090000_employment_type.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/employment_type_test.sql   # job title + type (full access only), Open jobs to Part time / 1099, no overtime for salaried / 1099; rolls back
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql         # again: offers now follow the employment type

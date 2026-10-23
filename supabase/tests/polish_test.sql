@@ -39,8 +39,10 @@ insert into public.push_subscriptions (user_id, endpoint, p256dh, auth) values
   ('00000000-0000-0000-0000-0000000000a2', 'https://push.example/p1', 'k', 'a'), ('00000000-0000-0000-0000-0000000000a1', 'https://push.example/m', 'k', 'a');
 
 insert into public.booking_types (key, label, default_duration_min) values ('school', 'School Photos', 120) on conflict do nothing;
-insert into public.bookings (id, type_key, title_override, status, picture_day, location) values
-  ('00000000-0000-0000-0000-0000000000b1', 'school', 'Hampden Academy', 'booked', current_date + 5, '89 Western Ave, Hampden ME');
+insert into public.prospect_orgs (id, name) values ('00000000-0000-0000-0000-0000000000f1', 'Hampden Academy (test)');
+insert into public.bookings (id, org_id, type_key, title_override, status, picture_day, location, start_at) values
+  ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000f1', 'school', 'Hampden Academy', 'booked', current_date + 5, '89 Western Ave, Hampden ME',
+   (current_date + 5 + time '09:00') at time zone 'America/New_York');
 insert into public.booking_days (booking_id, day, start_at, end_at, sort) values
   ('00000000-0000-0000-0000-0000000000b1', current_date + 5, (current_date + 5 + time '09:00') at time zone 'America/New_York', (current_date + 5 + time '12:00') at time zone 'America/New_York', 0);
 update public.bookings set time_set = true, end_set = true, start_at = (current_date + 5 + time '09:00') at time zone 'America/New_York',
