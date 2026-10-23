@@ -2,7 +2,7 @@
 (function () {
   const now = Date.now(), iso = (d) => new Date(now + d * 864e5).toISOString();
   const T = {
-    lookup_requests: [{ id: 1, email: "parent@example.com", gotphoto_job_id: "1", status: "pending", created_at: iso(-1), typed: {} },
+    lookup_requests: [{ id: 1, email: "parent@example.com", gotphoto_job_id: "1", status: "pending", created_at: iso(-1), typed: {}, search_data: { affirm: "yes", last_name: "jones" } },
                       { id: 2, email: "p2@example.com", gotphoto_job_id: "1", status: "pending", created_at: iso(-2), typed: {} }],
     sync_runs: [{ trigger_source: "cron", started_at: iso(-0.01), finished_at: iso(-0.009), ok: false, jobs_updated: 0, codes_upserted: 0, error: "timeout" }],
     synced_jobs: [{ gotphoto_job_id: "1", name: "Test Job", job_type: "sports", status: "published", code_count: 3, missing_fields: ["last_name"], shoot_at: iso(3) }],

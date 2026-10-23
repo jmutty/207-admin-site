@@ -1223,6 +1223,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.goto(`http://127.0.0.1:${port}/test/harness.html#parents/requests`);
     await page.waitForSelector("#aca-reqBody .js-resolve");
     check((await page.textContent("#aca-reqBody .js-resolve")) === "Mark handled", "help requests say Mark handled");
+    await page.waitForSelector('#aca-reqBody tr.req-searches[data-id="2"] .rq-affirm');
+    check((await page.textContent('#aca-reqBody tr.req-searches[data-id="1"] .rq-affirm')).includes("Parent/guardian") &&
+      (await page.textContent('#aca-reqBody tr.req-searches[data-id="2"] .rq-affirm')).includes("Not confirmed"), "each help request shows whether the parent/guardian box was ticked");
     await page.waitForSelector('#aca-reqBody [data-gplinks]:not(.hidden) a');
     check(!!(await page.$('#aca-reqBody [data-gplinks] a[href="#jobs/job/bk1"]')) && !!(await page.$('#aca-reqBody [data-gplinks] a[href^="#partners/org/11111111"]')), "a help request links its job page and partner");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
