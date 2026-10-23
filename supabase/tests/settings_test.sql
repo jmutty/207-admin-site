@@ -129,5 +129,8 @@ select pg_temp.raises($$select public.booking_type_add('dance recital', 'school'
 reset role;
 select pg_temp.ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'admin_settings' and column_name = 'calc_assumptions'), 'admin_settings has calc_assumptions');
 
+-- ---------------------------------------------------------------- time off: jobs carry booking_id (B7)
+select pg_temp.ok(pg_get_functiondef('public.time_off_json(public.time_off_requests)'::regprocedure) like '%''booking_id'', e.booking_id%', 'time off jobs link to their booking');
+
 select 'ALL SETTINGS TESTS PASSED';
 rollback;

@@ -1066,6 +1066,19 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const { page, errors } = await open(browser, port, "", "#staff/timeoff");
     await page.waitForSelector("#aca-toWait .cr-card");
     check((await page.textContent("#aca-toWait")).includes("Family wedding") && (await page.textContent("#aca-toWait")).includes("On a job"), "the request, with the job they're on that day");
+    // ws/settings B6: approvers see Waiting first and their own time off folded
+    check(!(await page.isVisible("#aca-toSend")) && await page.isVisible("#aca-toOwnBtn"), "B6: their own time off is behind a button");
+    await page.click("#aca-toOwnBtn");
+    check(await page.isVisible("#aca-toSend"), "the button opens their own requests and the form");
+    // B7: the clash is a link to the job on the Schedule
+    await page.click("#aca-toWait [data-approve]");
+    await page.waitForSelector(".modal [data-tojob]");
+    await page.click(".modal [data-tojob]");
+    await page.waitForSelector(".sc-modal .sc-pick");
+    check(await page.$eval("#aca-panel-schedule", (n) => n.classList.contains("active")) && (await page.textContent(".sc-modal h2")).includes("Ellsworth"), "B7: the job they're on opens on the Schedule with its crew");
+    await page.click('.sc-modal [data-m="cancel"]');
+    await page.evaluate(() => { location.hash = "#staff/timeoff"; });
+    await page.waitForSelector("#aca-toWait [data-approve]");
     await page.click("#aca-toWait [data-approve]");
     await page.fill("#aca-toDec", "Have fun");
     await page.click('.modal [data-m="go"]');

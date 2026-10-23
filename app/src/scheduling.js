@@ -1331,5 +1331,14 @@
       return { added, untimed: days.filter((x) => !x.start_at).map((x) => x.day) };
     }
 
-    return { load, loadAttention, team, staffBooking, openCrewSettings, openStudio, scheduleData };
+    // Open the Schedule on a day's week with that day outlined; with a booking, its assign dialog too (Time off approvals, B7).
+    function showJob(bookingId, day) {
+      anchor = highlight = day; pendingAssign = bookingId ? { id: bookingId, day } : null;
+      view = narrow() ? "day" : "week";
+      root.querySelector('input[name="aca-scView"][value="' + view + '"]').checked = true;
+      showTab("schedule");
+      load();
+    }
+
+    return { load, loadAttention, team, staffBooking, openCrewSettings, openStudio, scheduleData, showJob };
   })();

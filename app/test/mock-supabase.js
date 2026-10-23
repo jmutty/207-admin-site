@@ -645,6 +645,7 @@
                          home_address: "Orono", max_drive_min: 30, last_sign_in_at: null, modules: { openjobs: "view" } });
   }
 
+  if (RPC.time_off_list && RPC.time_off_list.team[0]) RPC.time_off_list.team[0].jobs.forEach((j) => { j.booking_id = "bk5"; }); // B7: jobs carry booking_id
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
