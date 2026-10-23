@@ -49,8 +49,8 @@
       if (v === null || v === undefined || v === "") return '<span class="muted">blank</span>';
       if (typeof v === "boolean") return v ? "yes" : "no";
       if (Array.isArray(v)) return v.length ? esc(v.map((x) => (isUuid(x) && names[x]) || (isUuid(x) ? "one" : x)).join(", ")) : '<span class="muted">none</span>';
-      if (isTs(v)) { const d = new Date(v); return esc(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })); }
-      if (isDay(v)) return esc(new Date(v + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }));
+      if (isTs(v)) return esc(Fmt.dayTime(v));
+      if (isDay(v)) return esc(Fmt.day(v));
       if (isUuid(v)) return esc(names[v] || "someone");
       const s = typeof v === "object" ? JSON.stringify(v) : String(v);
       return esc(s.length > 160 ? s.slice(0, 160) + "\u2026" : s);
@@ -101,7 +101,7 @@
       const rows = data || [];
       if (!rows.length) { box.innerHTML = '<div class="empty">No sign-ins recorded yet.</div>'; return; }
       box.innerHTML = '<table class="hv-table"><thead><tr><th>When</th><th>How</th><th>Device</th><th>Where</th></tr></thead><tbody>' + rows.map((s) =>
-        "<tr><td>" + esc(new Date(s.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })) + "</td><td>" +
+        "<tr><td>" + esc(Fmt.dayTime(s.at)) + "</td><td>" +
         esc(s.via === "device" ? "Remembered device" : s.via === "code" ? "Emailed code" : s.via || "") + "</td><td>" + esc(device(s.user_agent)) + "</td><td>" +
         esc([s.country, s.ip].filter(Boolean).join(" \u00b7 ") || "unknown") + "</td></tr>").join("") + "</tbody></table>";
     }
@@ -190,7 +190,7 @@
     let J = null, people = null, curTab = "overview", seq = 0, loadingId = null;
     const root = () => el("panel-job");
     const parseHash = () => { const m = /^#jobs\/job\/([0-9a-z-]{3,40})(?:\/([a-z0-9_-]+))?/i.exec(location.hash); return m ? { id: m[1], tab: m[2] || "" } : null; };
-    const fmtDayIso = (d, o) => (d ? T.fmtDay(d, Object.assign({ weekday: "long", month: "long", day: "numeric", year: "numeric" }, o || {})) : "");
+    const fmtDayIso = (d) => Fmt.day(d);
     const timeOf = (ts) => (ts ? T.fmtTs(ts) : "");
     const money = (v) => "$" + num(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -243,7 +243,7 @@
     function dayLine(b) {
       const days = (J.days || []).length > 1 ? J.days : null;
       const t = b.time_set ? " \u00b7 " + timeOf(b.start_at) + (b.end_set ? "\u2013" + timeOf(b.end_at) : "") : " \u00b7 time not set";
-      return days ? days.map((d) => T.fmtDay(d.day) + (d.label ? " (" + d.label + ")" : "")).join(" \u00b7 ") : fmtDayIso(b.picture_day) + t;
+      return days ? days.map((d) => Fmt.day(d.day) + (d.label ? " (" + d.label + ")" : "")).join(", ") : fmtDayIso(b.picture_day) + t;
     }
 
     function renderShell() {

@@ -314,7 +314,7 @@
     if (!iso) return "—";
     const d = new Date(iso);
     if (isNaN(d)) return esc(iso);
-    return d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return Fmt.dayTime(d.toISOString());
   }
   function mkFirstName(name) {
     return String(name || "").replace(/^(mr|mrs|ms|miss|dr)\.?\s+/i, "").trim().split(/\s+/)[0] || "";
@@ -643,7 +643,7 @@
   // Today: "retakesNew" (asked in the last 24 h) and "retakeDayTomorrow" (requests for a school whose retake day is tomorrow).
   let rtList = [];
   const nyDay = (offset) => new Date(Date.now() + (offset || 0) * 864e5).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-  const rtDay = (d) => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "no retake day";
+  const rtDay = (d) => (d ? Fmt.day(d) : "no retake day");
 
   async function loadRetakes() {
     clearError("rtError");

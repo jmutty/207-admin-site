@@ -9,7 +9,7 @@
   function fmtDay(iso) {
     if (!iso) return "";
     const d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" });
+    return isNaN(d) ? "" : Fmt.day(d);
   }
   const styleTag = document.createElement("style");
   styleTag.textContent = `

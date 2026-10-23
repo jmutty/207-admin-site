@@ -38,7 +38,6 @@
   .aca #aca-panel-bookings .toolbar > .bk-chips { order: 5; }
   .aca #aca-panel-bookings .toolbar > .lv-tools { order: 6; margin-left: auto; }
   .aca .bk-date { font-weight: 700; }
-  .aca .bk-date > span { white-space: nowrap; } /* a multi-day job wraps between its days, not inside one */
   .aca .bk-sub { font-size: 12px; color: var(--muted); }
   .aca .bk-type { font-size: 12px; color: var(--muted); }
   .aca .bk-fold { padding: 8px 16px 14px; }
@@ -245,7 +244,7 @@
   const byType = (k) => types.find((t) => t.key === k) || {};
   const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
   const addDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-  const fmtDay = (ymd, long) => { if (!ymd) return ""; const d = new Date(ymd + "T12:00:00Z"); return d.toLocaleDateString("en-US", { timeZone: "UTC", weekday: long ? "long" : "short", month: long ? "long" : "short", day: "numeric" }); };
+  const fmtDay = (ymd) => Fmt.day(ymd); // "11/16"
   // GotPhoto's jobs list. Its old create page (/config_jobs/create?shot_at=) now just bounces to this list, and
   // "Create new job" here opens a pop-up that no link can open or fill (checked 2026-10-23). So the link copies
   // the job name on the way, and the steps say what to click and which date to pick.
@@ -281,8 +280,8 @@
   };
   // The create link copies the job name as it opens GotPhoto, so it is ready to paste (works in Edit booking and on the job).
   document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest("a[data-gpname]"); if (a && navigator.clipboard) navigator.clipboard.writeText(a.dataset.gpname).catch(() => {}); });
-  const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" }) : "";
-  const fmtWhen = (iso) => iso ? new Date(iso).toLocaleString("en-US", { timeZone: TZ, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const fmtTime = (iso) => Fmt.time(iso); // "3:30pm"
+  const fmtWhen = (iso) => (iso ? Fmt.dayTime(iso) : "");
   const hhmmToLabel = (t) => { if (!t) return ""; const [h, m] = t.split(":").map(Number); const ap = h >= 12 ? "PM" : "AM"; return ((h % 12) || 12) + ":" + String(m).padStart(2, "0") + " " + ap; };
   const gcalLink = (eventId) => eventId ? "https://calendar.google.com/calendar/event?eid=" + btoa(eventId + " " + CAL_ID).replace(/=+$/, "") : "";
 
@@ -365,11 +364,6 @@
   }
   const currentTabIs = () => el("panel-bookings").classList.contains("active");
 
-  // Every shoot date, never a range: ["Sun, Nov 16", "Mon, Nov 17", "Wed, Nov 19"] (a range hid the skipped days)
-  function whenDays(b) {
-    const ds = (b.days || []).map((x) => x.day).filter(Boolean);
-    return ds.length < 2 ? [fmtDay(b.picture_day)] : ds.map((d) => fmtDay(d));
-  }
   // The list's time line: one day's time, or a multi-day job's shared time "each day" (otherwise "times vary by day")
   function whenTimes(b) {
     const ds = (b.days || []);
@@ -461,7 +455,7 @@
       return '<div class="bk-who" title="' + esc(all) + '">' + esc(cs[0].name || cs[0].email) + "</div>" +
         (cs.length > 1 ? '<div class="bk-sub">+ ' + (cs.length - 1) + (cs.length === 2 ? " other" : " others") + "</div>" : cs[0].name && cs[0].name !== cs[0].email ? '<div class="bk-sub">' + esc(cs[0].email) + "</div>" : ""); };
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
-      '<td class="bk-c-when"><div class="bk-date">' + whenDays(b).map((x) => "<span>" + esc(x) + "</span>").join(" \u00b7 ") + '</div><div class="bk-sub">' + whenTimes(b) + "</div>" + calNote(b) + "</td>" +
+      '<td class="bk-c-when"><div class="bk-date">' + esc(Fmt.days(b)) + '</div><div class="bk-sub">' + whenTimes(b) + "</div>" + calNote(b) + "</td>" +
       '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-who">' + who(b) + "</td>" +

@@ -69,16 +69,12 @@
   }
   // numbers that come from RPCs are rendered through this so a changed return type can never inject markup
   const num = (v) => Number(v) || 0;
+  // History and logs: "10/23, 4:26pm" (Maine time)
   function fmtDate(iso) {
     if (!iso) return "—";
     const d = new Date(iso);
     if (isNaN(d)) return esc(iso);
-    return d.toLocaleString("en-US", {
-      timeZone: "America/New_York",
-      year: "numeric", month: "short", day: "numeric",
-      hour: "numeric", minute: "2-digit",
-      timeZoneName: "short",
-    });
+    return Fmt.dayTime(d.toISOString());
   }
   function fmtAgo(iso) {
     if (!iso) return "never";
@@ -88,17 +84,18 @@
     if (s < 86400) return Math.round(s / 3600) + " h ago";
     return Math.round(s / 86400) + " d ago";
   }
-  // One date format for lists (consistency rule, 2026-10-24): days read "Wed, Nov 18", times "2:10pm", both
-  // "Wed, Nov 18, 2:10pm". The full date with the year (fmtDate above) is only for history and logs.
+  // One date format everywhere (Jeremiah, 2026-10-23): a day reads "11/16", with no weekday or year; a time "2:10pm";
+  // both "11/16, 2:10pm". A multi-day job lists each day, "11/16, 11/17, 11/19", never a range (a range hid the days off).
   // A bare "YYYY-MM-DD" is a calendar day (no time zone shift); anything else is a moment shown in Maine time.
   const Fmt = (function () {
     const TZ = "America/New_York";
-    const isDay = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const isDay = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) && v.length <= 10;
+    // "2026-11-06" or a moment -> "11/6"
     function day(v) {
       if (!v) return "";
-      const d = isDay(v) ? new Date(v + "T12:00:00Z") : new Date(v);
-      if (isNaN(d)) return String(v);
-      return d.toLocaleDateString("en-US", { timeZone: isDay(v) ? "UTC" : TZ, weekday: "short", month: "short", day: "numeric" });
+      let ymd = String(v);
+      if (!isDay(ymd)) { const d = v instanceof Date ? v : new Date(v); if (isNaN(d)) return String(v); ymd = d.toLocaleDateString("en-CA", { timeZone: TZ }); }
+      return +ymd.slice(5, 7) + "/" + +ymd.slice(8, 10);
     }
     function time(v) {
       if (!v) return "";
@@ -112,12 +109,14 @@
       const h = +m[1];
       return ((h + 11) % 12 + 1) + ":" + m[2] + (h < 12 ? "am" : "pm");
     }
-    // A job's shoot dates, each one (a multi-day job is never shown as a range): from admin_bookings' days, else picture_day
+    // A job's shoot days: "11/16", or each day of a multi-day job, "11/16, 11/17, 11/19".
+    // Takes a booking (admin_bookings' days, else picture_day) or a list of { day } / "YYYY-MM-DD".
     function days(b) {
-      const ds = ((b && b.days) || []).map((x) => x.day).filter(Boolean);
-      return (ds.length > 1 ? ds : [b && b.picture_day].filter(Boolean)).map(day);
+      const list = Array.isArray(b) ? b : (b && b.days) || [];
+      const ds = list.map((x) => (typeof x === "string" ? x : x && x.day)).filter(Boolean);
+      return ds.length ? ds.map(day).join(", ") : day(b && !Array.isArray(b) ? b.picture_day : "");
     }
-    return { day, days, time, hhmm, dayTime: (v) => [day(v), time(v)].filter(Boolean).join(", ") };
+    return { day, days, md: day, time, hhmm, dayTime: (v) => [day(v), time(v)].filter(Boolean).join(", ") };
   })();
 
   function showError(id, msg) {
@@ -776,7 +775,7 @@
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   function renderLead(items, pending) {
     const d = new Date();
-    el("todayTitle").textContent = d.toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "long", month: "long", day: "numeric" });
+    el("todayTitle").textContent = "Today, " + Fmt.day(d);
     const sum = (f) => items.filter(f).reduce((n, a) => n + a.count, 0);
     const broken = sum((a) => a.level === "err");
     const waiting = sum((a) => a.level === "warn");
@@ -798,7 +797,7 @@
     if (nextUp && nextUp.length) {
       const b = nextUp[0];
       const days = Math.round((new Date(b.picture_day + "T12:00:00") - new Date(todayStrNY() + "T12:00:00")) / 864e5);
-      const when = days === 0 ? "today" : days === 1 ? "tomorrow" : days < 7 ? new Date(b.picture_day + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" }) : Fmt.day(b.picture_day);
+      const when = days === 0 ? "today" : days === 1 ? "tomorrow" : Fmt.days(b);
       next = ", and the next picture day is <b>" + esc(when) + " with " + esc(b.org_name || b.title || "") + "</b>";
     }
     el("todayLead").innerHTML = s + next + ". " + (pending ? '<span class="muted">Still checking a few things.</span>' : '<span class="muted">Checked ' + esc(Fmt.time(new Date())) + ".</span>");
@@ -812,10 +811,9 @@
       if (error) throw error;
       nextUp = (data || []).filter((b) => b.status === "booked").sort((a, b) => String(a.picture_day).localeCompare(String(b.picture_day))).slice(0, 4);
       el("todayUp").innerHTML = nextUp.length ? nextUp.map((b) => {
-        const d = new Date(b.picture_day + "T12:00:00");
-        const more = Fmt.days(b).length > 1 ? '<div class="s">' + esc(Fmt.days(b).length + " days: " + Fmt.days(b).join(" \u00b7 ")) + "</div>" : "";
+        const more = (b.days || []).length > 1 ? '<div class="s">' + esc(b.days.length + " days: " + Fmt.days(b)) + "</div>" : "";
         const st = b.status_text ? '<div class="pill ' + esc(b.status_class || "muted") + '">' + esc(b.status_text) + "</div>" : "";
-        return '<div class="today-up" data-booking="' + esc(b.id) + '"><div class="d">' + esc(d.toLocaleDateString("en-US", { weekday: "short" })) + '<small>' + esc(d.toLocaleDateString("en-US", { month: "short", day: "numeric" })) + '</small></div>' +
+        return '<div class="today-up" data-booking="' + esc(b.id) + '"><div class="d">' + esc(Fmt.day(b.picture_day)) + '</div>' +
           '<div>' + esc(b.org_name || b.title || "") + '<div class="s">' + esc([b.type_label, b.location].filter(Boolean).join(", ")) + "</div>" + more + st + "</div></div>";
       }).join("") + '<p><a href="#jobs/bookings">All jobs</a></p>' : "<p>No picture days booked in the next 60 days. <a href=\"#jobs/bookings\">Book a job</a></p>";
     } catch (e) {
@@ -999,7 +997,7 @@
           .sort((x, y) => { const a = String(x.picture_day || ""), b = String(y.picture_day || ""), fa = a >= today, fb = b >= today;
             return fa !== fb ? (fa ? -1 : 1) : fa ? a.localeCompare(b) : b.localeCompare(a); }) // upcoming first, then the most recent
           .slice(0, 6);
-        if (b2.length) groups.push(["Jobs", b2.map((b) => ({ tab: "job", id: b.id, k: b.title || b.org_name, m: Fmt.days(b).join(" \u00b7 ") + (String(b.picture_day) < today ? " (past)" : "") }))]);
+        if (b2.length) groups.push(["Jobs", b2.map((b) => ({ tab: "job", id: b.id, k: b.title || b.org_name, m: Fmt.days(b) + (String(b.picture_day) < today ? " (past)" : "") }))]);
         const m2 = (Array.isArray(mine) ? mine : []).filter((j) => (j.title || "").toLowerCase().includes(ql)).slice(0, 6);
         if (m2.length) groups.push(["Your jobs", m2.map((j) => ({ tab: "job", id: j.booking_id, k: j.title, m: j.days && j.days[0] ? Fmt.dayTime(j.days[0].starts_at) : "" }))]);
       } catch (_e) { /* search is best effort */ }
