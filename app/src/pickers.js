@@ -52,7 +52,7 @@
     const pad = (n) => String(n).padStart(2, "0");
     const ymd = (dt) => dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate());
     const parseYmd = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
-    const fmtDate = (s) => { const dt = parseYmd(s); return dt ? dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : ""; };
+    const fmtDate = (s) => (parseYmd(s) ? Fmt.day(s) : "");
     const toMin = (s) => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ""); return m ? +m[1] * 60 + +m[2] : null; };
     const toHhmm = (min) => pad(Math.floor(min / 60)) + ":" + pad(min % 60);
     const fmtTime = (s) => { const m = toMin(s); if (m == null) return ""; const h = Math.floor(m / 60); return ((h % 12) || 12) + ":" + pad(m % 60) + " " + (h < 12 ? "AM" : "PM"); };

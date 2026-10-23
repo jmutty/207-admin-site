@@ -304,7 +304,7 @@
   const CrewPublic = (function () {
     const route = () => /^#crew\/([0-9a-f]{32,})(?:\/(yes|no))?$/.exec(location.hash);
     const LOGO = "https://socluffmclkdljtmiexw.supabase.co/storage/v1/object/public/admin-app/icons/apple-touch-icon.png";
-    const fmtDay = (ts) => new Date(ts).toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "long", month: "long", day: "numeric" });
+    const fmtDay = (ts) => Fmt.day(ts);
     const fmtTime = (ts) => new Date(ts).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
     const $ = (id) => document.getElementById("crp-" + id);
     let box = null, token = "", D = null;

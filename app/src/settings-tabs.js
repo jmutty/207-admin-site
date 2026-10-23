@@ -147,10 +147,91 @@
           sb.from("booking_steps").select("id, sequence_id, is_active"), sb.from("booking_tracking_settings").select("*").maybeSingle(),
           Workflows.templates().then((x) => x, () => null)]);
         [t, st, dt, sq, ss].forEach((r) => { if (r.error) throw r.error; });
+        const gd = await sb.from("gp_type_defaults").select("*");
+        gpDefs = gd.error ? null : gd.data || [];
         renderJobTypes(t.data || [], (st.data || []).filter((x) => !x.archived_at), dt.data || [], sq.data || [], ss.data || [], tr.data || {}, wf);
       } catch (e) { fail("stJtBody", e); }
     }
-    let jt = null;
+    let jt = null, gpDefs = null, gpLists = null;
+    // GotPhoto defaults (gp_type_defaults): what a job made by 207 Admin gets. Empty = copied from the newest job.
+    const GP_JOB_TYPES = [["sport_other", "Sport (Other)"], ["school_k_12", "K-12 School"]];
+    const GP_ARCHIVE = [["month_after", "One month after the shoot"], ["june_1", "June 1 after the shoot (school's out)"]];
+    const GP_ACCESS = [["", "Same as the organization's last job"], ["qr_tagging", "Access code for each person (QR)"], ["single_password", "One access code"]];
+    const GP_REG = [["", "Copy from the newest job"], ["off", "Off"], ["optional", "Optional"], ["required", "Required"]];
+    const GP_REVIEW = [["", "Copy from the newest job"], ["off", "Off"], ["on", "On"], ["auto", "Auto"]];
+    const GP_FAV = [["", "Copy from the newest job"], ["off", "No selection box"], ["favorite", "Favorite photo"], ["yearbook", "Yearbook photo"], ["student_id", "ID card photo"]];
+    const GP_PREPAY = [["", "Copy from the newest job"], ["true", "On"], ["false", "Off"]];
+    const GP_SEASONS = [["price_profile_id", "Any season"], ["price_profile_fall", "Fall (Aug to Oct shoots)"], ["price_profile_winter", "Winter (Nov to Feb)"], ["price_profile_spring", "Spring (Mar to Jul)"]];
+    const gpDefOf = (x) => (gpDefs || []).find((d) => d.type_key === x.key) ||
+      { type_key: x.key, gp_job_type: x.audience === "school" ? "school_k_12" : "sport_other", archive_rule: x.audience === "school" ? "june_1" : "month_after", labels: {} };
+    const pick = (list, v) => (list.find((o) => o[0] === (v == null ? "" : String(v))) || [null, v])[1];
+    function gpSummary(x) {
+      if (!gpDefs) return '<p class="st-sum">Could not load.</p>';
+      const d = gpDefOf(x), L = d.labels || {}, parts = [];
+      parts.push(pick(GP_JOB_TYPES, d.gp_job_type) || d.gp_job_type, "archive " + pick(GP_ARCHIVE, d.archive_rule).toLowerCase());
+      GP_SEASONS.forEach(([k, lab]) => { if (d[k]) parts.push(lab.replace(/ \(.*\)/, "") + " prices: " + (L[k] || d[k])); });
+      if (d.communication_profile_id) parts.push("emails: " + (L.communication_profile_id || d.communication_profile_id));
+      if (d.access_type) parts.push(pick(GP_ACCESS, d.access_type));
+      if (d.prepay != null) parts.push("prepay " + (d.prepay ? "on" : "off") + (d.prepay_deadline_days != null ? ", deadline " + d.prepay_deadline_days + " days after" : ""));
+      return '<div class="st-chips">' + parts.map((t) => "<span>" + esc(t) + "</span>").join("") + "</div>" +
+        '<p class="st-sum">Anything not set is copied from your newest ' + esc(pick(GP_JOB_TYPES, d.gp_job_type) || "") + " job.</p>";
+    }
+    async function openGpDefaults(key) {
+      const x = jt.types.find((t) => t.key === key); if (!x) return;
+      const d = Object.assign({}, gpDefOf(x)), can = canEdit("bookings");
+      const sel = (id, list, v) => '<select id="aca-stGp' + id + '" style="width:100%"' + (can ? "" : " disabled") + ">" + list.map(([k, l]) => '<option value="' + esc(k) + '"' + (String(v == null ? "" : v) === k ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>";
+      const profSel = (id, kind, v) => {
+        const L = d.labels || {}, opts = gpLists && gpLists[kind] ? gpLists[kind] : null;
+        const list = [["", id === "price_profile_id" || id === "communication_profile_id" ? "Copy from the newest job" : "Use the any-season one"]]
+          .concat(opts ? opts.map((o) => [o.id, o.name]) : []).concat(v && !(opts || []).some((o) => o.id === v) ? [[v, L[id] || v]] : []);
+        return sel(id, list, v || "");
+      };
+      const field = (label, html, hint) => '<div class="field"><label>' + label + "</label>" + html + (hint ? '<p class="muted" style="font-size:12px;margin:4px 0 0">' + hint + "</p>" : "") + "</div>";
+      const body = () => '<div style="max-width:560px"><h2>GotPhoto defaults: ' + esc(x.label) + "</h2>" +
+        '<p class="muted" style="font-size:12.5px">What a GotPhoto job made by 207 Admin for this job type gets. Change them each season. Anything left on "copy" comes from your newest job of the same GotPhoto job type.</p>' +
+        (gpLists === null ? '<p class="muted" id="aca-stGpLoad" style="font-size:12.5px">Loading your GotPhoto price and email profiles\u2026</p>' : gpLists.error ? '<div class="inline-error">' + esc(gpLists.error) + "</div>" : "") +
+        field("GotPhoto job type", sel("gp_job_type", GP_JOB_TYPES, d.gp_job_type)) +
+        field("Archive date", sel("archive_rule", GP_ARCHIVE, d.archive_rule)) +
+        GP_SEASONS.map(([k, lab]) => field("Price profile: " + lab, profSel(k, "price_profiles", d[k]))).join("") +
+        field("Communication profile", profSel("communication_profile_id", "communication_profiles", d.communication_profile_id)) +
+        field("Photo access", sel("access_type", GP_ACCESS, d.access_type)) +
+        field("Registration after code login", sel("register_after_password_login", GP_REG, d.register_after_password_login)) +
+        field("Prepay shop", sel("prepay", GP_PREPAY, d.prepay)) +
+        field("Prepay deadline, days after the shoot", '<input type="number" id="aca-stGpprepay_deadline_days" min="-60" max="365" style="width:120px" value="' + esc(d.prepay_deadline_days == null ? "" : String(d.prepay_deadline_days)) + '"' + (can ? "" : " disabled") + " />", "Empty = same distance as on the newest job.") +
+        field("Review photos before the lab", sel("review_orders_photos", GP_REVIEW, d.review_orders_photos)) +
+        field("Customers pick a favorite photo", sel("customer_set_favorite_photo", GP_FAV, d.customer_set_favorite_photo)) +
+        field("Photos per person goal", '<input type="number" id="aca-stGpphotographer_goal" min="0" max="99" style="width:120px" value="' + esc(d.photographer_goal == null ? "" : String(d.photographer_goal)) + '"' + (can ? "" : " disabled") + " />", "Empty = copy from the newest job.") +
+        '<p class="muted" style="font-size:12px">Not settable through GotPhoto\u2019s API: "Switch price list on", coupons, registration form fields and products. Set those in GotPhoto.</p>' +
+        '<div class="inline-error hidden" id="aca-stGpErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">' + (can ? "Cancel" : "Close") + "</button>" +
+        (can ? '<button type="button" class="primary" data-m="save">Save</button>' : "") + "</div></div>";
+      const m = openModal(body());
+      const read = () => {
+        const v = (id) => { const n = el("stGp" + id); return n ? n.value : ""; };
+        const p = {}; ["gp_job_type", "archive_rule", "access_type", "register_after_password_login", "communication_profile_id", "prepay", "prepay_deadline_days", "review_orders_photos", "customer_set_favorite_photo", "photographer_goal"]
+          .concat(GP_SEASONS.map((s2) => s2[0])).forEach((k) => { p[k] = v(k); });
+        const labels = {};
+        ["communication_profile_id"].concat(GP_SEASONS.map((s2) => s2[0])).forEach((k) => { const n = el("stGp" + k); if (n && n.value) labels[k] = n.options[n.selectedIndex].text; });
+        p.labels = labels; return p;
+      };
+      if (gpLists === null) {
+        try {
+          const { data: { session } } = await sb.auth.getSession();
+          const resp = await fetch(ADMIN_FN_URL + "/gplists", { method: "POST", headers: { Authorization: "Bearer " + session.access_token } });
+          let b = {}; try { b = await resp.json(); } catch (_) {}
+          gpLists = resp.ok && b.ok ? { price_profiles: b.price_profiles || [], communication_profiles: b.communication_profiles || [] } : { error: "Couldn't load the profiles from GotPhoto: " + (b.error || resp.status) + ". The saved picks stay." };
+        } catch (e) { gpLists = { error: "Couldn't load the profiles from GotPhoto. The saved picks stay." }; }
+        if (m.open !== false && document.body.contains(m)) { Object.assign(d, read()); const inner = m.querySelector("div"); if (inner) inner.outerHTML = body(); }
+        if (gpLists.error) gpLists = null;   // try again next time
+      }
+      m.addEventListener("click", async (ev) => {
+        const b = ev.target.closest("[data-m]"); if (!b) return;
+        if (b.dataset.m === "cancel") return m.close();
+        b.disabled = true;
+        const { error } = await sb.rpc("gp_type_defaults_save", { p_type: key, p: read() });
+        if (error) { b.disabled = false; const n = el("stGpErr"); n.textContent = cleanErr(error); n.classList.remove("hidden"); return; }
+        m.close(); toast("Saved. New GotPhoto jobs for " + x.label + " use these."); await loadJobTypes();
+      });
+    }
     function renderJobTypes(types, stages, tpls, seqs, steps, track, wf) {
       jt = { types, wf };
       const can = canEdit("bookings");
@@ -167,6 +248,7 @@
           '<div class="st-sec"><h3>Stages</h3><div class="st-chips">' + (sts.map((s, i) => "<span>" + (i + 1) + ". " + esc(s.label) + "</span>").join("") || '<span class="st-sum">none</span>') + "</div></div>" +
           '<div class="st-sec"><h3>Saved deliverables</h3>' + (dls.length ? '<div class="st-chips">' + dls.map((d) => "<span>" + esc(d.label) + (d.due_days != null ? ", due " + num(d.due_days) + " days after launch" : "") + (d.auto_add ? ", every job" : "") + "</span>").join("") + "</div>" : '<p class="st-sum">None saved.</p>') + "</div>" +
           '<div class="st-sec"><h3>Checklist steps</h3>' + stepList(x.key) + "</div>" +
+          '<div class="st-sec"><h3><span class="grow">GotPhoto defaults</span>' + btn("gpdef", canEdit("bookings") ? "Edit" : "View", ' data-k="' + esc(x.key) + '"') + "</h3>" + gpSummary(x) + "</div>" +
           '<div class="st-sec"><h3>Booking emails</h3>' + (qs.length ? qs.map((q) => '<p class="st-sum">' + esc(q.name) + ": " + (q.is_active ? "on" : "off") + ", " + steps.filter((s) => s.sequence_id === q.id && s.is_active).length + " active steps. " +
               '<a href="#system/library">Edit in the Email library</a></p>').join("") : '<p class="st-sum">No booking email sequence yet. <a href="#system/library">Email library</a></p>') + "</div>",
           btn("stages", "Stages &amp; deliverables", ' data-k="' + esc(x.key) + '"'));
@@ -238,6 +320,7 @@
     // ================================================================ Company
     async function loadCompany() {
       if (typeof loadHealth === "function") loadHealth();
+      if (typeof GpTasks !== "undefined") GpTasks.loadSettings();
       try {
         const d = await Schedule.scheduleData();
         el("stCoBody").innerHTML = card("stStudio", "Studio and setup", "Drive times and trip miles start from the studio. Setup and teardown are added around each job on the Schedule.",
@@ -272,6 +355,7 @@
       if (a === "rates") return TimeClockExtra.openRates(after);
       if (a === "studio") return Schedule.openStudio(after);
       if (a === "addtype") return addType();
+      if (a === "gpdef") return openGpDefaults(b.dataset.k);
       if (a === "stages") return Bookings.openJobTypes(b.dataset.k, after);
       if (a === "step") return Workflows.openStep(jt.wf.steps.find((s) => s.id === b.dataset.id), after);
       if (a === "addstep") return Workflows.openStep(null, Object.assign({ type_key: b.dataset.k || null }, after));

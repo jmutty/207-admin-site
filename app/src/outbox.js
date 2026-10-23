@@ -173,12 +173,12 @@
 
   const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
   const dayOf = (iso) => (iso ? new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ }) : "");
-  const fmtWhen = (iso) => (iso ? new Date(iso).toLocaleString("en-US", { timeZone: TZ, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
+  const fmtWhen = (iso) => (iso ? Fmt.dayTime(iso) : "");
   const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" }) : "");
   function dayLabel(d) {
     const t = todayStr(), tm = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: TZ });
     if (d === t) return "Today"; if (d === tm) return "Tomorrow";
-    return new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    return Fmt.day(d);
   }
   function matches(r) {
     if (src !== "all" && r.src !== src) return false;

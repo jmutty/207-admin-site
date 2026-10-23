@@ -131,6 +131,8 @@
       h += sec("What they opened from our emails", "Links " + them + " clicked in emails we sent them.", clicks.length
         ? '<table class="pr-tbl"><tbody>' + clicks.map((c) => "<tr><td>" + esc(linkName(c.url)) + '<div class="m">' + esc(c.subject || "") + '</div></td><td class="m">' + esc(Fmt.dayTime(c.at)) + "</td></tr>").join("") + "</tbody></table>"
         : '<p class="empty" style="margin:0">None yet.</p>');
+      const fam = typeof GpTasks !== "undefined" ? await GpTasks.familiesLine(bk.id) : "";
+      if (fam) h += sec("Families in GotPhoto", "Registered means the family signed in with their code. Updated every few hours.", '<div class="pr-facts">' + fam + "</div>");
       box.innerHTML = h;
       box.onclick = async (ev) => {
         const done = ev.target.closest("[data-pr-done]"), snooze = ev.target.closest("[data-pr-snooze]"), roster = ev.target.closest("[data-pr-roster]"), move = ev.target.closest("[data-pr-move]");

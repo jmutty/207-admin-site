@@ -105,7 +105,7 @@
     const parseHash = () => { const m = /^#partners\/org\/([0-9a-f-]{36})(?:\/([a-z0-9_-]+))?/i.exec(location.hash); return m ? { id: m[1], tab: m[2] || "" } : null; };
     const ALIAS = { galleries: "sales", payouts: "sales" };
     const today = () => T.today();
-    const day = (d, o) => (d ? T.fmtDay(String(d).slice(0, 10), Object.assign({ month: "short", day: "numeric", year: "numeric" }, o || {})) : "");
+    const day = (d) => Fmt.day(d ? String(d).slice(0, 10) : "");
     const money = (v) => "$" + Math.round(num(v)).toLocaleString("en-US");
     const safe = (f) => { try { return f(); } catch (e) { return false; } };
     // The last day of the season a picture day falls in (winter = Dec-Feb, spring = Mar-May, summer = Jun-Jul, fall = Aug-Nov),
@@ -353,7 +353,7 @@
         Orgs.spText(O) ? ["School photos", Orgs.spText(O).replace(/^School photos: /, "")] : null,
       ].filter(Boolean);
       const cName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "";
-      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(day(b.picture_day, { weekday: "short" })) +
+      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(Fmt.days(b)) +
         (b.location ? " · " + esc(b.location) : "") + '</span></div><div class="s">' + esc([b.stage ? "Stage: " + b.stage : b.status === "tracked" ? "Tracking only" : "",
           b.status === "booked" ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" · ")) + "</div></a>";
       box.innerHTML = '<div class="op-grid"><div>' +
@@ -367,8 +367,10 @@
         '</div><div><div class="op-side">' +
         (contact ? '<div class="jp-sec" style="margin-bottom:14px"><h3>Main contact</h3><div style="font-size:13.5px"><b>' + esc(cName || contact.email) + "</b>" + (contact.role ? ", " + esc(contact.role) : "") +
           (contact.email ? '<div class="mono" style="overflow-wrap:anywhere">' + esc(contact.email) + "</div>" : "") + (contact.phone ? "<div>" + esc(contact.phone) + "</div>" : "") + "</div></div>" : "") +
+        '<div class="jp-sec jp-onsite" id="aca-opWifi" style="margin-bottom:14px"></div>' +
         '<div class="jp-sec" style="margin:0"><h3>At a glance</h3><dl class="jp-dl">' + glance.map((g) => "<dt>" + esc(g[0]) + "</dt><dd>" + esc(g[1]) + "</dd>").join("") + "</dl></div>" +
         "</div></div></div>";
+      renderWifi();
       box.onclick = (e) => {
         const b = e.target.closest("[data-go]"); if (!b) return;
         const g = b.dataset.go, arg = g.slice(g.indexOf(":") + 1);
@@ -383,6 +385,35 @@
         if (g.startsWith("ob:")) return Outbox.focus(arg || null, O.id);
         if (g.startsWith("send:")) { const x = (outbox || []).find((r) => r.id === arg); if (x) { b.disabled = true; emailVerb(x, "sendnow"); } return; }
         if (g.startsWith("tab:")) return goTab(arg);
+      };
+    }
+    // The partner's WiFi (2026-10-24): new bookings start with it, and WiFi saved on a job lands here, so it carries
+    // from season to season. Saving here also updates upcoming jobs that still had the old one (org_wifi_save).
+    function renderWifi(editing) {
+      const box = el("opWifi"); if (!box) return;
+      const can = canEdit("partners") || canEdit("bookings"), has = O.wifi_network || O.wifi_password;
+      if (!has && !can) { box.remove(); return; }
+      const head = "<h3>WiFi" + (can && !editing ? '<button type="button" class="small quiet" data-wf="edit">' + (has ? "Edit" : "Add") + "</button>" : "") + "</h3>";
+      if (editing) {
+        box.innerHTML = head + '<form id="aca-opWfForm"><label for="aca-opWfNet">Network</label><input type="text" id="aca-opWfNet" maxlength="120" value="' + esc(O.wifi_network || "") + '" />' +
+          '<label for="aca-opWfPw">Password</label><input type="text" id="aca-opWfPw" maxlength="120" autocomplete="off" value="' + esc(O.wifi_password || "") + '" />' +
+          '<div class="row"><button type="submit" class="small primary">Save</button><button type="button" class="small" data-wf="cancel">Cancel</button></div></form>';
+        el("opWfNet").focus();
+      } else box.innerHTML = head + (has ? '<dl class="jp-dl">' + (O.wifi_network ? "<dt>Network</dt><dd>" + esc(O.wifi_network) + "</dd>" : "") +
+          (O.wifi_password ? '<dt>Password</dt><dd><span class="pw">' + esc(O.wifi_password) + "</span></dd>" : "") + '</dl><p class="oncal">New bookings start with this WiFi.</p>'
+        : '<p class="muted" style="margin:0;font-size:13px">Not known yet. Add it here or on a job, and new bookings start with it.</p>');
+      box.onclick = (e) => { const t = e.target.closest("[data-wf]"); if (t) renderWifi(t.dataset.wf === "edit"); };
+      const f = el("opWfForm");
+      if (f) f.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = f.querySelector("[type=submit]"); btn.disabled = true;
+        const net = el("opWfNet").value.trim(), pw = el("opWfPw").value.trim();
+        const { data, error } = await sb.rpc("org_wifi_save", { p_org: O.id, p_network: net, p_password: pw });
+        if (error) { btn.disabled = false; toast(cleanErr(error), true); return; }
+        O.wifi_network = net || null; O.wifi_password = pw || null;
+        const n = num(data && data.jobs);
+        toast(n ? "Saved. " + n + (n === 1 ? " upcoming job" : " upcoming jobs") + " and the calendar got the new WiFi." : "Saved.");
+        renderWifi();
       };
     }
     function payoutText(t) {
@@ -411,7 +442,7 @@
       const all = (bks || []), aj = allJobs(bks, res);
       const rows = all.map((b) => ({ d: String(b.picture_day || ""), html:
           '<tr><td data-l="Job"><a href="' + jobLink(b.id) + '"><b>' + esc(b.title || b.title_label || "Job") + "</b></a>" + (b.status !== "booked" ? ' <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>" : "") +
-          '<div class="muted" style="font-size:12.5px">' + esc(b.type_label || "") + '</div></td><td data-l="Picture day">' + esc(day(b.picture_day, { weekday: "short" })) + '</td><td data-l="Stage">' + esc(b.stage || "") +
+          '<div class="muted" style="font-size:12.5px">' + esc(b.type_label || "") + '</div></td><td data-l="Picture day">' + esc(Fmt.days(b)) + '</td><td data-l="Stage">' + esc(b.stage || "") +
           (num(b.progress && b.progress.overdue) ? ' <span class="pill err">' + num(b.progress.overdue) + " overdue</span>" : "") + '</td><td data-l="Booking emails">' +
           (b.status === "booked" ? esc(num(b.emails_sent) + " of " + num(b.emails_total) + " sent") + (num(b.emails_failed) ? ' <span class="pill err">' + num(b.emails_failed) + " failed</span>" : "") : '<span class="muted">none</span>') +
           '</td><td data-l="Where">' + esc(b.location || "") + "</td></tr>" }))
@@ -487,7 +518,7 @@
         '<div class="jp-sec"><h3>Emails</h3>' + (rows.length ? '<div class="op-wrap"><table class="op-table op-phone"><thead><tr><th>When</th><th>Kind</th><th>Subject</th><th>To</th><th>Status</th><th></th></tr></thead><tbody>' + rows.map((x) => {
           const s = OB_ST[x.status] || ["muted", x.status || ""];
           const verbs = Outbox.verbs(x, { inPartner: true });
-          return '<tr data-id="' + esc(x.id) + '"><td data-l="When" style="white-space:nowrap">' + esc(x.at ? T.fmtDay(String(x.at).slice(0, 10), { month: "short", day: "numeric" }) : "") + '</td><td data-l="Kind">' + esc(OB_SRC[x.src] || x.src || "") + '</td><td data-l="Subject">' + esc(x.subject || "") +
+          return '<tr data-id="' + esc(x.id) + '"><td data-l="When" style="white-space:nowrap">' + esc(x.at ? Fmt.day(x.at) : "") + '</td><td data-l="Kind">' + esc(OB_SRC[x.src] || x.src || "") + '</td><td data-l="Subject">' + esc(x.subject || "") +
             (x.detail ? '<div class="muted" style="font-size:12.5px">' + esc(x.detail) + "</div>" : "") + '</td><td data-l="To">' + esc(x.to_name || x.to_email || "") + '</td><td data-l="Status"><span class="pill ' + s[0] + '">' + esc(s[1]) + "</span>" +
             (x.error ? '<div class="muted" style="font-size:12.5px">' + esc(x.error) + "</div>" : "") + '</td><td><div class="op-acts">' + verbs.join("") +
             '<button type="button" class="small" data-v="preview" aria-expanded="false">Preview</button></div></td></tr>';

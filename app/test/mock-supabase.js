@@ -161,7 +161,9 @@
       { src: "outreach", id: "ob6", at: iso(-3), sent_at: iso(-3), to_name: "Pat Lee", to_email: "plee@hancock.k12.me.us", org: "Hancock Grammar School", subject: "School photos next year", detail: "Outreach, email 5", status: "sent" }],
     admin_bookings: [
       { id: "bk1", org_id: "11111111-1111-1111-1111-111111111111", org_name: "Brewer Travel Basketball Club", org_town: "Brewer", type_key: "sports_data", type_label: "Sports: league with parent contacts", audience: "sports", title: "Winter Sports \u2022 Brewer Travel Basketball Club", title_label: "Winter Sports", picture_day: iso(12).slice(0,10), start_at: iso(12), end_at: iso(12.05), duration_min: 60, location: "Brewer Auditorium", notes: "after practice", status: "booked", calendar_status: "synced", google_event_id: "evt123", contacts: [{ id: "c1", name: "Chris Snowdeal", email: "csnowdeal75@gmail.com" }], emails_total: 2, emails_sent: 1, emails_failed: 0, emails_waiting: 0, next_send_at: iso(-2) },
-      { id: "bk2", org_id: "22222222-2222-2222-2222-222222222222", org_name: "Hancock Grammar School", org_town: "Hancock", type_key: "school", type_label: "School Photos", audience: "school", title: "School Photos \u2022 Hancock Grammar School", title_label: "School Photos", picture_day: iso(25).slice(0,10), start_at: iso(25), end_at: iso(25.1), duration_min: 180, location: "Hancock", status: "booked", calendar_status: "pending", google_event_id: null, contacts: [{ id: "c4", name: "Pat Lee", email: "plee@hancock.k12.me.us" }], emails_total: 4, emails_sent: 0, emails_failed: 0, emails_waiting: 1, next_send_at: iso(4) },
+      { id: "bk2", org_id: "22222222-2222-2222-2222-222222222222", org_name: "Hancock Grammar School", org_town: "Hancock", type_key: "school", type_label: "School Photos", audience: "school", title: "School Photos \u2022 Hancock Grammar School", title_label: "School Photos", picture_day: iso(25).slice(0,10), start_at: iso(25), end_at: iso(25.1), duration_min: 180, location: "Hancock",
+        // three shoot days with a gap (a list of dates, never "day 25 to day 28")
+        days: [25, 26, 28].map((n, i) => ({ id: "bd2-" + i, day: iso(n).slice(0, 10), start_at: iso(n), end_at: iso(n + 0.1), label: null, sort: i, calendar_status: "synced" })), status: "booked", calendar_status: "pending", google_event_id: null, contacts: [{ id: "c4", name: "Pat Lee", email: "plee@hancock.k12.me.us" }], emails_total: 4, emails_sent: 0, emails_failed: 0, emails_waiting: 1, next_send_at: iso(4) },
       { id: "bk3", org_id: "44444444-4444-4444-4444-444444444444", org_name: "Island Cheer & Tumbling", org_town: "Deer Isle", type_key: "sports_nodata", type_label: "Sports: school teams, roster only", audience: "sports", title: "Cheer \u2022 Island Cheer & Tumbling", title_label: "Cheer", picture_day: iso(3).slice(0,10), start_at: iso(3), end_at: iso(3.05), duration_min: 60, status: "booked", calendar_status: "moved", google_event_id: "evt999", contacts: [], emails_total: 3, emails_sent: 1, emails_failed: 1, emails_waiting: 0, next_send_at: iso(1) }],
     admin_booking_detail: { id: "bk1", org_id: "11111111-1111-1111-1111-111111111111", org_name: "Brewer Travel Basketball Club", org_town: "Brewer", type_key: "sports_data", type_label: "Sports: league with parent contacts", audience: "sports", title: "Winter Sports \u2022 Brewer Travel Basketball Club", title_label: "Winter Sports", picture_day: iso(12).slice(0,10), start_at: iso(12), start_time: "17:00", duration_min: 60, location: "Brewer Auditorium", notes: "after practice", status: "booked", calendar_status: "synced", google_event_id: "evt123",
       contact_ids: ["c1", "c3"], contacts: [{ id: "c1", name: "Chris Snowdeal", email: "csnowdeal75@gmail.com" }, { id: "c3", name: "Dana Utter", email: "dutter@breweredu.org" }], org_contacts: [{ id: "c1", first_name: "Chris", last_name: "Snowdeal", email: "csnowdeal75@gmail.com", role: "President", is_primary: true, chosen: true, emailable: true }, { id: "c3", first_name: "Dana", last_name: "Utter", email: "dutter@breweredu.org", role: "Athletic Director", chosen: true, emailable: false }, { id: "c2", first_name: "Jamie", last_name: "Emerson", email: "jemerson@breweredu.org", chosen: false, emailable: true }],
@@ -375,7 +377,7 @@
       // Job page (jobpage.js)
       job_get: { booking: { id: "bk1", title: "Brewer Travel Basketball Club \u2022 Winter Sports", org_id: "11111111-1111-1111-1111-111111111111", org_name: "Brewer Travel Basketball Club", org_town: "Brewer",
                             type_key: "league", type_label: "League picture day", audience: "sports", status: "booked", picture_day: pd, start_at: at("09:00"), end_at: at("12:00"), time_set: true, end_set: true,
-                            location: "Brewer Rec Center", retake_day: null, notes: "Use the side door.", gotphoto_job_id: "gp1", access_code: null },
+                            location: "Brewer Rec Center", retake_day: null, notes: "Use the side door.", wifi_network: "HLL-Guest", wifi_password: "hoops2026", gotphoto_job_id: "gp1", access_code: null },
                  days: [], stage: { label: "Booked", at: iso(-5), auto: true },
                  stages: [{ id: "s1", label: "Booked", reached: true }, { id: "s2", label: "Picture day done", reached: false }],
                  crew: [{ user_id: "u2", name: "Sam Helper", starts_at: at("08:30"), ends_at: at("12:30"), drive_before_min: 40, note: "" }],
@@ -390,7 +392,7 @@
       job_people: [{ user_id: "u2", name: "Sam Helper", crew: true }, { user_id: "u1", name: "Jeremiah Mutty", crew: false }],
       job_notes_list: [{ id: 1, author_name: "Jeremiah Mutty", body: "Parking is behind the gym. @Sam Helper bring the blue backdrop.", created_at: iso(-1), edited_at: null, mine: true, can_remove: true,
                          mentions: [{ user_id: "u2", name: "Sam Helper" }] }],
-      job_note_add: { ok: true, id: 2 }, job_note_edit: { ok: true }, job_note_remove: { ok: true },
+      job_note_add: { ok: true, id: 2 }, job_note_edit: { ok: true }, job_note_remove: { ok: true }, job_onsite_save: { ok: true, calendar: true }, org_wifi_save: { ok: true, jobs: 1 },
       history_get: [{ at: iso(-0.1), who: "Jeremiah Mutty", tbl: "bookings", action: "changed", changes: { location: ["Brewer High", "Brewer Rec Center"] } },
                     { at: iso(-0.2), who: "Jeremiah Mutty", tbl: "schedule_entries", action: "added", changes: { user_id: [null, "u2"], starts_at: [null, at("08:30")] } },
                     { at: iso(-5), who: "System", tbl: "stage", action: "changed", changes: { stage: [null, "Booked"] } }],
@@ -796,6 +798,13 @@
     if (String(url).includes("/functions/v1/offer-drive")) {
       window.__offerDriveCalls = (window.__offerDriveCalls || []).concat([JSON.parse(opts.body)]);
       return new Response(JSON.stringify({ ok: true, asked: 3, stored: 3, missed: 0 }), { status: 200 });
+    }
+    if (String(url).includes("/functions/v1/admin/gplists")) {
+      return new Response(JSON.stringify({ ok: true, price_profiles: [{ id: "pp-fall", name: "Fall Sports 2026" }, { id: "pp-spring", name: "Spring Sports 2027" }], communication_profiles: [{ id: "cp1", name: "League emails" }] }), { status: 200 });
+    }
+    if (String(url).includes("/functions/v1/admin/gpjob")) {
+      window.__gpjobCalls = (window.__gpjobCalls || []).concat([String(url)]);
+      return new Response(JSON.stringify({ ok: true, linked: 0, made: [{ booking_id: "bk1", gotphoto_job_id: "9001", name: "Brewer Travel Basketball Club | Winter Sports | 2026" }] }), { status: 200 });
     }
     if (String(url).includes("/functions/v1/admin/sales")) {
       window.__salesCalls = (window.__salesCalls || 0) + 1;

@@ -169,6 +169,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const row1 = await page.textContent('#aca-bkBody tr[data-id="bk1"] .bk-c-stage');
     check(row1.includes("In production") && row1.includes("1 of 3 delivered") && row1.includes("1 overdue"), "list shows the stage and deliverables: " + row1.trim());
     check((await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-c-stage')).includes("Booked"), "list shows Booked for a new job");
+    const bk2When = await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-date');
+    check(/^\d+\/\d+, \d+\/\d+, \d+\/\d+$/.test(bk2When.trim()), "a multi-day job lists each of its three dates, not a range: " + bk2When);
     await page.selectOption("#aca-bkStage", ":overdue");
     check((await page.$$("#aca-bkBody tr.bk-row")).length === 1, "Deliverables overdue filter");
     await page.selectOption("#aca-bkStage", "Booked");
@@ -219,6 +221,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.$$("#aca-bkDetail .bk-stages li.done")).length === 2, "earlier stages ticked");
     check((await page.$$('#aca-panel-job button[data-j="edit"]')).length === 1 && !(await page.$('#aca-bkDetail [data-v="edit"]')), "one Edit button: Edit booking in the header");
     check((await page.$$("#aca-bkDetail .bk-gp")).length <= 1, "one GotPhoto create block");
+    check(!(await page.$('#aca-bkDetail a[href*="config_jobs/create"]')), "no link to GotPhoto's retired create page");
+    const gpMake = await page.$('#aca-bkDetail button[data-v="gpmake"]');
+    if (gpMake) {
+      await gpMake.click();
+      await page.waitForTimeout(300);
+      check(await page.evaluate(() => (window.__gpjobCalls || []).some((u) => u.includes("/admin/gpjob?booking=bk1"))), "Create it in GotPhoto now calls admin /gpjob for the booking");
+    }
     await page.click('#aca-bkDetail button[data-next="1"]');
     await page.waitForTimeout(150);
     const mv = await lastRpc("booking_set_stage");
@@ -262,7 +271,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-bkDays .dp-face");
     for (let i = 0; i < 36 && !(await page.$('.dp-cal [data-d="2026-12-05"]')); i++) await page.click('.dp-cal [data-m="' + (new Date() < new Date(2026, 11, 5) ? 1 : -1) + '"]');
     await page.click('.dp-cal [data-d="2026-12-05"]');
-    check(await page.$eval("#aca-bkDays .bk-d-day", (n) => n.value) === "2026-12-05" && /Dec 5, 2026/.test(await page.textContent("#aca-bkDays .dp-face")), "calendar sets the day");
+    check(await page.$eval("#aca-bkDays .bk-d-day", (n) => n.value) === "2026-12-05" && /^\s*12\/5\s*$/.test(await page.textContent("#aca-bkDays .dp-face")), "calendar sets the day");
     await page.fill("#aca-bkDays .bk-dayrow .dp-time >> nth=0", "930");
     await page.keyboard.press("Enter");
     const tm = await page.$eval("#aca-bkDays .bk-dayrow", (r) => [r.querySelector(".bk-d-start").value, r.querySelector(".bk-d-end").value, r.querySelectorAll(".dp-time")[1].value]);
@@ -1036,7 +1045,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-panel-job", (n) => n.classList.contains("active")), "clicking the row opens the job page");
     check(!(await page.$('#aca-nav button[data-tab="job"]')), "the job page is not in the menu");
     const tabs = await page.$$eval("#aca-jpTabs button", (bs) => bs.map((b) => b.dataset.t));
-    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "hub", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "hub", "crew", "checklist", "results", "gotphoto", "time", "notes", "history"]), "tabs: " + tabs.join(","));
     await page.click('#aca-jpTabs button[data-t="hub"]');
     await page.waitForSelector("#aca-jpBody .pr-tbl");
     const hubTxt = await page.textContent("#aca-jpBody");
@@ -1046,7 +1055,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     const ov = await page.textContent("#aca-jpBody");
     check(ov.includes("Sam Helper") && ov.includes("40 min drive") && ov.includes("Chris Snowdeal"), "overview shows crew and contacts");
-    check(!ov.includes("Use the side door"), "booking notes are not on Overview");
+    check(ov.includes("Use the side door") && ov.includes("HLL-Guest") && ov.includes("On-site details"), "On-site details on Overview: WiFi and For the crew");
+    await page.waitForSelector("#aca-jpLatest .jp-notes li", { timeout: 3000 }).catch(() => {});
+    check((await page.textContent("#aca-jpLatest")).includes("Parking is behind the gym") && !!(await page.$("#aca-jpLatest #aca-jpNote")), "latest job notes and an Add box top Overview");
+    await page.click('#aca-jpOnsite [data-os="edit"]');
+    await page.fill("#aca-jpOsPw", "newpass");
+    await page.click('#aca-jpOsForm [type=submit]');
+    await page.waitForTimeout(200);
+    check((await page.textContent("#aca-jpOnsite")).includes("newpass") && !(await page.$("#aca-jpOsForm")), "On-site details save in place");
     check(!(await page.$('#aca-panel-job [data-j="booking"]')), "no Open the booking button");
     // Edit booking: the crew is there to change, and moving the day says what moves with it
     await page.click('#aca-panel-job button[data-j="edit"]');
@@ -1075,7 +1091,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent("#aca-jpBody")).includes("$1,234.50 from 40 orders"), "results show sales");
     await page.click('#aca-jpTabs button[data-t="notes"]');
     await page.waitForSelector(".jp-notes li[data-n]");
-    check((await page.textContent(".jp-booknote")).includes("From the booking") && (await page.textContent(".jp-booknote")).includes("Use the side door"), "booking notes top the Notes tab");
+    check((await page.textContent(".jp-booknote")).includes("For the crew") && (await page.textContent(".jp-booknote")).includes("Use the side door"), "booking notes top the Notes tab");
     check((await page.$eval(".jp-notes .at", (n) => n.textContent)) === "@Sam Helper", "a mention is highlighted");
     await page.click("#aca-jpNote");
     await page.keyboard.type("Ask @sa");
@@ -1940,6 +1956,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const jtx = await page.textContent("#aca-stJt-sports_data");
     check(jtx.includes("Picture day done") && jtx.includes("Team composites") && jtx.includes("Sports with data"), "a job type card: stages, deliverables, its booking emails");
     check(!!(await page.$("#aca-stJt-all")) && !!(await page.$("#aca-stAuto")), "every-job-type card and the auto-track switch");
+    check(jtx.includes("GotPhoto defaults") && jtx.includes("Sport (Other)") && (await page.textContent("#aca-stJt-school")).includes("K-12 School"), "GotPhoto defaults on each job type card");
+    await page.click('#aca-stJt-sports_data [data-st="gpdef"]');
+    await page.waitForFunction(() => { const s = document.querySelector("#aca-stGpprice_profile_fall"); return s && [...s.options].some((o) => o.text === "Fall Sports 2026"); });
+    check(true, "GotPhoto defaults lists the price profiles from GotPhoto");
+    await page.selectOption("#aca-stGpprice_profile_fall", "pp-fall");
+    await page.selectOption("#aca-stGpprepay", "false");
+    await page.click('.modal [data-m="save"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "gp_type_defaults_save" && c[1].p_type === "sports_data" && c[1].p.price_profile_fall === "pp-fall" && c[1].p.labels.price_profile_fall === "Fall Sports 2026" && c[1].p.prepay === "false")), "saves the GotPhoto defaults with the profile name");
     await page.click('#aca-stJt-sports_data [data-st="stages"]');
     await page.waitForSelector('#aca-bkJtTypes button[aria-pressed="true"]');
     check(await page.$eval('#aca-bkJtTypes button[aria-pressed="true"]', (b) => b.dataset.jt) === "sports_data", "Stages & deliverables opens on that job type");

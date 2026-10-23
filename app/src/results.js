@@ -66,7 +66,7 @@
     const seasonLabel = (season, year) => cap(season) + " " + year;
     const dollars = (n) => (n < 0 ? "-$" : "$") + Math.round(Math.abs(n)).toLocaleString("en-US");
     const cents = (n) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const fmtD = (d, y) => (d ? new Date(d + "T12:00:00Z").toLocaleDateString("en-US", Object.assign({ timeZone: "UTC", month: "short", day: "numeric" }, y ? { year: "numeric" } : {})) : "");
+    const fmtD = (d) => Fmt.day(d);
     const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
     const KINDS = [["sport", "Sports"], ["school", "School"], ["event", "Events"], ["studio", "Studio"], ["other", "Other"]];
     const kindOf = (j) => { const p = String(j.job_type || "").split("_")[0]; return KINDS.some((k) => k[0] === p) ? p : "other"; };

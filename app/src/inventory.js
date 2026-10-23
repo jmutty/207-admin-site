@@ -145,7 +145,7 @@
       return (people = data || []);
     }
     const binTag = (code) => (code ? '<span class="inv-bin">' + esc(code) + "</span>" : '<span class="inv-bin none">No bin</span>');
-    const dueTxt = (d) => (d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "");
+    const dueTxt = (d) => Fmt.day(d);
     const overdue = (d) => d && d < new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
     const outLine = (r) => r.holder_name ? '<span class="inv-out">Out with ' + esc(r.holder_name) + (r.out_with_kit ? " (with the kit)" : "") + "</span>" +
       (r.due_on ? ' <span class="muted">due ' + esc(dueTxt(r.due_on)) + (overdue(r.due_on) ? ", late" : "") + "</span>" : "") : "";
@@ -157,7 +157,7 @@
     const soonStr = () => { const t = new Date(todayStr() + "T12:00:00"); t.setDate(t.getDate() + 14); return t.toISOString().slice(0, 10); };
     const serviceDue = (r) => r.next_service_on && r.next_service_on <= soonStr();
     // B32 (ws/settings 2026-10-24): a service date in the past reads "overdue since Oct 18"
-    const serviceTxt = (d) => d < todayStr() ? "overdue since " + new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : dueTxt(d);
+    const serviceTxt = (d) => d < todayStr() ? "overdue since " + Fmt.day(d) : dueTxt(d);
     const KIND = { service: "Service", sensor: "Sensor clean", repair: "Repair", other: "Other" };
 
     // ---------------------------------------------------------------- Find

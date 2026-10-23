@@ -381,13 +381,12 @@
     if (!iso) return "";
     const d = new Date(String(iso).length === 10 ? iso + "T12:00:00" : iso);
     if (isNaN(d)) return "";
-    const sameYear = d.getFullYear() === new Date().getFullYear();
-    return d.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) });
+    return Fmt.day(d);
   }
   function fmtWhen(iso) {
     if (!iso) return "";
     const d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return isNaN(d) ? "" : Fmt.dayTime(d.toISOString());
   }
   const who = (c) => c ? ([c.first_name, c.last_name].filter(Boolean).join(" ") || c.email) : "";
   function gmailLink(id, history) {
@@ -651,7 +650,7 @@
     if (s === "not_now" && o && followDue.has(o.id)) {
       const d = new Date(followDue.get(o.id) + "T12:00:00");
       const when = d.getFullYear() === new Date().getFullYear()
-        ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        ? Fmt.day(followDue.get(o.id))
         : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
       const late = followDue.get(o.id) <= todayStr();
       return `<span class="pill og-fpill ${late ? "err" : "warn"}" title="Follow up on ${esc(fmtDay(followDue.get(o.id)))}">Follow up<span class="og-fdate">${esc(when)}</span></span>`;

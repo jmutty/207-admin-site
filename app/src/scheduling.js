@@ -47,7 +47,11 @@
       return (h % 12 || 12) + (m ? ":" + String(m).padStart(2, "0") : "") + (h < 12 ? "am" : "pm");
     }
     const fmtTs = (ts) => fmtMin(local(ts).min);
-    const fmtDay = (day, o) => new Date(day + "T12:00:00Z").toLocaleDateString("en-US", Object.assign({ timeZone: "UTC", weekday: "short", month: "short", day: "numeric" }, o || {}));
+    // "11/16" (one date format everywhere, see Fmt). Two exceptions keep a weekday because they head a calendar column
+    // or day: { calendar: true } gives "Mon 11/16", and { month: undefined } gives the narrow week-column "Mon 16".
+    const fmtDay = (day, o) => o && "month" in o && o.month === undefined
+      ? new Date(day + "T12:00:00Z").toLocaleDateString("en-US", Object.assign({ timeZone: "UTC", weekday: "short", day: "numeric" }, o))
+      : (o && o.calendar ? WEEKDAYS[new Date(day + "T12:00:00Z").getUTCDay()] + " " : "") + Fmt.day(day);
     const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     // Hours scheduled on one Eastern day: jobs with their drive, setup and teardown time, and work; time off doesn't count.
     function workHours(entries, day) {
@@ -428,10 +432,9 @@
       if (view === "list") return renderList();
       const start = data.start, today = T.today();
       const days = view === "week" ? [0, 1, 2, 3, 4, 5, 6].map((i) => T.addDays(start, i)) : [anchor];
-      const sameMonth = view === "week" && days[0].slice(0, 7) === days[6].slice(0, 7);
       el("scTitle").textContent = view === "week"
-        ? T.fmtDay(days[0], { weekday: undefined }) + " \u2013 " + (sameMonth ? +days[6].slice(8) : T.fmtDay(days[6], { weekday: undefined })) + ", " + days[6].slice(0, 4)
-        : T.fmtDay(anchor, { weekday: "long", year: "numeric" });
+        ? T.fmtDay(days[0]) + " \u2013 " + T.fmtDay(days[6])
+        : T.fmtDay(anchor, { calendar: true });
       root.querySelectorAll(".sc-ed").forEach((n) => n.classList.toggle("hidden", !editable()));
       root.querySelector(".sc-flexbtn").classList.toggle("hidden", editable() || !data.people.some((p) => isMine(p.user_id)));
       const warn = el("scWarn");
@@ -454,7 +457,7 @@
 
       let h = '<div class="sc-head sc-name">' + (view === "week" ? "Team" : "") + "</div>";
       days.forEach((d) => {
-        h += '<div class="sc-head' + (d === today ? " today" : "") + (d === highlight && view === "week" ? " hl" : "") + '">' + (view === "week" ? '<button type="button" class="link" data-day="' + d + '">' + esc(T.fmtDay(d)) + "</button>" : esc(T.fmtDay(d, { weekday: "long" }))) +
+        h += '<div class="sc-head' + (d === today ? " today" : "") + (d === highlight && view === "week" ? " hl" : "") + '">' + (view === "week" ? '<button type="button" class="link" data-day="' + d + '">' + esc(T.fmtDay(d, { calendar: true })) + "</button>" : esc(T.fmtDay(d, { calendar: true }))) +
           '<div class="sc-ticks">' + ticks() + "</div></div>";
       });
       // Capacity: per day, who is free (not off) against the people that day's jobs still need.
@@ -560,7 +563,7 @@
     // time order with full job names, place, role and whether they've confirmed. Taps open the same dialogs as the grid.
     function renderList() {
       const today = T.today(), days = [anchor, T.addDays(anchor, 1)];
-      el("scTitle").textContent = T.fmtDay(anchor, { weekday: "long", year: "numeric" });
+      el("scTitle").textContent = T.fmtDay(anchor, { calendar: true });
       root.querySelectorAll(".sc-ed").forEach((n) => n.classList.toggle("hidden", !editable()));
       root.querySelector(".sc-flexbtn").classList.toggle("hidden", editable() || !data.people.some((p) => isMine(p.user_id)));
       const warn = el("scWarn");
@@ -574,7 +577,7 @@
       const waiting = (e) => e.kind === "job" && e.confirm && e.confirm.status === "pending";
       let h = "";
       days.forEach((d) => {
-        h += '<section class="scl-day"><h3>' + (d === today ? "Today, " : d === T.addDays(today, 1) ? "Tomorrow, " : "") + esc(T.fmtDay(d, { weekday: d === today || d === T.addDays(today, 1) ? "short" : "long" })) + "</h3>";
+        h += '<section class="scl-day"><h3>' + (d === today ? "Today, " : d === T.addDays(today, 1) ? "Tomorrow, " : "") + esc(T.fmtDay(d, { calendar: true })) + "</h3>";
         const open = data.bookings.filter((b) => b.day === d && staffedCount(b.booking_id, d) < neededOf(b.booking_id));
         if (open.length) h += '<div class="scl-open"><div class="scl-lbl">Nobody on it yet</div>' + open.map((b) => {
           const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id);

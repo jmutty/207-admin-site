@@ -304,6 +304,7 @@
   const MK_STATUS = {
     ready: ["warn", "Ready to send"],
     needs_job: ["err", "Needs job"],
+    waiting_photos: ["muted", "Waiting for photos"],
     upcoming: ["muted", "Upcoming"],
     sent: ["ok", "Sent"],
     dismissed: ["muted", "Handled"],
@@ -313,7 +314,7 @@
     if (!iso) return "—";
     const d = new Date(iso);
     if (isNaN(d)) return esc(iso);
-    return d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return Fmt.dayTime(d.toISOString());
   }
   function mkFirstName(name) {
     return String(name || "").replace(/^(mr|mrs|ms|miss|dr)\.?\s+/i, "").trim().split(/\s+/)[0] || "";
@@ -415,7 +416,12 @@
       else if (m.send_status === "pending") html += '<span class="mk-sub">Delivery check within 10 min</span>';
     } else if (m.status === "upcoming") {
       html += '<span class="mk-sub">Send unlocks after the makeup</span>';
+    } else if (m.status === "waiting_photos") {
+      html += '<span class="mk-sub">Checking GotPhoto every 20 min</span>';
     }
+    if (m.status !== "sent" && m.photos_in_at) html += '<span class="mk-sub">Photos in GotPhoto ' + fmtDate(m.photos_in_at) + (m.photos_how === "name" ? " (found by name)" : " (new upload)") + '</span>';
+    if (m.auto_confirmed) html += '<span class="mk-sub">Job confirmed by the photos check</span>';
+    if (m.coupon_made_at) html += '<span class="mk-sub">Coupon made in GotPhoto</span>';
     return html;
   }
 
@@ -424,6 +430,7 @@
     if (m.status === "ready") a = '<button class="small primary js-mk-open">Send ready email</button>';
     else if (m.status === "sent") a = '<button class="small js-mk-open">Resend</button>';
     else if (m.status === "needs_job") a = '<button class="small" disabled title="Confirm the job first">Send ready email</button>';
+    else if (m.status === "waiting_photos") a = '<button class="small js-mk-open" title="Photos not found yet in GotPhoto">Send anyway</button>';
     else if (m.status === "upcoming") a = '<button class="small" disabled title="Unlocks after the makeup">Send ready email</button>';
     a += m.status === "dismissed"
       ? ' <button class="link js-mk-undismiss">Undo</button>'
@@ -636,7 +643,7 @@
   // Today: "retakesNew" (asked in the last 24 h) and "retakeDayTomorrow" (requests for a school whose retake day is tomorrow).
   let rtList = [];
   const nyDay = (offset) => new Date(Date.now() + (offset || 0) * 864e5).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-  const rtDay = (d) => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "no retake day";
+  const rtDay = (d) => (d ? Fmt.day(d) : "no retake day");
 
   async function loadRetakes() {
     clearError("rtError");

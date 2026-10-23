@@ -66,6 +66,8 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261024010000_shell_help_dig
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/shell_test.sql        # Help line for every team member, morning email list: full access only, own address only; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261024040000_jobs_one_screen.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/jobs_test.sql         # crew + open-offer people open the job and its checklist, My jobs from home + checklist counts, My day job links, the crew moves with the day; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261024150000_gotphoto_job_create.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/gotphoto_job_create_test.sql   # which bookings get a GotPhoto job, name + JOB number + which jobs to copy, claim once, retry rules, link once synced; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
