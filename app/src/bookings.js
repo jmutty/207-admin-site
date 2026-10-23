@@ -285,7 +285,7 @@
     const g = b.gp_create, auto = b.gp_auto && b.gp_auto.auto_enabled;
     const btn = (label) => can ? '<button type="button" class="small primary" data-v="gpmake">' + label + "</button>" : "";
     if (g && (g.status === "created" || g.status === "linked")) return '<div class="bk-gp-made bk-sub" style="margin:8px 0">Made in GotPhoto as <strong>' + esc(g.job_name || "") + "</strong>" + (g.internal_name ? " (" + esc(g.internal_name) + ")" : "") +
-      (g.template_name ? ", settings copied from " + esc(g.template_name) : "") + (b.audience === "school" ? ". Type its access code below once GotPhoto shows it." : ". It links here within 5 minutes, then email 0 is scheduled.") + ' <a href="' + esc(gpJobUrl(g.gotphoto_job_id)) + '" target="_blank" rel="noopener">Open in GotPhoto</a> to check it.</div>';
+      (g.template_name ? ", settings copied from " + esc(g.template_name) : "") + (b.audience === "school" ? ". Type its access code below once GotPhoto shows it." : ". It links here within 5 minutes, then email 0 is scheduled.") + ' <a href="' + esc(gpJobUrl(g.gotphoto_job_id)) + '" target="_blank" rel="noopener">Open in GotPhoto</a> to check it and set Registration after code login (GotPhoto doesn\u2019t take that one from 207 Admin).</div>';
     if (g && g.status === "working") return '<div class="bk-sub" style="margin:8px 0">Making it in GotPhoto now\u2026</div>';
     const failed = g && g.status === "failed" ? '<div class="bk-sub" style="margin:8px 0;color:var(--err-fg)">Couldn\u2019t make it in GotPhoto: ' + esc(g.error || "unknown error") + "</div>" : "";
     const note = !g && auto ? '<div class="bk-sub" style="margin:8px 0">207 Admin makes this job in GotPhoto by itself about ' + esc(String((b.gp_auto.grace_minutes || 15) + 5)) + " minutes after booking, with your GotPhoto settings for " + esc(b.type_label || "this job type") + ". Or do it now:</div>" : "";
@@ -578,6 +578,7 @@
         field("Price list", sel("price", opts("price_profiles", job.price_profile_id, L.price_profile_id))) +
         field("Emails (communication profile)", sel("comm", opts("communication_profiles", job.communication_profile_id, L.communication_profile_id))) +
         field("Photo access", sel("access", accList.map(([k, l]) => '<option value="' + esc(k) + '"' + (k === acc0 ? " selected" : "") + ">" + esc(l) + "</option>").join(""))) +
+        '<p class="muted" style="font-size:12px;margin:10px 0 0">Once it\u2019s made, set <strong>Registration after code login</strong> in GotPhoto yourself. GotPhoto doesn\u2019t take that one from 207 Admin.</p>' +
         '<p class="muted" style="font-size:12px;margin:10px 0 0">Anything you change here is also remembered for the next ' + esc(bk.type_label || "jobs of this type") + " jobs (Settings &rsaquo; Job types &rsaquo; GotPhoto defaults).</p>" +
         '<div class="inline-error hidden" id="aca-gpcErr"></div><div class="og-actions" style="margin-top:14px"><button type="button" data-v="close">Cancel</button><button type="button" class="primary" data-v="make">Create in GotPhoto</button></div>';
       box.addEventListener("click", async (ev) => {
