@@ -7,6 +7,7 @@
   // Every email lands in the outreach pipeline (the Outbox): "Hold for review" or "Approve and schedule".
   // 2026-10-24 (ws/partners): partner names link to the partner page, "Review it" opens that email in the Outbox,
   // and the tables turn into cards under 700px.
+  // 2026-10-23: the tables became grid rows with one main button each (the rest in a ... menu), cards on phones.
   registerPage({ id: "rebook", group: "Outreach", section: "partners", module: "partners", tabs: [["rebook", "Due to rebook"]], onShow: () => Follow.showRebook() });
   registerPage({ id: "reviews", group: "Outreach", section: "partners", module: "partners", tabs: [["reviews", "Reviews"]], onShow: () => Follow.showReviews() });
   registerPage({ id: "agreements", group: "Outreach", section: "partners", module: "agreements", tabs: [["agreements", "Agreements"]], onShow: () => Follow.showAgreements() });
@@ -23,14 +24,9 @@
     const sb = supabase;
     const cleanErr = (e) => String((e && (e.message || e.details)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
     const css = `
-  .aca .pf-table td { vertical-align: top; }
-  .aca .pf-table td .muted { font-size: 12.5px; }
   .aca .pf-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .aca .pf-head-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .aca tr.pf-click { cursor: pointer; }
   .aca .pf-due { color: var(--accent); font-weight: 600; }
-  .aca tr.pf-click:hover td { background: var(--surface-2); }
-  .aca .pf-quote { font-style: italic; max-width: 360px; white-space: normal; }
   .aca .modal textarea.pf-body { width: 100%; min-height: 220px; resize: vertical; }
   .aca .modal textarea.pf-terms { width: 100%; min-height: 300px; resize: vertical; font-size: 13px; }
   .aca .modal textarea.pf-short { width: 100%; min-height: 64px; resize: vertical; }
@@ -52,20 +48,63 @@
   .aca .ag-check { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; font-size: 14px; line-height: 20px; }
   .aca .ag-check input { margin-top: 3px; }
   @media (max-width: 700px) { .aca .pf-row2, .aca .pf-row3 { grid-template-columns: 1fr; } .aca .pf-acts { justify-content: flex-start; } }
-  /* Phones: each row is a card (name first, then each column with its label, then the buttons) */
+  /* 2026-10-23: the three lists are rows on a grid (not tables). One main button per row; the rest sit in a ... menu. Phones get a card. */
+  .aca .pf-list { border-top: 1px solid var(--border); }
+  .aca .pf-lhead, .aca .pf-item { display: grid; grid-template-columns: var(--pf-cols); gap: 0 20px; align-items: center; }
+  .aca .pf-lhead { padding: 10px 8px; font-size: 12.5px; color: var(--faint); border-bottom: 1px solid var(--border); }
+  .aca .pf-item { padding: 12px 8px; border-bottom: 1px solid var(--line2); min-height: 64px; }
+  .aca .pf-item.pf-click { cursor: pointer; }
+  .aca .pf-item:hover { background: var(--surface-2); }
+  .aca .pf-item > * { min-width: 0; }
+  .aca .pf-name { font-size: 15px; font-weight: 600; line-height: 21px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .aca .pf-name a { color: inherit; text-decoration: none; }
+  .aca .pf-name a:hover { text-decoration: underline; }
+  .aca .pf-sub { font-size: 13px; line-height: 19px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .aca .pf-sub a { color: inherit; }
+  .aca .pf-main { font-size: 14px; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .aca .pf-when { font-size: 14.5px; font-weight: 600; line-height: 20px; font-variant-numeric: tabular-nums; }
+  .aca .pf-when + .pf-sub.pf-soon { color: var(--accent); font-weight: 600; }
+  .aca .pf-tag { display: inline-block; margin-top: 3px; font-size: 11.5px; font-weight: 600; line-height: 17px; padding: 0 7px; border-radius: 3px; background: var(--warn-bg); color: var(--warn-fg); white-space: nowrap; }
+  .aca .pf-tag.quiet { background: var(--surface-2); color: var(--muted); }
+  .aca .pf-item .pf-acts { flex-wrap: nowrap; align-items: center; position: relative; }
+  .aca .pf-item .pf-acts .pill { margin-right: 4px; }
+  .aca .pf-more { width: 34px; padding: 0; font-size: 18px; line-height: 1; letter-spacing: 1px; }
+  .aca .pf-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 190px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+  .aca .pf-menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; height: auto; padding: 9px 10px; font-weight: 400; border-radius: 4px; }
+  .aca .pf-menu button:hover { background: var(--surface-2); }
+  .aca .pf-quote { font-style: italic; font-size: 13px; line-height: 18px; color: var(--muted); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: none; }
+  .aca .pf-docs { display: contents; }
+  .aca .pf-item button.link { height: auto; padding: 0; margin-top: 2px; border: 0; background: none; font-size: 13px; font-weight: 600; color: var(--accent); }
+  .aca .pf-docs > div[data-l]::before { display: none; }
+  .aca .pf-list .pf-empty { padding: 28px 8px; color: var(--muted); font-size: 14px; }
+  .aca .pf-rb { --pf-cols: minmax(0, 1.5fr) 110px minmax(0, 1.2fr) 290px; }
+  .aca .pf-rv { --pf-cols: minmax(0, 1.5fr) 190px minmax(0, 1.4fr) 220px; }
+  .aca .pf-ag { --pf-cols: minmax(0, 1.8fr) 170px 100px 130px 110px; }
   @media (max-width: 700px) {
-    .aca .pf-wrap { overflow: visible; }
-    .aca table.pf-table, .aca table.pf-table tbody { display: block; width: 100%; min-width: 0; }
-    .aca table.pf-table thead { display: none; }
-    .aca table.pf-table tr { display: block; padding: 12px 4px; border-bottom: 1px solid var(--border); }
-    .aca table.pf-table td { display: block; padding: 2px 0; border: 0; white-space: normal; }
-    .aca table.pf-table td:first-child { font-size: 15px; font-weight: 600; }
-    .aca table.pf-table td[data-l]::before { content: attr(data-l) ": "; color: var(--muted); font-size: 12.5px; }
-    .aca table.pf-table td[data-l] br { display: none; }
-    .aca table.pf-table td[data-l] .muted { margin-left: 4px; }
-    .aca table.pf-table .pf-acts { margin-top: 8px; }
-    .aca table.pf-table .pf-acts button { min-height: 40px; }
-    .aca table.pf-table td.empty { font-weight: 400; font-size: 14px; }
+    .aca .pf-lhead { display: none; }
+    .aca .pf-list { border-top: 0; }
+    .aca .pf-list > [id] { display: flex; flex-direction: column; gap: 10px; }
+    .aca .pf-item { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name when" "info info" "acts acts"; gap: 6px 12px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .aca .pf-item:hover { background: var(--surface); }
+    .aca .pf-item > :nth-child(1) { grid-area: name; }
+    .aca .pf-item > :nth-child(2) { grid-area: when; text-align: right; }
+    .aca .pf-item > :nth-child(3) { grid-area: info; }
+    .aca .pf-item > .pf-acts { grid-area: acts; justify-content: flex-start; margin-top: 4px; }
+    .aca .pf-item > .pf-acts:empty { display: none; }
+    .aca .pf-item > .pf-acts > button.primary, .aca .pf-item > .pf-acts > button:first-of-type:not(.pf-more) { flex: 1 1 auto; }
+    .aca .pf-item .pf-acts button { min-height: 42px; }
+    .aca .pf-more { width: 44px; }
+    .aca .pf-name, .aca .pf-sub { white-space: normal; }
+    .aca .pf-item > .pf-acts > button { justify-content: center; text-align: center; }
+    .aca .card:has(.pf-list) .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+    .aca .card:has(.pf-list) .chips button { flex: 0 0 auto; }
+    .aca .pf-rv .pf-item, .aca .pf-ag .pf-item { grid-template-areas: "name name" "when when" "info info" "acts acts"; }
+    .aca .pf-rv .pf-item > :nth-child(2), .aca .pf-ag .pf-item > :nth-child(2) { text-align: left; }
+    .aca .pf-ag .pf-item { grid-template-areas: "name name" "when when" "docs docs"; }
+    .aca .pf-ag .pf-docs { display: flex; flex-wrap: wrap; gap: 4px 16px; grid-area: docs; padding-top: 6px; border-top: 1px solid var(--line2); margin-top: 4px; }
+    .aca .pf-docs > div[data-l]::before { display: inline; content: attr(data-l) " "; color: var(--faint); font-size: 12.5px; }
+    .aca .pf-docs > div[data-l] { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+    .aca .pf-list .pf-empty { border: 1px dashed var(--border); border-radius: 10px; text-align: center; }
   }
   @media print { .aca .ag-print-hide { display: none !important; } .aca .ag-text { border: 0; background: none; padding: 0; } }
 `;
@@ -98,6 +137,21 @@
     const goReview = (email, orgId) => Outbox.focus(email && email.id, orgId);
     const goOrg = (id) => { if (!canSee("partners") || !id) return; location.hash = orgLink(id); };
     const orgCell = (id, name) => (canSee("partners") && id ? '<a href="' + orgLink(id) + '" data-do="org">' + esc(name || "") + "</a>" : esc(name || ""));
+    // The ... button on a row: the less common actions, so each row shows one main button.
+    const moreBtn = (items) => '<button type="button" class="small pf-more" data-do="more" aria-haspopup="true" aria-expanded="false" aria-label="More" title="More">&#8943;</button>' +
+      '<div class="pf-menu hidden" role="menu">' + items.map((x) => '<button type="button" role="menuitem" data-do="' + x[0] + '">' + esc(x[1]) + "</button>").join("") + "</div>";
+    function closeMenus(except) {
+      document.querySelectorAll(".aca .pf-menu:not(.hidden)").forEach((m) => { if (m !== except) { m.classList.add("hidden"); m.previousElementSibling.setAttribute("aria-expanded", "false"); } });
+    }
+    function toggleMenu(btn) {
+      const m = btn.nextElementSibling, open = m.classList.contains("hidden");
+      closeMenus(m);
+      m.classList.toggle("hidden", !open);
+      btn.setAttribute("aria-expanded", String(open));
+      if (open) m.querySelector("button").focus();
+    }
+    document.addEventListener("click", (e) => { if (!e.target.closest(".pf-acts")) closeMenus(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
 
     let settings = null;
     async function loadSettings(force) {
@@ -225,7 +279,7 @@
       if (error) { showError("pfRbErr", cleanErr(error)); return; }
       clearError("pfRbErr");
       rbRows = Array.isArray(data) ? data : [];
-      if (s && s.rebook_lead_days) el("pfRbLead").textContent = "Last year's clients come back here " + num(s.rebook_lead_days) + " days before last year's date, once for each season they had a picture day, with what they booked and a ready rebook email. A booking or GotPhoto job within about 6 weeks of that date takes them off the list.";
+      if (s && s.rebook_lead_days) el("pfRbLead").textContent = "Last year's clients show up here " + num(s.rebook_lead_days) + " days before last year's picture day, once per season, with a ready rebook email. A booking or GotPhoto job near that date takes them off the list.";
       renderRebook();
       setAttention("rebookDue", rbRows.filter((r) => rbGroup(r) === "now").length, "Due to rebook", "rebook");
     }
@@ -236,28 +290,34 @@
       const rows = rbRows.filter((r) => rbGroup(r) === rbFilter);
       const ed = canEdit("partners");
       el("pfRbBody").innerHTML = rows.length ? rows.map((r) => {
-        const st = r.status === "skipped" ? pill("muted", "Not this year") + (r.note ? '<br><span class="muted">' + esc(r.note) + "</span>" : "")
-          : r.status === "later" && r.later_until > todayStr() ? pill("muted", "Later: " + day(r.later_until, true))
-          : r.email ? emailPill(r.email) : r.waiting ? pill("muted", "Another email is waiting") : "";
-        const acts = !ed ? "" : (r.status === "skipped" || (r.status === "later" && r.later_until > todayStr()))
-          ? '<button type="button" class="small" data-do="todo">Back on the list</button>'
-          : (r.email && r.email.status === "review" ? '<button type="button" class="small" data-do="review">Review it</button>'
-            : !waiting(r.email) ? '<button type="button" class="small primary" data-do="draft"' + (r.contact ? "" : " disabled title=\"No contact with a working email\"") + ">Draft email</button>" : "") +
-            '<button type="button" class="small" data-do="later">Later</button><button type="button" class="small" data-do="skip">Not this year</button>';
-        return '<tr data-org="' + esc(r.org_id) + '" data-due="' + esc(r.due_on) + '">' +
-          "<td>" + orgCell(r.org_id, r.name) + (r.town ? '<br><span class="muted">' + esc(r.town) + "</span>" : "") + "</td>" +
-          '<td data-l="Last job">' + esc(day(r.last_date)) + '<br><span class="muted">' + esc(r.last_job || (num(r.job_count) > 1 ? num(r.job_count) + " jobs with us" : "")) + "</span></td>" +
-          '<td data-l="Ask by">' + esc(day(r.due_on, true)) + '<br><span class="muted">' + esc(inDays(num(r.days))) + "</span>" +
-            (r.agreement && r.agreement.renewal_date ? '<br><span class="muted">Agreement renews ' + esc(day(r.agreement.renewal_date, true)) + "</span>" : "") + "</td>" +
-          '<td data-l="Contact">' + (r.contact ? esc(r.contact.name) + (r.contact.name !== r.contact.email ? '<br><span class="muted">' + esc(r.contact.email) + "</span>" : "") : '<span class="muted">No working email</span>') + "</td>" +
-          '<td><div class="pf-acts">' + st + acts + "</div></td></tr>";
-      }).join("") : '<tr><td colspan="5" class="empty">' + { now: "Nobody is due to rebook right now.", soon: "Nobody coming up in the next few months.", emailed: "No rebook emails yet.", parked: "Nothing set aside." }[rbFilter] + "</td></tr>";
+        const parked = r.status === "skipped" || (r.status === "later" && r.later_until > todayStr());
+        const st = r.status === "skipped" ? pill("muted", "Not this year")
+          : parked ? pill("muted", "Later: " + day(r.later_until, true))
+          : r.email && r.email.status !== "review" ? emailPill(r.email) : r.waiting ? pill("muted", "Another email is waiting") : "";
+        const main = !ed ? "" : parked ? '<button type="button" class="small" data-do="todo">Back on the list</button>'
+          : r.email && r.email.status === "review" ? '<button type="button" class="small primary" data-do="review">Review the email</button>'
+          : waiting(r.email) ? "" : r.contact ? '<button type="button" class="small primary" data-do="draft">Draft email</button>'
+          : '<button type="button" class="small" disabled title="No contact with a working email">Draft email</button>';
+        const more = !ed || parked ? "" : moreBtn([["later", "Remind me later"], ["skip", "Not this year"]]);
+        const what = r.last_job || (num(r.job_count) > 1 ? num(r.job_count) + " jobs with us" : "");
+        const soon = num(r.days) <= 14;
+        return '<div class="pf-item" data-org="' + esc(r.org_id) + '" data-due="' + esc(r.due_on) + '">' +
+          '<div><div class="pf-name">' + orgCell(r.org_id, r.name) + '</div><div class="pf-sub">' + esc([r.town, what].filter(Boolean).join(" · ")) + "</div>" +
+            (r.agreement && r.agreement.renewal_date ? '<span class="pf-tag">Agreement renews ' + esc(day(r.agreement.renewal_date, true)) + "</span>" : "") + "</div>" +
+          '<div title="' + esc("Last picture day " + day(r.last_date)) + '"><div class="pf-when">' + esc(day(r.due_on, true)) + '</div><div class="pf-sub' + (soon ? " pf-soon" : "") + '">' + esc(inDays(num(r.days))) + "</div></div>" +
+          "<div>" + (r.contact ? '<div class="pf-main">' + esc(r.contact.name) + "</div>" + (r.contact.name !== r.contact.email ? '<div class="pf-sub">' + esc(r.contact.email) + "</div>" : "")
+            : '<div class="pf-sub">No working email' + (canSee("partners") ? ' · <a href="' + orgLink(r.org_id) + '" data-do="org">add a contact</a>' : "") + "</div>") +
+            (r.status === "skipped" && r.note ? '<div class="pf-sub">' + esc(r.note) + "</div>" : "") + "</div>" +
+          '<div class="pf-acts">' + st + main + more + "</div></div>";
+      }).join("") : '<div class="pf-empty">' + { now: "Nobody is due to rebook right now.", soon: "Nobody coming up in the next few months.", emailed: "No rebook emails yet.", parked: "Nothing set aside." }[rbFilter] + "</div>";
     }
     async function rebookClick(e) {
-      const b = e.target.closest("[data-do]"), tr = e.target.closest("tr[data-org]");
+      const b = e.target.closest("[data-do]"), tr = e.target.closest(".pf-item[data-org]");
       if (!b || !tr) return;
       const org = tr.dataset.org, due = tr.dataset.due, act = b.dataset.do;
       if (act === "org") return;
+      if (act === "more") return toggleMenu(b);
+      closeMenus();
       if (act === "review") { const r = rbRows.find((x) => x.org_id === org && x.due_on === due); return goReview(r && r.email, org); }
       if (act === "draft") return compose("rebook", org, loadRebook, due);
       if (act === "todo") return setRebook(org, due, "todo", null, "");
@@ -317,22 +377,23 @@
       const rows = rvRows.filter(rvFilter === "open" ? isOpen : rvFilter === "won" ? isWin : () => true);
       const ed = canEdit("partners");
       el("pfRvBody").innerHTML = rows.length ? rows.map((r) => {
-        const req = r.email ? emailPill(r.email) : '<span class="muted">' + esc(r.note || (r.booking_status === "tracked" ? "Track-only job, so nothing was drafted." : "Not drafted.")) + "</span>";
-        const back = r.outcome === "open" ? '<span class="muted">Nothing yet</span>'
-          : pill(r.outcome === "reviewed" || r.outcome === "quote" ? "ok" : "muted", OUTCOME_NAME[r.outcome] || r.outcome) +
-            (r.quote ? '<div class="pf-quote">&#8220;' + esc(r.quote) + "&#8221;" + (r.quote_by ? " &#8212; " + esc(r.quote_by) : "") + "</div>" : "") +
-            (r.saved_quote ? '<span class="muted">In the Email library</span>' : "");
-        const acts = !ed ? "" : (r.email && r.email.status === "review" ? '<button type="button" class="small" data-do="review">Review it</button>' : "") +
-          (!waiting(r.email) && !(r.email && r.email.status === "sent") && r.outcome === "open" && r.booking_status !== "cancelled" ? '<button type="button" class="small" data-do="draft">Draft request</button>' : "") +
-          '<button type="button" class="small' + (r.outcome === "open" && r.email && r.email.status === "sent" ? " primary" : "") + '" data-do="log">Log</button>';
-        return '<tr data-id="' + esc(r.id) + '" data-org="' + esc(r.org_id) + '">' +
-          "<td>" + orgCell(r.org_id, r.org) + "</td>" +
-          '<td data-l="Job">' + (r.booking_id && typeof jobLink === "function" ? '<a href="' + jobLink(r.booking_id) + '">' + esc(r.job || "Job") + "</a>" : esc(r.job || "Job")) + '<br><span class="muted">' + esc(day(r.picture_day)) + (r.booking_status === "tracked" ? " &#183; track-only" : "") + "</span></td>" +
-          '<td data-l="Request">' + req + '</td><td data-l="What came back">' + back + '</td><td><div class="pf-acts">' + acts + "</div></td></tr>";
-      }).join("") : '<tr><td colspan="5" class="empty">' + (rvFilter === "open" ? "Nothing waiting. Jobs show up here when they reach Deliverables sent." : "Nothing here yet.") + "</td></tr>";
+        const req = r.email ? emailPill(r.email) : '<span class="pf-sub">' + esc(r.note || (r.booking_status === "tracked" ? "Track-only job, nothing drafted" : "Not drafted")) + "</span>";
+        const back = r.outcome === "open" ? '<span class="pf-sub">Nothing yet</span>'
+          : pill(r.outcome === "reviewed" || r.outcome === "quote" ? "ok" : "muted", OUTCOME_NAME[r.outcome] || r.outcome) + (r.saved_quote ? ' <span class="pf-tag quiet">In the Email library</span>' : "") +
+            (r.quote ? '<div class="pf-quote">&#8220;' + esc(r.quote) + "&#8221;" + (r.quote_by ? " &#8212; " + esc(r.quote_by) : "") + "</div>" : "");
+        const canDraft = !waiting(r.email) && !(r.email && r.email.status === "sent") && r.outcome === "open" && r.booking_status !== "cancelled";
+        const logMain = r.outcome === "open" && r.email && r.email.status === "sent";
+        const acts = !ed ? "" : r.email && r.email.status === "review" ? '<button type="button" class="small primary" data-do="review">Review the email</button><button type="button" class="small" data-do="log">Log</button>'
+          : canDraft ? '<button type="button" class="small" data-do="draft">Draft request</button><button type="button" class="small" data-do="log">Log</button>'
+          : '<button type="button" class="small' + (logMain ? " primary" : "") + '" data-do="log">' + (r.outcome === "open" ? "Log what came back" : "Edit") + "</button>";
+        const job = r.booking_id && typeof jobLink === "function" ? '<a href="' + jobLink(r.booking_id) + '">' + esc(r.job || "Job") + "</a>" : esc(r.job || "Job");
+        return '<div class="pf-item" data-id="' + esc(r.id) + '" data-org="' + esc(r.org_id) + '">' +
+          '<div><div class="pf-name">' + orgCell(r.org_id, r.org) + '</div><div class="pf-sub">' + job + " · " + esc(day(r.picture_day)) + (r.booking_status === "tracked" ? " · track-only" : "") + "</div></div>" +
+          "<div>" + req + "</div><div>" + back + '</div><div class="pf-acts">' + acts + "</div></div>";
+      }).join("") : '<div class="pf-empty">' + (rvFilter === "open" ? "Nothing waiting. Jobs show up here when they reach Deliverables sent." : "Nothing here yet.") + "</div>";
     }
     function reviewClick(e) {
-      const b = e.target.closest("[data-do]"), tr = e.target.closest("tr[data-id]");
+      const b = e.target.closest("[data-do]"), tr = e.target.closest(".pf-item[data-id]");
       if (!b || !tr) return;
       const r = rvRows.find((x) => x.id === tr.dataset.id);
       if (!r) return;
@@ -374,7 +435,7 @@
         el("pfAgTpl").addEventListener("click", () => editTemplates("agreement"));
         el("pfAgNew").addEventListener("click", () => newAgreement());
         el("pfAgBody").addEventListener("click", (e) => {
-          const b = e.target.closest("[data-do=org]"), tr = e.target.closest("tr[data-id]");
+          const b = e.target.closest("[data-do=org]"), tr = e.target.closest(".pf-item[data-id]");
           if (b && tr) return;
           // ws/agreement (2026-10-24): builder agreements open in the builder
           if (e.target.closest("[data-do=builder]") && tr && hasBuilder()) return AgreementBuilder.open(tr.dataset.org, { id: tr.dataset.id, onDone: loadAgreements });
@@ -392,14 +453,14 @@
       renderAgreements();
     }
     function agStatus(a) {
-      if (a.status === "accepted") return pill("ok", "Accepted " + day(a.accepted_at, true)) + '<br><span class="muted">' + esc(a.accepted_name || "") + "</span>";
+      if (a.status === "accepted") return pill("ok", "Accepted " + day(a.accepted_at, true)) + '<div class="pf-sub">' + esc(a.accepted_name ? "by " + a.accepted_name : "") + "</div>";
       if (a.status === "sent") return (a.email && a.email.status === "review" ? pill("warn", "Email waiting for your review") : pill("accent", "Sent " + day(a.sent_at, true))) +
-        '<br><span class="muted">' + (a.viewed_at ? "Opened " + esc(day(a.viewed_at, true)) : "Not opened yet") + "</span>";
+        '<div class="pf-sub">' + (a.viewed_at ? "Opened " + esc(day(a.viewed_at, true)) : "Not opened yet") + "</div>";
       if (a.status === "void") return pill("muted", "Void");
       return pill("muted", "Draft");
     }
     function docCell(status, extra) {
-      return status === "not_needed" ? '<span class="muted">&#8212;</span>' : pill(status === "on_file" ? "ok" : status === "requested" ? "accent" : "warn", DOC_NAME[status] || status) + (extra || "");
+      return status === "not_needed" ? '<span class="pf-sub">Not needed</span>' : pill(status === "on_file" ? "ok" : status === "requested" ? "accent" : "warn", DOC_NAME[status] || status) + (extra || "");
     }
     function renderAgreements() {
       const n = (f) => agRows.filter(f).length;
@@ -407,15 +468,14 @@
       chips("pfAgChips", [["open", "In progress", n(isOpen)], ["accepted", "Accepted", n((a) => a.status === "accepted")], ["all", "All", agRows.length]], agFilter, (k) => { agFilter = k; renderAgreements(); });
       const rows = agRows.filter(agFilter === "open" ? isOpen : agFilter === "accepted" ? (a) => a.status === "accepted" : () => true);
       const soon = new Date(Date.now() + 30 * 864e5).toLocaleDateString("en-CA", { timeZone: TZ });
-      el("pfAgBody").innerHTML = rows.length ? rows.map((a) => '<tr class="pf-click" data-id="' + esc(a.id) + '" data-org="' + esc(a.org_id) + '">' +
-        "<td>" + orgCell(a.org_id, a.org) + "</td>" +
-        '<td data-l="Agreement">' + esc(a.title) + '<br><span class="muted">' + esc(a.picture_day ? "Picture day " + day(a.picture_day) : (a.booking_label || "")) + "</span>" +
-          (a.has_builder && hasBuilder() && canEdit("agreements") && (a.status === "draft" || a.status === "sent") ? '<br><button type="button" class="link" data-do="builder">Edit in builder</button>' : "") + "</td>" +
-        '<td data-l="Status">' + agStatus(a) + "</td>" +
-        '<td data-l="W-9">' + docCell(a.w9_status) + "</td>" +
-        '<td data-l="Insurance">' + docCell(a.coi_status, a.coi_expires ? '<br><span class="muted' + (a.coi_expires <= soon ? " pf-due" : "") + '">Expires ' + esc(day(a.coi_expires, true)) + "</span>" : "") + "</td>" +
-        '<td data-l="Renews">' + (a.renewal_date ? '<span class="' + (a.renewal_date <= soon && a.status === "accepted" ? "pf-due" : "") + '">' + esc(day(a.renewal_date)) + "</span>" : '<span class="muted">&#8212;</span>') + "</td></tr>").join("")
-        : '<tr><td colspan="6" class="empty">' + (agFilter === "open" ? "No agreements in progress." + (canEdit("agreements") ? " Start one with New agreement." : "") : "None yet.") + "</td></tr>";
+      el("pfAgBody").innerHTML = rows.length ? rows.map((a) => '<div class="pf-item pf-click" data-id="' + esc(a.id) + '" data-org="' + esc(a.org_id) + '">' +
+        '<div><div class="pf-name">' + orgCell(a.org_id, a.org) + '</div><div class="pf-sub">' + esc([a.title, a.picture_day ? "Picture day " + day(a.picture_day, true) : a.booking_label].filter(Boolean).join(" · ")) + "</div>" +
+          (a.has_builder && hasBuilder() && canEdit("agreements") && (a.status === "draft" || a.status === "sent") ? '<button type="button" class="link" data-do="builder">Edit in builder</button>' : "") + "</div>" +
+        "<div>" + agStatus(a) + "</div>" +
+        '<div class="pf-docs"><div data-l="W-9">' + docCell(a.w9_status) + "</div>" +
+        '<div data-l="Insurance">' + docCell(a.coi_status, a.coi_expires ? '<div class="pf-sub' + (a.coi_expires <= soon ? " pf-due" : "") + '">Expires ' + esc(day(a.coi_expires, true)) + "</div>" : "") + "</div>" +
+        '<div data-l="Renews">' + (a.renewal_date ? '<span class="pf-main' + (a.renewal_date <= soon && a.status === "accepted" ? " pf-due" : "") + '">' + esc(day(a.renewal_date, true)) + "</span>" : '<span class="pf-sub">&#8212;</span>') + "</div></div></div>").join("")
+        : '<div class="pf-empty">' + (agFilter === "open" ? "No agreements in progress." + (canEdit("agreements") ? " Start one with New agreement." : "") : "None yet.") + "</div>";
     }
     // ws/agreement (2026-10-24): the school agreement builder (agreement-builder.js), when it's in the bundle.
     const hasBuilder = () => typeof AgreementBuilder !== "undefined" && typeof AgreementDoc !== "undefined";
