@@ -931,7 +931,7 @@
         const q = e.target.value.trim();
         if (q.length < 2) { el("bkOrgList").classList.add("hidden"); return; }
         searchTimer = setTimeout(async () => {
-          const { data } = await sb.from("prospect_orgs").select("id, name, town, stage, audience").ilike("search_text", "%" + q.replace(/[%_]/g, "") + "%").order("name").limit(12);
+          const { data } = await sb.from("prospect_orgs").select("id, name, town, stage, audience").is("merged_into", null).ilike("search_text", "%" + q.replace(/[%_]/g, "") + "%").order("name").limit(12);
           const list = el("bkOrgList"); if (!el("bkOrgQ") || el("bkOrgQ").value.trim() !== q) return; // typed on since
           list.classList.remove("hidden");
           const exact = (data || []).some((o) => o.name.trim().toLowerCase() === q.toLowerCase());

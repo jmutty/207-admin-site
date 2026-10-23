@@ -486,7 +486,7 @@
     loading = (async () => {
       try {
         const [rows, contacts, fus, held, sets, views, rc] = await Promise.all([
-          fetchAll(() => sb.from("prospect_orgs").select(ORG_COLS).order("name")),
+          fetchAll(() => sb.from("prospect_orgs").select(ORG_COLS).is("merged_into", null).order("name")),  // merged duplicates stay out
           fetchAll(() => sb.from("prospect_contacts").select("org_id,first_name,last_name,email,is_primary,created_at,bounced_at,unsubscribed_at,stopped_at").order("id")),
           fetchAll(() => sb.from("prospect_followups").select("org_id,due_on").eq("status", "open").order("id")),
           sb.from("prospect_scheduled_emails").select("org_id").eq("status", "held").eq("needs_review", true),
@@ -2352,6 +2352,6 @@ ${order.map((k) => sec[k]).join("")}
     applyConfig({ flag, sort: { key: "next", dir: 1 } });
   }
 
-  return { load: () => load(false), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, sendNow, emailPeople, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
+  return { load: () => load(false), reload: () => load(true), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, sendNow, emailPeople, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
     embed, unembed, get: (id) => byId.get(id) || null, stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
   })();

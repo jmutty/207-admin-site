@@ -986,7 +986,7 @@
         const none = Promise.resolve({ data: [] });
         // Jobs: a year back too (last fall's job, to check its gallery or payout). Crew without Bookings find their own jobs.
         const [{ data: orgs }, { data: bks }, { data: mine }] = await Promise.all([
-          canSee("partners") ? supabase.from("prospect_orgs").select("id,name,town,stage").ilike("search_text", "%" + ql.replace(/[%_]/g, "") + "%").order("name").limit(6) : none,
+          canSee("partners") ? supabase.from("prospect_orgs").select("id,name,town,stage").is("merged_into", null).ilike("search_text", "%" + ql.replace(/[%_]/g, "") + "%").order("name").limit(6) : none,
           canSee("bookings") ? supabase.rpc("admin_bookings", { p_from: yearAgoNY(), p_to: null }) : none,
           canSee("bookings") ? none : supabase.rpc("crew_mine"),
         ]);

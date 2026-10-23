@@ -87,7 +87,21 @@
     .aca .op-tl li .b { color: var(--muted); margin-top: 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .aca .op-addnote { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 12px; }
     .aca .op-addnote textarea { flex: 1 1 auto; min-height: 60px; }
+    .aca .op-merged { margin: 0 0 12px; padding: 10px 14px; border-radius: 4px; background: var(--warn-bg); color: var(--warn-fg); font-size: 13.5px; }
+    .aca .op-merged a { color: inherit; font-weight: 600; }
+    .aca .op-mg-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 4px; margin-top: 6px; max-height: 260px; overflow-y: auto; }
+    .aca .op-mg-list button { text-align: left; border: 0; border-bottom: 1px solid var(--line2); border-radius: 0; background: var(--surface); padding: 8px 12px; height: auto; white-space: normal; font-weight: 400; }
+    .aca .op-mg-list button:last-child { border-bottom: 0; }
+    .aca .op-mg-list button:hover { background: var(--surface-2); }
+    .aca .op-mg-list .s { color: var(--muted); font-size: 12.5px; margin-left: 6px; }
+    .aca .op-mg-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: center; margin: 4px 0 14px; }
+    .aca .op-mg-pair > div { border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; font-size: 13.5px; min-width: 0; overflow-wrap: anywhere; }
+    .aca .op-mg-pair > div.keep { border-color: var(--accent); }
+    .aca .op-mg-pair .l { display: block; color: var(--faint); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+    .aca .op-mg-moves { margin: 0 0 12px; padding-left: 20px; font-size: 13.5px; }
+    .aca .op-mg-moves li { margin: 2px 0; }
     @media (max-width: 760px) {
+      .aca .op-mg-pair { grid-template-columns: minmax(0, 1fr); }
       .aca .op-grid { grid-template-columns: minmax(0, 1fr); }
       .aca .op-table.op-phone thead { display: none; }
       .aca .op-table.op-phone, .aca .op-table.op-phone tbody, .aca .op-table.op-phone tr, .aca .op-table.op-phone td { display: block; width: 100%; }
@@ -254,15 +268,100 @@
         '<div class="jp-head"><div><h2>' + esc(O.name) + '</h2><div class="op-meta"><span class="pill ' + stCls + '">' + esc(Orgs.stageName(O.stage)) +
         (O.client_since && (O.stage === "client" || O.stage === "booked") ? " since " + esc(String(O.client_since).slice(0, 4)) : "") + "</span>" +
         facts.map((f) => "<span>" + esc(f) + "</span>").join("") + (O.website ? '<a href="' + esc(/^https?:/.test(O.website) ? O.website : "https://" + O.website) + '" target="_blank" rel="noopener">website</a>' : "") + "</div></div>" +
-        '<div class="acts">' + (canEdit("bookings") ? '<button type="button" class="small primary" data-o="book">Book a job for them</button>' : "") + "</div></div>" +
+        '<div class="acts">' + (O.merged_into ? "" : (canEdit("partners") ? '<button type="button" class="small" data-o="merge">Merge into&#8230;</button>' : "") +
+          (canEdit("bookings") ? '<button type="button" class="small primary" data-o="book">Book a job for them</button>' : "")) + "</div></div>" +
+        (O.merged_into ? '<p class="op-merged">This partner was merged into another one, and everything moved there. <a href="' + esc(orgLink(O.merged_into)) + '">Open the partner we kept</a></p>' : "") +
         '<div class="jp-tabs" role="tablist" id="aca-opTabs"></div><div id="aca-opBody"></div>';
-      root().querySelector(".jp-head").addEventListener("click", (e) => { if (e.target.closest('[data-o="book"]')) bookHere(); });
+      root().querySelector(".jp-head").addEventListener("click", (e) => { if (e.target.closest('[data-o="book"]')) bookHere(); if (e.target.closest('[data-o="merge"]')) mergeInto(); });
       el("opTabs").innerHTML = tabs().map((t) => '<button type="button" role="tab" data-t="' + esc(t.id) + '">' + esc(t.label) + "</button>").join("");
       el("opTabs").addEventListener("click", (e) => { const t = e.target.closest("button[data-t]"); if (t) pick(t.dataset.t); });
     }
     function current() { return O ? { id: O.id, name: O.name, town: O.town } : null; }
     // Book a job opens over this page; saving opens the new job's page, whose trail leads back here (2026-10-24).
     function bookHere() { const o = current(); Bookings.openNew(o); }
+
+    // Merge into… (2026-10-24): two records for the same league or school. Pick the other one, choose which to keep,
+    // see what moves, confirm. partner_merge moves everything and keeps the other record renamed, out of lists.
+    function mergeInto() {
+      const self = { id: O.id, name: O.name, town: O.town };
+      let other = null, keepSelf = false, timer = null;
+      const m = openModal('<div style="max-width:560px"><h2>Merge ' + esc(O.name) + "</h2>" +
+        '<p class="op-intro">Use this when two partners are the same league or school. Find the other one, pick which name to keep, and everything moves onto it.</p>' +
+        '<div id="aca-mgStep"></div></div>');
+      const step = () => m.querySelector("#aca-mgStep");
+      function pickStep() {
+        other = null;
+        step().innerHTML = '<div class="field"><label for="aca-mgQ">The other partner</label><input type="search" id="aca-mgQ" autocomplete="off" placeholder="Type a name or town" style="width:100%" /></div>' +
+          '<div class="op-mg-list hidden" id="aca-mgList"></div>' +
+          '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button></div>';
+        const q = m.querySelector("#aca-mgQ"); q.focus();
+        q.addEventListener("input", () => {
+          clearTimeout(timer);
+          const v = q.value.trim(), list = m.querySelector("#aca-mgList");
+          if (v.length < 2) { list.classList.add("hidden"); return; }
+          timer = setTimeout(async () => {
+            const { data } = await sb.from("prospect_orgs").select("id, name, town, stage").is("merged_into", null).neq("id", self.id)
+              .ilike("search_text", "%" + v.replace(/[%_]/g, "") + "%").order("name").limit(12);
+            if (!q.isConnected || q.value.trim() !== v) return;
+            list.classList.remove("hidden");
+            list.innerHTML = (data || []).length ? data.map((o) => '<button type="button" data-org="' + esc(o.id) + '"><strong>' + esc(o.name) + "</strong>" +
+              '<span class="s">' + esc([o.town, Orgs.stageName(o.stage)].filter(Boolean).join(", ")) + "</span></button>").join("")
+              : '<div class="empty" style="padding:10px 12px">No partner matches.</div>';
+            list.querySelectorAll("button[data-org]").forEach((b) => b.addEventListener("click", () => { other = data.find((o) => o.id === b.dataset.org); keepSelf = false; reviewStep(); }));
+          }, 220);
+        });
+      }
+      async function reviewStep() {
+        const keep = keepSelf ? self : other, drop = keepSelf ? other : self;
+        step().innerHTML = '<div class="empty"><span class="spin"></span>Checking what moves&#8230;</div>';
+        const { data: p, error } = await sb.rpc("partner_merge_preview", { p_keep: keep.id, p_other: drop.id });
+        if (!m.isConnected) return;
+        if (error) { step().innerHTML = '<div class="inline-error">' + esc(cleanErr(error)) + '</div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="back">Back</button></div>'; return; }
+        const n = (k) => Number(p[k] || 0), pl = (c, one, many) => c + " " + (c === 1 ? one : many);
+        const moves = [
+          n("jobs") && pl(n("jobs"), "job", "jobs"),
+          n("contacts") && pl(n("contacts"), "contact", "contacts") + (n("same_people") ? " (" + pl(n("same_people"), "person is", "people are") + " already on " + keep.name + " with the same email, so they stay one person)" : ""),
+          n("gotphoto_jobs") && pl(n("gotphoto_jobs"), "GotPhoto job", "GotPhoto jobs") + " for sales and payouts",
+          n("agreements") && pl(n("agreements"), "agreement", "agreements"),
+          n("reviews") && pl(n("reviews"), "review ask", "review asks"),
+          (n("emails") || n("followups")) && "outreach emails and follow-ups",
+          n("history") && pl(n("history"), "note and email in the history", "notes and emails in the history"),
+          (p.gotphoto_names || []).length && "GotPhoto names (" + p.gotphoto_names.join(", ") + "), so future syncs land on " + keep.name,
+          n("cal_dates") && pl(n("cal_dates"), "calendar date", "calendar dates"),
+        ].filter(Boolean);
+        step().innerHTML =
+          '<div class="op-mg-pair"><div class="keep"><span class="l">Keep</span><strong>' + esc(keep.name) + "</strong>" + (keep.town ? '<div class="muted">' + esc(keep.town) + "</div>" : "") + "</div>" +
+          '<button type="button" class="small quiet" data-m="swap" title="Keep the other one instead">&#8644; Swap</button>' +
+          '<div><span class="l">Merge in, then hide</span><strong>' + esc(drop.name) + "</strong>" + (drop.town ? '<div class="muted">' + esc(drop.town) + "</div>" : "") + "</div></div>" +
+          (p.blocked ? '<div class="inline-error">' + esc(p.blocked) + "</div>"
+            : "<p>Moves from <strong>" + esc(drop.name) + "</strong> to <strong>" + esc(keep.name) + "</strong>:</p>" +
+              (moves.length ? '<ul class="op-mg-moves">' + moves.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" : '<p class="muted">Nothing is attached to it yet.</p>') +
+              '<p class="op-intro">Town, website, WiFi and notes fill in where ' + esc(keep.name) + " has none. The further-along stage wins. " + esc(drop.name) +
+              " isn't removed: it's renamed &ldquo;(merged into " + esc(keep.name) + ")&rdquo;, set to Do not contact and hidden from lists and search.</p>") +
+          '<div class="modal-actions"><button type="button" class="small" data-m="back">Pick another</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button>' +
+          (p.blocked ? "" : '<button type="button" class="primary" data-m="go">Merge</button>') + "</div>";
+      }
+      async function go(btn) {
+        const keep = keepSelf ? self : other, drop = keepSelf ? other : self;
+        btn.disabled = true;
+        const { error } = await sb.rpc("partner_merge", { p_keep: keep.id, p_other: drop.id });
+        if (error) { btn.disabled = false; toast(cleanErr(error), true); return; }
+        m.close();
+        toast("Merged " + drop.name + " into " + keep.name + ".");
+        safe(() => Orgs.reload());
+        O = null; // open the kept partner fresh, even when it's this one
+        if (location.hash === orgLink(keep.id)) show(); else location.hash = orgLink(keep.id);
+      }
+      m.addEventListener("click", (ev) => {
+        const t = ev.target.closest("[data-m]"); if (!t) return;
+        const a = t.dataset.m;
+        if (a === "cancel") m.close();
+        else if (a === "back") pickStep();
+        else if (a === "swap") { keepSelf = !keepSelf; reviewStep(); }
+        else if (a === "go") go(t);
+      });
+      pickStep();
+    }
 
     function pick(id) {
       id = ALIAS[id] || id;
