@@ -371,7 +371,7 @@
       // Job page (jobpage.js)
       job_get: { booking: { id: "bk1", title: "Brewer Travel Basketball Club \u2022 Winter Sports", org_id: "11111111-1111-1111-1111-111111111111", org_name: "Brewer Travel Basketball Club", org_town: "Brewer",
                             type_key: "league", type_label: "League picture day", audience: "sports", status: "booked", picture_day: pd, start_at: at("09:00"), end_at: at("12:00"), time_set: true, end_set: true,
-                            location: "Brewer Rec Center", retake_day: null, notes: "Use the side door.", gotphoto_job_id: "gp1", access_code: null },
+                            location: "Brewer Rec Center", retake_day: null, notes: "Use the side door.", wifi_network: "HLL-Guest", wifi_password: "hoops2026", gotphoto_job_id: "gp1", access_code: null },
                  days: [], stage: { label: "Booked", at: iso(-5), auto: true },
                  stages: [{ id: "s1", label: "Booked", reached: true }, { id: "s2", label: "Picture day done", reached: false }],
                  crew: [{ user_id: "u2", name: "Sam Helper", starts_at: at("08:30"), ends_at: at("12:30"), drive_before_min: 40, note: "" }],
@@ -386,7 +386,7 @@
       job_people: [{ user_id: "u2", name: "Sam Helper", crew: true }, { user_id: "u1", name: "Jeremiah Mutty", crew: false }],
       job_notes_list: [{ id: 1, author_name: "Jeremiah Mutty", body: "Parking is behind the gym. @Sam Helper bring the blue backdrop.", created_at: iso(-1), edited_at: null, mine: true, can_remove: true,
                          mentions: [{ user_id: "u2", name: "Sam Helper" }] }],
-      job_note_add: { ok: true, id: 2 }, job_note_edit: { ok: true }, job_note_remove: { ok: true },
+      job_note_add: { ok: true, id: 2 }, job_note_edit: { ok: true }, job_note_remove: { ok: true }, job_onsite_save: { ok: true, calendar: true }, org_wifi_save: { ok: true, jobs: 1 },
       history_get: [{ at: iso(-0.1), who: "Jeremiah Mutty", tbl: "bookings", action: "changed", changes: { location: ["Brewer High", "Brewer Rec Center"] } },
                     { at: iso(-0.2), who: "Jeremiah Mutty", tbl: "schedule_entries", action: "added", changes: { user_id: [null, "u2"], starts_at: [null, at("08:30")] } },
                     { at: iso(-5), who: "System", tbl: "stage", action: "changed", changes: { stage: [null, "Booked"] } }],

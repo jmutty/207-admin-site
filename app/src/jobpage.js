@@ -36,7 +36,7 @@
       sp_status: "School pictures", sp_competitor: "Current photographer", sp_until: "Contract until", sp_note: "School pictures note",
       personal_line: "Personal line", name_known: "Name known", needs_new_contact: "Needs a new contact", cal_dates: "Calendar dates",
       shoot_months: "Shoot months", last_result: "Last result", gotphoto_names: "GotPhoto names", source: "Source", history_source: "History source",
-      clock_in: "Clock in", clock_out: "Clock out", job_title: "Job", miles: "Miles", auto: "Automatic", user_name: "Person", created_by: "Added by",
+      wifi_network: "WiFi network", wifi_password: "WiFi password", clock_in: "Clock in", clock_out: "Clock out", job_title: "Job", miles: "Miles", auto: "Automatic", user_name: "Person", created_by: "Added by",
     };
     const WHAT = { bookings: "the job", booking_days: "a day", schedule_entries: "the crew", prospect_orgs: "the organization",
                    time_punches: "a time punch", mileage_trips: "a mileage trip", stage: "the stage", job_email: "an email" };
@@ -136,6 +136,22 @@
     .aca .jp-booknote { max-width: 760px; margin: 0 0 18px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 0 6px 6px 0; }
     .aca .jp-booknote h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
     .aca .jp-booknote div { white-space: pre-wrap; font-size: 14px; overflow-wrap: anywhere; }
+    .aca .jp-latest { max-width: 980px; margin: 0 0 20px; padding: 10px 14px 12px; background: var(--warn-bg); border-radius: 6px; }
+    .aca .jp-latest .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+    .aca .jp-latest .hd h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--head); }
+    .aca .jp-latest .hd a { font-size: 13px; color: var(--muted); }
+    .aca .jp-latest .jp-notes { margin: 0 0 8px; max-width: none; } .aca .jp-latest .jp-notes li { padding: 6px 0; border-bottom-color: transparent; }
+    .aca .jp-latest .jp-compose { max-width: none; } .aca .jp-latest .jp-compose textarea { min-height: 38px; height: 38px; background: var(--surface); }
+    .aca .jp-latest .jp-compose textarea:focus { height: 76px; } .aca .jp-latest .jp-compose .row { margin-top: 6px; } .aca .jp-latest .jp-suggest { top: 42px; }
+    .aca .jp-onsite h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .aca .jp-onsite h3 button { text-transform: none; letter-spacing: 0; }
+    .aca .jp-onsite .pw { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+    .aca .jp-onsite .oncal { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+    .aca .jp-onsite form { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px 12px; align-items: start; font-size: 13.5px; max-width: 560px; }
+    .aca .jp-onsite form label { padding-top: 6px; color: var(--muted); }
+    .aca .jp-onsite form input, .aca .jp-onsite form textarea { width: 100%; min-width: 0; font: inherit; padding: 6px 9px; }
+    .aca .jp-onsite form textarea { min-height: 70px; }
+    .aca .jp-onsite form .row { grid-column: 2; display: flex; gap: 6px; }
     .aca .jp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 40px; }
     .aca .jp-sec { margin: 0 0 22px; min-width: 0; }
     .aca .jp-mails li { flex-wrap: wrap; } .aca .jp-mails a[data-mail] { color: inherit; text-decoration: none; font-weight: 600; }
@@ -182,6 +198,8 @@
       .aca .jp-stages { display: none; } .aca .jp-stage1 { display: block; }
       .aca .jp-head .acts { width: 100%; } .aca .jp-head .acts button.primary { flex: 1 1 auto; min-height: 40px; }
       .aca .jp-dl { grid-template-columns: 1fr; gap: 0; } .aca .jp-dl dd { margin-bottom: 6px; }
+      .aca .jp-latest .jp-notes li + li { display: none; }
+      .aca .jp-onsite form { grid-template-columns: 1fr; gap: 2px; } .aca .jp-onsite form .row { grid-column: 1; margin-top: 6px; }
       .aca .hv-list li { grid-template-columns: 1fr; gap: 0; }
       .aca .jp-rows li { flex-wrap: wrap; gap: 0 10px; } .aca .jp-rows li .r { white-space: normal; }
     }`;
@@ -322,10 +340,10 @@
       const contacts = J.contacts || [];
       // Remove takes someone off this job's emails (2026-10-23); Edit booking adds people.
       const rm = c.bookings_edit && b.status === "booked" && contacts.length > 1;
-      box.innerHTML = '<div class="jp-grid"><div>' +
+      box.innerHTML = '<div class="jp-latest" id="aca-jpLatest"></div><div class="jp-grid"><div>' +
+        '<div class="jp-sec jp-onsite" id="aca-jpOnsite"></div>' +
         '<div class="jp-sec"><h3>The job</h3><dl class="jp-dl">' + facts.map((f) => "<dt>" + esc(f[0]) + "</dt><dd>" + esc(f[1] || "\u2014") + "</dd>").join("") +
         "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="' + orgLink(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + "</dd></dl></div>" +
-        (b.notes ? '<p class="muted" style="font-size:13px;margin:-12px 0 18px">Notes from the booking are on the <a href="' + jobLink(b.id, "notes") + '">Notes</a> tab.</p>' : "") +
         (contacts.length ? '<div class="jp-sec"><h3>Who gets the emails</h3><ul class="jp-rows">' + contacts.map((p) => "<li><span>" + esc(p.name || p.email || "") +
           (p.role ? ' <span class="muted">' + esc(p.role) + "</span>" : "") + '</span><span class="r">' + esc([p.email, p.phone].filter(Boolean).join(" \u00b7 ")) +
           (rm && p.contact_id ? ' <button type="button" class="small quiet" data-rmc="' + esc(p.contact_id) + '" data-who="' + esc(p.name || p.email || "") + '">Remove</button>' : "") + "</span></li>").join("") + "</ul></div>" : "") +
@@ -337,6 +355,8 @@
           : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>.' : "") + "</div>") + "</div>" +
         "</div></div>";
       loadMails(b.id);
+      renderOnsite(b);
+      renderLatest(b);
       box.onclick = async (e) => {
         const em = e.target.closest("[data-mail]");
         if (em) { e.preventDefault(); em.closest("li").classList.toggle("open"); return; }
@@ -391,6 +411,65 @@
         '<div class="jp-mailbody">' + esc(x.body || "") + "</div></li>").join("") + "</ul>"
         : '<p class="muted" style="font-size:13px;margin:0">Nothing sent from this job yet.' + (btn ? " Use Email to write to the people above." : "") + "</p>");
     }
+    // On-site details (2026-10-24): WiFi and "For the crew" (bookings.notes). All of it goes on the Google Calendar
+    // event, and the WiFi is kept on the partner for next season. RPC job_onsite_save (migration 20261024152700).
+    const canOnsite = () => J.can.bookings_edit && J.booking.status !== "cancelled";
+    function renderOnsite(b, editing) {
+      const box = el("jpOnsite"); if (!box) return;
+      const has = b.wifi_network || b.wifi_password || b.notes;
+      if (!has && !canOnsite()) { box.remove(); return; }
+      const head = '<h3>On-site details' + (canOnsite() && !editing ? '<button type="button" class="small quiet" data-os="edit">' + (has ? "Edit" : "Add") + "</button>" : "") + "</h3>";
+      if (editing) {
+        box.innerHTML = head + '<form id="aca-jpOsForm"><label for="aca-jpOsNet">WiFi network</label><input type="text" id="aca-jpOsNet" maxlength="120" value="' + esc(b.wifi_network || "") + '" />' +
+          '<label for="aca-jpOsPw">WiFi password</label><input type="text" id="aca-jpOsPw" maxlength="120" autocomplete="off" value="' + esc(b.wifi_password || "") + '" />' +
+          '<label for="aca-jpOsNotes">For the crew</label><div><textarea id="aca-jpOsNotes" maxlength="4000" placeholder="Parking, who to ask for, door codes, timing">' + esc(b.notes || "") + "</textarea>" +
+          '<div class="muted" style="font-size:12.5px;margin-top:3px">All of this goes on the calendar event. The WiFi is kept on the partner for next season.</div></div>' +
+          '<div class="row"><button type="submit" class="small primary">Save</button><button type="button" class="small" data-os="cancel">Cancel</button></div></form>';
+        el("jpOsNet").focus();
+      } else if (!has) {
+        box.innerHTML = head + '<p class="muted" style="margin:0;font-size:13px">No WiFi or crew notes yet. Schools often send their WiFi after booking; add it here and it goes on the calendar event.</p>';
+      } else {
+        const rows = [];
+        if (b.wifi_network) rows.push("<dt>WiFi network</dt><dd>" + esc(b.wifi_network) + "</dd>");
+        if (b.wifi_password) rows.push('<dt>WiFi password</dt><dd><span class="pw">' + esc(b.wifi_password) + '</span> <button type="button" class="link small" data-os="copy">Copy</button></dd>');
+        if (b.notes) rows.push("<dt>For the crew</dt><dd>" + esc(b.notes) + "</dd>");
+        box.innerHTML = head + '<dl class="jp-dl">' + rows.join("") + "</dl>" + (b.status === "booked" ? '<p class="oncal">On the Google Calendar event.</p>' : "");
+      }
+      box.onclick = async (e) => {
+        const t = e.target.closest("[data-os]"); if (!t) return;
+        if (t.dataset.os === "edit") renderOnsite(J.booking, true);
+        if (t.dataset.os === "cancel") renderOnsite(J.booking);
+        if (t.dataset.os === "copy") {
+          try { await navigator.clipboard.writeText(b.wifi_password); toast("Password copied."); }
+          catch (err) { const r = document.createRange(); r.selectNodeContents(box.querySelector(".pw")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selected. Copy it with your keyboard."); }
+        }
+      };
+      const f = el("jpOsForm");
+      if (f) f.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = f.querySelector("[type=submit]"); btn.disabled = true;
+        const p = { wifi_network: el("jpOsNet").value.trim(), wifi_password: el("jpOsPw").value.trim(), notes: el("jpOsNotes").value.trim() };
+        const { data, error } = await sb.rpc("job_onsite_save", { p_booking: b.id, p });
+        if (error) { btn.disabled = false; toast(cleanErr(error), true); return; }
+        Object.assign(J.booking, { wifi_network: p.wifi_network || null, wifi_password: p.wifi_password || null, notes: p.notes || null });
+        toast(data && data.calendar ? "Saved. The calendar event updates in a minute." : "Saved.");
+        renderOnsite(J.booking);
+      };
+    }
+    // The newest job notes at the top of Overview (two; one on a phone), with the same composer as the Notes tab.
+    async function renderLatest(b) {
+      const box = el("jpLatest"); if (!box) return;
+      const { data } = await sb.rpc("job_notes_list", { p_booking: b.id });
+      if (!el("jpLatest") || J.booking.id !== b.id || curTab !== "overview") return;
+      const notes = (data || []).slice(-2).reverse();
+      const n = num(J.notes_count);
+      box.innerHTML = '<div class="hd"><h3>' + (notes.length ? "Latest notes" : "Job notes") + "</h3>" + (n > notes.length ? '<a href="' + jobLink(b.id, "notes") + '">All ' + n + " notes &#8250;</a>" : "") + "</div>" +
+        (notes.length ? '<ul class="jp-notes">' + notes.map((x) => noteHtml(Object.assign({}, x, { mine: false, can_remove: false }))).join("") + "</ul>" : "") +
+        '<div class="jp-compose"><textarea id="aca-jpNote" aria-label="New note" maxlength="4000" placeholder="Add a note. Type @ to mention someone."></textarea>' +
+        '<div class="jp-suggest hidden" id="aca-jpSug"></div>' +
+        '<div class="row"><span class="muted" id="aca-jpMent"></span><button type="button" class="small primary" id="aca-jpAdd">Add note</button></div></div>';
+      loadPeople().then(() => { if (el("jpNote")) wireCompose(() => renderLatest(J.booking)); });
+    }
     function dueTxt(day) {
       const d = T.daysBetween(T.today(), day);
       const s = T.fmtDay(day);
@@ -440,7 +519,7 @@
         '</div><div class="b">' + body + "</div></li>";
     }
     async function renderNotes(b, box) {
-      box.innerHTML = (b.notes ? '<div class="jp-booknote"><h4>From the booking</h4><div>' + esc(b.notes) + "</div></div>" : "") +
+      box.innerHTML = (b.notes ? '<div class="jp-booknote"><h4>For the crew (on the calendar)</h4><div>' + esc(b.notes) + "</div></div>" : "") +
         '<div class="jp-sec"><h3>Notes</h3><p class="muted" style="margin:0 0 10px;font-size:13px;max-width:760px">Anything the crew or the office should know about this job: parking, who to ask for, what went wrong last year. Type @ to mention someone; they get a notification.</p>' +
         '<ul class="jp-notes" id="aca-jpNotes"><li class="empty"><span class="spin"></span>Loading&#8230;</li></ul>' +
         '<div class="jp-compose"><textarea id="aca-jpNote" aria-label="New note" maxlength="4000" placeholder="Write a note. Type @ to mention someone."></textarea>' +
@@ -456,7 +535,7 @@
     }
 
     // The composer: "@" opens a list of people on this job; picking one inserts "@Name ".
-    function wireCompose() {
+    function wireCompose(after) {
       const ta = el("jpNote"), sug = el("jpSug");
       const picked = new Map(); // name -> user_id
       let cur = 0, matches = [];
@@ -511,7 +590,7 @@
         toast(n ? "Added. " + n + (n === 1 ? " person was" : " people were") + " notified." : "Added.");
         J.notes_count = num(J.notes_count) + 1;
         refreshCounts();
-        renderNotes(J.booking, el("jpBody"));
+        if (after) after(); else renderNotes(J.booking, el("jpBody"));
       };
     }
     async function onNoteAction(e, notes) {
@@ -581,7 +660,8 @@
         "table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:5px 10px 5px 0;border-bottom:1px solid #e6e2db;vertical-align:top}th{width:140px;color:#6b675f;font-weight:600}.s{color:#6b675f}</style></head><body>" +
         "<h1>" + esc(b.title) + '</h1><div class="s">' + esc(dayLine(b)) + "</div>" +
         "<h2>The job</h2><table>" + row("Where", b.location) + row("Type", b.type_label) + row("Organization", b.org_name + (b.org_town ? ", " + b.org_town : "")) +
-        row("Retake day", b.retake_day ? fmtDayIso(b.retake_day) : "") + row("Access code", J.can.bookings ? b.access_code : "") + row("Stage", J.stage ? J.stage.label : "") + row("Notes", b.notes) + "</table>" +
+        row("Retake day", b.retake_day ? fmtDayIso(b.retake_day) : "") + row("Access code", J.can.bookings ? b.access_code : "") + row("Stage", J.stage ? J.stage.label : "") + "</table>" +
+        (b.wifi_network || b.wifi_password || b.notes ? "<h2>On site</h2><table>" + row("WiFi network", b.wifi_network) + row("WiFi password", b.wifi_password) + row("For the crew", b.notes) + "</table>" : "") +
         ((J.contacts || []).length ? "<h2>Contacts</h2><table>" + J.contacts.map((p) => "<tr><th>" + esc(p.name || "") + "</th><td>" + esc([p.role, p.email, p.phone].filter(Boolean).join(" \u00b7 ")) + "</td></tr>").join("") + "</table>" : "") +
         "<h2>Crew</h2><table>" + ((J.crew || []).map((p) => "<tr><th>" + esc(p.name) + "</th><td>" + esc(timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at) + (p.note ? " \u00b7 " + p.note : "")) + "</td></tr>").join("") || "<tr><td>Nobody yet</td></tr>") + "</table>" +
         ((J.tasks || []).length ? "<h2>Checklist</h2><table>" + J.tasks.map((t) => "<tr><th>" + (t.done ? "&#9745;" : "&#9744;") + " " + esc(t.due_on ? T.fmtDay(t.due_on) : "") + "</th><td>" + esc(t.title) + ' <span class="s">' + esc(t.who || "") + "</span></td></tr>").join("") + "</table>" : "") +

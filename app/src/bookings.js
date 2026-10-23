@@ -606,7 +606,10 @@
         <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Create the job in GotPhoto (link above), then put its code here. Leave empty for now and email 0 waits for it.</span></span>
         <label for="aca-bkRetake" class="bk-school">Retake day</label><span class="bk-school"><input type="date" id="aca-bkRetake" value="${esc(d.retake_day || "")}" /> <span class="bk-sub">optional</span></span>
         ${DirectorFields.formHtml()}
-        <label for="aca-bkNotes">Notes</label><textarea id="aca-bkNotes" rows="2" placeholder="Internal notes (also on the calendar event)">${esc(d.notes || "")}</textarea>
+        <label for="aca-bkWifi">WiFi</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="text" id="aca-bkWifi" value="${esc(d.wifi_network || "")}" maxlength="120" placeholder="Network name" style="flex:1 1 180px;min-width:0" /><input type="text" id="aca-bkWifiPw" value="${esc(d.wifi_password || "")}" maxlength="120" placeholder="Password" autocomplete="off" style="flex:1 1 180px;min-width:0" /></div>
+        <label for="aca-bkNotes">For the crew</label><div><textarea id="aca-bkNotes" rows="2" maxlength="4000" placeholder="Parking, who to ask for, door codes, timing" style="width:100%">${esc(d.notes || "")}</textarea>
+          <div class="bk-sub">Goes on the calendar event and the job sheet, with the WiFi. The WiFi is kept on the partner too, so next season's booking starts with it.</div></div>
         ${isNew ? `<label>Deliverables</label>
         <div><div class="bk-contacts" id="aca-bkFDlv"></div>
           <div class="bk-dlvadd"><input type="text" id="aca-bkFDlvNew" maxlength="120" placeholder="Add one, e.g. Team composites" /><button type="button" class="small" data-v="fdlvadd">Add</button></div>
@@ -747,6 +750,11 @@
         const loc = last && last[0] && last[0].location;
         if (loc && org === o && (!el("bkLoc").value || el("bkLoc").dataset.auto === "1")) { el("bkLoc").value = loc; el("bkLoc").dataset.auto = "1"; el("bkLocNote").textContent = "Same place as last time."; }
       }, () => {});
+      // The partner's saved WiFi (last season's), when the boxes are still empty.
+      sb.from("prospect_orgs").select("wifi_network, wifi_password").eq("id", o.id).maybeSingle().then(({ data: w }) => {
+        if (!w || org !== o || el("bkWifi").value || el("bkWifiPw").value) return;
+        el("bkWifi").value = w.wifi_network || ""; el("bkWifiPw").value = w.wifi_password || "";
+      }, () => {});
       const { data } = await sb.from("prospect_contacts").select("id, first_name, last_name, email, role, is_primary, bounced_at, unsubscribed_at, stopped_at, history_only").eq("org_id", o.id);
       contacts = (data || []).filter((c) => !c.history_only).map((c) => ({ ...c, emailable: !!c.email && !c.bounced_at && !c.unsubscribed_at && !c.stopped_at }))
         .sort((a, b) => (b.is_primary - a.is_primary) || String(a.first_name || "").localeCompare(String(b.first_name || "")));
@@ -857,6 +865,7 @@
         if (badEnd.length) return err("The end time has to be after the start time (" + fmtDay(badEnd[0].day) + ").");
         const p = { org_id: org.id, type_key: typeKey, picture_day: days[0].day, days,
           title_label: pickedLabel(), title_override: composedOverride(), location: el("bkLoc").value.trim(), notes: el("bkNotes").value.trim(),
+          wifi_network: el("bkWifi").value.trim(), wifi_password: el("bkWifiPw").value.trim(),
           contact_ids: [...chosen], access_code: isSchool() ? el("bkCode").value.trim() : "", retake_day: isSchool() ? (el("bkRetake").value || "") : "" };
         if (isNew && rows.some((r) => r.org_id === org.id && r.picture_day === p.picture_day && r.type_key === typeKey && r.status !== "cancelled")
             && !confirm("There is already a " + byType(typeKey).label + " booking for " + org.name + " on that day. Book another one anyway?")) return;
@@ -874,6 +883,8 @@
           const dir = DirectorFields.read();
           box.close();
           const dirErr = await DirectorFields.save(isNew ? data.id : d.id, dir, isNew);
+          // booking_create doesn't take the WiFi; a new booking gets it right after (booking_update does take it).
+          if (isNew && (p.wifi_network || p.wifi_password)) { const { error: wErr } = await sb.rpc("job_onsite_save", { p_booking: data.id, p: { wifi_network: p.wifi_network, wifi_password: p.wifi_password } }); if (wErr) toast("Booked, but the WiFi was not saved: " + cleanErr(wErr) + ". Add it on the job's Overview.", true); }
           let dlvErr = "";
           if (items.length) { try { await addDeliverables(data.id, items); } catch (e3) { dlvErr = cleanErr(e3); } }
           let crewMsg = "";
