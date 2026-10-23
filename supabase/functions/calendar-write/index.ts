@@ -145,7 +145,9 @@ export async function buildEvent(b: any, day?: any, dayNo?: number, dayCount?: n
     startAt: day ? day.start_at : b.start_at, endAt: day ? day.end_at : b.end_at, location: b.location, notes: b.notes, accessCode: b.access_code, retakeDay: b.retake_day,
     contacts: (contacts ?? []).map((c: any) => ({ name: [c.first_name, c.last_name].filter(Boolean).join(" "), email: c.email, role: c.role })),
     shortId: String(b.id).slice(0, 8),
-    allDay: day ? !day.start_at : b.time_set === false,
+    // booking_days always carry a placeholder 9:00 start, so the booking-wide time_set decides (a later day of
+    // an untimed booking stays all-day too)
+    allDay: b.time_set === false || (day ? !day.start_at : false),
     dayLabel: day ? day.label : first?.label,
     dayNote: n > 1 ? `Day ${(dayNo ?? 0) + 1} of ${n}` : null,
   });
