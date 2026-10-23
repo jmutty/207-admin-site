@@ -718,18 +718,34 @@
 
     // ---------------------------------------------------------------- crew settings + email the week
     const DOWS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    async function openCrewSettings() {
-      const st = data.crew.settings || {};
-      const m = openModal('<div class="sc-modal"><h2>Crew settings</h2>' +
-        '<h3 class="sc-sub">Roles</h3><p class="sc-note">What someone does on a job. Pick each person&#39;s roles on the Team page; the crew picker suggests their first one.</p>' +
-        '<ul class="sc-roles" id="aca-scRoles"></ul><div class="sc-drive"><div class="field" style="flex:1"><label for="aca-scRoleNew">New role</label><input type="text" id="aca-scRoleNew" maxlength="40" placeholder="Lighting, Group photos&#8230;" style="width:100%" /></div><button type="button" class="small" data-m="addrole">Add</button></div>' +
-        '<h3 class="sc-sub">Asking the crew</h3><label class="sc-chk"><input type="checkbox" id="aca-scCfOn"' + (st.crew_confirm_on !== false ? " checked" : "") + ' /> Ask people to confirm when they&#39;re put on a booked job (email and app notification, 7am to 9pm)</label>' +
+    // The week's data, or (opened from Settings before the Schedule was shown) today's.
+    async function scheduleData() {
+      if (data) return data;
+      const { data: d, error } = await sb.rpc("schedule_week", { p_start: T.today(), p_days: 1 });
+      if (error) throw error;
+      return d || {};
+    }
+    // Crew settings: one dialog, opened from Schedule (Crew settings) and from Settings (Team & pay > Crew roles,
+    // Team emails > Weekly schedule email). opts.only = "roles" | "emails" shows just that half;
+    // opts.onSaved runs after a save.
+    async function openCrewSettings(opts) {
+      opts = opts || {};
+      let src;
+      try { src = await scheduleData(); } catch (e) { toast(cleanErr(e), true); return; }
+      const st = (src.crew && src.crew.settings) || opts.settings || {};
+      const roles = opts.only !== "emails", mails = opts.only !== "roles";
+      const m = openModal('<div class="sc-modal"><h2>' + (opts.only === "roles" ? "Crew roles" : opts.only === "emails" ? "Asking the crew and the weekly email" : "Crew settings") + '</h2>' +
+        (roles ? '<h3 class="sc-sub">Roles</h3><p class="sc-note">What someone does on a job. Pick each person&#39;s roles on the Team page; the crew picker suggests their first one.</p>' +
+        '<ul class="sc-roles" id="aca-scRoles"></ul><div class="sc-drive"><div class="field" style="flex:1"><label for="aca-scRoleNew">New role</label><input type="text" id="aca-scRoleNew" maxlength="40" placeholder="Lighting, Group photos&#8230;" style="width:100%" /></div><button type="button" class="small" data-m="addrole">Add</button></div>' : "") +
+        (mails ? '<h3 class="sc-sub">Asking the crew</h3><label class="sc-chk"><input type="checkbox" id="aca-scCfOn"' + (st.crew_confirm_on !== false ? " checked" : "") + ' /> Ask people to confirm when they&#39;re put on a booked job (email and app notification, 7am to 9pm)</label>' +
         '<h3 class="sc-sub">Weekly schedule email</h3><label class="sc-chk"><input type="checkbox" id="aca-scWkOn"' + (st.week_email_auto ? " checked" : "") + ' /> Email everyone their next week automatically</label>' +
         '<div class="row2"><div class="field"><label for="aca-scWkD">Day</label><select id="aca-scWkD">' + DOWS.map((d, i) => '<option value="' + i + '"' + (i === num(st.week_email_dow == null ? 5 : st.week_email_dow) ? " selected" : "") + ">" + d + "</option>").join("") + "</select></div>" +
-        '<div class="field"><label for="aca-scWkH">Time</label><select id="aca-scWkH">' + Array.from({ length: 15 }, (_, i) => i + 6).map((h) => '<option value="' + h + '"' + (h === num(st.week_email_hour == null ? 15 : st.week_email_hour) ? " selected" : "") + ">" + T.hhmm(h * 60).replace(/^0/, "") + "</option>").join("") + "</select></div></div>" +
-        '<div class="inline-error hidden" id="aca-scMErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="primary" data-m="save">Save</button></div></div>');
+        '<div class="field"><label for="aca-scWkH">Time</label><select id="aca-scWkH">' + Array.from({ length: 15 }, (_, i) => i + 6).map((h) => '<option value="' + h + '"' + (h === num(st.week_email_hour == null ? 15 : st.week_email_hour) ? " selected" : "") + ">" + T.fmtMin(h * 60) + "</option>").join("") + "</select></div></div>" : "") +
+        '<div class="inline-error hidden" id="aca-scMErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button>' + (mails ? '<button type="button" class="primary" data-m="save">Save</button>' : "") + '</div></div>');
+      const reload = () => { if (data) load(); if (opts.onSaved) opts.onSaved(); };
       const list = m.querySelector("#aca-scRoles");
       async function loadRoles() {
+        if (!list) return;
         const { data: d, error } = await sb.rpc("crew_roles_list");
         if (error) { mErr(cleanErr(error)); return; }
         list.innerHTML = (d.roles || []).map((r) => '<li data-id="' + esc(r.id) + '"><input type="text" maxlength="40" value="' + esc(r.label) + '" aria-label="Role name" data-was="' + esc(r.label) + '" /><button type="button" class="small" data-m="renrole">Rename</button><button type="button" class="small warn" data-m="delrole">Remove</button></li>').join("") || '<li class="muted">No roles yet.</li>';
@@ -743,23 +759,23 @@
           if (t.dataset.m === "addrole") {
             const v = el("scRoleNew").value.trim(); if (!v) return mErr("Type the role's name.");
             const { error } = await sb.rpc("crew_role_save", { p: { label: v, sort: 100 } }); if (error) throw error;
-            el("scRoleNew").value = ""; await loadRoles(); load();
+            el("scRoleNew").value = ""; await loadRoles(); reload();
           }
           if (t.dataset.m === "renrole" && li) {
             const inp = li.querySelector("input"); if (inp.value.trim() === inp.dataset.was) return;
             const { error } = await sb.rpc("crew_role_save", { p: { id: li.dataset.id, label: inp.value.trim() } }); if (error) throw error;
-            toast("Renamed."); await loadRoles(); load();
+            toast("Renamed."); await loadRoles(); reload();
           }
           if (t.dataset.m === "delrole" && li) {
             if (!confirm("Remove the role “" + li.querySelector("input").dataset.was + "”? Bars that had it keep their times, without a role.")) return;
             const { error } = await sb.rpc("crew_role_archive", { p_id: li.dataset.id }); if (error) throw error;
-            await loadRoles(); load();
+            await loadRoles(); reload();
           }
           if (t.dataset.m === "save") {
             t.disabled = true;
             const { error } = await sb.rpc("crew_settings_save", { p: { crew_confirm_on: el("scCfOn").checked, week_email_auto: el("scWkOn").checked, week_email_dow: +el("scWkD").value, week_email_hour: +el("scWkH").value } });
             if (error) throw error;
-            m.close(); toast("Saved."); load();
+            m.close(); toast("Saved."); reload();
           }
         } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
       });
@@ -1146,9 +1162,16 @@
       m.querySelector('[data-m="ok"]').addEventListener("click", () => m.close());
     }
 
-    function openStudio() {
+    // Studio address and default setup/teardown: one dialog, opened from Schedule (Drive & setup) and from
+    // Settings > Company.
+    async function openStudio(opts) {
+      opts = opts || {};
+      let src;
+      try { src = await scheduleData(); } catch (e) { toast(cleanErr(e), true); return; }
+      const setupDefault = () => src.setup_default != null ? src.setup_default : 30;
+      const teardownDefault = () => src.teardown_default != null ? src.teardown_default : 30;
       const m = openModal('<div class="sc-modal"><h2>Drive &amp; setup</h2><p>Drive times are measured from the studio to each job&#39;s location (or the organization and town when a booking has no location), using Google Maps. Batched jobs drive job to job. Part time and 1099 people with a home address on the Team page are measured from home.</p>' +
-        '<div class="field"><label for="aca-scAddr">Studio address</label><input type="text" id="aca-scAddr" maxlength="300" value="' + esc(data.studio_address || "") + '" placeholder="Search Google Maps or type street, town, state" /><div id="aca-scAddrNote" style="margin-top:4px;font-size:12px;color:var(--muted)"></div></div>' +
+        '<div class="field"><label for="aca-scAddr">Studio address</label><input type="text" id="aca-scAddr" maxlength="300" value="' + esc(src.studio_address || "") + '" placeholder="Search Google Maps or type street, town, state" /><div id="aca-scAddrNote" style="margin-top:4px;font-size:12px;color:var(--muted)"></div></div>' +
         '<div class="row2"><div class="field"><label for="aca-scSuD">Setup before each job (min)</label><input type="number" id="aca-scSuD" min="0" max="240" step="5" value="' + num(setupDefault()) + '" /></div>' +
         '<div class="field"><label for="aca-scTdD">Teardown after each job (min)</label><input type="number" id="aca-scTdD" min="0" max="240" step="5" value="' + num(teardownDefault()) + '" /></div></div>' +
         '<label class="muted" style="display:flex;gap:8px;align-items:center;font-size:13px;margin:-4px 0 12px"><input type="checkbox" id="aca-scSuAll" /> Also change jobs already on the schedule from today on</label>' +
@@ -1162,7 +1185,7 @@
           try {
             const { error } = await sb.rpc("schedule_settings_save", { p_studio_address: el("scAddr").value.trim() }); if (error) throw error;
             const { data: r, error: e2 } = await sb.rpc("schedule_setup_save", { p_setup: +el("scSuD").value || 0, p_teardown: +el("scTdD").value || 0, p_apply: el("scSuAll").checked }); if (e2) throw e2;
-            m.close(); toast(num(r && r.changed) ? "Saved. " + num(r.changed) + " job" + (r.changed === 1 ? "" : "s") + " changed." : "Saved."); load();
+            m.close(); toast(num(r && r.changed) ? "Saved. " + num(r.changed) + " job" + (r.changed === 1 ? "" : "s") + " changed." : "Saved."); if (data) load(); if (opts.onSaved) opts.onSaved();
           }
           catch (e) { mErr(cleanErr(e)); t.disabled = false; }
         }
@@ -1205,5 +1228,5 @@
       return { added, untimed: days.filter((x) => !x.start_at).map((x) => x.day) };
     }
 
-    return { load, loadAttention, team, staffBooking };
+    return { load, loadAttention, team, staffBooking, openCrewSettings, openStudio, scheduleData };
   })();

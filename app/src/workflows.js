@@ -81,7 +81,7 @@
     // ---------------------------------------------------------------- Jobs: each booked job's checklist
     const jobsRoot = el("panel-checklists");
     jobsRoot.innerHTML =
-      '<div class="card"><div class="card-head"><div><h2>Booked jobs</h2><p>Every booked job and its checklist tasks. Tasks land on each person&#39;s Assignments and get checked off there. They follow the job when its picture day or crew changes.</p></div>' +
+      '<div class="card"><div class="card-head"><div><h2>Job checklists</h2><p>Every booked job and its checklist tasks. Tasks land on each person&#39;s Assignments and get checked off there. They follow the job when its picture day or crew changes.</p></div>' +
       '<label style="font-size:13px">Show <select class="small" id="aca-wfShow"><option value="open">Jobs with tasks to do</option><option value="all">All jobs</option></select></label></div>' +
       '<div id="aca-wfErr" class="inline-error hidden"></div><div id="aca-wfJobs"><p class="empty">Loading&#8230;</p></div></div>';
     let jobs = null, show = "open";
@@ -116,7 +116,7 @@
     // ---------------------------------------------------------------- Checklists: the steps per job type
     const stepsRoot = el("panel-wfsteps");
     stepsRoot.innerHTML =
-      '<div class="card"><div class="card-head"><div><h2>Checklists</h2><p>The steps every booked job gets, per job type. A crew step goes to the first person scheduled on the job, or the backup person until someone is. Changes apply to jobs from today on.</p></div>' +
+      '<div class="card"><div class="card-head"><div><h2>Checklist steps</h2><p>The steps every booked job gets, per job type (also under Settings, Job types). A crew step goes to the first person scheduled on the job, or the backup person until someone is. Changes apply to jobs from today on.</p></div>' +
       '<button type="button" class="primary hidden" id="aca-wfAdd">Add step</button></div>' +
       '<div id="aca-wfSErr" class="inline-error hidden"></div><div id="aca-wfSteps"><p class="empty">Loading&#8230;</p></div></div>' +
       '<div class="card"><div class="card-head"><div><h2>Groups</h2><p>A group (like &#8220;Editing team&#8221;) can own a step. Each job&#39;s task goes to the member with the least on their list, and anyone in the group can check it off.</p></div>' +
@@ -187,9 +187,25 @@
       });
     }
 
-    function openStep(s) {
+    // The checklist steps for Settings > Job types (loads them when this page has not yet).
+    async function templates() {
+      if (tpl) return tpl;
+      const { data, error } = await sb.rpc("workflow_templates");
+      if (error) throw error;
+      tpl = data;
+      return tpl;
+    }
+    // One step dialog, opened from Checklist steps and from Settings > Job types.
+    // opts.type_key: the job type a new step starts on; opts.onSaved: runs after a save or remove.
+    async function openStepFor(s, opts) {
+      try { await templates(); } catch (e) { toast(cleanErr(e), true); return; }
+      openStep(s, opts);
+    }
+    function openStep(s, opts) {
+      opts = opts || {};
+      const after = () => { loadSteps(); if (opts.onSaved) opts.onSaved(); };
       const isNew = !s;
-      s = s || { type_key: null, title: "", notes: "", anchor: "picture_day", offset_days: -1, assign_to: "crew", user_id: null, priority: "normal",
+      s = s || { type_key: opts.type_key || null, title: "", notes: "", anchor: "picture_day", offset_days: -1, assign_to: "crew", user_id: null, priority: "normal",
                  waits_for: null, remind_days: 2, late_days: null, late_user_id: null, partner_email: false, partner_subject: "", partner_body: "" };
       const n = Math.abs(s.offset_days);
       const dir = s.anchor === "picture_day" ? (s.offset_days < 0 ? "before" : s.offset_days > 0 ? "after" : "on") : s.anchor;
@@ -258,7 +274,7 @@
         if (b.dataset.m === "remove") {
           if (!confirm("Remove “" + s.title + "”? Its open tasks come off people's lists. Tasks already done stay.")) return;
           b.disabled = true;
-          try { const { error } = await sb.rpc("workflow_step_archive", { p_id: s.id }); if (error) throw error; m.close(); toast("Removed."); loadSteps(); }
+          try { const { error } = await sb.rpc("workflow_step_archive", { p_id: s.id }); if (error) throw error; m.close(); toast("Removed."); after(); }
           catch (e) { err(cleanErr(e)); b.disabled = false; }
         }
         if (b.dataset.m === "save") {
@@ -269,7 +285,7 @@
           if (p.assign_to === "person" && !p.user_id) return err("Pick the person.");
           if (p.assign_to === "group" && !p.group_id) return err("Pick the group.");
           b.disabled = true;
-          try { const { error } = await sb.rpc("workflow_step_save", { p }); if (error) throw error; m.close(); toast(isNew ? "Added. Booked jobs get it now." : "Saved."); loadSteps(); }
+          try { const { error } = await sb.rpc("workflow_step_save", { p }); if (error) throw error; m.close(); toast(isNew ? "Added. Booked jobs get it now." : "Saved."); after(); }
           catch (e) { err(cleanErr(e)); b.disabled = false; }
         }
       });
@@ -283,5 +299,5 @@
       } catch (_e) { /* Today reports it as unchecked */ }
     }
 
-    return { loadJobs, loadSteps, loadAttention };
+    return { loadJobs, loadSteps, loadAttention, templates, openStep: openStepFor, sayStep, whenText };
   })();

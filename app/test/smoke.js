@@ -815,9 +815,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     const t = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "assignment_save").pop()[1].p);
     check(t.repeat === "weekly" && t.weekdays[0] === 5 && t.priority === "urgent" && t.user_id === "u2", "adds a weekly urgent task");
-    check(await visible(page, "#aca-asSetCard") && await page.$eval("#aca-asPlanHour", (n) => n.value) === "20", "evening notification at 8pm");
-    await page.waitForTimeout(100);
+    // ws/settings: the two daily settings live in Settings > Team emails; Tasks keeps a one-line shortcut
+    check(await visible(page, "#aca-asSetCard") && (await page.textContent("#aca-asSetTxt")).includes("8pm"), "tasks: shortcut line says the evening notification is at 8pm");
+    await page.click("#aca-asSetBtn");
+    await page.waitForSelector("#aca-asPlanHour");
+    check(await page.$eval("#aca-asPlanHour", (n) => n.value) === "20", "evening notification at 8pm");
     check(await page.$eval("#aca-asMailHour", (n) => n.value) === "7" && await page.$eval("#aca-asMailOn", (n) => n.checked), "morning email at 7am");
+    await page.click('.as-modal [data-m="cancel"]');
     // Team: weekly hours
     await page.click('#aca-nav button[data-tab="people"]');
     await page.waitForSelector("#aca-teamBody [data-edit]");
@@ -1324,11 +1328,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-tcBody [data-c="switch"]');
     check(await page.isVisible("#aca-tcBody .tc-pick"), "Switch shows what to switch to");
     await page.click('#aca-pagetabs button[data-tab="timesheets"]');
-    await page.waitForSelector("#aca-tsBody .tc-person");
-    await page.selectOption("#aca-tsWho", "all");
+    // ws/settings: under Team > Time & pay, Timesheets opens on Everyone
     await page.waitForSelector("#aca-tsBody tr.tc-row");
+    check(await page.$eval("#aca-tsWho", (n) => n.value) === "all", "timesheets open on Everyone for Edit");
     check((await page.$$("#aca-tsBody tr.tc-row")).length === 2, "everyone: one row per person");
-    check((await page.textContent("#aca-tsBody")).includes("Not approved"), "shows who is not approved");
+    check(!(await page.textContent("#aca-tsBody thead")).includes("Scheduled"), "everyone: no Scheduled column");
+    check(!!(await page.$('#aca-tsBody td.tc-act [data-approve="u1"][data-on="1"]')), "shows who is not approved, with Approve in the status cell");
+    check(await page.$$eval("#aca-tsBody [data-approve]", (bs) => bs.every((b) => b.getBoundingClientRect().right <= document.documentElement.clientWidth)), "Approve / Unapprove not clipped at 1280");
     await page.click('#aca-tsBody [data-approve="u1"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timesheet_approve" && c[1].p_user === "u1" && c[1].p_approve === true)), "approves a week");
@@ -1338,6 +1344,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-panel-timesheets [data-w="payroll"]');
     await page.waitForSelector('.tc-modal [data-m="csv"]:not([disabled])');
     check((await page.textContent(".tc-modal")).includes("Not approved yet: Jeremiah M."), "payroll warns about unapproved weeks");
+    check(await page.$eval("#aca-prE", (n) => n.selectedOptions[0].textContent.includes("last week")), "payroll: its own period, last finished week by default");
+    check(await page.evaluate(() => { const c = window.__rpcCalls.filter((x) => x[0] === "timesheet_payroll").pop(); return c && c[1].p_weeks === 1; }), "payroll loads one week");
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click('.tc-modal [data-m="csv"]')]);
     const csv = fs.readFileSync(await dl.path(), "utf8");
     check(/^Name,Email,Type,Period start,Period end,Regular hours,Overtime hours,Total hours,Miles,Mileage pay,Expenses,Est\. wages,Est\. total,Weeks approved\r\nJeremiah Mutty,jmutty@207photo.com,Full time,.*,40\.00,3\.50,43\.50,26\.1,18\.27,12\.75,1078\.75,1109\.77,0 of 1\r\n/.test(csv), "payroll CSV: " + csv.split("\r\n")[1]);
@@ -1346,6 +1354,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const [dlc] = await Promise.all([page.waitForEvent("download"), page.click('.tc-modal [data-m="cont"]')]);
     const csvc = fs.readFileSync(await dlc.path(), "utf8");
     check(/^Name,Email,Job title,Period start,Period end,Hours,Miles,Mileage pay,Expenses,Est\. fees,Est\. total,Weeks approved\r\nRiley Second,riley@example\.com,Second shooter,.*,5\.00,40\.0,28\.00,0\.00,,,1 of 1\r\n$/.test(csvc), "1099 CSV: " + csvc.split("\r\n")[1]);
+    await page.click('.tc-modal [data-m="approveall"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timesheet_approve" && c[1].p_user === "u1" && c[1].p_week === document.querySelector("#aca-prE").value)), "payroll: Approve all approves the period");
     await page.click('.tc-modal [data-m="cancel"]');
     await page.click('#aca-panel-timesheets [data-w="settings"]');
     await page.waitForSelector("#aca-tsR");
