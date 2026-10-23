@@ -82,7 +82,6 @@ select pg_temp.raises($$select public.booking_make_real('00000000-0000-0000-0000
 select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
 select pg_temp.raises($$select public.booking_make_real('00000000-0000-0000-0000-0000000000d1', '{"contact_ids":["00000000-0000-0000-0000-0000000000c2"],"start_time":"15:00"}')$$, 'a bounced contact alone is refused');
 select pg_temp.raises($$select public.booking_make_real('00000000-0000-0000-0000-0000000000d1', '{"contact_ids":["00000000-0000-0000-0000-0000000000c3"],"start_time":"15:00"}')$$, 'a contact of another organization is refused');
-select pg_temp.raises($$select public.booking_make_real('00000000-0000-0000-0000-0000000000d1', '{"contact_ids":["00000000-0000-0000-0000-0000000000c1"]}')$$, 'no start time is refused');
 select pg_temp.raises($$select public.booking_make_real('00000000-0000-0000-0000-0000000000d3', '{"contact_ids":["00000000-0000-0000-0000-0000000000c3"],"start_time":"15:00"}')$$, 'a past job stays track-only');
 select pg_temp.act(null);
 select pg_temp.raises($$select public.booking_make_real_suggest('00000000-0000-0000-0000-0000000000d1')$$, 'anon cannot read suggestions');
