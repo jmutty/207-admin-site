@@ -1685,6 +1685,46 @@ ${order.map((k) => sec[k]).join("")}
     });
   }
 
+  // The same composer for other pages (2026-10-23: the job page's Email button). people: [{id, name, email, role,
+  // why (set = can't be emailed, shown greyed), checked}]. send(ids, subject, body, now) does the work and resolves
+  // when it's done; a thrown error shows in the dialog. Resolves true once sent.
+  function emailPeople(opts) {
+    const people = opts.people || [];
+    const ok = people.filter((p) => !p.why);
+    if (!ok.length) { toast(people.length ? "Nobody on this job can be emailed right now." : "Add a contact with Edit booking first.", true); return Promise.resolve(false); }
+    const p = modal(`
+      <h2>${esc(opts.title || "Email")}</h2>
+      <div class="og-grid">
+        <label>To</label><div class="og-enc" id="aca-ogJeTo">${people.map((c) => `<label${c.why ? ' class="muted"' : ""}><input type="checkbox" value="${esc(c.id)}" ${c.why ? "disabled" : c.checked !== false ? "checked" : ""} />
+          ${esc(c.name || c.email || "")}${c.role ? ` <span class="og-role">${esc(c.role)}</span>` : ""} <span class="muted">${esc(c.email || "")}${c.why ? " &middot; " + esc(c.why) : ""}</span></label>`).join("")}</div>
+        <label for="aca-ogJeSubj">Subject</label><input type="text" id="aca-ogJeSubj" value="${esc(opts.subject || "")}" />
+      </div>
+      ${snippetPicker("ogJeBody")}
+      <textarea id="aca-ogJeBody" class="og-edbody" placeholder="Hi &hellip;"></textarea>
+      <p class="og-sub" style="white-space:normal;margin:4px 0 12px">${esc(SIG_NOTE)} Each person gets their own email. <strong>Send now</strong> sends it right away. <strong>Add to queue</strong> sends it in the next send window.</p>
+      <div id="aca-ogJeErr" class="inline-error hidden" style="margin:0 0 12px"></div>
+      <div class="og-actions"><button type="button" class="primary" data-v="now">Send now</button><button type="button" data-v="queue">Add to queue</button><button type="button" data-v="close">Cancel</button></div>`, true);
+    const box = modal.last;
+    fillSnippetPickers(box, opts.org || null);
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("button[data-v]"); if (!b) return;
+      if (b.dataset.v === "close") return box.close(false);
+      const err = (m) => { el("ogJeErr").textContent = m; el("ogJeErr").classList.remove("hidden"); };
+      const subj = el("ogJeSubj").value.trim(), body = el("ogJeBody").value.trim();
+      if (!subj || !body) return err("Add a subject and a message.");
+      const ids = [...el("ogJeTo").querySelectorAll("input:checked")].map((i) => i.value);
+      const to = ok.filter((x) => ids.includes(x.id));
+      if (!to.length) return err("Tick at least one person.");
+      const now = b.dataset.v === "now";
+      if (!confirm(`Send this to ${to.map((c) => (c.name ? `${c.name} (${c.email})` : c.email)).join(", ")} ${now ? "right now" : "in the next send window"}?`)) return;
+      box.querySelectorAll("button[data-v]").forEach((x) => { x.disabled = true; });
+      try { await opts.send(to.map((c) => c.id), subj, body, now); }
+      catch (e2) { box.querySelectorAll("button[data-v]").forEach((x) => { x.disabled = false; }); return err(cleanErr(e2)); }
+      box.close(true);
+    });
+    return p;
+  }
+
   // ---------------------------------------------------------------- Held outreach (2026-10-24: part of the Outbox)
   // "Outreach to review" used to be its own tab. The same cards (who, subject, the whole email) now sit at the top of
   // the Outbox (outbox.js calls mountHeld), with the Outbox's verbs: Send now / Add to queue / Edit / Don't send.
@@ -2205,6 +2245,6 @@ ${order.map((k) => sec[k]).join("")}
     applyConfig({ flag, sort: { key: "next", dir: 1 } });
   }
 
-  return { load: () => load(false), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, sendNow, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
+  return { load: () => load(false), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, sendNow, emailPeople, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
     embed, unembed, get: (id) => byId.get(id) || null, stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
   })();

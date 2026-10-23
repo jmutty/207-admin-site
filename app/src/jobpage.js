@@ -39,7 +39,7 @@
       clock_in: "Clock in", clock_out: "Clock out", job_title: "Job", miles: "Miles", auto: "Automatic", user_name: "Person", created_by: "Added by",
     };
     const WHAT = { bookings: "the job", booking_days: "a day", schedule_entries: "the crew", prospect_orgs: "the organization",
-                   time_punches: "a time punch", mileage_trips: "a mileage trip", stage: "the stage" };
+                   time_punches: "a time punch", mileage_trips: "a mileage trip", stage: "the stage", job_email: "an email" };
     const SKIP = ["id", "created_at", "updated_at", "created_by", "token", "contact_ids_text"];
     let names = {};
     const isTs = (v) => typeof v === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v);
@@ -59,6 +59,9 @@
       const ch = h.changes || {};
       const what = WHAT[h.tbl] || h.tbl;
       if (h.tbl === "stage") return "moved the job to <b>" + esc((ch.stage || [])[1] || "") + "</b>";
+      // Email from the job page (2026-10-23)
+      if (h.tbl === "job_email") return "emailed <b>" + esc((ch.to || [])[1] || "someone") + "</b>: " + esc((ch.subject || [])[1] || "") +
+        ((ch.how || [])[1] === "queue" ? ' <span class="muted">(added to the queue)</span>' : "");
       if (h.tbl === "schedule_entries" && (h.action === "added" || h.action === "removed")) {
         const who = ch.user_id ? ch.user_id[h.action === "added" ? 1 : 0] : null;
         return (h.action === "added" ? "put <b>" : "took <b>") + esc((who && names[who]) || "someone") + "</b> " + (h.action === "added" ? "on" : "off") + " the crew";
@@ -135,6 +138,9 @@
     .aca .jp-booknote div { white-space: pre-wrap; font-size: 14px; overflow-wrap: anywhere; }
     .aca .jp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 40px; }
     .aca .jp-sec { margin: 0 0 22px; min-width: 0; }
+    .aca .jp-mails li { flex-wrap: wrap; } .aca .jp-mails a[data-mail] { color: inherit; text-decoration: none; font-weight: 600; }
+    .aca .jp-mailbody { display: none; flex-basis: 100%; white-space: pre-wrap; font-size: 13px; color: var(--muted); padding: 6px 0 2px; }
+    .aca .jp-mails li.open .jp-mailbody { display: block; }
     .aca .jp-sec h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--head); }
     .aca .jp-dl { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 5px 12px; margin: 0; font-size: 13.5px; }
     .aca .jp-dl dt { color: var(--muted); } .aca .jp-dl dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -251,6 +257,7 @@
         (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></div>" +
         // Edit booking is the page's main action (one Edit button; the Booking tab has none).
         '<div class="acts">' + (c.bookings_edit && b.status === "booked" && typeof Bookings !== "undefined" ? '<button type="button" class="small primary" data-j="edit">Edit booking</button>' : "") +
+        (canMail() ? '<button type="button" class="small" data-j="email">Email</button>' : "") +
         '<span class="jp-dl-menu"><button type="button" class="small" data-j="dl">Download &#9662;</button></span></div></div>' +
         (J.stages && J.stages.length ? '<ul class="jp-stages">' + J.stages.map((s) => '<li class="' + (s.reached ? "on" : "") + (J.stage && J.stage.label === s.label ? " cur" : "") + '">' + esc(s.label) + "</li>").join("") + "</ul>" +
           // On a phone the row of stages is one line: "In production, 3 of 6".
@@ -268,6 +275,7 @@
     function onHeadClick(e) {
       const t = e.target.closest("[data-j]"); if (!t) return;
       if (t.dataset.j === "edit") Bookings.edit(J.booking.id);
+      if (t.dataset.j === "email") emailContacts(t);
       if (t.dataset.j === "dl") {
         const wrap = t.parentNode, open = wrap.querySelector("div");
         if (open) { open.remove(); return; }
@@ -321,13 +329,18 @@
         (contacts.length ? '<div class="jp-sec"><h3>Who gets the emails</h3><ul class="jp-rows">' + contacts.map((p) => "<li><span>" + esc(p.name || p.email || "") +
           (p.role ? ' <span class="muted">' + esc(p.role) + "</span>" : "") + '</span><span class="r">' + esc([p.email, p.phone].filter(Boolean).join(" \u00b7 ")) +
           (rm && p.contact_id ? ' <button type="button" class="small quiet" data-rmc="' + esc(p.contact_id) + '" data-who="' + esc(p.name || p.email || "") + '">Remove</button>' : "") + "</span></li>").join("") + "</ul></div>" : "") +
+        (canSee("bookings") || canSee("partners") ? '<div class="jp-sec" id="aca-jpMails"></div>' : "") +
         "</div><div>" +
         '<div class="jp-sec"><h3>Crew</h3>' + (crew.length ? '<ul class="jp-rows">' + crew.map((p) => "<li><span>" + esc(p.name) + (p.note ? ' <span class="muted">' + esc(p.note) + "</span>" : "") +
           '</span><span class="r">' + esc(T.fmtDay(T.local(p.starts_at).day, { weekday: "short" }) + ", " + timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at)) +
           (p.drive_before_min ? " \u00b7 " + num(p.drive_before_min) + " min drive" : "") + "</span></li>").join("") + "</ul>"
           : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>.' : "") + "</div>") + "</div>" +
         "</div></div>";
+      loadMails(b.id);
       box.onclick = async (e) => {
+        const em = e.target.closest("[data-mail]");
+        if (em) { e.preventDefault(); em.closest("li").classList.toggle("open"); return; }
+        if (e.target.closest("button[data-j=email]")) return emailContacts(e.target.closest("button"));
         const t = e.target.closest("button[data-rmc]"); if (!t) return;
         if (!confirm("Stop this job's emails to " + t.dataset.who + "? Emails that already went out stay sent.")) return;
         t.disabled = true;
@@ -336,6 +349,47 @@
         toast(t.dataset.who + " is off this job's emails.");
         load(b.id, "overview");
       };
+    }
+    // ---------------------------------------------------------------- email the job's contacts (2026-10-23)
+    // The header's Email button writes to the people under "Who gets the emails", with the partner page's composer
+    // (Orgs.emailPeople). The emails go out from Gmail like "Email someone" (prospect-sender), are listed under
+    // "Emails from this job" on Overview and land in History. RPCs job_email_send, job_emails (migration 20261024151700).
+    const canMail = () => J && J.booking.status !== "cancelled" && (J.contacts || []).length > 0 && (canEdit("bookings") || canEdit("partners")) && typeof Orgs !== "undefined";
+    async function emailContacts(btn) {
+      const b = J.booking;
+      if (btn) btn.disabled = true;
+      const { data, error } = await sb.rpc("job_emails", { p_booking: b.id });
+      if (btn) btn.disabled = false;
+      if (error) { toast(cleanErr(error), true); return; }
+      const sent = await Orgs.emailPeople({
+        title: "Email about " + b.title, subject: b.title,
+        people: (data.contacts || []).map((c) => ({ id: c.id, name: c.name, email: c.email, role: c.role, why: c.why })),
+        send: async (ids, subject, body, now) => {
+          const r = await sb.rpc("job_email_send", { p_booking: b.id, p_contacts: ids, p_subject: subject, p_body: body, p_now: now });
+          if (r.error) throw r.error;
+          const d = r.data || {};
+          toast(now ? (d.paused ? "Saved, but sending is switched off in Settings > Sending, so it waits until you turn it back on."
+            : (d.emails > 1 ? "Sending " + d.emails + " emails now." : "Sending now.") + (d.test_mode ? " Test mode is on, so it goes to the test address." : ""))
+            : "Added to the queue. It goes out in the next send window.");
+        },
+      });
+      if (sent && J && J.booking.id === b.id && curTab === "overview") loadMails(b.id);
+    }
+    async function loadMails(id) {
+      const box = el("jpMails"); if (!box) return;
+      const { data, error } = await sb.rpc("job_emails", { p_booking: id });
+      const box2 = el("jpMails"); if (!box2 || !J || J.booking.id !== id) return;
+      if (error) { box2.innerHTML = ""; return; }
+      const list = data.emails || [];
+      const btn = canMail() ? ' <button type="button" class="small" data-j="email" style="margin-left:8px;text-transform:none;letter-spacing:0">Email</button>' : "";
+      const when = (x) => x.status === "sent" ? "sent " + fmtAgo(x.sent_at) + (x.opened_at ? ", opened" : "") + (x.test_mode ? " (test)" : "")
+        : x.status === "sending" ? "sending" : x.status === "scheduled" ? "in the queue"
+        : x.status === "failed" ? "didn\u2019t send" : x.status;
+      box2.innerHTML = '<h3>Emails from this job' + btn + "</h3>" + (list.length ? '<ul class="jp-rows jp-mails">' + list.map((x) =>
+        '<li><span class="t"><a href="#" data-mail="1">' + esc(x.subject || "(no subject)") + "</a> " + '<span class="muted">to ' + esc(x.to_name || x.to_email || "someone") +
+        (x.by ? " \u00b7 by " + esc(x.by) : "") + '</span></span><span class="r">' + esc(when(x)) + "</span>" +
+        '<div class="jp-mailbody">' + esc(x.body || "") + "</div></li>").join("") + "</ul>"
+        : '<p class="muted" style="font-size:13px;margin:0">Nothing sent from this job yet.' + (btn ? " Use Email to write to the people above." : "") + "</p>");
     }
     function dueTxt(day) {
       const d = T.daysBetween(T.today(), day);

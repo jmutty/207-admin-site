@@ -197,6 +197,10 @@
     booking_set_stage: { ok: true }, booking_deliverables_add: { ok: true, added: 1 }, booking_deliverable_update: { ok: true }, booking_deliverable_remove: { ok: true },
     admin_bookings_attention: { send_failed: 1, calendar: 1, no_contact: 1, needs_code: 1, needs_job: 1, needs_coaches: 1, sending_enabled: false, test_mode: false },
     booking_coaches_add: { ok: true, added: 1, skipped: 0, seen: 1, coaches: 3 }, booking_coach_remove: { ok: true }, booking_contact_remove: { ok: true },
+    // Email the job's contacts (jobpage.js, 2026-10-23)
+    job_emails: { contacts: [{ id: "c1", name: "Chris Snowdeal", email: "csnowdeal75@gmail.com", role: "President", why: null }, { id: "c3", name: "Dana Utter", email: "dutter@breweredu.org", role: "Athletic Director", why: "bounced" }],
+                  emails: [{ id: "je1", subject: "Gym change", body: "We moved to the small gym.", status: "sent", sent_at: new Date(Date.now() - 3600e3).toISOString(), to_name: "Chris Snowdeal", to_email: "csnowdeal75@gmail.com", by: "Jeremiah Mutty" }] },
+    job_email_send: { ok: true, ids: ["je2"], emails: 1, now: true, paused: false, test_mode: false },
     booking_create: { ok: true, id: "bk1" }, booking_update: { ok: true, calendar: true }, booking_cancel: { ok: true }, booking_set_access_code: { ok: true, hub_school_id: "s1" },
     booking_email_preview: { id: "e2", subject: "Brewer Travel Basketball Club: schedule for picture day Tuesday, November 10", body: "Hi Chris,\n\nPicture day is coming up. Here is what we have on file:\n\n**Tuesday, November 10 starting at 5:00 PM**\n\n**What we need back from you**\n- **Roster,** if we do not have it yet.\n- **Schedule.** Send the order.\n\nThanks,\n\nJeremiah & The 207 Photo Team", to_email: "csnowdeal75@gmail.com", to_name: "Chris Snowdeal" },
     booking_send_now: { ok: true, sending_enabled: false }, booking_resend: { ok: true, sending_enabled: false }, booking_adopt_calendar_date: { ok: true, picture_day: "2026-11-12" }, booking_rewrite_calendar: { ok: true }, booking_link_job: { ok: true },
