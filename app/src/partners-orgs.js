@@ -17,7 +17,7 @@
   const CONTACT_CHIP = { queued: ["Queued", "accent"], sent: ["Sent", "accent"], replied: ["Replied", "ok"], bounced: ["Bounced", "err"],
     unsubscribed: ["Unsubscribed", "err"], stopped: ["Stopped", "muted"], no_reply: ["No reply", "muted"], not_emailed: ["Not emailed", "muted"] };
   const SEASONS = ["fall", "winter", "spring", "summer", "year-round"];
-  const FLAGS = [["due7", "Due this week"], ["followup", "Follow-up due"], ["ready", "Ready to send"], ["needs_new", "Needs new contact"],
+  const FLAGS = [["due7", "Due this week"], ["followup", "Follow-up due"], ["ready", "Waiting for your OK"], ["needs_new", "Needs new contact"],
     ["never", "Never contacted"], ["cooldown", "Cool-down active"], ["opened", "Opened, no reply"]];
   // Pipeline chips (2026-10-12): one click per group, each with its own address (#partners/orgs/<group>)
   const GROUPS = [
@@ -151,9 +151,14 @@
     .aca .og-ftoggle { font-weight: 600; }
     .aca .og-fsel.open { grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
     .aca .og-fsel select { max-width: none; width: 100%; min-height: 44px; font-size: 15px; }
-    .aca .og-flags { flex-wrap: nowrap; overflow-x: auto; padding: 8px 12px; scrollbar-width: none; }
-    .aca .og-flags .chips { flex-wrap: nowrap; }
+    .aca .og-flags { padding: 6px 12px; }
+    .aca .og-flags .chips, .aca .og-flags #aca-ogReset { display: none; }
+    .aca .og-fopen .og-flags .chips { display: flex; flex-wrap: wrap; width: 100%; }
+    .aca .og-fopen .og-flags #aca-ogReset { display: inline; }
     .aca .og-flags .chips button { white-space: nowrap; padding: 6px 12px; font-size: 13px; }
+    .aca .og-groups { padding: 8px 12px 0; gap: 6px; flex-wrap: nowrap; flex-direction: column; align-items: stretch; }
+    .aca .og-groups .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .aca .og-groups .chips button { white-space: nowrap; padding: 4px 10px; font-size: 13px; min-height: 32px; }
     .aca .og-flags .og-count, .aca .og-flags #aca-ogReset { white-space: nowrap; }
     .aca table.og-table { table-layout: auto; min-width: 0; }
     .aca table.og-table thead, .aca table.og-table colgroup { display: none; }
@@ -286,9 +291,9 @@
   .aca .og-fpill .og-fdate { font-size: 11px; font-weight: 700; }
   .aca table.og-table td.c-stage { overflow: hidden; }
   @media (max-width: 760px) {
-    .aca #aca-panel-ready .card-head { flex-direction: column; align-items: stretch; gap: 10px; }
-    .aca #aca-panel-ready .card-head p { display: none; }
-    .aca #aca-panel-ready .card-head .og-actions button { min-height: 44px; flex: 1 1 auto; }
+    .aca .og-heldhead { flex-direction: column; align-items: stretch; gap: 10px; padding: 10px 12px 0; }
+    .aca .og-heldhead p { display: none; }
+    .aca .og-heldhead .og-actions button { min-height: 44px; flex: 1 1 auto; }
     .aca .og-sendstate { padding: 10px 12px 0; font-size: 12.5px; }
     .aca .og-ready { padding: 10px 10px 12px; }
     .aca .og-rcard { padding: 12px; }
@@ -304,6 +309,18 @@
     .aca .og-modal input[type=text], .aca .og-modal input[type=date], .aca .og-modal input[type=datetime-local], .aca .og-modal select { font-size: 16px; min-height: 40px; }
   }
   .aca .og-rcard { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+  .aca .og-lbl { font-size: 11px; padding: 0 6px; line-height: 1.5; margin-left: 2px; vertical-align: 1px; font-weight: 600; }
+  .aca .og-ladd { margin-top: 8px; padding: 10px 8px 12px; background: var(--sel-bg); border-radius: 6px; }
+  .aca .og-ladd textarea { width: 100%; }
+  .aca .og-panel.og-inline .og-details.hidden { display: none; }
+  .aca .og-rcard.og-focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--sel-bg); }
+  .aca .og-held { border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .aca .og-held.hidden { display: none; }
+  .aca .og-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .aca .og-grid2 input { min-width: 0; }
+  .aca .og-heldhead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 12px 16px 0; }
+  .aca .og-heldhead h3 { margin: 0 0 4px; font-size: 15px; }
+  .aca .og-heldhead p { margin: 0; max-width: 680px; }
   .aca .og-rname { font-size: 14.5px; font-weight: 700; color: var(--text); }
   .aca .og-rsubj { font-weight: 600; font-size: 13px; margin-top: 6px; }
   .aca .og-rbody { white-space: pre-wrap; font-size: 13px; line-height: 1.5; margin: 6px 0 10px; max-height: 170px; overflow: auto; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
@@ -369,10 +386,10 @@
     <div class="card">
       <div class="card-head og-head">
         <div>
-          <h2>Organizations</h2>
-          <p>Every league and school you have emailed or plan to email, in one place. Click a row to see and edit everything about it: contacts, every scheduled email, follow-ups, and the full history.</p>
+          <h2>Partners</h2>
+          <p>Every league and school you work with or plan to email. Click a row to open the partner page.</p>
         </div>
-        <div class="og-actions"><button type="button" class="primary small" id="aca-ogAdd">+ Add org</button>
+        <div class="og-actions"><button type="button" class="primary small" id="aca-ogAdd">+ Add partner</button>
           <button type="button" class="small" id="aca-ogImport">Import</button>
           <button type="button" class="small" id="aca-ogRefresh">Refresh</button></div>
       </div>
@@ -381,7 +398,7 @@
         <div class="chips og-aud" id="aca-ogAudChips" role="group" aria-label="Type"><button type="button" data-aud="" aria-pressed="true">All</button><button type="button" data-aud="league" aria-pressed="false">Leagues</button><button type="button" data-aud="school" aria-pressed="false">Schools</button></div>
       </div>
       <div class="og-bar">
-        <input type="search" id="aca-ogQ" placeholder="Search names, towns, people, emails, notes, sports, seasons&hellip;" aria-label="Search organizations" />
+        <input type="search" id="aca-ogQ" placeholder="Search names, towns, people, emails, notes, sports, seasons&hellip;" aria-label="Search partners" />
         <div class="og-mtools">
           <button type="button" class="og-ftoggle" id="aca-ogFToggle" aria-expanded="false">Filters <span class="pill accent hidden" id="aca-ogFCount"></span></button>
           <select id="aca-ogSortM" aria-label="Sort by">
@@ -413,7 +430,7 @@
       <div class="og-bulk hidden" id="aca-ogBulk">
         <strong id="aca-ogBulkN"></strong>
         <button type="button" class="small primary" id="aca-ogBulkMail">Email&hellip;</button>
-        <button type="button" class="small" id="aca-ogBulkApprove" title="Approve the held outreach emails of the ticked organizations">Approve selected</button>
+        <button type="button" class="small" id="aca-ogBulkApprove" title="Approve the held outreach emails of the ticked partners">Approve selected</button>
         <select id="aca-ogBulkStage" class="small"><option value="">Set stage&hellip;</option>${STAGES.map((s) => `<option value="${s[0]}">${s[1]}</option>`).join("")}</select>
         <input type="text" id="aca-ogBulkSport" list="aca-ogSports" placeholder="Add a sport" />
         <input type="date" id="aca-ogBulkFu" title="Follow-up date" />
@@ -427,15 +444,15 @@
           <colgroup><col class="c-ck"><col class="c-org"><col class="c-stage"><col class="c-sports"><col class="c-town"><col class="c-ct"><col class="c-last"><col class="c-res"><col class="c-next"></colgroup>
           <thead><tr id="aca-ogHead">
             <th class="nosort"><input type="checkbox" id="aca-ogAll" aria-label="Select all shown" /></th>
-            <th data-k="name">Organization</th><th data-k="stage">Stage</th><th data-k="sports">Sports</th><th data-k="county">County</th>
-            <th data-k="contacts">Contacts</th><th data-k="last" title="Last contact">Last</th><th data-k="result">Result</th><th data-k="next">Next up</th>
+            <th data-k="name" data-b="name">Partner</th><th data-k="stage" data-b="stage">Stage</th><th data-k="sports" data-b="sports">Sports</th><th data-k="county" data-b="county">County</th>
+            <th data-k="contacts" data-b="contacts">Contacts</th><th data-k="last" data-b="last" title="Last contact">Last</th><th data-k="result" data-b="result">Result</th><th data-k="next" data-b="next">Next up</th>
           </tr></thead>
           <tbody id="aca-ogBody"><tr><td colspan="9" class="empty">Loading&hellip;</td></tr></tbody>
         </table>
       </div>
       <div class="og-more hidden" id="aca-ogMoreWrap"><button type="button" class="small" id="aca-ogMore">Show more</button></div>
     </div>
-    <aside class="og-panel hidden" id="aca-ogPanel" aria-label="Organization details"></aside>`;
+    <aside class="og-panel hidden" id="aca-ogPanel" aria-label="Partner details"></aside>`;
 
   // ---------------------------------------------------------------- data
   async function load(force) {
@@ -471,9 +488,13 @@
         fillTowns();
         render();
         if (initialOpen && !openId && byId.has(initialOpen) && !load.didInitial) { load.didInitial = true; openOrg(initialOpen); }
-        if (!load.didGroup) { load.didGroup = true; const g = groupInHash(); if (g) setGroup(g, true); }
+        if (!load.didGroup) {
+          load.didGroup = true; const g = groupInHash();
+          // Admins open on the Clients view (2026-10-24); a group in the address still wins
+          if (g) setGroup(g, true); else if (ACCESS.is_admin && !/orgs\/everyone/i.test(location.hash)) setGroup("clients", true);
+        }
       } catch (e) {
-        el("ogErr").textContent = "Could not load organizations: " + cleanErr(e);
+        el("ogErr").textContent = "Could not load partners: " + cleanErr(e);
         el("ogErr").classList.remove("hidden");
       } finally { loading = null; }
     })();
@@ -570,6 +591,8 @@
     last: (o) => lastAt(o),
     result: (o) => o.last_result || "￿",
     next: (o) => nextAt(o),
+    lastjob: (o) => o.last_job_at || null,
+    nextjob: (o) => o.next_job_at || null,
   };
   // next action = the earlier of a follow-up date and the next scheduled email (triggers keep next_action_at)
   // "Last" = the most recent contact of any kind: an email, or (for clients) a picture day
@@ -672,15 +695,22 @@
       if (span) span.textContent = n ? `(${n})` : "";
     });
     el("ogFlags").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(st.flag === b.dataset.flag)));
-    el("ogHead").querySelectorAll("th[data-k]").forEach((th) => {
+    // Clients view (2026-10-24): the columns a client needs: main contact, last and next picture day
+    const cl = st.group === "clients";
+    const LABEL = { name: "Partner", stage: "Stage", sports: "Sports", county: "County", contacts: cl ? "Main contact" : "Contacts",
+      last: cl ? "Last picture day" : "Last", result: cl ? "Next picture day" : "Result", next: "Next up" };
+    el("ogHead").querySelectorAll("th[data-b]").forEach((th) => {
+      const b = th.dataset.b;
+      th.dataset.k = cl && b === "last" ? "lastjob" : cl && b === "result" ? "nextjob" : b;
       const on = th.dataset.k === st.sort.key;
-      th.innerHTML = th.textContent.replace(/[▲▼]/g, "").trim() + (on ? `<span class="arr">${st.sort.dir > 0 ? "&#9650;" : "&#9660;"}</span>` : "");
+      th.innerHTML = esc(LABEL[b]) + (on ? `<span class="arr">${st.sort.dir > 0 ? "&#9650;" : "&#9660;"}</span>` : "");
     });
+    const jobDay = (d) => d ? esc(fmtDay(new Date(d + "T12:00:00").toISOString())) : "";
     const rows = list.slice(0, shown);
     el("ogBody").innerHTML = rows.length ? rows.map((o) => {
       const sub = [o.audience === "school" ? "School" : "League", spText(o), o.name_known === false ? "name from email handle" : ""].filter(Boolean).join(" \u00b7 ");
       const flags = ((o.services || []).includes("action") ? '<span class="pill accent og-flag" title="We shoot action for them">Action</span>' : "") + (o.needs_new_contact ? '<span class="pill err og-flag">Needs contact</span>' : "") +
-        (readyOrgs.has(o.id) ? '<span class="pill warn og-flag">Ready to send</span>' : "");
+        (readyOrgs.has(o.id) ? '<span class="pill warn og-flag">Waiting for your OK</span>' : "");
       const mmeta = [(o.sports || []).join(", "), o.county ? o.county + (o.town ? " (" + o.town + ")" : "") : o.town, o.last_result, spText(o)].filter(Boolean).join(" \u00b7 ");
       return `<tr class="og-row${o.id === openId ? " open" : ""}" data-id="${esc(o.id)}">
         <td class="c-ck"><input type="checkbox" class="og-ck" ${selected.has(o.id) ? "checked" : ""} aria-label="Select ${esc(o.name)}" /></td>
@@ -690,16 +720,25 @@
         <td class="c-sports"><div class="og-cell" title="${esc((o.sports || []).join(", "))}">${esc((o.sports || []).join(", ")) || '<span class="muted">&mdash;</span>'}</div><div class="og-sub" title="${esc(monthsText(o) ? "Shoots: " + monthsText(o) : "")}">${esc(monthsText(o) || (o.seasons || []).join(", "))}</div></td>
         <td class="c-town"><div class="og-cell">${o.county ? esc(o.county) : '<span class="muted">&mdash;</span>'}</div>${o.town ? `<div class="og-sub" title="${esc(o.town)}">${esc(o.town)}</div>` : ""}</td>
         <td class="og-cell c-ct">${contactsCell(o)}</td>
-        <td class="og-cell c-last" title="${esc(o.last_job_at && lastAt(o) === new Date(o.last_job_at + "T12:00:00").getTime() ? "Last picture day" : "Last email")}">${lastAt(o) ? esc(fmtDay(new Date(lastAt(o)).toISOString())) : '<span class="muted">Never</span>'}</td>
-        <td class="og-cell c-res">${esc(o.last_result || "")}</td>
+        ${cl ? `<td class="og-cell c-last" title="Last picture day">${jobDay(o.last_job_at) || '<span class="muted">None yet</span>'}</td>
+        <td class="og-cell c-res" title="Next picture day">${jobDay(o.next_job_at) || '<span class="muted">Not booked</span>'}</td>`
+    : `<td class="og-cell c-last" title="${esc(o.last_job_at && lastAt(o) === new Date(o.last_job_at + "T12:00:00").getTime() ? "Last picture day" : "Last email")}">${lastAt(o) ? esc(fmtDay(new Date(lastAt(o)).toISOString())) : '<span class="muted">Never</span>'}</td>
+        <td class="og-cell c-res">${esc(o.last_result || "")}</td>`}
         <td class="c-next">${nextCell(o)}</td></tr>`;
-    }).join("") : `<tr><td colspan="9" class="empty">${loaded ? "Nothing matches. Try clearing the filters." : "Loading&hellip;"}</td></tr>`;
+    }).join("") : `<tr><td colspan="9" class="empty">${loaded ? emptyText() : "Loading&hellip;"}</td></tr>`;
     el("ogMoreWrap").classList.toggle("hidden", list.length <= shown);
     el("ogMore").textContent = `Show ${Math.min(PAGE, list.length - shown)} more`;
     el("ogAll").checked = rows.length > 0 && rows.every((o) => selected.has(o.id));
     renderBulk();
     syncMobile();
     renderActive();
+  }
+  // With nothing filtered, an empty group says what belongs in it instead of "clear the filters" (2026-10-24)
+  function emptyText() {
+    if (st.q || filtersActive()) return "Nothing matches. Try clearing the filters.";
+    if (st.group === "clients") return "No clients yet. A partner shows up here once they book a picture day.";
+    const g = GROUP_OF[st.group];
+    return g && g[0] ? `No partners in ${esc(g[1])} right now.` : "No partners yet. Use + Add partner to add the first one.";
   }
   function renderBulk() {
     el("ogBulk").classList.toggle("hidden", !selected.size);
@@ -745,10 +784,11 @@
     if (b.dataset.clear === "county") st.towns = [];
     shown = PAGE; syncControls(); render();
   });
-  el("ogFClose").addEventListener("click", () => { el("ogFSel").classList.remove("open"); el("ogFToggle").setAttribute("aria-expanded", "false"); });
+  el("ogFClose").addEventListener("click", () => { el("ogFSel").classList.remove("open"); el("ogFToggle").setAttribute("aria-expanded", "false"); panelEl.classList.remove("og-fopen"); });
   el("ogFToggle").addEventListener("click", () => {
     const open = !el("ogFSel").classList.contains("open");
     el("ogFSel").classList.toggle("open", open); el("ogFToggle").setAttribute("aria-expanded", String(open));
+    panelEl.classList.toggle("og-fopen", open);
   });
   el("ogSortM").addEventListener("change", () => {
     const [k, d] = el("ogSortM").value.split(":"); st.sort = { key: k, dir: +d }; render();
@@ -853,7 +893,7 @@
     const stage = el("ogBulkStage").value, sport = el("ogBulkSport").value.trim().toLowerCase(), fu = el("ogBulkFu").value;
     if (!stage && !sport && !fu) { toast("Pick a stage, a sport, or a follow-up date first", true); return; }
     const parts = [stage && `set stage to ${STAGE_NAME[stage]}`, sport && `add "${sport}"`, fu && `set a follow-up for ${fmtDay(fu)}`].filter(Boolean);
-    if (!confirm(`For ${ids.length} organization${ids.length === 1 ? "" : "s"}: ${parts.join(", ")}?`)) return;
+    if (!confirm(`For ${ids.length} partner${ids.length === 1 ? "" : "s"}: ${parts.join(", ")}?`)) return;
     const btn = el("ogBulkGo"); btn.disabled = true;
     try {
       for (let i = 0; i < ids.length; i += 100) {
@@ -872,7 +912,7 @@
           const { error } = await sb.from("prospect_followups").insert(rows); if (error) throw error;
         }
       }
-      toast(`Updated ${ids.length} organization${ids.length === 1 ? "" : "s"}`);
+      toast(`Updated ${ids.length} partner${ids.length === 1 ? "" : "s"}`);
       selected.clear();
       el("ogBulkStage").value = ""; el("ogBulkSport").value = ""; el("ogBulkFu").value = "";
       await load(true);
@@ -883,13 +923,13 @@
   // approve selected: schedule the held (review) outreach of the ticked orgs, sequences and quick drafts alike (2026-10-17)
   el("ogBulkApprove").addEventListener("click", async () => {
     const ids = [...selected].filter((id) => readyOrgs.has(id));
-    if (!ids.length) { toast("None of the ticked organizations has an email waiting for review", true); return; }
+    if (!ids.length) { toast("None of the ticked partners has an email waiting for review", true); return; }
     const { data, error } = await sb.from("prospect_scheduled_emails").select("id,org_id,enrollment_id").eq("status", "held").eq("needs_review", true).in("org_id", ids);
     if (error) { toast(cleanErr(error), true); return; }
     const enrs = [...new Set((data || []).filter((r) => r.enrollment_id).map((r) => r.enrollment_id))];
     const quick = (data || []).filter((r) => !r.enrollment_id).map((r) => r.id);
     const names = ids.map((id) => (byId.get(id) || {}).name).filter(Boolean);
-    if (!confirm(`Approve outreach for ${ids.length} organization${ids.length === 1 ? "" : "s"}? ${enrs.length} sequence${enrs.length === 1 ? "" : "s"}${quick.length ? ` and ${quick.length} quick email${quick.length === 1 ? "" : "s"}` : ""}. First emails go out in the next send window.\n\n${names.join(", ")}`)) return;
+    if (!confirm(`Approve outreach for ${ids.length} partner${ids.length === 1 ? "" : "s"}? ${enrs.length} sequence${enrs.length === 1 ? "" : "s"}${quick.length ? ` and ${quick.length} quick email${quick.length === 1 ? "" : "s"}` : ""}. First emails go out in the next send window.\n\n${names.join(", ")}`)) return;
     const btn = el("ogBulkApprove"); btn.disabled = true;
     let ok = 0;
     try {
@@ -900,12 +940,12 @@
     } finally { btn.disabled = false; }
   });
 
-  // quick email: one message to the ticked orgs' main contacts (or everyone); drafts wait in Ready to send
+  // quick email: one message to the ticked orgs' main contacts (or everyone); drafts wait in the Outbox
   el("ogBulkMail").addEventListener("click", () => openQuickMail([...selected]));
   async function openQuickMail(ids) {
     if (!ids.length) return;
     modal(`
-      <h2>Email ${ids.length} organization${ids.length === 1 ? "" : "s"}</h2>
+      <h2>Email ${ids.length} partner${ids.length === 1 ? "" : "s"}</h2>
       <div class="og-grid">
         <label>Send to</label><div class="og-qwho"><label><input type="radio" name="aca-ogQWho" value="main" checked /> Main contacts</label><label><input type="radio" name="aca-ogQWho" value="all" /> Everyone at the org</label></div>
         <label for="aca-ogQSubj">Subject</label><input type="text" id="aca-ogQSubj" placeholder="Spring picture day for {{league|your league}}" />
@@ -914,7 +954,7 @@
       ${snippetPicker("ogQBody")}
       <textarea id="aca-ogQBody" class="og-edbody" placeholder="{{hi|Hi there}},&#10;&#10;&hellip;"></textarea>
       <p class="og-sub" style="white-space:normal;margin:4px 0 12px">Fill-ins: <code>{{hi|Hi there}}</code> (Hi + first name), <code>{{first_name}}</code>, <code>{{league|your league}}</code>, <code>{{town}}</code>, <code>{{sport}}</code>, <code>{{quote}}</code> (a matching testimonial). Text after <code>|</code> is used when it's blank. ${esc(SIG_NOTE)}</p>
-      <p class="og-sub" style="white-space:normal;margin:0 0 12px"><strong>Nothing sends yet.</strong> One draft per person lands in Ready to send. Approving them sends in the next send window and moves new and no-reply orgs to Prospecting (clients stay Clients).</p>
+      <p class="og-sub" style="white-space:normal;margin:0 0 12px"><strong>Nothing sends yet.</strong> One draft per person waits in the Outbox for your OK. Approving them sends in the next send window and moves new and no-reply orgs to Prospecting (clients stay Clients).</p>
       <div id="aca-ogQErr" class="inline-error hidden" style="margin:0 0 12px"></div>
       <div class="og-actions"><button type="button" class="primary" data-v="go" disabled>Create drafts</button><button type="button" data-v="close">Cancel</button></div>`, true);
     const box = modal.last;
@@ -928,7 +968,7 @@
       last = data;
       const sk = data.skipped || [];
       const why = {}; sk.forEach((x) => { (why[x.why] = why[x.why] || []).push(x.name); });
-      el("ogQCount").innerHTML = `<strong>${num(data.emails)} email${data.emails === 1 ? "" : "s"} to ${num(data.orgs)} organization${data.orgs === 1 ? "" : "s"}</strong>` +
+      el("ogQCount").innerHTML = `<strong>${num(data.emails)} email${data.emails === 1 ? "" : "s"} to ${num(data.orgs)} partner${data.orgs === 1 ? "" : "s"}</strong>` +
         (sk.length ? ` &middot; ${sk.length} skipped <details class="og-qskip"><summary>why</summary>${Object.entries(why).map(([w, ns]) =>
           `<div><strong>${esc(w)} (${ns.length}):</strong> ${esc(ns.join(", "))}</div>`).join("")}</details>` : "");
       box.querySelector('[data-v="go"]').disabled = !data.emails;
@@ -946,7 +986,7 @@
       if (error) { b.disabled = false; return err(cleanErr(error)); }
       box.close(true);
       selected.clear();
-      toast(`${data.emails} draft${data.emails === 1 ? "" : "s"} waiting in Ready to send`);
+      toast(`${data.emails} draft${data.emails === 1 ? "" : "s"} waiting in the Outbox`);
       await load(true); loadReady(true); loadAttention();
     });
   }
@@ -957,11 +997,15 @@
     const wrap = document.createElement("div");
     wrap.className = "og-modal-wrap";
     wrap.innerHTML = `<div class="og-modal" role="dialog" aria-modal="true" aria-labelledby="aca-ogAddTitle">
-      <h2 id="aca-ogAddTitle">Add an organization</h2>
+      <h2 id="aca-ogAddTitle">Add a partner</h2>
       <div class="field"><label for="aca-ogNewName">Name</label><input type="text" id="aca-ogNewName" autocomplete="off" /></div>
       <div class="field"><label for="aca-ogNewAud">Type</label><select id="aca-ogNewAud"><option value="league">League</option><option value="school">School</option></select></div>
       <div class="field"><label for="aca-ogNewSport">Sports (comma separated)</label><input type="text" id="aca-ogNewSport" list="aca-ogSports" autocomplete="off" /></div>
       <div class="field"><label for="aca-ogNewTown">Town</label><input type="text" id="aca-ogNewTown" autocomplete="off" /></div>
+      <div class="field"><label for="aca-ogNewFirst">Main contact (optional)</label>
+        <div class="og-grid2"><input type="text" id="aca-ogNewFirst" placeholder="First name" aria-label="Contact first name" autocomplete="off" />
+        <input type="text" id="aca-ogNewLast" placeholder="Last name" aria-label="Contact last name" autocomplete="off" /></div>
+        <input type="email" id="aca-ogNewEmail" placeholder="email@example.org" aria-label="Contact email" autocomplete="off" style="margin-top:6px" /></div>
       <div id="aca-ogNewErr" class="inline-error hidden" style="margin:0 0 12px"></div>
       <div class="og-actions"><button type="button" class="primary" data-v="1">Add and open</button><button type="button" data-v="0">Cancel</button></div></div>`;
     const close = () => { document.removeEventListener("keydown", onKey); wrap.remove(); };
@@ -973,23 +1017,47 @@
       const name = el("ogNewName").value.trim();
       const err = (m) => { el("ogNewErr").textContent = m; el("ogNewErr").classList.remove("hidden"); };
       if (!name) return err("Give it a name.");
+      const email = el("ogNewEmail").value.trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err("That email doesn't look right.");
       const dupe = orgs.find((o) => o.name.toLowerCase() === name.toLowerCase());
-      if (dupe) { close(); toast("That organization is already here"); openOrg(dupe.id); return; }
+      if (dupe) { close(); toast("That partner is already here"); openOrg(dupe.id); return; }
       b.disabled = true;
-      const sports = el("ogNewSport").value.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      const { data, error } = await sb.from("prospect_orgs").insert({ name, audience: el("ogNewAud").value, sports,
-        town: el("ogNewTown").value.trim() || null, source: "Organizations tab" }).select("id").single();
-      b.disabled = false;
-      if (error) return err(cleanErr(error));
-      close();
-      await reloadOrg(data.id);
-      openOrg(data.id);
+      try {
+        const id = await quickAdd({ name, audience: el("ogNewAud").value, town: el("ogNewTown").value.trim(),
+          sports: el("ogNewSport").value.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+          contact: { first_name: el("ogNewFirst").value.trim(), last_name: el("ogNewLast").value.trim(), email } });
+        close();
+        openOrg(id);
+      } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
     });
     document.addEventListener("keydown", onKey);
     document.querySelector(".aca").appendChild(wrap);
     Places.attach(el("ogNewTown"), { kind: "town" });
     el("ogNewName").focus();
   });
+
+  // Adds a partner (and, when given, its main contact) and resolves to the new id; an existing partner with the
+  // same name resolves to that one's id instead. Other pages (Bookings, Today) call it as Orgs.quickAdd (2026-10-24).
+  async function quickAdd(opt) {
+    opt = opt || {};
+    const name = String(opt.name || "").trim();
+    if (!name) throw new Error("Give the partner a name.");
+    if (!loaded) await load();
+    const dupe = orgs.find((o) => o.name.toLowerCase() === name.toLowerCase());
+    if (dupe) return dupe.id;
+    const { data, error } = await sb.from("prospect_orgs").insert({ name, audience: opt.audience === "school" ? "school" : "league",
+      sports: opt.sports || [], town: (opt.town || "").trim() || null, source: opt.source || "Partners tab" }).select("id").single();
+    if (error) throw error;
+    const c = opt.contact || {};
+    const email = String(c.email || "").trim();
+    if (email) {
+      const r = await sb.from("prospect_contacts").insert({ org_id: data.id, first_name: (c.first_name || "").trim() || null,
+        last_name: (c.last_name || "").trim() || null, email, is_primary: true });
+      if (r.error) toast("Partner added, but the contact was not: " + cleanErr(r.error), true);
+    }
+    await reloadOrg(data.id);
+    return data.id;
+  }
 
   // ---------------------------------------------------------------- side panel
   const panel = el("ogPanel");
@@ -1028,12 +1096,12 @@
     if (!id) return;
     location.hash = "#partners/org/" + id;
   }
-  let inline = false;
+  let inline = false, detailsOpen = false, linked = null;
   const panelHome = panel.parentNode;
   async function embed(id, box) {
     await load(false);
     if (!byId.has(id)) await reloadOrg(id);
-    inline = true;
+    inline = true; detailsOpen = false; linked = null;
     openId = id;
     box.appendChild(panel);
     panel.classList.add("og-inline");
@@ -1078,6 +1146,7 @@
       panelData = { id, contacts: c.data || [], status: new Map((cs.data || []).map((s) => [s.contact_id, s])),
         acts: a.data || [], fus: f.data || [], enr: p.data || [], emails: m.data || [] };
       renderPanel();
+      if (inline && !linked) loadLinked(id).then((l) => { if (openId === id && inline) { linked = l; renderPanel(); } }, () => {});
     } catch (e) {
       if (openId === id) panel.innerHTML = `<div class="og-pbody"><div class="inline-error" style="margin:16px 0">Could not load: ${esc(cleanErr(e))}</div><button type="button" class="small" data-act="close">Close</button></div>`;
     }
@@ -1088,34 +1157,23 @@
     if (!o || !d) return;
     const i = visible.findIndex((x) => x.id === o.id);
     const cById = new Map(d.contacts.map((c) => [c.id, c]));
-    panel.innerHTML = `
-      <div class="og-phead">
+    // On the partner page (inline) the name is the page heading, so the panel drops its own name field and arrows;
+    // Contacts come first and the details sit behind "Edit details" (2026-10-24).
+    const top = `
         <div class="og-ptop">
-          <input class="og-title" data-f="name" value="${esc(o.name)}" aria-label="Organization name" />
+          <input class="og-title" data-f="name" value="${esc(o.name)}" aria-label="Partner name" />
           <div class="og-pnav">
             <button type="button" class="small" data-act="prev" ${i <= 0 ? "disabled" : ""} title="Previous (up arrow)" aria-label="Previous">&#9650;</button>
             <button type="button" class="small" data-act="next" ${i < 0 || i >= visible.length - 1 ? "disabled" : ""} title="Next (down arrow)" aria-label="Next">&#9660;</button>
             <button type="button" class="small" data-act="history" title="Who changed what">History</button>
             <button type="button" class="small" data-act="close" title="Close (Esc)" aria-label="Close">&#10005;</button>
           </div>
-        </div>
-        <div class="og-pmeta">
-          <select data-f="stage" aria-label="Stage">${STAGES.map((s) => `<option value="${s[0]}" ${s[0] === o.stage ? "selected" : ""}>${s[1]}</option>`).join("")}</select>
-          ${o.needs_new_contact ? '<span class="pill err">Needs a new contact</span>' : ""}
-          ${o.next_action ? `<span class="muted">Next: <strong>${esc(o.next_action_at ? fmtDay(o.next_action_at) : "")}</strong> ${esc(o.next_action)}</span>` : ""}
-        </div>
-        <div class="og-actions">
-          <button type="button" class="small primary" data-act="enroll">Enroll</button>
-          <button type="button" class="small" data-act="email">Email someone</button>
-          <button type="button" class="small" data-act="note">Add note</button>
-          <button type="button" class="small" data-act="fu">Follow-up</button>
-          <button type="button" class="small" data-act="addc">Add contact</button>
-        </div>
-      </div>
-      <div class="og-pbody">
-        <div class="og-sec">
-          <h3>Details</h3>
+        </div>`;
+    const sec = { details: `
+        <div class="og-sec og-details${inline && !detailsOpen ? " hidden" : ""}" id="aca-ogDetails">
+          <h3>Details${inline ? ' <button type="button" class="small" data-act="details">Done</button>' : ""}</h3>
           <div class="og-grid">
+            ${inline ? '<label>Name</label><input type="text" data-f="name" value="' + esc(o.name) + '" aria-label="Partner name" />' : ""}
             <label>Type</label><select data-f="audience"><option value="league" ${o.audience === "league" ? "selected" : ""}>League</option><option value="school" ${o.audience === "school" ? "selected" : ""}>School</option></select>
             ${o.audience === "school" ? `<label>School photos</label><div class="og-sp">
               <select data-f="sp_status" aria-label="School photos status"><option value="">Not set</option>${SP.map((x) => `<option value="${x[0]}" ${o.sp_status === x[0] ? "selected" : ""}>${x[1]}</option>`).join("")}</select>
@@ -1139,27 +1197,166 @@
               ? `<div class="og-sub" style="white-space:normal">GotPhoto names: ${esc(o.gotphoto_names.join(", "))}</div>` : ""}</span>` : ""}
             <label>Source</label><span class="muted">${esc([o.source, "added " + fmtDay(o.created_at)].filter(Boolean).join(" \u00b7 "))}</span>
           </div>
-        </div>
+        </div>`, contacts: `
         <div class="og-sec">
           <h3>Contacts <span>${d.contacts.length}</span></h3>
-          ${contactsHtml(d)}
-        </div>
+          ${contactsHtml(d)}${inline ? linkedHtml() : ""}
+        </div>`, emails: `
         <div class="og-sec">
           <h3>Emails</h3>
           ${emailsHtml(d, cById)}
-        </div>
+        </div>`, fus: `
         <div class="og-sec" id="aca-ogFuSec">
           <h3>Follow-ups</h3>
           ${followupsHtml(d)}
-        </div>
+        </div>`, tl: `
         <div class="og-sec">
           <h3>Timeline <span class="og-tlf chips">${[["all", "All"], ["email", "Emails"], ["reply", "Replies"], ["note", "Notes"]].map((f) =>
             `<button type="button" data-tlf="${f[0]}" aria-pressed="${tlFilter === f[0]}">${f[1]}</button>`).join("")}</span></h3>
           <div class="og-note"><textarea id="aca-ogNoteText" placeholder="Add a note&hellip;"></textarea><button type="button" class="small" data-act="savenote">Save</button></div>
           ${timelineHtml(d, cById)}
+        </div>` };
+    const order = inline ? ["contacts", "details", "fus", "emails", "tl"] : ["details", "contacts", "emails", "fus", "tl"];
+    panel.innerHTML = `
+      <div class="og-phead">
+        ${inline ? "" : top}
+        <div class="og-pmeta">
+          <select data-f="stage" aria-label="Stage">${STAGES.map((s) => `<option value="${s[0]}" ${s[0] === o.stage ? "selected" : ""}>${s[1]}</option>`).join("")}</select>
+          ${o.needs_new_contact ? '<span class="pill err">Needs a new contact</span>' : ""}
+          ${o.next_action ? `<span class="muted">Next: <strong>${esc(o.next_action_at ? fmtDay(o.next_action_at) : "")}</strong> ${esc(o.next_action)}</span>` : ""}
         </div>
+        <div class="og-actions">
+          <button type="button" class="small primary" data-act="enroll">Enroll</button>
+          <button type="button" class="small" data-act="email">Email someone</button>
+          <button type="button" class="small" data-act="note">Add note</button>
+          <button type="button" class="small" data-act="fu">Follow-up</button>
+          <button type="button" class="small" data-act="addc">Add contact</button>
+          ${inline ? `<button type="button" class="small" data-act="details" aria-expanded="${detailsOpen}">Edit details</button>` : ""}
+        </div>
+      </div>
+      <div class="og-pbody">
+${order.map((k) => sec[k]).join("")}
       </div>`;
     const town = panel.querySelector('input[data-f="town"]'); if (town) Places.attach(town, { kind: "town" });
+  }
+
+  // ---------------------------------------------------------------- one contacts list on the partner page (2026-10-24)
+  // Four places hold people for a partner: these contacts, the contacts picked on each booking (booking emails),
+  // the hub's send-day reminder list, and the coaches captured on a booking. The partner page shows them in one list
+  // with labels; adding or removing writes to the place that owns it (no merge of the stores).
+  async function loadLinked(id) {
+    const o = byId.get(id), name = ((o && o.name) || "").toLowerCase();
+    const out = { booking: new Map(), hub: [], coaches: [], bookings: [], hubAdd: [] };
+    let bks = [];
+    if (canSee("bookings")) {
+      const { data } = await sb.rpc("admin_bookings", { p_from: "2000-01-01", p_to: null });
+      bks = (data || []).filter((b) => b.org_id === id && b.status !== "cancelled");
+    }
+    const since = new Date(Date.now() - 120 * 864e5).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const live = bks.filter((b) => b.status === "booked" && String(b.picture_day || "") >= since)
+      .sort((a, b) => String(a.picture_day || "").localeCompare(String(b.picture_day || "")));
+    out.bookings = live.map((b) => ({ id: b.id, title: b.title_label || b.title || "Job" }));
+    live.forEach((b) => (b.contacts || []).forEach((c) => { if (!out.booking.has(c.id)) out.booking.set(c.id, []); out.booking.get(c.id).push(b.title_label || b.title || "a job"); }));
+    if (canSee("bookings") && live.length) {
+      const det = await Promise.all(live.slice(0, 4).map((b) => sb.rpc("admin_booking_detail", { p_id: b.id }).then((r) => r.data, () => null)));
+      det.forEach((d, i) => d && (d.coaches || []).forEach((c) => out.coaches.push({ id: c.id, email: c.email, name: c.name || "", job: out.bookings[i].title, booking: live[i].id })));
+    }
+    if (canSee("hub")) {
+      const { data } = await sb.rpc("admin_hub_activity");
+      const keys = new Set();
+      bks.forEach((b) => { if (b.gotphoto_job_id) keys.add("sports:" + b.gotphoto_job_id); if (b.hub_school_id) keys.add("school:" + b.hub_school_id); });
+      const booked = new Set(); live.forEach((b) => { if (b.gotphoto_job_id) booked.add("sports:" + b.gotphoto_job_id); if (b.hub_school_id) booked.add("school:" + b.hub_school_id); });
+      (data || []).filter((x) => keys.has(x.hub + ":" + x.org_id) || (x.org || "").toLowerCase() === name).forEach((x) => {
+        // Rows with a booking send reminders to the booking's contacts; hand-added ones are for older hub rows.
+        if (!booked.has(x.hub + ":" + x.org_id)) out.hubAdd.push({ hub: x.hub, org_id: x.org_id, org: x.org });
+        (x.watchers || []).forEach((w) => out.hub.push({ id: w.id, hub: x.hub, email: w.email, name: w.name || "", org: x.org }));
+      });
+    }
+    return out;
+  }
+  function contactLabels(c) {
+    if (!linked) return "";
+    const L = [];
+    if (linked.booking.has(c.id)) L.push(`<span class="pill ok og-lbl" title="${esc("Picked on " + linked.booking.get(c.id).join(", "))}">gets booking emails</span>`);
+    if (linked.hub.some((w) => (w.email || "").toLowerCase() === (c.email || "").toLowerCase())) L.push('<span class="pill accent og-lbl">gets hub reminders</span>');
+    if (linked.coaches.some((w) => (w.email || "").toLowerCase() === (c.email || "").toLowerCase())) L.push('<span class="pill muted og-lbl">coach</span>');
+    return L.length ? " " + L.join(" ") : "";
+  }
+  function linkedHtml() {
+    if (!linked) return '<p class="og-sub" style="white-space:normal;margin:8px 0 0">Checking booking emails, hub reminders and coaches&hellip;</p>';
+    const known = new Set(panelData.contacts.map((c) => (c.email || "").toLowerCase()));
+    const ed = canEdit("hub"), edB = canEdit("bookings");
+    const rows = [];
+    linked.hub.filter((w) => !known.has((w.email || "").toLowerCase())).forEach((w) => rows.push(`<tr><td colspan="2"><div><strong>${esc(w.name || w.email)}</strong> <span class="pill accent og-lbl">gets hub reminders</span></div>
+      <div class="og-sub">${esc(w.email)}${w.org ? " &middot; " + esc(w.org) : ""}</div></td><td></td>
+      <td>${ed ? `<button type="button" class="small" data-act="lrmhub" data-hub="${esc(w.hub)}" data-wid="${esc(w.id)}" data-email="${esc(w.email)}" title="Stop reminders for ${esc(w.email)}">Remove</button>` : ""}</td></tr>`));
+    const seenCoach = new Set();
+    linked.coaches.forEach((c) => {
+      const k = (c.email || "").toLowerCase() + "|" + c.booking; if (seenCoach.has(k)) return; seenCoach.add(k);
+      rows.push(`<tr><td colspan="2"><div><strong>${esc(c.name || c.email)}</strong> <span class="pill muted og-lbl">coach</span></div>
+        <div class="og-sub">${esc(c.email)} &middot; ${esc(c.job)}</div></td><td></td>
+        <td>${edB ? `<button type="button" class="small" data-act="lrmcoach" data-coach="${esc(c.id)}" data-email="${esc(c.email)}" title="Stop coach emails for ${esc(c.email)}">Remove</button>` : ""}</td></tr>`);
+    });
+    const adds = [];
+    if (edB && linked.bookings.length) adds.push(`<button type="button" class="link" data-act="laddcoach">+ Add coach emails</button>`);
+    if (ed && linked.hubAdd.length) adds.push(`<button type="button" class="link" data-act="laddhub">+ Add a hub reminder contact</button>`);
+    if (!rows.length && !adds.length) return "";
+    return `<div class="og-linked"><div class="og-sub" style="white-space:normal;margin:12px 0 4px">Also getting emails for ${esc((byId.get(openId) || {}).name || "this partner")}: hub reminder contacts and coaches from their jobs.</div>
+      ${rows.length ? `<table class="og-ctab"><tbody>${rows.join("")}</tbody></table>` : ""}
+      <div class="og-actions" style="margin-top:6px">${adds.join(" ")}</div>
+      <div class="og-ladd hidden" id="aca-ogLAdd"></div></div>`;
+  }
+  async function linkedClick(b) {
+    const act = b.dataset.act, box = el("ogLAdd");
+    const again = async () => { linked = await loadLinked(openId).catch(() => linked); renderPanel(); };
+    if (act === "lrmhub") {
+      if (!confirm("Stop hub reminder emails for " + b.dataset.email + "?")) return;
+      b.disabled = true;
+      const { data, error } = await sb.rpc("admin_hub_watcher_remove", { p_hub: b.dataset.hub, p_id: b.dataset.wid });
+      if (error || !(data && data.ok)) { b.disabled = false; toast("Could not remove: " + (error ? cleanErr(error) : (data && data.error) || "not found"), true); return; }
+      toast(b.dataset.email + " will not get reminders."); return again();
+    }
+    if (act === "lrmcoach") {
+      if (!confirm("Stop coach emails for " + b.dataset.email + "?")) return;
+      b.disabled = true;
+      const { data, error } = await sb.rpc("booking_coach_remove", { p_id: b.dataset.coach });
+      if (error || (data && data.ok === false)) { b.disabled = false; toast(error ? cleanErr(error) : data.error, true); return; }
+      toast("Removed. Paste them on the job to add them back."); return again();
+    }
+    if (act === "laddcoach") {
+      box.classList.remove("hidden");
+      box.innerHTML = `<div class="og-cgrid">${linked.bookings.length > 1 ? `<label class="wide"><span>Job</span><select id="aca-ogLJob">${linked.bookings.map((x) => `<option value="${esc(x.id)}">${esc(x.title)}</option>`).join("")}</select></label>` : ""}
+        <label class="wide"><span>Coach emails (paste any text with addresses in it)</span><textarea id="aca-ogLText" rows="2"></textarea></label>
+        <div class="og-cgrid-foot"><button type="button" class="link" data-act="lcancel">Cancel</button><button type="button" class="small primary" data-act="lsavecoach">Add coaches</button></div></div>`;
+      el("ogLText").focus(); return;
+    }
+    if (act === "laddhub") {
+      box.classList.remove("hidden");
+      box.innerHTML = `<div class="og-cgrid">${linked.hubAdd.length > 1 ? `<label class="wide"><span>Hub</span><select id="aca-ogLHub">${linked.hubAdd.map((x, i) => `<option value="${i}">${esc(x.org)} (${x.hub === "school" ? "school hub" : "sports hub"})</option>`).join("")}</select></label>` : ""}
+        <label><span>Name</span><input id="aca-ogLName" /></label><label><span>Email</span><input id="aca-ogLEmail" placeholder="email@example.org" /></label>
+        <div class="og-cgrid-foot"><button type="button" class="link" data-act="lcancel">Cancel</button><button type="button" class="small primary" data-act="lsavehub">Add contact</button></div></div>`;
+      el("ogLEmail").focus(); return;
+    }
+    if (act === "lcancel") { box.classList.add("hidden"); box.innerHTML = ""; return; }
+    if (act === "lsavecoach") {
+      const text = el("ogLText").value.trim(); if (!text) return toast("Paste at least one email first.", true);
+      const booking = el("ogLJob") ? el("ogLJob").value : linked.bookings[0].id;
+      b.disabled = true;
+      const { data, error } = await sb.rpc("booking_coaches_add", { p_booking: booking, p_text: text, p_source: "manual" });
+      b.disabled = false;
+      if (error) return toast(cleanErr(error), true);
+      toast(data && data.added ? "Added " + data.added + " coach email" + (data.added === 1 ? "" : "s") + "." : "Nothing new. Our own addresses, no-reply senders and this partner's contacts are left out.", !(data && data.added));
+      return again();
+    }
+    if (act === "lsavehub") {
+      const email = el("ogLEmail").value.trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Add a valid email", true);
+      const t = linked.hubAdd[el("ogLHub") ? Number(el("ogLHub").value) : 0];
+      b.disabled = true;
+      const { data, error } = await sb.rpc("admin_hub_watcher_add", { p_hub: t.hub, p_org_id: t.org_id, p_email: email, p_name: el("ogLName").value.trim() || null });
+      b.disabled = false;
+      if (error || !(data && data.ok)) return toast("Could not add: " + (error ? cleanErr(error) : (data && data.error) || "unknown error"), true);
+      toast(email + " will get the reminder emails."); return again();
+    }
   }
   function contactsHtml(d) {
     const rows = d.contacts.map((c) => {
@@ -1174,7 +1371,7 @@
         ["remove", "Remove"]];
       const fullName = [c.first_name, c.last_name].filter(Boolean).join(" ") || "(no name)";
       return `<tr data-cid="${esc(c.id)}">
-        <td class="og-cview" colspan="2"><div><strong>${esc(fullName)}</strong>${c.role ? ' <span class="muted">' + esc(c.role) + "</span>" : ""}</div>
+        <td class="og-cview" colspan="2"><div><strong>${esc(fullName)}</strong>${c.role ? ' <span class="muted">' + esc(c.role) + "</span>" : ""}${inline ? contactLabels(c) : ""}</div>
           <div class="og-sub">${esc(c.email)}${c.phone ? " \u00b7 " + esc(c.phone) : ""}</div></td>
 
         <td style="white-space:nowrap">${c.is_primary ? '<span class="pill accent" title="Emails go to the main contacts by default">&#9733; Main</span> ' : ""}<span class="pill ${chip[1]}">${esc(label)}</span>${c.history_only ? '<div class="og-sub" title="From your earlier email history. Not emailed by sequences unless you list them when enrolling.">history</div>' : ""}</td>
@@ -1369,7 +1566,7 @@
     return p;
   }
 
-  // Enroll this org in a sequence. Email 1 always waits in Ready to send.
+  // Enroll this org in a sequence. Email 1 always waits in the Outbox for your OK.
   async function openEnroll(o) {
     const { data: ranked, error: rErr } = await sb.rpc("prospect_sequence_rank", { p_org: o.id });
     if (rErr) { toast(cleanErr(rErr), true); return; }
@@ -1388,7 +1585,7 @@
         ${esc(who(c))}${c.role ? ` <span class="og-role">${esc(c.role)}</span>` : ""} <span class="muted">${esc(c.email)}${c.is_primary ? " &middot; main" : ""}${c.history_only ? " &middot; from earlier emails" : ""}</span></label>`).join("")}</div>
         <span class="og-sub" style="white-space:normal">Everyone ticked gets each email in the same send window, addressed to them. A reply from anyone stops them all.</span></div>
       <div class="field"><label for="aca-ogEnLine">Custom opening line (optional)</label><textarea id="aca-ogEnLine" rows="2" placeholder="Leave blank for the sequence's default opener">${esc(o.personal_line || "")}</textarea></div>
-      <p class="og-sub" style="white-space:normal;margin:0 0 12px">Nothing sends yet: email 1 waits in <strong>Ready to send</strong> so you can read and edit it first.</p>
+      <p class="og-sub" style="white-space:normal;margin:0 0 12px">Nothing sends yet: email 1 waits in the <strong>Outbox</strong> so you can read and edit it first.</p>
       <div id="aca-ogEnErr" class="inline-error hidden" style="margin:0 0 12px"></div>
       <div class="og-actions"><button type="button" class="primary" data-v="go">Create emails</button><button type="button" data-v="close">Cancel</button></div>`);
     const box = modal.last;
@@ -1408,7 +1605,7 @@
           p_personal_line: el("ogEnLine").value.trim() || null });
         if (error) throw error;
         box.close(true);
-        toast(`${data.emails} emails created. Email 1 is waiting in Ready to send.`);
+        toast(`${data.emails} emails created. Email 1 is waiting in the Outbox.`);
         await reloadOrg(o.id); await loadPanel(o.id); loadReady(true);
       } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
     });
@@ -1455,37 +1652,40 @@
     });
   }
 
-  // ---------------------------------------------------------------- Ready to send (sub-tab)
-  const readyEl = el("panel-ready");
-  readyEl.innerHTML = `
-    <div class="card">
-      <div class="card-head">
-        <div>
-          <h2>Ready to send</h2>
-          <p>First emails of new sequences wait here for your OK. Read them, edit anything, then approve. Approved emails go out in the next send window, and the rest of each sequence follows on its own.</p>
-        </div>
-        <div class="og-actions" style="align-items:center">
-          <button type="button" class="small" id="aca-ogPause">Pause sending</button>
-          <label class="og-track"><input type="checkbox" id="aca-ogTrack" /> Track opens</label>
-          <button type="button" class="small" id="aca-ogReadyRefresh">Refresh</button>
-          <button type="button" class="small primary" id="aca-ogApproveAll">Approve all shown</button>
-        </div>
+  // ---------------------------------------------------------------- Held outreach (2026-10-24: part of the Outbox)
+  // "Outreach to review" used to be its own tab. The same cards (who, subject, the whole email) now sit at the top of
+  // the Outbox (outbox.js calls mountHeld), with the Outbox's verbs: Approve and send / Edit / Don't send.
+  // #partners/ready still works: it opens the Outbox. Pause sending, test mode and open tracking live in Settings > Sending.
+  el("panel-ready").innerHTML = '<div class="card"><div class="empty">Outreach to review is part of the <a href="#partners/outbox">Outbox</a> now.</div></div>';
+  const heldEl = document.createElement("div");
+  heldEl.className = "og-held hidden";
+  heldEl.innerHTML = `
+      <div class="og-heldhead">
+        <div><h3>Waiting for your OK <span class="muted" id="aca-ogHeldN"></span></h3>
+          <p class="og-sub" style="white-space:normal">New outreach and follow-up emails wait here. Read them, edit anything, then approve. Approved emails go out in the next send window, and the rest of a sequence follows on its own.</p></div>
+        <div class="og-actions"><button type="button" class="small primary" id="aca-ogApproveAll">Approve all</button></div>
       </div>
       <div class="og-sendstate" id="aca-ogSendState"></div>
       <div id="aca-ogReadyErr" class="inline-error hidden" style="margin-top:12px"></div>
-      <div id="aca-ogReadyBody" class="og-ready"><div class="empty">Loading&hellip;</div></div>
-    </div>`;
+      <div id="aca-ogReadyBody" class="og-ready"></div>`;
+  const H = (id) => heldEl.querySelector("#aca-" + id);
   let readyRows = [];
   let readyContacts = new Map();
+  let heldOrg = "", heldFocus = "";
+  // Renders the held cards into box (the Outbox), only this organization's when org is set. Resolves to how many emails wait.
+  async function mountHeld(box, opts) {
+    opts = opts || {};
+    heldOrg = opts.org || ""; heldFocus = opts.focus || "";
+    if (heldEl.parentNode !== box) box.appendChild(heldEl);
+    await loadReady(true);
+    return shownHeld().length;
+  }
+  const shownHeld = () => readyRows.filter((r) => !heldOrg || r.org_id === heldOrg);
   async function loadReady(quiet) {
     try {
-      const [rows, sets] = await Promise.all([
-        sb.from("prospect_scheduled_emails").select("*").eq("status", "held").eq("needs_review", true).order("created_at"),
-        sb.from("prospect_settings").select("track_opens").maybeSingle(),
-      ]);
+      const rows = await sb.from("prospect_scheduled_emails").select("*").eq("status", "held").eq("needs_review", true).order("created_at");
       if (rows.error) throw rows.error;
       readyRows = rows.data || [];
-      el("ogTrack").checked = !sets.data || sets.data.track_opens !== false;
       const ids = [...new Set(readyRows.map((r) => r.contact_id))];
       readyContacts = new Map();
       if (ids.length) {
@@ -1495,62 +1695,66 @@
       if (!loaded) await load(false);
       renderReady();
       loadSendState();
-      el("ogReadyErr").classList.add("hidden");
+      H("ogReadyErr").classList.add("hidden");
     } catch (e) {
-      if (!quiet) { el("ogReadyErr").textContent = "Could not load: " + cleanErr(e); el("ogReadyErr").classList.remove("hidden"); }
+      readyRows = [];
+      renderReady();
+      if (!quiet) { H("ogReadyErr").textContent = "Could not load: " + cleanErr(e); H("ogReadyErr").classList.remove("hidden"); }
     }
   }
-  // a card per sequence, or per org for quick-email drafts (no sequence behind them)
+  // a card per sequence, or per org for single drafts (no sequence behind them)
   const readyKey = (r) => r.enrollment_id || "q:" + (r.batch_id || r.id) + ":" + r.org_id;
   function renderReady() {
     const byEnr = new Map();
-    readyRows.forEach((r) => { const k = readyKey(r); if (!byEnr.has(k)) byEnr.set(k, []); byEnr.get(k).push(r); });
-    el("ogApproveAll").disabled = !byEnr.size;
-    el("ogApproveAll").textContent = byEnr.size ? `Approve all ${byEnr.size}` : "Approve all shown";
-    el("ogReadyBody").innerHTML = byEnr.size ? [...byEnr.entries()].map(([enr, rows]) => {
-      const o = byId.get(rows[0].org_id) || { name: "(organization)" };
+    const all = new Set(readyRows.map(readyKey)).size;
+    shownHeld().forEach((r) => { const k = readyKey(r); if (!byEnr.has(k)) byEnr.set(k, []); byEnr.get(k).push(r); });
+    heldEl.classList.toggle("hidden", !byEnr.size);
+    H("ogHeldN").textContent = byEnr.size ? String(byEnr.size) : "";
+    H("ogApproveAll").textContent = byEnr.size > 1 ? `Approve all ${byEnr.size}` : "Approve all";
+    H("ogApproveAll").classList.toggle("hidden", byEnr.size < 2 || !canEdit("partners"));
+    const ed = canEdit("partners");
+    H("ogReadyBody").innerHTML = [...byEnr.entries()].map(([enr, rows]) => {
+      const o = byId.get(rows[0].org_id) || { name: "(partner)" };
       const first = rows[0];
-      return `<div class="og-rcard" data-enr="${esc(enr)}">
-        <div class="og-emh"><span><button type="button" class="link og-rname" data-openorg="${esc(first.org_id)}">${esc(o.name)}</button>
+      const focus = heldFocus && rows.some((r) => r.id === heldFocus || r.enrollment_id === heldFocus);
+      return `<div class="og-rcard${focus ? " og-focus" : ""}" data-enr="${esc(enr)}" data-ids="${esc(rows.map((r) => r.id).join(","))}">
+        <div class="og-emh"><span><a class="og-rname" href="#partners/org/${esc(first.org_id)}">${esc(o.name)}</a>
           <span class="muted" style="font-weight:400"> &middot; ${rows.map((r) => { const c = readyContacts.get(r.contact_id); return esc(who(c) + (c && c.role ? " (" + c.role + ")" : "")); }).join(", ")}</span></span>
-          <span class="muted" style="font-size:12px;font-weight:400">${first.enrollment_id ? "" : "quick email &middot; "}added ${esc(fmtDay(first.created_at))}</span></div>
+          <span class="muted" style="font-size:12px;font-weight:400">${first.enrollment_id ? "" : "single email &middot; "}added ${esc(fmtDay(first.created_at))}</span></div>
         <div class="og-rsubj">${esc(first.subject || "")}</div>
         <div class="og-rbody">${esc(first.body || "")}</div>
-        <div class="og-actions">
-          <button type="button" class="small primary" data-rgo="approve">Approve</button>
+        ${ed ? `<div class="og-actions">
+          <button type="button" class="small primary" data-rgo="approve">Approve and send</button>
           ${rows.map((r) => `<button type="button" class="small" data-redit="${esc(r.id)}">Edit${rows.length > 1 ? " (" + esc(who(readyContacts.get(r.contact_id))) + ")" : ""}</button>`).join("")}
-          <button type="button" class="small" data-rgo="stop">Don't send</button></div></div>`;
-    }).join("") : '<div class="today-clear" style="margin:16px"><strong>Nothing waiting.</strong> New enrollments show up here before anything sends.</div>';
-    setAttention("prospects", byEnr.size, byEnr.size === 1 ? "league waiting for your review" : "leagues waiting for your review", "ready", "warn");
+          <button type="button" class="small" data-rgo="stop">Don't send</button></div>` : ""}</div>`;
+    }).join("");
+    setAttention("prospects", all, all === 1 ? "league waiting for your review" : "leagues waiting for your review", "outbox", "warn");
+    const f = heldFocus && H("ogReadyBody").querySelector(".og-focus");
+    if (f && f.scrollIntoView) setTimeout(() => f.scrollIntoView({ block: "center" }), 50);
   }
-  el("ogReadyRefresh").addEventListener("click", () => loadReady());
-  el("ogTrack").addEventListener("change", async () => {
-    const v = el("ogTrack").checked;
-    const { error } = await sb.from("prospect_settings").update({ track_opens: v }).eq("id", true);
-    if (error) { toast(cleanErr(error), true); el("ogTrack").checked = !v; return; }
-    toast(v ? "Opens will be tracked on new sends" : "Open tracking off");
-  });
-  el("ogApproveAll").addEventListener("click", async () => {
-    const enrs = [...new Set(readyRows.filter((r) => r.enrollment_id).map((r) => r.enrollment_id))];
-    const quick = readyRows.filter((r) => !r.enrollment_id).map((r) => r.id);
-    const cards = new Set(readyRows.map(readyKey)).size;
-    if (!cards || !confirm(`Approve all ${cards}? ${quick.length ? `${quick.length} quick email${quick.length === 1 ? "" : "s"} and ` : ""}${enrs.length} sequence${enrs.length === 1 ? "" : "s"}. First emails go out in the next send window.`)) return;
+  H("ogApproveAll").addEventListener("click", async () => {
+    const list = shownHeld();
+    const enrs = [...new Set(list.filter((r) => r.enrollment_id).map((r) => r.enrollment_id))];
+    const quick = list.filter((r) => !r.enrollment_id).map((r) => r.id);
+    const cards = new Set(list.map(readyKey)).size;
+    if (!cards || !confirm(`Approve and send all ${cards}? ${quick.length ? `${quick.length} single email${quick.length === 1 ? "" : "s"} and ` : ""}${enrs.length} sequence${enrs.length === 1 ? "" : "s"}. First emails go out in the next send window.`)) return;
     let ok = 0;
     for (const id of enrs) { const { error } = await sb.rpc("prospect_approve", { p_enrollment: id }); if (error) toast(cleanErr(error), true); else ok++; }
     if (quick.length) {
       const { data, error } = await sb.rpc("prospect_approve_quick", { p_ids: quick });
-      if (error) toast(cleanErr(error), true); else ok += data.orgs;
+      if (error) toast(cleanErr(error), true); else ok += (data && data.orgs) || quick.length;
     }
-    toast(`Approved ${ok}`); await loadReady(); load(true);
+    toast(`Approved ${ok}`); heldChanged();
   });
-  readyEl.addEventListener("click", async (e) => {
+  // After an approve / edit / don't send: the cards, the partners list and the Outbox table all refresh.
+  function heldChanged() { loadReady(true); load(true); if (typeof Outbox !== "undefined" && Outbox.refresh) Outbox.refresh(); }
+  heldEl.addEventListener("click", async (e) => {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.dataset.openorg) { showTab("orgs"); await load(false); openOrg(b.dataset.openorg); return; }
     const card = b.closest("[data-enr]");
     if (b.dataset.redit) {
       const x = readyRows.find((r) => r.id === b.dataset.redit);
       const o = byId.get(x.org_id) || { name: "" };
-      openEditor(x, readyContacts.get(x.contact_id), o.name, () => { loadReady(); load(true); });
+      openEditor(x, readyContacts.get(x.contact_id), o.name, heldChanged);
       return;
     }
     const quickIds = card && card.dataset.enr.startsWith("q:") ? readyRows.filter((r) => readyKey(r) === card.dataset.enr).map((r) => r.id) : null;
@@ -1559,16 +1763,25 @@
       const { error } = quickIds ? await sb.rpc("prospect_approve_quick", { p_ids: quickIds })
         : await sb.rpc("prospect_approve", { p_enrollment: card.dataset.enr });
       if (error) { b.disabled = false; toast(cleanErr(error), true); return; }
-      toast("Approved. It goes out in the next send window."); await loadReady(); load(true); return;
+      toast("Approved. It goes out in the next send window."); heldChanged(); return;
     }
     if (b.dataset.rgo === "stop") {
       if (!confirm(quickIds ? "Don't send this email? The draft is cancelled." : "Don't send this sequence? Its emails are cancelled (you can enroll again later).")) return;
       const { error } = quickIds ? await sb.from("prospect_scheduled_emails").update({ status: "stopped", needs_review: false }).in("id", quickIds)
         : await sb.rpc("prospect_set_status", { p_enrollment_id: card.dataset.enr, p_action: "stop" });
       if (error) { toast(cleanErr(error), true); return; }
-      toast("Cancelled"); await loadReady(); load(true);
+      toast("Cancelled"); heldChanged();
     }
   });
+  // Edit one scheduled outreach email from anywhere (the Outbox's Edit): the same editor the cards use.
+  async function editEmail(id, onDone) {
+    const { data: x, error } = await sb.from("prospect_scheduled_emails").select("*").eq("id", id).maybeSingle();
+    if (error || !x) { toast(error ? cleanErr(error) : "That email isn't there any more.", true); return; }
+    const { data: c } = await sb.from("prospect_contacts").select("*").eq("id", x.contact_id).maybeSingle();
+    if (!loaded) await load(false);
+    const o = byId.get(x.org_id) || { name: "" };
+    openEditor(x, c || null, o.name, () => { heldChanged(); if (onDone) onDone(); });
+  }
 
   function followupsHtml(d) {
     const open = d.fus.filter((f) => f.status === "open");
@@ -1668,7 +1881,7 @@
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { toast("That email doesn't look right", true); renderPanel(); return; }
       }
       const { error } = await sb.from("prospect_contacts").update({ [f]: v || null }).eq("id", tr.dataset.cid);
-      if (error) { toast("Not saved: " + (/duplicate|unique/i.test(error.message) ? "that email is already on this organization" : cleanErr(error)), true); renderPanel(); return; }
+      if (error) { toast("Not saved: " + (/duplicate|unique/i.test(error.message) ? "that email is already on this partner" : cleanErr(error)), true); renderPanel(); return; }
       toast("Saved");
       const c = panelData.contacts.find((x) => x.id === tr.dataset.cid); if (c) c[f] = v || null;
       if (f === "email") await reloadOrg(openId);
@@ -1695,6 +1908,13 @@
     if (b.classList.contains("og-tlb")) { b.classList.remove("clamp"); return; }
     const act = b.dataset.act;
     if (act === "cdone") { renderPanel(); return; }
+    if (act === "details") {
+      detailsOpen = !detailsOpen;
+      const d = el("ogDetails"); if (d) { d.classList.toggle("hidden", !detailsOpen); if (detailsOpen) d.scrollIntoView({ block: "start", behavior: "smooth" }); }
+      panel.querySelectorAll('[data-act="details"][aria-expanded]').forEach((x) => x.setAttribute("aria-expanded", String(detailsOpen)));
+      return;
+    }
+    if (act && act[0] === "l" && /^l(rm|add|save|cancel)/.test(act)) return linkedClick(b);
     const o = byId.get(openId);
     if (act === "close") return inline ? null : closePanel(false);
     if (act === "history" && o) return HistoryView.open("org", o.id, "History: " + o.name);
@@ -1811,7 +2031,7 @@
   function openImport() {
     measureTop();
     modal(`
-      <h2>Import organizations</h2>
+      <h2>Import partners</h2>
       <p class="og-sub" style="white-space:normal;margin:0 0 8px">Copy rows from a spreadsheet (header row included) and paste below, or paste CSV.
         Columns: <strong>League, Sport, Town, Website, First name, Last name, Email, Role, Custom opener</strong>. Only Email is required.
         Put each person at the same org on their own row with the same org name.
@@ -1822,7 +2042,7 @@
       <textarea id="aca-ogImText" class="og-edbody" style="min-height:160px;font-size:12.5px;white-space:pre" placeholder="League&#9;Sport&#9;Town&#9;Website&#9;First name&#9;Last name&#9;Email&#9;Role"></textarea>
       <div class="og-actions" style="margin-top:8px"><button type="button" class="small" data-v="check">Check rows</button><span class="og-sub" id="aca-ogImMsg"></span></div>
       <div id="aca-ogImPrev" class="og-imprev"></div>
-      <label class="og-track" style="margin:10px 0"><input type="checkbox" id="aca-ogImEnroll" checked /> Also enroll each in its best-matching sequence (email 1 waits in Ready to send; nothing sends)</label>
+      <label class="og-track" style="margin:10px 0"><input type="checkbox" id="aca-ogImEnroll" checked /> Also enroll each in its best-matching sequence (email 1 waits in the Outbox; nothing sends)</label>
       <div id="aca-ogImErr" class="inline-error hidden" style="margin:0 0 12px"></div>
       <div class="og-actions"><button type="button" class="primary" data-v="go" disabled>Import</button><button type="button" data-v="close">Cancel</button></div>`, true);
     const box = modal.last;
@@ -1835,7 +2055,7 @@
       if (v === "tpl") {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(new Blob([Prior.TEMPLATE_CSV], { type: "text/csv;charset=utf-8" }));
-        a.download = "207-organizations-template.csv"; document.body.appendChild(a); a.click(); a.remove();
+        a.download = "207-partners-template.csv"; document.body.appendChild(a); a.click(); a.remove();
         return;
       }
       if (v === "check") {
@@ -1852,7 +2072,7 @@
           g.include = !g.soon;
         }
         b.disabled = false;
-        el("ogImMsg").textContent = `${groups.length} organization${groups.length === 1 ? "" : "s"} found${gs.length > groups.length ? `, ${gs.length - groups.length} skipped (no usable email)` : ""}.`;
+        el("ogImMsg").textContent = `${groups.length} partner${groups.length === 1 ? "" : "s"} found${gs.length > groups.length ? `, ${gs.length - groups.length} skipped (no usable email)` : ""}.`;
         el("ogImPrev").innerHTML = groups.length ? `<table class="og-ctab"><tbody>${groups.map((g, i) => `<tr>
             <td><input type="checkbox" data-inc="${i}" ${g.include ? "checked" : ""} aria-label="Include" /></td>
             <td><strong>${esc(g.league || "(no name)")}</strong><div class="og-sub">${esc([g.sport, g.town].filter(Boolean).join(", "))}</div></td>
@@ -1869,7 +2089,7 @@
         const pick = groups.filter((g) => g.include);
         if (!pick.length) return err("Nothing ticked.");
         const enroll = el("ogImEnroll").checked;
-        if (!confirm(`Import ${pick.length} organization${pick.length === 1 ? "" : "s"}${enroll ? " and create their emails for review" : ""}? Nothing is sent.`)) return;
+        if (!confirm(`Import ${pick.length} partner${pick.length === 1 ? "" : "s"}${enroll ? " and create their emails for review" : ""}? Nothing is sent.`)) return;
         b.disabled = true;
         const payload = pick.map((g) => ({ name: g.league || null, audience: el("ogImAud").value, sport: g.sport, town: g.town, website: g.website,
           opener: g.opener || null, contacts: g.contacts }));
@@ -1877,7 +2097,7 @@
         if (error) { b.disabled = false; return err(cleanErr(error)); }
         box.close(true);
         const notes = (data.notes || []);
-        alert(`Imported: ${data.added} new, ${data.matched} matched to existing, ${data.contacts} new contacts${enroll ? `, ${data.enrolled} enrolled (waiting in Ready to send)` : ""}.` +
+        alert(`Imported: ${data.added} new, ${data.matched} matched to existing, ${data.contacts} new contacts${enroll ? `, ${data.enrolled} enrolled (waiting in the Outbox)` : ""}.` +
           (notes.length ? "\n\nNotes:\n- " + notes.join("\n- ") : ""));
         await load(true); loadReady(true);
       }
@@ -1900,23 +2120,13 @@
     if (!sendSettings) return;
     Prior.setSettings(sendSettings);
     const s = sendSettings;
-    el("ogTrack").checked = s.track_opens !== false;
-    el("ogSendState").innerHTML = [
-      s.paused ? '<span class="pill warn">Sending paused</span>' : s.test_mode ? `<span class="pill warn">Test mode: emails go to ${esc(s.test_recipient)}</span>` : '<span class="pill ok">Sending is on</span>',
+    H("ogSendState").innerHTML = [
+      s.paused ? '<span class="pill warn">Outreach sending is paused</span>' : s.test_mode ? `<span class="pill warn">Test mode: emails go to ${esc(s.test_recipient)}</span>` : '<span class="pill ok">Sending is on</span>',
       `<span class="muted">${sent.count || 0} sent today, up to ${esc(s.daily_cap)} a day, ${esc(Prior.scheduleText(s))}.</span>`,
       (errs.data || []).length ? `<span class="pill err" title="${esc(errs.data[0].error)}">A send failed ${esc(fmtWhen(errs.data[0].sent_at))}; it retries in an hour</span>` : "",
+      canSee("settings") ? '<a href="#system/sending">Change in Settings &rsaquo; Sending</a>' : "",
     ].join(" ");
-    el("ogPause").textContent = s.paused ? "Resume sending" : "Pause sending";
   }
-  el("ogPause").addEventListener("click", async () => {
-    if (!sendSettings) return;
-    const next = !sendSettings.paused;
-    if (!confirm(next ? "Pause all prospect emails? Nothing sends until you resume; sequences pick up where they left off." : "Resume sending? Anything due goes out in the next send window.")) return;
-    const { error } = await sb.from("prospect_settings").update({ paused: next }).eq("id", true);
-    if (error) { toast(cleanErr(error), true); return; }
-    toast(next ? "Sending paused" : "Sending resumed");
-    loadSendState();
-  });
 
   // ---------------------------------------------------------------- Today / section badges (light queries only)
   async function loadAttention() {
@@ -1929,7 +2139,7 @@
     const n = fu.count || 0;
     setAttention("followups", n, n === 1 ? "prospect follow-up due" : "prospect follow-ups due", "orgs", "warn", () => showFlag("followup"));
     const r = new Set((held.data || []).map(readyKey)).size;
-    setAttention("prospects", r, r === 1 ? "league waiting for your review" : "leagues waiting for your review", "ready", "warn");
+    setAttention("prospects", r, r === 1 ? "league waiting for your review" : "leagues waiting for your review", "outbox", "warn");
   }
   async function showFlag(flag) {
     await load(false);
@@ -1937,6 +2147,6 @@
     applyConfig({ flag, sort: { key: "next", dir: 1 } });
   }
 
-  return { load: () => load(false), loadReady: () => loadReady(), measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
+  return { load: () => load(false), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
     embed, unembed, get: (id) => byId.get(id) || null, stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
   })();
