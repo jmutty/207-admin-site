@@ -976,15 +976,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector('#aca-todayList .today-item[data-key="followRoster"]');
     const row = await page.$('#aca-todayList .today-item[data-key="followRoster"]');
     check((await row.textContent()).includes("Brewer Travel Basketball Club") && (await row.textContent()).includes("no roster two weeks out"), "Today: the roster task names its job");
-    check(await row.getAttribute("data-jobtab") === "parents", "Today: it opens the job's Parents tab");
+    check(await row.getAttribute("data-jobtab") === "hub", "Today: it opens the job's Hub tab");
     await page.evaluate(() => { location.hash = "#jobs/job/bk1/parents"; });
     await page.waitForSelector("#aca-jpBody .pr-tbl");
     const txt = await page.textContent("#aca-jpBody");
-    check(txt.includes("Shooting: Outdoors") && txt.includes("Coaches on file: 0") && txt.includes("Roster: not yet"), "Parents tab: shooting, coaches, roster");
-    check(txt.includes("too early to count") && txt.includes("Not yet"), "Parents tab: an early copy doesn't count");
-    check(txt.includes("40% rain, gusts to 12 mph") && txt.includes("Hub message: One week before"), "Parents tab: the weather check and the link opened");
-    check(txt.includes("Grabbed by pat@hll.org (email, text)") && txt.includes("Late: nobody grabbed it") && txt.includes("Send-day reminders go to: Chris Snowdeal"), "Parents tab: who grabbed each hub message (was Hub activity)");
-    check(!!(await page.$('#aca-jpBody a[href="https://207photo.com/sportsadmin/#job=gp1"]')), "Parents tab: link to their hub page");
+    check(page.url().endsWith("#jobs/job/bk1/hub"), "the old Parents link lands on the Hub tab");
+    check(txt.includes("Shooting: Outdoors") && txt.includes("Coach emails: 0") && txt.includes("Roster with parent emails: not yet") && txt.includes("What we have from the league"), "Hub tab: shooting, coaches, roster");
+    check(txt.includes("too early to count") && txt.includes("Not yet"), "Hub tab: an early copy doesn't count");
+    check(txt.includes("40% rain, gusts to 12 mph") && txt.includes("Hub message: One week before"), "Hub tab: the weather check and the link opened");
     await page.click("[data-pr-roster]");
     await page.waitForTimeout(300);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_run_roster_only" && c[1].p_booking === "bk1")), "Keep date runs the job as Roster Only");
@@ -1000,7 +999,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-panel-job", (n) => n.classList.contains("active")), "clicking the row opens the job page");
     check(!(await page.$('#aca-nav button[data-tab="job"]')), "the job page is not in the menu");
     const tabs = await page.$$eval("#aca-jpTabs button", (bs) => bs.map((b) => b.dataset.t));
-    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "parents", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "hub", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
+    await page.click('#aca-jpTabs button[data-t="hub"]');
+    await page.waitForSelector("#aca-jpBody .pr-tbl");
+    const hubTxt = await page.textContent("#aca-jpBody");
+    check(hubTxt.includes("By pat@hll.org \u00b7 email, text") && hubTxt.includes("Reminders go to: Chris Snowdeal") && hubTxt.includes("Did they grab it?") &&
+      !!(await page.$('#aca-jpBody a[href="https://207photo.com/sportsadmin/#job=gp1"]')), "Hub tab: who grabbed each message, reminders, their hub link");
+    await page.click('#aca-jpTabs button[data-t="overview"]');
+    await page.waitForTimeout(150);
     const ov = await page.textContent("#aca-jpBody");
     check(ov.includes("Sam Helper") && ov.includes("40 min drive") && ov.includes("Chris Snowdeal"), "overview shows crew and contacts");
     check(!ov.includes("Use the side door"), "booking notes are not on Overview");

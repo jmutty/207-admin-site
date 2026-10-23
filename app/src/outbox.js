@@ -329,7 +329,7 @@
       if (v === "org") { location.hash = "#partners/org/" + r.org_id + "/emails"; return; }
       if (v === "booking") { location.hash = jobLink(r.booking_id); return; }
       if (v === "makeups") return showTab("makeups");
-      if (v === "hub") { location.hash = jobLink(r.booking_id, "parents"); return; } // hub activity is on the job's Parents tab
+      if (v === "hub") { location.hash = jobLink(r.booking_id, "hub"); return; } // hub activity is on the job's Hub tab
       if (v === "settings") return showTab("sending");
       b.disabled = true;
       if (await act(r, v, () => load())) await load(); else b.disabled = false;
