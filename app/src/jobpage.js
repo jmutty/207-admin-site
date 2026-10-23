@@ -245,7 +245,7 @@
       const status = b.status === "booked" ? "" : ' <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>";
       root().innerHTML =
         // A job lives inside its organization (2026-10-23): the trail leads back to the organization's page.
-        '<p class="jp-trail">' + (b.org_id && canSee("partners") ? '<a href="#partners/orgs">Organizations</a> &#8250; <a href="' + orgLink(b.org_id, "jobs") + '">' + esc(b.org_name || "Organization") + "</a> &#8250; Jobs"
+        '<p class="jp-trail">' + (b.org_id && canSee("partners") ? '<a href="#partners/orgs">Partners</a> &#8250; <a href="' + orgLink(b.org_id, "jobs") + '">' + esc(b.org_name || "Organization") + "</a> &#8250; Jobs"
           : '<a href="#jobs/bookings" id="aca-jpBack">&#8592; ' + (canSee("bookings") ? "All jobs" : "Back") + "</a>") + "</p>" +
         '<div class="jp-head"><div><h2>' + esc(b.title) + status + '</h2><div class="s">' + esc(dayLine(b)) + " \u00b7 " + esc(b.type_label || "") +
         (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></div>" +

@@ -77,7 +77,7 @@
       const openProblems = rows.filter((r) => PROBLEM[r.status] && !r.handled_at);
       el("emHandled").classList.toggle("hidden", !(data.can_edit && openProblems.length));
       el("emBody").innerHTML = (data.capturing === false ? '<p class="em-warn">Emails are not being recorded right now (the database trigger on pg_net is missing, probably after a pg_net upgrade). Re-run the email delivery migration’s trigger line.</p>' : "") +
-        (rows.length ? '<div class="table-wrap"><table><thead><tr><th>Sent</th><th>To</th><th>Email</th><th class="em-hide-sm">Kind</th><th>Status</th></tr></thead><tbody>' +
+        (rows.length ? '<div class="table-wrap cards"><table><thead><tr><th>Sent</th><th>To</th><th>Email</th><th class="em-hide-sm">Kind</th><th>Status</th></tr></thead><tbody>' +
           rows.map((r) => '<tr class="em-row" data-id="' + esc(r.id) + '"><td style="white-space:nowrap">' + esc(when(r.sent_at)) + '</td><td><span class="em-to">' + esc((r.to || []).join(", ")) + "</span></td>" +
             "<td>" + esc(r.subject) + (r.test_mode ? '<span class="em-tag t">test</span>' : "") + (r.error && PROBLEM[r.status] ? '<span class="em-err">' + esc(r.error) + "</span>" : "") + "</td>" +
             '<td class="em-hide-sm">' + esc(SRC[r.source] || r.source) + "</td><td>" + statusHtml(r) + "</td></tr>").join("") + "</tbody></table></div>" +

@@ -186,7 +186,7 @@
       '<label class="small" style="display:inline-flex;gap:5px;align-items:center;font-size:13px"><input type="checkbox" id="aca-asShowDone" /> Show done</label>' +
       '<select class="small hidden" id="aca-asFilter" aria-label="Person"></select><button type="button" class="primary hidden" id="aca-asAdd">Add task</button></div>' +
       '<div id="aca-asTErr" class="inline-error hidden"></div>' +
-      '<div class="table-wrap"><table class="as-table"><thead><tr><th style="width:28px"></th><th>Task</th><th>Who</th><th>Repeats</th><th class="as-hide-sm">Last done</th></tr></thead><tbody id="aca-asTBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div></div>' +
+      '<div class="table-wrap cards"><table class="as-table"><thead><tr><th style="width:28px"></th><th>Task</th><th>Who</th><th>Repeats</th><th class="as-hide-sm">Last done</th></tr></thead><tbody id="aca-asTBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div></div>' +
       // The evening notification and the morning email live in Settings > Team emails (one home); this is the shortcut.
       '<p class="as-setlink hidden" id="aca-asSetCard"><span id="aca-asSetTxt"></span> <button type="button" class="link" id="aca-asSetBtn">Change</button></p>';
     let list = null, filter = "";

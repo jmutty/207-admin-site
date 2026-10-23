@@ -576,7 +576,7 @@
         " Clocking in to a job adds its round trip from the studio. Set miles to 0 if you rode with someone.</p>" +
         (all && sum.length > 1 ? '<div class="table-wrap" style="margin-bottom:18px"><table class="tc-week"><thead><tr><th>Person</th><th class="tc-num">Trips</th><th class="tc-num">Miles</th><th class="tc-num">Pay</th></tr></thead><tbody>' +
           sum.sort((a, b) => a.name.localeCompare(b.name)).map((x) => '<tr><td class="name">' + esc(T.shortName(x.name)) + '</td><td class="tc-num">' + x.n + '</td><td class="tc-num">' + mi(x.miles) + '</td><td class="tc-num">' + money(x.miles * rate) + "</td></tr>").join("") + "</tbody></table></div>" : "") +
-        (trips.length ? '<div class="table-wrap"><table class="tc-week"><thead><tr><th>Day</th>' + (all ? "<th>Person</th>" : "") + '<th>Job or where</th><th class="tc-num">Miles</th><th class="tc-hide-sm">Note</th></tr></thead><tbody>' +
+        (trips.length ? '<div class="table-wrap cards"><table class="tc-week"><thead><tr><th>Day</th>' + (all ? "<th>Person</th>" : "") + '<th>Job or where</th><th class="tc-num">Miles</th><th class="tc-hide-sm">Note</th></tr></thead><tbody>' +
           trips.map((t) => '<tr class="tc-row" data-trip="' + esc(t.id) + '"><td style="white-space:nowrap">' + esc(T.fmtDay(t.day)) + "</td>" + (all ? "<td>" + esc(T.shortName(t.name)) + "</td>" : "") +
             "<td>" + esc(t.job_title || t.note) + (t.location ? '<span class="s" style="display:block;color:var(--muted);font-size:12px">' + esc(t.location) + "</span>" : "") + "</td>" +
             '<td class="tc-num">' + (t.miles != null ? mi(t.miles) + (t.auto ? "" : '<span class="tc-tag ok" title="Typed in">typed</span>') : t.est_miles != null ? mi(t.est_miles) + '<span class="tc-tag">est.</span>'

@@ -167,7 +167,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     // ws/jobs: All jobs heading and toolbar, the checklist chip, the short preview with Open
     check((await page.textContent("#aca-panel-bookings .card-head h2")) === "All jobs", "heading says All jobs");
     check(await page.$eval("#aca-panel-bookings .bk-tools", (n) => n.firstElementChild.id) === "aca-bkNew", "+ Book a job comes first");
-    check(!(await visible(page, "#aca-bkMenu")), "Track a job sits behind the ... menu");
+    check(!(await page.$("#aca-bkMore")) && !(await page.$("#aca-bkTrack")) && !(await page.$("#aca-bkJobTypes")), "no Track a job or Job types link beside Book a job (Job types is in Settings)");
     check((await page.textContent('#aca-bkBody tr[data-id="bk3"] .bk-c-stage')).includes("Checklist: 2 to do, 1 late"), "checklist chip on the row");
     await page.selectOption("#aca-bkStage", ":checklate");
     check((await page.$$("#aca-bkBody tr.bk-row")).length === 1, "Checklist steps late filter");
@@ -282,10 +282,10 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const crewSave = await lastRpc("schedule_save");
     check(crewSave && crewSave[1].p.kind === "job" && crewSave[1].p.booking_id === "bk1" && crewSave[1].p.user_id === "u2", "the crew picked when booking goes on the schedule");
 
-    // Stages & deliverables per job type (the small Job types link for now)
-    await page.click('#aca-nav button[data-tab="jobs"]');
-    await page.waitForSelector("#aca-bkBody tr.bk-row");
-    await page.click("#aca-bkJobTypes");
+    // Stages & deliverables per job type (Settings > Job types)
+    await page.evaluate(() => { location.hash = "#system/jobtypes"; });
+    await page.waitForSelector('#aca-panel-jobtypes button[data-st="stages"][data-k="school"]');
+    await page.click('#aca-panel-jobtypes button[data-st="stages"][data-k="school"]');
     await page.waitForSelector("#aca-bkJtBody [data-st]");
     check((await page.$$("#aca-bkJtBody [data-st]")).length === 6, "job type dialog lists the stages");
     check((await page.textContent("#aca-bkJtBody")).includes("days after the job is launched"), "due days count from launch");
@@ -299,30 +299,6 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       "job type dialog saves stage names and new deliverables");
     await page.click('.bk-form .bk-factions button[data-v="close"]');
 
-    // Track a job (behind "..."): GotPhoto jobs not on the screen; nothing is sent for them
-    await page.click("#aca-bkMore");
-    await page.click("#aca-bkTrack");
-    await page.waitForSelector('#aca-bkTrList [data-pick="g10"]');
-    check((await page.textContent('#aca-bkTrList [data-job="g10"]')).includes("Hancock Grammar School"), "track picker shows the matched organization");
-    await page.check('#aca-bkTrList [data-pick="g10"]');
-    await page.check('#aca-bkTrList [data-pick="g11"]');
-    await page.click('.bk-form button[data-v="track"]');
-    check((await page.textContent("#aca-bkTrErr")).includes("organization"), "asks for the organization the sync could not match");
-    await page.fill('#aca-bkTrList [data-orgq="g11"]', "Island");
-    await page.waitForSelector('#aca-bkTrList [data-orgpick]');
-    await page.click('#aca-bkTrList [data-orgpick]');
-    await page.click('.bk-form button[data-v="track"]');
-    await page.waitForTimeout(200);
-    const tr = await lastRpc("booking_track_jobs");
-    check(tr && tr[1].p_items.length === 2 && tr[1].p_items.some((x) => x.gotphoto_job_id === "g11" && x.org_id === "44444444-4444-4444-4444-444444444444" && x.type_key === "sports_data"), "tracks the picked GotPhoto jobs");
-    await page.click("#aca-bkMore");
-    await page.click("#aca-bkTrack");
-    await page.waitForSelector("#aca-bkTrAuto");
-    await page.check("#aca-bkTrAuto");
-    await page.waitForTimeout(150);
-    const au = await lastRpc("booking_set_auto_track");
-    check(au && au[1].p_on === true, "auto-track switch saves");
-    await page.click('.bk-form .bk-factions button[data-v="close"]');
 
     await page.click('#aca-nav button[data-tab="today"]');
     await page.waitForTimeout(150);
@@ -363,7 +339,6 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!(await page.$('#aca-bkDetail button[data-next]')) && !(await page.$("#aca-bkDlvNew")) && !(await page.$('#aca-bkDetail button[data-v="dlvedit"]')), "no move / add / edit controls");
     check(await page.$$eval("#aca-bkDetail input[data-dlv]", (cs) => cs.every((c) => c.disabled)), "deliverable ticks disabled");
     check(!(await page.$('#aca-panel-job [data-j="edit"]')) && !(await page.$('#aca-bkDetail [data-v="sendnow"]')) && !(await page.$('#aca-bkDetail [data-v="cancel"]')), "no Edit booking, Send now or Cancel for view-only");
-    check(!(await visible(page, "#aca-bkMoreWrap")), "Track a job hidden");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -1923,10 +1898,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     await page.goto(`http://127.0.0.1:${port}/test/harness.html#staff/schedule`);
-    await page.waitForSelector("#aca-scGrid .sc-head");
-    check(!(await page.isVisible("#aca-panel-schedule .sc-legend")) && await page.isVisible('#aca-panel-schedule [data-v="key"]'), "B2: colors folded behind a button");
+    await page.waitForSelector("#aca-scGrid.sc-list .scl-day");
+    check(await page.isChecked('input[name="aca-scView"][value="list"]') && (await page.$$("#aca-scGrid .scl-day")).length === 2, "a phone opens on the list: today and tomorrow");
+    check((await page.$$("#aca-scGrid button.scl-item[data-entry]")).length > 0 && await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "the list shows people's jobs and fits the phone");
     await page.click('input[name="aca-scView"][value="week"] + span');
+    await page.waitForSelector("#aca-scGrid .sc-head");
     await page.waitForTimeout(200);
+    check(!(await page.isVisible("#aca-panel-schedule .sc-legend")) && await page.isVisible('#aca-panel-schedule [data-v="key"]'), "B2: colors folded behind a button");
     check(await page.isVisible("#aca-scSwipe"), "B2: week view says to swipe for more days");
     await page.$eval("#aca-panel-schedule .sc-scroll", (n) => { n.scrollLeft = 200; n.dispatchEvent(new Event("scroll")); });
     await page.waitForTimeout(100);
@@ -2132,7 +2110,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       d.innerHTML = "<table><thead><tr><th>Who</th><th>When</th><th></th></tr></thead><tbody><tr><td>Sam</td><td>Mon</td><td class='act'><button>Open</button></td></tr></tbody></table>";
       document.getElementById("aca-panel-health").appendChild(d); });
     await page.waitForTimeout(100);
-    check(await page.$eval("#aca-cardTest td", (td) => td.getAttribute("data-label") === "Who" && getComputedStyle(td).display === "flex" && getComputedStyle(td.closest("tr")).display === "block"), "table-wrap cards: rows stack as labelled cards on a phone");
+    check(await page.$eval("#aca-cardTest td", (td) => td.getAttribute("data-label") === "Who" && getComputedStyle(td).display === "block" && getComputedStyle(td.closest("tr")).display === "block"), "table-wrap cards: rows stack as labelled cards on a phone");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -2146,7 +2124,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector("#aca-nav button[data-tab]", { state: "attached" });
     await page.waitForTimeout(500);
     check(await page.isVisible("#aca-bookBtn") && (await page.textContent("#aca-bookBtn .bk-plus")) === "+" && !(await page.isVisible("#aca-bookBtn .bk-txt")), "Book a job is a + in the top bar");
-    check((await page.textContent("#aca-whoBtn")).includes("Jeremiah") && await page.isVisible("#aca-whoBtn .who-f"), "the account button shows the first name");
+    check((await page.textContent("#aca-whoBtn .who-i")) === "JM" && await page.isVisible("#aca-whoBtn .who-i") && !(await page.isVisible("#aca-whoBtn .who-f")), "the account button shows initials, so the search box keeps its width");
     const order = await page.evaluate(() => { const l = document.getElementById("aca-todayList").getBoundingClientRect().top, m = document.getElementById("aca-todayClock"); return m ? l < m.getBoundingClientRect().top : true; });
     check(order, "Today on a phone: what needs you comes before the clock");
     await page.evaluate(() => { location.hash = "#jobs/bookings"; });
@@ -2154,7 +2132,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-pagetabs", (n) => n.scrollWidth <= n.clientWidth + 1), "the page tab strip wraps instead of running off the edge");
     await page.evaluate(() => { location.hash = "#jobs/job/bk1"; });
     await page.waitForSelector("#aca-jpTabs button");
-    check(await page.$eval("#aca-jpTabs", (n) => getComputedStyle(n).flexWrap === "wrap"), "job page tabs wrap on a phone");
+    check(await page.$eval("#aca-jpTabs", (n) => getComputedStyle(n).flexWrap === "nowrap" && getComputedStyle(n).overflowX === "auto"), "job page tabs are one row you swipe on a phone");
+    check(await page.$eval("html", (n) => n.scrollWidth <= n.clientWidth + 1), "the job page never scrolls sideways on a phone");
     await page.click("#aca-whoBtn");
     await page.click("#aca-notifBtn");
     await page.waitForSelector(".modal-wrap.sheet .modal");
