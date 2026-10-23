@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "portal", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team", "delivery"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "portal", "schedule", "myday", "clock", "clearances", "openjobs", "board", "inventory", "sending", "team", "delivery"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -1033,7 +1033,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "?as=staff", "#partners/orgs");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday", "clock", "clearances"]), "menu limited to their pages: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "calc", "requests", "makeups", "retakes", "schedule", "myday", "clock", "clearances", "board"]), "menu limited to their pages: " + items.join(","));
     check(await page.$eval("#aca-panel-today", (n) => n.classList.contains("active")), "a link to a page they can't see lands on Today");
     const calls = await page.evaluate(() => window.__rpcCalls.map((c) => c[0]));
     const forbidden = calls.filter((n) => /^(admin_outbox|admin_hub|admin_lookup|prospect_|admin_morning|team_|admin_job)/.test(n));
@@ -1415,6 +1415,147 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(200);
     check(!(await page.isVisible("#aca-pwForm")), "dialog closes after saving");
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "me_password_changed")), "clears the temporary-password flag");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Task board (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#staff/board");
+    await page.waitForSelector("#aca-tbCols .tb-card");
+    check(await page.$eval("#aca-panel-board", (n) => n.classList.contains("active")), "#staff/board opens the board");
+    await page.selectOption('#aca-tbBBar [data-f="who"]', "all");
+    await page.waitForTimeout(150);
+    const cols = await page.$$eval("#aca-tbCols .tb-col", (cs) => cs.map((c) => c.dataset.col));
+    check(JSON.stringify(cols) === JSON.stringify(["waiting", "overdue", "todo"]), "Not done shows Waiting / Overdue / To do: " + cols.join(","));
+    check((await page.textContent('#aca-tbCols [data-col="waiting"]')).includes("waits for Cards uploaded"), "waiting card says what it waits for");
+    check((await page.textContent('#aca-tbCols [data-col="overdue"]')).includes("Cards uploaded"), "overdue card in Overdue");
+    await page.selectOption('#aca-tbBBar [data-f="show"]', "all");
+    await page.waitForTimeout(100);
+    check((await page.$$("#aca-tbCols .tb-col")).length === 4, "Everything adds the Done column");
+    await page.dragAndDrop('#aca-tbCols .tb-card[data-id="k3"]', '#aca-tbCols .tb-col[data-col="done"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "task_bulk" && c[1].p_ids[0] === "k3" && c[1].p.done === true)), "drag to Done checks it off");
+    check(await page.$('#aca-tbCols .tb-card[data-id="k2"][draggable="true"]') === null, "a waiting card cannot be dragged");
+    await page.check('#aca-tbCols .tb-card[data-id="k3"] input');
+    await page.check('#aca-tbCols .tb-card[data-id="k4"] input');
+    check(await shown(page, "#aca-tbBulk") && (await page.textContent("#aca-tbBulk")).includes("2 selected"), "ticking cards shows the bulk bar");
+    await page.$eval('#aca-tbBulk [data-b="due"]', (n) => { n.value = "2030-01-15"; });
+    await page.selectOption('#aca-tbBulk [data-b="owner"]', "u2");
+    await page.click('#aca-tbBulk [data-b="apply"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "task_bulk" && c[1].p_ids.length === 2 && c[1].p.due_on === "2030-01-15" && c[1].p.user_id === "u2")), "bulk: new day and owner for both");
+    await page.click('#aca-tbCols .tb-card[data-id="k2"] .t');
+    await page.waitForSelector(".tb-modal");
+    check((await page.textContent(".tb-modal")).includes("Waiting for Cards uploaded"), "opening a waiting task explains it");
+    check(!(await page.$('.tb-modal [data-m="toggle"]')), "a waiting task has no Mark done");
+    await page.click('.tb-modal [data-m="close"]');
+    // saved views
+    await page.selectOption("#aca-sv1Pick", "sv1");
+    await page.waitForTimeout(150);
+    check(await page.$eval('#aca-tbBBar [data-f="who"]', (n) => n.value) === "g:g1" && await page.$eval('#aca-tbBBar [data-f="checklist"]', (n) => n.checked), "a shared view sets the filters");
+    check((await page.$$("#aca-tbCols .tb-card")).length === 1, "group view shows the group's task");
+    await page.click("#aca-sv1Save");
+    await page.fill("#aca-svName", "Late ones");
+    await page.check("#aca-svShared");
+    await page.click('.sv-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "saved_views" && w[1] === "insert" && w[2].name === "Late ones" && w[2].shared === true && w[2].page === "taskboard" && w[2].config.who === "g:g1")), "saves a shared view with the filters");
+    // calendar
+    await page.click('#aca-pagetabs button[data-tab="taskcal"]');
+    await page.waitForSelector("#aca-tbCal .tb-day");
+    await page.selectOption('#aca-tbCBar [data-f="who"]', "all");
+    await page.uncheck('#aca-tbCBar [data-f="checklist"]');
+    await page.waitForTimeout(150);
+    check((await page.$$('#aca-tbCal .tb-chip[data-id="k3"]')).length === 1, "calendar shows the task on its day");
+    check((await page.$$("#aca-tbCal .tb-chip.rep")).length >= 1, "calendar shows repeating tasks faintly");
+    const target = await page.$$eval("#aca-tbCal .tb-day:not(.other)", (ds) => ds[ds.length - 1].dataset.day);
+    await page.dragAndDrop('#aca-tbCal .tb-chip[data-id="k3"]', '#aca-tbCal .tb-day[data-day="' + target + '"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate((d) => window.__rpcCalls.some((c) => c[0] === "task_bulk" && c[1].p_ids[0] === "k3" && c[1].p.due_on === d), target), "drag on the calendar moves the due day");
+    // workload
+    await page.click('#aca-pagetabs button[data-tab="workload"]');
+    await page.waitForSelector("#aca-tbWBody button[data-u]");
+    check((await page.$$("#aca-tbWBody tr")).length === 2, "workload: a row per person");
+    check((await page.textContent("#aca-tbWBody")).includes("Editing team"), "workload shows groups");
+    await page.click('#aca-tbWBody button[data-u="u2"]');
+    await page.waitForTimeout(300);
+    check(await page.$eval("#aca-panel-board", (n) => n.classList.contains("active")) && await page.$eval('#aca-tbBBar [data-f="who"]', (n) => n.value) === "u2", "clicking a name opens their board");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Task board (staff, view) on a phone");
+  {
+    const { page, errors } = await open(browser, port, "?as=staff", "#staff/board");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForSelector("#aca-tbCols .tb-card");
+    check(!(await visible(page, "#aca-viewOnly")), "board: no view-only notice (it is your own)");
+    check(!(await page.$('#aca-tbBBar [data-f="who"] option[value="all"]')), "view: no Everyone choice");
+    await page.check("#aca-tbCols .tb-card input");
+    check(!(await page.$('#aca-tbBulk [data-b="due"]')) && !!(await page.$('#aca-tbBulk [data-b="done"]')), "view: can mark done, cannot move or reassign");
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= 392), "board: no sideways scroll on a phone");
+    await page.click('#aca-pagetabs button[data-tab="taskcal"]');
+    await page.waitForSelector("#aca-tbCal .tb-day", { state: "attached" });
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= 392), "calendar: no sideways scroll on a phone");
+    check(await page.$$eval("#aca-tbCal .tb-chip[draggable=true]", (x) => x.length) === 0, "view: calendar tasks cannot be dragged");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Job checklists: waits for, groups, reminders (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/wfsteps");
+    await page.waitForSelector("#aca-wfSteps tr.wf-row");
+    check((await page.textContent("#aca-wfSteps")).includes("Waits until Cards uploaded is checked off."), "a step reads back what it waits for");
+    check((await page.textContent("#aca-wfSteps")).includes("If it is 1 day late, a push and email to Jeremiah M."), "reads back the late rule");
+    check((await page.textContent("#aca-wfGroups")).includes("Editing team"), "groups are listed");
+    await page.click('#aca-wfSteps tr.wf-row[data-id="ws4"]');
+    await page.waitForSelector("#aca-wsTitle");
+    check(await page.$eval("#aca-wsTo", (n) => n.value) === "group" && await visible(page, "#aca-wsGroup"), "group step opens with its group");
+    check(await page.$eval("#aca-wsWaits", (n) => n.value) === "ws5", "opens with what it waits for");
+    check(await visible(page, "#aca-wsPartSubj"), "partner email fields show when it is on");
+    await page.fill("#aca-wsRem", "3");
+    check((await page.textContent("#aca-wsSay")).includes("A push 3 days before it is due."), "the sentence follows the form");
+    await page.click('.modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "workflow_step_save" && c[1].p.id === "ws4" && c[1].p.assign_to === "group" && c[1].p.group_id === "g1" &&
+      c[1].p.waits_for === "ws5" && c[1].p.remind_days === 3 && c[1].p.late_days === 1 && c[1].p.late_user_id === "u1" && c[1].p.partner_email === true)), "saves the rules");
+    await page.click("#aca-wfGAdd");
+    await page.fill("#aca-wgName", "Packing crew");
+    await page.check('.wf-people input[value="u1"]');
+    await page.click('.modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "staff_group_save" && c[1].p.name === "Packing crew" && c[1].p.members.includes("u1"))), "adds a group");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Saved views + bulk on Bookings and Inventory (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/bookings");
+    await page.waitForSelector("#aca-bkBody tr[data-id]");
+    check(await shown(page, "#aca-lvBkBulk"), "Bookings: Change shown is there");
+    await page.selectOption('#aca-panel-bookings .sv-bar select', "b-owed");
+    await page.waitForTimeout(200);
+    check(await page.$eval('#aca-bkScope button[data-scope="owed"]', (n) => n.getAttribute("aria-pressed") === "true"), "a built-in view switches to Still owed");
+    await page.click('#aca-bkScope button[data-scope="upcoming"]');
+    await page.waitForSelector("#aca-bkBody tr[data-id]");
+    await page.click("#aca-lvBkBulk");
+    await page.waitForSelector(".lv-modal");
+    const n = (await page.$$(".lv-list input:checked")).length;
+    check(n > 0, "lists the shown bookings, ticked");
+    await page.click('.lv-modal [data-m="go"]');
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_set_stage")), "moves them to the stage");
+    await page.goto(page.url().replace(/#.*$/, "") + "#ops/invgear");
+    await page.waitForTimeout(400);
+    await page.waitForSelector("#aca-invGearBody tr[data-item]");
+    await page.click("#aca-lvInvBulk");
+    await page.waitForSelector(".lv-modal");
+    await page.click('.lv-modal [data-m="go"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "inventory_items" && w[1] === "update" && w[2].bin_id === "bin1")), "Inventory: moves the shown items to a bin");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

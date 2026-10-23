@@ -46,6 +46,10 @@
     prospect_sequence_steps: [{ id: "st1", sequence_id: "q1", step_no: 1, delay_business_days: 0, subject: "{{league|winter}} picture day", body: "{{hi|Hey there}}!\n\n{{personal_line|We're filling our winter calendar now.}}", attachments: [{ path: "portfolio.pdf", filename: "207 Photo - Team & Individual Photos.pdf" }] },
       { id: "st2", sequence_id: "q1", step_no: 2, delay_business_days: 3, subject: null, body: "{{hi|Hey there}}, one more thing worth seeing.", attachments: [] }],
     prospect_saved_views: [],
+    saved_views: [{ id: "sv1", user_id: "u1", page: "taskboard", name: "Editing this week", config: { who: "g:g1", show: "open", checklist: true }, shared: true, sort: 0 }],
+    staff_group_members: [{ group_id: "g1", user_id: "u2" }],
+    bookings: [{ id: "bk1", type_key: "sports_data" }, { id: "bk2", type_key: "school" }, { id: "bk3", type_key: "sports_nodata" }],
+    inventory_bins: [{ id: "bin1", code: "A1", location: "Studio shelf" }], inventory_kits: [{ id: "kit1", name: "Kit 1" }],
     app_modules: [
       { key: "bookings", label: "Bookings", section: "Jobs", description: "Picture-day bookings.", sort: 10, status: "live", admin_only: false },
       { key: "galleries", label: "Galleries", section: "Jobs", description: "GotPhoto galleries.", sort: 20, status: "live", admin_only: false },
@@ -57,6 +61,7 @@
       { key: "team", label: "Team", section: "System", description: "", sort: 95, status: "live", admin_only: true },
       { key: "scheduling", label: "Scheduling", section: "Staff", description: "The week's bar schedule.", sort: 200, status: "live", admin_only: false },
       { key: "assignments", label: "Assignments", section: "Staff", description: "Daily, weekly and monthly tasks.", sort: 205, status: "live", admin_only: false },
+      { key: "taskboard", label: "Task board", section: "Staff", description: "Board, calendar and workload.", sort: 206, status: "live", admin_only: false },
       { key: "staffrecords", label: "Staff records", section: "Staff", description: "Clearances and onboarding.", sort: 215, status: "live", admin_only: false },
       { key: "portal", label: "Partner portal", section: "Partners", description: "One link per league or school.", sort: 66, status: "live", admin_only: false },
       { key: "timeclock", label: "Time clock & mileage", section: "Staff", description: "Clock in and out, timesheets, mileage.", sort: 210, status: "live", admin_only: false },
@@ -128,7 +133,7 @@
       : AS_MONEY ? { user_id: "u6", email: "bo@207photo.com", name: "Bo Books", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { results: "view" } }
       : AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
-      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view", staffrecords: "view", timeclock: "view" } }
+      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view", staffrecords: "view", timeclock: "view", taskboard: "view" } }
       : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
     team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, weekly_hours: 40, employment_type: "salaried", job_title: "Owner", last_sign_in_at: iso(-0.01), modules: {} },
       { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, is_me: false, active: true, must_change_password: true, last_sign_in_at: null, modules: { bookings: "edit", parents: "view" } },
@@ -434,9 +439,35 @@
     RPC.workflow_templates = { can_edit: true,
       types: [{ key: "school", label: "School Photos" }, { key: "sports_data", label: "Sports: league with parent contacts" }, { key: "sports_nodata", label: "Sports: school teams, roster only" }],
       people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }],
-      steps: [{ id: "ws1", type_key: null, title: "Confirm start time and crew with the contact", notes: "Call or email the contact on the booking.", anchor: "picture_day", offset_days: -7, assign_to: "crew", user_id: null, user_name: null, priority: "normal", sort: 10 },
+      groups: [{ id: "g1", name: "Editing team", members: [{ user_id: "u2", name: "Sam Helper" }], steps: 1 }],
+      steps: [{ id: "ws4", type_key: null, title: "Edit the photos", notes: "", anchor: "picture_day", offset_days: 3, assign_to: "group", user_id: null, user_name: null, group_id: "g1", group_name: "Editing team",
+                priority: "normal", sort: 35, waits_for: "ws5", waits_for_title: "Cards uploaded", remind_days: 2, late_days: 1, late_user_id: "u1", late_user_name: "Jeremiah Mutty",
+                partner_email: true, partner_subject: "Proofs posted for {league}", partner_body: "Hi {first_name}" },
+        { id: "ws5", type_key: null, title: "Cards uploaded", notes: "", anchor: "picture_day", offset_days: 1, assign_to: "crew", user_id: null, user_name: null, priority: "normal", sort: 30 },{ id: "ws1", type_key: null, title: "Confirm start time and crew with the contact", notes: "Call or email the contact on the booking.", anchor: "picture_day", offset_days: -7, assign_to: "crew", user_id: null, user_name: null, priority: "normal", sort: 10 },
         { id: "ws2", type_key: null, title: "Send the partner a thank-you", notes: "", anchor: "launch", offset_days: 14, assign_to: "crew", user_id: "u1", user_name: "Jeremiah Mutty", priority: "normal", sort: 50 },
         { id: "ws3", type_key: "sports_data", title: "Order team banners", notes: "", anchor: "booked", offset_days: 2, assign_to: "person", user_id: "u1", user_name: "Jeremiah Mutty", priority: "urgent", sort: 10 }] };
+    // Task board (2026-10-22)
+    {
+      const tk = (id, title, due, extra) => Object.assign({ id, user_id: "u2", user_name: "Sam Helper", title, notes: "", due_on: due, priority: "normal", waiting: false, done_at: null,
+        booking_id: null, group_id: null, group_name: null, checklist: false, waits_for: null }, extra || {});
+      RPC.task_board = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", today,
+        people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }], groups: [{ id: "g1", name: "Editing team" }],
+        tasks: [tk("k1", "Cards uploaded: Hampden Academy", add(today, -1), { checklist: true, booking_id: "bk1" }),
+          tk("k2", "Edit the photos: Hampden Academy", add(today, 2), { checklist: true, booking_id: "bk1", waiting: true, waits_for: "Cards uploaded", group_id: "g1", group_name: "Editing team" }),
+          tk("k3", "Order print supplies", add(today, 3)), tk("k4", "Call Hampden about retakes", today, { user_id: "u1", user_name: "Jeremiah Mutty", priority: "urgent" }),
+          tk("k5", "Pack the kit: Brewer Travel", add(today, -3), { done_at: new Date().toISOString(), checklist: true })],
+        repeating: [{ id: "t1", user_id: "u2", user_name: "Sam Helper", title: "Back up memory cards", day: add(today, 1), priority: "normal", done: false }] };
+      RPC.task_bulk = { ok: true, changed: 1, skipped: 0, why: null };
+      RPC.task_workload = { week: add(today, -new Date(today + "T12:00:00Z").getUTCDay()), today,
+        rows: [{ user_id: "u1", name: "Jeremiah Mutty", groups: [], due_week: 4, done_week: 1, overdue: 0, waiting: 0, later: 2 },
+               { user_id: "u2", name: "Sam Helper", groups: ["Editing team"], due_week: 9, done_week: 6, overdue: 2, waiting: 1, later: 3 }] };
+      RPC.workflow_job = { booking_id: "bk1", status: "booked", can_check: true, me: "u1", tasks: [
+          { task_id: "k1", title: "Cards uploaded", due_on: add(today, -1), user_id: "u2", user_name: "Sam Helper", done_at: null, priority: "normal", waiting: false },
+          { task_id: "k2", title: "Edit the photos", due_on: add(today, 2), user_id: "u2", user_name: "Sam Helper", group_name: "Editing team", done_at: null, priority: "normal", waiting: true, waits_for: "Cards uploaded" }],
+        emails: [{ kind: "partner", to: "pat@hampden.org", subject: "Proofs posted for Hampden Academy", status: "sent", test_mode: false, at: new Date().toISOString() }] };
+      RPC.staff_group_save = { ok: true, id: "g9" }; RPC.staff_group_archive = { ok: true };
+      RPC.booking_set_stage = { ok: true };
+    }
     RPC.workflow_step_save = { ok: true, id: "ws9" }; RPC.workflow_step_archive = { ok: true }; RPC.workflow_attention = { overdue: 1 };
     RPC.assignment_check = { ok: true }; RPC.assignment_save = { ok: true, id: "t9" }; RPC.assignment_archive = { ok: true }; RPC.staff_settings_save = { ok: true }; RPC.day_email_status = { on: true, hour: 7, mine: true }; RPC.day_email_settings_save = { ok: true }; RPC.day_email_mine = { ok: true, on: false }; RPC.team_set_hours = { ok: true };
   }
