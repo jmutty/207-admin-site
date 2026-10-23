@@ -5,12 +5,21 @@
   // Photos: private storage bucket `inventory`, shrunk in the browser, shown through signed URLs.
   // Gear (2026-10-22): purchase date, price, value today and a service interval per item, a service log
   // (inventory_service_log / _remove; anyone with View can log a sensor clean) and the insurance list (CSV).
+  // Jobs and repairs (2026-10-23): a gear list per job type (jobgear.js), QR labels and Scan (inventory-qr.js), and an
+  // item condition (ok / broken / at repair) that blocks check-out (inventory_condition_set). Labels open
+  // #ops/inventory/{i|k|b}/<id>.
   // View = search and check things out to yourself; Edit = change everything (the database enforces both).
   registerPage({ id: "inventory", group: "Operations", section: "ops", module: "inventory", title: "Inventory",
-                 tabs: [["inventory", "Find"], ["invbins", "Bins"], ["invkits", "Kits"], ["invout", "Checked out"], ["invgear", "Gear"]],
+                 tabs: [["inventory", "Find"], ["invbins", "Bins"], ["invkits", "Kits"], ["invout", "Checked out"], ["invjobs", "Jobs"], ["invgear", "Gear"]],
                  onShow: (tab) => Inventory.show(tab) });
   registerAttention("gearServiceDue", { module: "inventory", level: "soon", name: "gear service",
     one: "A piece of gear is due for service in the next two weeks.", many: "{n} pieces of gear are due for service in the next two weeks." });
+  registerAttention("gearMissing", { module: "inventory", level: "warn", name: "gear for jobs",
+    one: "A job in the next two days is missing gear.", many: "{n} jobs in the next two days are missing gear." });
+  registerAttention("gearLate", { module: "inventory", level: "warn", name: "gear past due",
+    one: "Something is past due back.", many: "{n} things are past due back." });
+  registerAttention("gearRepair", { module: "inventory", level: "soon", name: "gear needing repair",
+    one: "A piece of gear is broken or at repair.", many: "{n} pieces of gear are broken or at repair." });
   registerTodayLoader("inventory", () => Inventory.loadAttention());
 
   const Inventory = (function () {
@@ -47,6 +56,10 @@
   .aca .inv-late { color: var(--err-fg); font-weight: 600; }
   .aca .inv-gear-sum { margin: 0 0 4px; font-size: 13.5px; color: var(--muted); }
   .aca .inv-gear-sum b { color: var(--text); }
+  .aca .inv-headbtns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .aca .inv-cond { padding: 10px 12px; border-radius: 4px; margin: 0 0 14px; font-size: 13.5px; background: var(--err-bg, #fdecea); color: var(--err-fg); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .aca .inv-cond .grow { flex: 1; min-width: 0; }
+  .aca .inv-bad { color: var(--err-fg); font-weight: 600; }
   .aca td.money, .aca th.money { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   @media (max-width: 700px) { .aca .inv-sm-hide { display: none; } }
   @media (max-width: 700px) { .aca .inv-row2 { grid-template-columns: 1fr; } .aca .inv-res { grid-template-columns: auto minmax(0, 1fr); } .aca .inv-res .inv-thumb { display: none; } }
@@ -181,8 +194,10 @@
             '<br><span class="muted">Since ' + esc(fmtAgo(r.out_at)) + (r.due_on ? ", due " + esc(dueTxt(r.due_on)) : "") + "</span></span></button>").join("")
         : '<p class="empty">Start typing to find something.</p>';
     }
+    const COND = { broken: "Broken", repair: "At repair" };
+    const condTag = (r) => (r.condition && r.condition !== "ok" ? ' <span class="inv-bad">' + COND[r.condition] + "</span>" : "");
     const itemRow = (r) => '<button type="button" class="inv-res" data-item="' + esc(r.id) + '">' + binTag(r.bin_code) + thumb(r.photo_path) +
-      "<span><b>" + esc(r.name) + "</b>" + (num(r.qty) !== 1 ? ' <span class="muted">&times; ' + num(r.qty) + "</span>" : "") +
+      "<span><b>" + esc(r.name) + "</b>" + condTag(r) + (num(r.qty) !== 1 ? ' <span class="muted">&times; ' + num(r.qty) + "</span>" : "") +
       (r.serial ? ' <span class="muted">S/N ' + esc(r.serial) + "</span>" : "") +
       '<br><span class="muted">' + [r.bin_location, r.kit_name ? "in " + r.kit_name : ""].filter(Boolean).map(esc).join(" &middot; ") + "</span> " + outLine(r) + "</span></button>";
     const kitRow = (r) => '<button type="button" class="inv-res" data-kit="' + esc(r.id) + '">' + binTag(r.bin_code) + thumb(r.photo_path) +
@@ -192,6 +207,22 @@
       "<span><b>" + esc(r.location || "Bin " + r.code) + '</b><br><span class="muted">' + esc(r.preview || "Empty") + "</span></span></button>";
 
     el("invResults").addEventListener("click", (e) => openFrom(e.target.closest("[data-item],[data-kit],[data-bin]")));
+    el("invScan").addEventListener("click", () => InvQR.scan({ title: "Scan a label", async onCode(text) {
+      const r = await InvQR.resolve(text);
+      openRef(r.kind, r.id);
+      return { ok: true };
+    } }));
+    el("invLabels").addEventListener("click", () => InvQR.labelsDialog());
+    function openRef(kind, id) { if (kind === "item") openItem(id); else if (kind === "kit") openKit(id); else if (kind === "bin") openBin(id); }
+    // A label opened by a phone camera: #ops/inventory/i/<id>. Opened once, then the hash goes back to the tab.
+    function openFromHash() {
+      const r = InvQR.parse(location.hash);
+      if (!r) return false;
+      window.history.replaceState(null, "", "#ops/inventory");   // (history is the check-out history helper below)
+      openRef(r.kind, r.id);
+      return true;
+    }
+    window.addEventListener("hashchange", () => { if (current === "inventory" && canSee("inventory")) openFromHash(); });
     function openFrom(b) {
       if (!b) return;
       if (b.dataset.item) openItem(b.dataset.item);
@@ -227,7 +258,7 @@
       try { await loadLists(true); } catch (e) { showError("invKitErr", "Could not load kits: " + cleanErr(e)); return; }
       el("invKitBody").innerHTML = kits.length ? kits.map((k) => '<tr data-kit="' + esc(k.id) + '" style="cursor:pointer"><td class="name">' + esc(k.name) + "</td><td>" + binTag(k.bin_code) +
         (k.bin_location ? ' <span class="muted">' + esc(k.bin_location) + "</span>" : "") + "</td><td>" + num(k.item_count) + "</td>" +
-        "<td>" + (k.holder_name ? '<span class="pill warn">Out with ' + esc(k.holder_name) + "</span>" : '<span class="pill ok">In</span>') + "</td></tr>").join("")
+        "<td>" + (k.holder_name ? '<span class="pill warn">Out with ' + esc(k.holder_name) + "</span>" : num(k.not_ok_count) ? '<span class="pill err">Needs repair</span>' : '<span class="pill ok">In</span>') + "</td></tr>").join("")
         : '<tr><td colspan="4" class="empty">No kits yet.' + (edit() ? " Add one, then add items to it." : "") + "</td></tr>";
     }
     el("invKitBody").addEventListener("click", (e) => openFrom(e.target.closest("[data-kit]")));
@@ -242,7 +273,8 @@
       const late = rows.filter((r) => overdue(r.due_on)).length;
       el("invOutCount").textContent = rows.length ? rows.length + " out" + (late ? ", " + late + " late" : "") : "";
       el("invOutBody").innerHTML = rows.length ? rows.map((r) => '<tr><td class="name"><a href="#" data-' + (r.kit_id ? "kit" : "item") + '="' + esc(r.kit_id || r.item_id) + '">' + esc(r.what) + "</a>" +
-        (r.kit_id ? ' <span class="muted">kit</span>' : "") + (r.serial ? '<div class="muted" style="font-size:12.5px">S/N ' + esc(r.serial) + "</div>" : "") + "</td>" +
+        (r.kit_id ? ' <span class="muted">kit</span>' : "") + (r.serial ? '<div class="muted" style="font-size:12.5px">S/N ' + esc(r.serial) + "</div>" : "") +
+        (r.job_title ? '<div class="muted" style="font-size:12.5px">For ' + esc(r.job_title) + "</div>" : "") + "</td>" +
         "<td>" + esc(r.holder_name) + "</td><td>" + esc(fmtAgo(r.out_at)) + "</td>" +
         "<td>" + (r.due_on ? (overdue(r.due_on) ? '<span class="pill err">' + esc(dueTxt(r.due_on)) + "</span>" : esc(dueTxt(r.due_on))) : '<span class="muted">&mdash;</span>') + "</td>" +
         "<td>" + binTag(r.bin_code) + "</td>" +
@@ -255,6 +287,21 @@
       const a = e.target.closest("[data-item],[data-kit]");
       if (a) { e.preventDefault(); openFrom(a); }
     });
+
+    // Scan things as they come back: each one is checked in.
+    el("invScanBack").addEventListener("click", () => InvQR.scan({ title: "Scan returns", continuous: true, onClose: () => { if (current === "invout") loadOut(); },
+      hint: "Scan each item or kit as it comes back.",
+      async onCode(text) {
+        const r = await InvQR.resolve(text);
+        if (r.kind === "bin") return { ok: false, msg: "That's bin " + r.row.code + ". Scan the item or kit." };
+        const row = r.row;
+        if (!row.checkout_id) return { ok: false, msg: r.name + " isn't checked out." };
+        if (r.kind === "item" && row.out_with_kit) return { ok: false, msg: r.name + " went out with " + row.kit_name + ". Scan the kit." };
+        if (!edit() && row.holder_user !== me()) return { ok: false, msg: r.name + " is out with " + row.holder_name + ". Only they or a manager can check it in." };
+        const { error } = await sb.rpc("inventory_return", { p_checkout: row.checkout_id });
+        if (error) return { ok: false, msg: r.name + ": " + cleanErr(error) };
+        return { ok: true, msg: "\u2713 " + r.name + " is back" + (row.bin_code ? ", goes in bin " + row.bin_code : "") + "." };
+      } }));
 
     async function giveBack(id, m) {
       const { error } = await sb.rpc("inventory_return", { p_checkout: id });
@@ -306,6 +353,7 @@
         return '<div class="inv-status"><span class="grow">' + outLine(r) + '<br><span class="muted">Since ' + esc(fmtDate(r.out_at)) + "</span></span>" +
           (canRet ? '<button type="button" class="small" data-ret="' + num(r.checkout_id) + '">Return</button>' : "") + "</div>";
       }
+      if ((r.condition && r.condition !== "ok") || num(r.not_ok_count)) return '<div class="inv-status"><span class="grow"><span class="pill err">Can\'t go out</span> ' + (r.bin_code ? "Bin " + esc(r.bin_code) : "") + "</span></div>";
       return '<div class="inv-status"><span class="grow"><span class="pill ok">In</span> ' + (r.bin_code ? "Bin " + esc(r.bin_code) : "") + "</span>" +
         '<button type="button" class="small" data-co>Check out' + (edit() ? "" : " to me") + "</button></div>";
     }
@@ -338,12 +386,13 @@
           binKits.map((k) => '<div class="inv-li" data-kit="' + esc(k.id) + '"><span class="grow"><b>' + esc(k.name) + '</b> <span class="muted">kit, ' + num(k.item_count) + " items</span></span>" +
             (k.holder_name ? '<span class="inv-out">Out with ' + esc(k.holder_name) + "</span>" : "") + "</div>").join("")
           : '<p class="empty">Nothing in this bin yet.</p>') + "</div>" +
-        '<div class="modal-actions">' + (edit() ? '<button type="button" class="small" id="aca-invBinEdit">Edit bin</button><button type="button" class="small" id="aca-invBinItem">Add item</button>' : "") +
+        '<div class="modal-actions">' + (edit() ? '<button type="button" class="small" id="aca-invBinEdit">Edit bin</button><button type="button" class="small" id="aca-invBinItem">Add item</button><button type="button" class="small" id="aca-invBinLabel">Print label</button>' : "") +
         '<span class="grow"></span><button type="button" class="primary" id="aca-invBinClose">Done</button></div>');
       el("invBinClose").addEventListener("click", () => m.close());
       m.querySelector(".inv-list").addEventListener("click", (e) => { const r = e.target.closest("[data-item],[data-kit]"); if (r) { m.close(); openFrom(r); } });
       if (!edit()) return;
       el("invBinEdit").addEventListener("click", () => { m.close(); editBin(bin); });
+      el("invBinLabel").addEventListener("click", () => labelOne("b", bin.id, "Bin " + bin.code, bin.location));
       el("invBinItem").addEventListener("click", () => { m.close(); editItem(null, { bin_id: id }); });
     }
 
@@ -401,18 +450,24 @@
         (r.serial ? "<p>Serial number <b>" + esc(r.serial) + "</b></p>" : "") +
         (r.note ? "<p>" + esc(r.note) + "</p>" : "") +
         careBlock(r) +
+        condBlock(r) +
         statusStrip(r, what) +
         '<div class="inv-h">History</div><ul class="inv-hist"><li>Loading&#8230;</li></ul>' +
         '<div class="inv-h">Service</div><ul class="inv-hist" id="aca-invSvc"><li>Loading&#8230;</li></ul>' +
         '<div class="modal-actions">' + (edit() ? '<button type="button" class="small" id="aca-invIEdit">Edit item</button>' : "") +
         '<button type="button" class="small" id="aca-invISvc">Log service</button>' +
+        (r.condition === "ok" || !r.condition ? '<button type="button" class="small" id="aca-invIBroken">Report broken</button>' : "") +
+        (edit() ? '<button type="button" class="small" id="aca-invILabel">Print label</button>' : "") +
         '<span class="grow"></span><button type="button" class="primary" id="aca-invIClose">Done</button></div>');
       el("invIClose").addEventListener("click", () => m.close());
       wireStatus(m, what);
       history(m, what);
       serviceLog(r);
       el("invISvc").addEventListener("click", () => { m.close(); logService(r); });
+      if (el("invIBroken")) el("invIBroken").addEventListener("click", () => { m.close(); setCondition(r, "broken"); });
+      m.querySelectorAll("[data-cond]").forEach((b) => b.addEventListener("click", () => { m.close(); setCondition(r, b.dataset.cond); }));
       if (edit()) el("invIEdit").addEventListener("click", () => { m.close(); editItem(r); });
+      if (edit()) el("invILabel").addEventListener("click", () => labelOne("i", r.id, r.name, r.serial ? "S/N " + r.serial : r.bin_code ? "Bin " + r.bin_code : ""));
     }
 
     // Purchase, value and service lines on an item.
@@ -425,6 +480,36 @@
       else if (r.last_service_on) bits.push("Last serviced " + esc(dueTxt(r.last_service_on)));
       return bits.length ? '<p class="inv-care">' + bits.join("<br>") + "</p>" : "";
     }
+    // Broken or at repair: what's wrong, since when, and (Edit) send to repair / mark fixed.
+    function condBlock(r) {
+      if (!r.condition || r.condition === "ok") return "";
+      return '<div class="inv-cond"><span class="grow"><b>' + COND[r.condition] + "</b>" + (r.condition_note ? ": " + esc(r.condition_note) : "") +
+        (r.condition_since ? '<br><span style="font-size:12.5px">Since ' + esc(fmtDate(r.condition_since)) + ". It can't be checked out until it's marked fixed.</span>" : "") + "</span>" +
+        (edit() ? (r.condition === "broken" ? '<button type="button" class="small" data-cond="repair">Sent to repair</button>' : "") + '<button type="button" class="small" data-cond="ok">Mark fixed</button>' : "") + "</div>";
+    }
+    function setCondition(r, to) {
+      const t = { broken: ["Report " + r.name + " broken", "What's wrong", "Flash won't fire", "Report it"], repair: ["Send " + r.name + " to repair", "Where it went (optional)", "Canon service center", "Save"],
+                  ok: ["Mark " + r.name + " fixed", "What was done (optional)", "Replaced the flash tube", "Mark fixed"] }[to];
+      const m = openModal("<h2>" + esc(t[0]) + "</h2>" +
+        (to === "broken" ? '<p class="muted" style="font-size:13px">It can\'t be checked out until a manager marks it fixed.' + (r.kit_name ? " Its kit, " + esc(r.kit_name) + ", can't go out either, so swap it out of the kit if there's a spare." : "") + "</p>" : "") +
+        '<div class="field"><label for="aca-invCdNote">' + esc(t[1]) + '</label><input type="text" id="aca-invCdNote" maxlength="500" placeholder="' + esc(t[2]) + '" /></div>' +
+        (to === "ok" ? '<div class="field"><label for="aca-invCdCost">Repair cost <span class="muted">(optional, goes in the service log)</span></label><input type="number" id="aca-invCdCost" min="0" step="0.01" placeholder="0.00" /></div>' : "") +
+        '<div class="inline-error hidden" id="aca-invCdErr"></div>' +
+        '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" id="aca-invCdCancel">Cancel</button><button type="button" class="primary" id="aca-invCdSave">' + esc(t[3]) + "</button></div>");
+      const err = (x) => { const n = el("invCdErr"); n.textContent = x; n.classList.remove("hidden"); };
+      el("invCdCancel").addEventListener("click", () => { m.close(); openItem(r.id); });
+      el("invCdSave").addEventListener("click", async () => {
+        const note = el("invCdNote").value.trim(), costTxt = el("invCdCost") ? el("invCdCost").value.trim() : "";
+        if (to === "broken" && !note) return err("Say what's wrong with it.");
+        if (costTxt !== "" && !(Number(costTxt) >= 0)) return err("Cost should be a number.");
+        el("invCdSave").disabled = true;
+        const { error } = await sb.rpc("inventory_condition_set", { p_item: r.id, p_condition: to, p_note: note, p_cost: costTxt === "" ? null : Number(costTxt) });
+        if (error) { el("invCdSave").disabled = false; return err(cleanErr(error)); }
+        m.close(); toast(to === "ok" ? "Marked fixed." : to === "repair" ? "Marked at repair." : "Reported. It's blocked from check-out."); refresh(); openItem(r.id);
+      });
+    }
+    const labelOne = (kind, id, title, sub) => InvQR.print([{ kind, id, title, sub }], prompt("Which label on the sheet? (1 = top left, 30 = bottom right)", "1") || "1");
+
     async function serviceLog(r) {
       const { data } = await sb.from("inventory_service").select("*").eq("item_id", r.id).order("done_on", { ascending: false }).limit(12);
       const box = el("invSvc");
@@ -538,13 +623,15 @@
         (kit.photo_path ? '<img class="inv-big" alt="" src="' + esc(photoUrl(kit.photo_path)) + '" />' : "") +
         '<p style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">Lives in ' + binTag(kit.bin_code) + " " + esc(kit.bin_location || "") + "</p>" +
         (kit.note ? "<p>" + esc(kit.note) + "</p>" : "") +
+        (num(kit.not_ok_count) ? '<div class="inv-cond"><span class="grow"><b>Needs repair.</b> ' + num(kit.not_ok_count) + (num(kit.not_ok_count) === 1 ? " item in it is" : " items in it are") +
+          " broken or at repair, so the kit can't be checked out. Swap in a spare, or mark it fixed.</span></div>" : "") +
         statusStrip(kit, what) +
         '<div class="inv-h">In this kit</div><div class="inv-list">' +
         (items.length ? items.map((r) => '<div class="inv-li" data-item="' + esc(r.id) + '"><span class="grow"><b>' + esc(r.name) + "</b>" +
-            (num(r.qty) !== 1 ? ' <span class="muted">&times; ' + num(r.qty) + "</span>" : "") + (r.serial ? ' <span class="muted">S/N ' + esc(r.serial) + "</span>" : "") + "</span>" +
+            (num(r.qty) !== 1 ? ' <span class="muted">&times; ' + num(r.qty) + "</span>" : "") + (r.serial ? ' <span class="muted">S/N ' + esc(r.serial) + "</span>" : "") + condTag(r) + "</span>" +
             (r.holder_name && !r.out_with_kit ? outLine(r) : "") + "</div>").join("") : '<p class="empty">Nothing in this kit yet.</p>') + "</div>" +
         '<div class="inv-h">History</div><ul class="inv-hist"><li>Loading&#8230;</li></ul>' +
-        '<div class="modal-actions">' + (edit() ? '<button type="button" class="small" id="aca-invKEdit">Edit kit</button><button type="button" class="small" id="aca-invKItem">Add item</button>' : "") +
+        '<div class="modal-actions">' + (edit() ? '<button type="button" class="small" id="aca-invKEdit">Edit kit</button><button type="button" class="small" id="aca-invKItem">Add item</button><button type="button" class="small" id="aca-invKLabel">Print label</button>' : "") +
         '<span class="grow"></span><button type="button" class="primary" id="aca-invKClose">Done</button></div>');
       el("invKClose").addEventListener("click", () => m.close());
       wireStatus(m, what);
@@ -552,6 +639,7 @@
       m.querySelector(".inv-list").addEventListener("click", (e) => { const r = e.target.closest("[data-item]"); if (r) { m.close(); openFrom(r); } });
       if (!edit()) return;
       el("invKEdit").addEventListener("click", () => { m.close(); editKit(kit); });
+      el("invKLabel").addEventListener("click", () => labelOne("k", kit.id, kit.name, "Kit" + (kit.bin_code ? " \u00b7 bin " + kit.bin_code : "")));
       el("invKItem").addEventListener("click", () => { m.close(); editItem(null, { kit_id: kit.id }); });
     }
 
@@ -655,6 +743,9 @@
         const { data: d, error } = await sb.rpc("inventory_attention");
         if (error) throw error;
         setAttention("gearServiceDue", num(d && d.service_due), "Gear due for service", "invgear");
+        setAttention("gearMissing", num(d && d.gear_missing), "Jobs missing gear", "invjobs");
+        setAttention("gearLate", num(d && d.past_due), "Gear past due", "invout");
+        setAttention("gearRepair", num(d && d.needs_repair), "Gear needing repair", "inventory");
       } catch (_e) { /* Today reports it as unchecked */ }
     }
 
@@ -663,7 +754,8 @@
     function show(tab) {
       current = tab;
       document.querySelectorAll(".aca .inv-edit").forEach((b) => b.classList.toggle("hidden", !edit()));
-      if (tab === "inventory") { search(); if (window.matchMedia("(pointer: fine)").matches) el("invQ").focus(); }
+      if (tab === "inventory") { search(); if (!openFromHash() && window.matchMedia("(pointer: fine)").matches) el("invQ").focus(); }
+      else if (tab === "invjobs") JobGear.loadJobs();
       else if (tab === "invbins") loadBins();
       else if (tab === "invkits") loadKits();
       else if (tab === "invout") loadOut();

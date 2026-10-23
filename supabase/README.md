@@ -42,6 +42,8 @@ psql -d shadow -v ON_ERROR_STOP=1    -f tests/staff_records_test.sql   # clearan
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023090000_employment_type.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/employment_type_test.sql   # job title + type (full access only), Open jobs to Part time / 1099, no overtime for salaried / 1099; rolls back
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql         # again: offers now follow the employment type
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023091300_job_gear.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/job_gear_test.sql      # gear lists per job type, copies on booked jobs only, scan/check out for a job, repairs block check-out, past-due push, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new

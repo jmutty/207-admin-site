@@ -370,6 +370,116 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
+  console.log("Gear for jobs, repairs and QR (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#ops/invjobs");
+    await page.waitForSelector("#aca-jgJobsBody tr[data-job]");
+    check(await page.$eval("#aca-panel-invjobs", (n) => n.classList.contains("active")), "#ops/invjobs opens Jobs");
+    check((await page.textContent('#aca-jgJobsBody tr[data-job="bkg1"]')).includes("1 of 3") && !!(await page.$('#aca-jgJobsBody tr[data-job="bkg1"] .pill.err')), "job tomorrow missing gear is red");
+    check((await page.textContent('#aca-jgJobsBody tr[data-job="bkg2"]')).includes("No list"), "job without a list says so");
+    check((await page.textContent("#aca-jgLists")).includes("Every job") && (await page.textContent("#aca-jgLists")).includes("Sports kit 1"), "gear lists by job type");
+    await page.click('#aca-jgJobsBody tr[data-job="bkg1"]');
+    await page.waitForSelector(".modal .jg-line");
+    check((await page.$$(".modal .jg-line")).length === 3 && (await page.textContent(".modal")).includes("Missing gear"), "job shows its lines and the flag");
+    check((await page.textContent('.modal [data-line="gl2"]')).includes("Out with Sam Helper"), "line warns the camera is out with someone else");
+    await page.click('.modal [data-line="gl2"] [data-co]');
+    await page.waitForSelector("#aca-jgCoGo");
+    await page.click("#aca-jgCoGo");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "job_gear_check_out" && c[1].p_line === "gl2" && c[1].p_booking === "bkg1" && c[1].p_holder === "u1")), "checks a line out for the job");
+    await page.click('.modal [data-line="gl3"] [data-pack]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "job_gear_pack" && c[1].p_line === "gl3" && c[1].p_packed === true)), "ticks words-only line packed");
+    await page.click(".modal [data-scan]");
+    await page.waitForSelector("#aca-iqType");
+    check(!!(await page.$("#aca-jgWho")), "scan out: manager picks who it goes to");
+    await page.fill("#aca-iqType", "SN-12345");
+    await page.click("#aca-iqGo");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "job_gear_check_out" && c[1].p_item === "ii2" && !c[1].p_line)), "scan out: a serial number checks it out for the job");
+    check((await page.textContent(".iq-log")).includes("Canon R6 body"), "scan out: says what went out");
+    await page.click("#aca-iqDone");
+    await page.click("#aca-jgModalDone");
+    await page.click('#aca-jgLists [data-add-type="sports_data"]');
+    await page.waitForSelector("#aca-jgLKind");
+    await page.selectOption("#aca-jgLKind", "words");
+    await page.fill("#aca-jgLLabel", "Step stool");
+    await page.click("#aca-jgLSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "gear_template_save" && c[1].p.label === "Step stool" && c[1].p.type_key === "sports_data")), "adds a line to the sports list");
+    // a QR label opened by the phone camera
+    await page.evaluate(() => { location.hash = "#ops/inventory/i/00000000-0000-0000-0000-0000000000a4"; });
+    await page.waitForSelector(".modal .inv-cond");
+    check((await page.textContent(".modal .inv-cond")).includes("At repair") && !!(await page.$('.modal [data-cond="ok"]')), "label link opens the item; at repair with Mark fixed");
+    check(await page.evaluate(() => location.hash) === "#ops/inventory", "hash goes back to Find");
+    await page.click('.modal [data-cond="ok"]');
+    await page.waitForSelector("#aca-invCdCost");
+    await page.fill("#aca-invCdCost", "45");
+    await page.click("#aca-invCdSave");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_condition_set" && c[1].p_condition === "ok" && c[1].p_cost === 45)), "marks it fixed with the cost");
+    await page.keyboard.press("Escape");
+    // Scan from Find with a typed serial number
+    await page.click("#aca-invScan");
+    await page.waitForSelector("#aca-iqType");
+    await page.fill("#aca-iqType", "SN-12345");
+    await page.press("#aca-iqType", "Enter");
+    await page.waitForSelector("#aca-invIClose");
+    check((await page.textContent(".modal h2")).includes("Canon R6 body"), "scan a serial opens the item");
+    await page.click("#aca-invIClose");
+    // Labels
+    const popup = page.waitForEvent("popup");
+    await page.click("#aca-invLabels");
+    await page.waitForSelector("#aca-iqLGo");
+    await page.click("#aca-iqLGo");
+    const w = await popup;
+    await w.waitForSelector(".l .fake-qr");
+    check((await w.$$(".l .fake-qr")).length === 2 + 1 + 2, "labels: every bin and kit, items with a serial: " + (await w.$$(".l .fake-qr")).length);
+    await w.close();
+    // Checked out: job shown, scan returns
+    await page.click('#aca-pagetabs button[data-tab="invout"]');
+    await page.waitForSelector("#aca-invOutBody tr");
+    check((await page.textContent("#aca-invOutBody")).includes("For Hampden Rec"), "Checked out shows the job");
+    await page.click("#aca-invScanBack");
+    await page.waitForSelector("#aca-iqType");
+    await page.fill("#aca-iqType", "SN-12345");
+    await page.click("#aca-iqGo");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_return" && c[1].p_checkout === 1)), "scan returns checks it in");
+    await page.click("#aca-iqDone");
+    await page.click('#aca-pagetabs button[data-tab="inventory"]');
+    await page.fill("#aca-invQ", "light");
+    await page.waitForSelector("#aca-invResults .inv-bad");
+    check((await page.textContent("#aca-invResults")).includes("At repair"), "search results show repair");
+    await page.goto(page.url().replace(/#.*/, "#today"));
+    await page.waitForTimeout(600);
+    const today = await page.textContent("#aca-panel-today");
+    check(today.includes("missing gear") && today.includes("past due back"), "Today: missing gear and past due");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Gear for jobs on a phone (view only)");
+  {
+    const { page, errors } = await browser.newPage({ viewport: { width: 390, height: 844 } }).then(async (pg) => {
+      const errs = []; pg.on("pageerror", (e) => errs.push(String(e))); pg.on("dialog", (d) => d.accept());
+      await pg.goto(`http://127.0.0.1:${port}/test/harness.html?as=gear#ops/invjobs`); await pg.waitForSelector("#aca-jgJobsBody tr[data-job]");
+      return { page: pg, errors: errs };
+    });
+    check(!(await shown(page, "#aca-jgListAdd")), "no Add to a list for view only");
+    await page.click('#aca-jgJobsBody tr[data-job="bkg1"]');
+    await page.waitForSelector(".modal .jg-line");
+    await page.screenshot({ path: "/tmp/claude-0/jg-phone.png" });
+    await page.click('.modal [data-line="gl2"] [data-co]');
+    await page.waitForSelector("#aca-jgCoGo");
+    check(!(await page.$("#aca-jgWho")), "view only: checks out to themselves");
+    await page.click("#aca-jgCoGo");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "job_gear_check_out" && c[1].p_holder === null)), "view only: holder left to the server (you)");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
   console.log("Staff records (owner)");
   {
     const { page, errors } = await open(browser, port, "", "#staff/clearances");
