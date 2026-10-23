@@ -750,6 +750,70 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
+  console.log("Job page (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/bookings/bk1");
+    await page.waitForSelector('#aca-bkPanel a[href="#jobs/job/bk1"]');
+    check(true, "booking panel links to the job page");
+    await page.click('#aca-bkPanel a[href="#jobs/job/bk1"]');
+    await page.waitForSelector("#aca-jpTabs button");
+    check(await page.$eval("#aca-panel-job", (n) => n.classList.contains("active")), "the link opens the job page");
+    check(!(await page.$('#aca-nav button[data-tab="job"]')), "the job page is not in the menu");
+    const tabs = await page.$$eval("#aca-jpTabs button", (bs) => bs.map((b) => b.dataset.t));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "pictureday", "checklist", "results", "notes", "history"]), "tabs: " + tabs.join(","));
+    const ov = await page.textContent("#aca-jpBody");
+    check(ov.includes("Sam Helper") && ov.includes("40 min drive") && ov.includes("Chris Snowdeal") && ov.includes("1 want to move"), "overview shows crew, contacts and picture day");
+    await page.click('#aca-jpTabs button[data-t="checklist"]');
+    check(page.url().endsWith("#jobs/job/bk1/checklist"), "a tab goes in the address");
+    check((await page.textContent("#aca-jpBody")).includes("days late"), "checklist marks the late task");
+    await page.click('#aca-jpTabs button[data-t="results"]');
+    check((await page.textContent("#aca-jpBody")).includes("$1,234.50 from 40 orders"), "results show sales");
+    await page.click('#aca-jpTabs button[data-t="notes"]');
+    await page.waitForSelector(".jp-notes li[data-n]");
+    check((await page.$eval(".jp-notes .at", (n) => n.textContent)) === "@Sam Helper", "a mention is highlighted");
+    await page.click("#aca-jpNote");
+    await page.keyboard.type("Ask @sa");
+    await page.waitForSelector("#aca-jpSug:not(.hidden) button");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("about the ladder");
+    check((await page.$eval("#aca-jpNote", (n) => n.value)) === "Ask @Sam Helper about the ladder", "picking from the @ list inserts the name");
+    check((await page.textContent("#aca-jpMent")).includes("Will notify Sam Helper"), "says who will be notified");
+    await page.click("#aca-jpAdd");
+    await page.waitForTimeout(200);
+    const add = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "job_note_add").pop());
+    check(add && add[1].p_booking === "bk1" && JSON.stringify(add[1].p_mentions) === '["u2"]', "the note is saved with its mention: " + JSON.stringify(add && add[1]));
+    await page.click('#aca-jpTabs button[data-t="history"]');
+    await page.waitForSelector(".hv-list li");
+    const hv = await page.textContent(".hv-list");
+    check(hv.includes("Brewer High") && hv.includes("put Sam Helper on the crew") && hv.includes("moved the job to Booked"), "history reads in words");
+    const [csv] = await Promise.all([page.waitForEvent("download"), (async () => { await page.click('[data-j="dl"]'); await page.click('[data-d="crew"]'); })()]);
+    check(fs.readFileSync(await csv.path(), "utf8").startsWith("Name,Day,Start,End"), "crew CSV downloads");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Job page: history on organizations, sign-ins on Team");
+  {
+    const { page, errors } = await open(browser, port, "", "#partners/orgs");
+    await page.waitForSelector(".og-row, tr[data-id], [data-org]", { timeout: 5000 }).catch(() => {});
+    const row = await page.$("#aca-panel-orgs [data-id]");
+    if (row) {
+      await row.click();
+      await page.waitForSelector('[data-act="history"]');
+      await page.click('[data-act="history"]');
+      await page.waitForSelector(".hv-modal .hv-list");
+      check(true, "organization panel opens its history");
+      await page.click(".hv-modal [data-x]");
+    } else check(false, "found an organization row to open");
+    await page.click('#aca-nav button[data-tab="team"]');
+    await page.waitForSelector('[data-edit="u2"]');
+    await page.click('[data-edit="u2"]');
+    await page.click("#aca-tmSignins");
+    await page.waitForSelector(".hv-table");
+    check((await page.textContent(".hv-table")).includes("Safari on iPhone"), "sign-ins list the device");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
   console.log("Picture day: the organization's form (no sign-in)");
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });

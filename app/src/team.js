@@ -94,8 +94,10 @@
         '<div class="modal-actions">' +
         (isNew || p.is_me ? "" : '<button type="button" class="small" id="aca-tmReset">Reset password</button><button type="button" class="small" id="aca-tmActive">' + (p.active ? "Deactivate" : "Reactivate") + "</button>" +
           (p.active ? "" : '<button type="button" class="small warn" id="aca-tmRemove">Remove</button>')) +
+        (isNew ? "" : '<button type="button" class="small" id="aca-tmSignins">Sign-ins</button>') +
         '<span class="grow"></span><button type="button" class="small" id="aca-tmCancel">Cancel</button><button type="button" class="primary" id="aca-tmSave">' + (isNew ? "Add and create login" : "Save") + "</button></div>");
       const err = (t) => { const n = el("tmErr"); n.textContent = t; n.classList.remove("hidden"); };
+      if (el("tmSignins")) el("tmSignins").addEventListener("click", () => HistoryView.signins(p.user_id, "Sign-ins: " + (p.name || p.email)));
       el("tmAdmin").addEventListener("change", () => el("tmGrid").classList.toggle("hidden", el("tmAdmin").checked));
       const typeNote = () => { el("tmTypeNote").textContent = ({ full_time: "Hourly, with overtime on the time clock.", salaried: "Hours are tracked, but no overtime on the time clock.",
         part_time: "Gets Open jobs offers near them (and Open jobs access). Overtime applies.", contractor: "Gets Open jobs offers near them (and Open jobs access). No overtime; kept out of the payroll CSV and listed separately." })[el("tmType").value] || ""; };

@@ -307,7 +307,7 @@
   function renderRail() {
     const groups = RAIL_GROUPS.concat(RAIL.map((it) => it.group || "").filter((g) => !RAIL_GROUPS.includes(g)));
     el("nav").innerHTML = groups.filter((g, i) => groups.indexOf(g) === i).map((g) => {
-      const items = RAIL.filter((it) => (it.group || "") === g && canSee(it.module));
+      const items = RAIL.filter((it) => (it.group || "") === g && !it.hidden && canSee(it.module));
       if (!items.length) return "";
       return (g === "System" ? '<h4 class="sp" aria-hidden="true"></h4>' : g ? "<h4>" + esc(g) + "</h4>" : "") +
         items.map((it) => '<button type="button" data-tab="' + esc(it.id) + '" aria-selected="false">' + esc(railLabel(it)) + '<span class="n" id="aca-nav-' + esc(it.id) + '"></span></button>').join("");
@@ -585,7 +585,7 @@
   // Pages come from RAIL (only those this person can see); org sub-lists from the orgs item's `search`.
   function gsPages() {
     const out = [];
-    RAIL.filter((it) => canSee(it.module)).forEach((it) => {
+    RAIL.filter((it) => !it.hidden && canSee(it.module)).forEach((it) => {
       it.tabs.forEach((t) => out.push([t[0], tabName(t[0])]));
       (it.search || []).forEach((x) => out.push([it.tabs[0][0], x[0], x[1]]));
     });
@@ -616,6 +616,7 @@
       if (t === "jobs" && id) showJobsFor({}, { select: id });
       if (t === "orgs" && id) { if (/^[a-z]+$/.test(id)) history.replaceState(null, "", "#partners/orgs/" + id); Orgs.load(); Orgs.open(id); }
       if (t === "bookings" && id) Bookings.openId(id);
+      if (t === "job" && id) JobPage.open(id);
     }
   }
   function closeSearch() { if (gsWrap) { gsWrap.remove(); gsWrap = null; } }
@@ -638,7 +639,7 @@
         if (el("gsInput") && el("gsInput").value.trim().toLowerCase() !== ql) return; // stale
         if (orgs && orgs.length) groups.push(["Organizations", orgs.map((o) => ({ tab: "orgs", id: o.id, k: o.name, m: [o.town, o.stage].filter(Boolean).join(", ") }))]);
         const b2 = (bks || []).filter((b) => ((b.org_name || "") + " " + (b.title || "")).toLowerCase().includes(ql)).slice(0, 5);
-        if (b2.length) groups.push(["Bookings", b2.map((b) => ({ tab: "bookings", id: b.id, k: b.title || b.org_name, m: fmtDay2(b.picture_day) }))]);
+        if (b2.length) groups.push(["Jobs", b2.map((b) => ({ tab: "job", id: b.id, k: b.title || b.org_name, m: fmtDay2(b.picture_day) }))]);
       } catch (_e) { /* search is best effort */ }
     }
     if (!groups.length) { list.innerHTML = '<div class="gs-empty">' + (ql ? "Nothing matches “" + esc(q) + "”." : "Type to search.") + "</div>"; return; }
