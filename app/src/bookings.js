@@ -110,6 +110,7 @@
   .aca .bk-jt h3 { margin: 14px 0 2px; font-size: 13px; }
   /* All jobs toolbar (2026-10-24): Book a job first, then "..." (Track a job), then a small Job types link */
   .aca .bk-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .aca .bk-fbtn { display: none; }
   .aca .bk-more { position: relative; display: inline-block; }
   .aca .bk-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px; min-width: 180px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
   .aca .bk-menu.hidden { display: none; }
@@ -155,8 +156,19 @@
     .aca .bk-form .bk-dayrow .bk-d-label { flex: 1 1 100% !important; min-width: 0 !important; }
     .aca .bk-form #aca-bkCode { width: 100% !important; }
     .aca #aca-panel-bookings .card-head { flex-direction: column; align-items: stretch; gap: 10px; }
+    /* Phones (2026-10-23): search, a Filters button and the scope chips in one swipe row; type, stage and saved
+       views open under Filters, so the list starts near the top. The button counts the filters that are on. */
+    .aca #aca-panel-bookings .toolbar { row-gap: 10px; }
+    .aca #aca-panel-bookings .toolbar #aca-bkSearch { flex: 1 1 0; min-width: 0; }
+    .aca #aca-panel-bookings .toolbar .bk-fbtn { display: inline-flex; min-height: 44px; flex: none; }
+    .aca #aca-panel-bookings .toolbar .bk-fbtn.on { border-color: var(--accent); color: var(--accent); }
+    .aca #aca-panel-bookings .toolbar:not(.fopen) > #aca-bkType, .aca #aca-panel-bookings .toolbar:not(.fopen) > #aca-bkStage,
+    .aca #aca-panel-bookings .toolbar:not(.fopen) > .lv-tools { display: none; }
+    .aca #aca-panel-bookings .toolbar.fopen > #aca-bkType, .aca #aca-panel-bookings .toolbar.fopen > #aca-bkStage { flex: 1 1 40%; }
+    .aca #aca-panel-bookings .toolbar > .bk-chips { order: 5; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .aca #aca-panel-bookings .toolbar > .bk-chips button { flex: none; }
+    .aca #aca-panel-bookings .toolbar > .lv-tools { order: 4; flex: 1 0 100%; }
     .aca #aca-panel-bookings .card-head .bk-tools > button.primary { min-height: 44px; flex: 1 1 auto; }
-    .aca #aca-panel-bookings .card-head .bk-tools #aca-bkMore { min-height: 44px; min-width: 48px; }
     .aca .bk-tab .bk-stages { display: none; } .aca .bk-tab .bk-stages.open { display: grid; }
     .aca .bk-tab .bk-stage1 { display: flex; }
     .aca .bk-tab .bk-stage-next { display: none; } .aca .bk-tab .bk-stages.open ~ .bk-stage-next { display: inline-flex; }
@@ -186,13 +198,12 @@
         <div><h2>All jobs</h2>
           <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job for a quick look, then Open for its page: stage, deliverables, emails, crew and checklist.</p></div>
         <div class="og-actions bk-tools"><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button>
-          <span class="bk-more" id="aca-bkMoreWrap"><button type="button" class="small" id="aca-bkMore" aria-haspopup="true" aria-expanded="false" aria-label="More">&#8230;</button>
-            <span class="bk-menu hidden" id="aca-bkMenu" role="menu"><button type="button" role="menuitem" id="aca-bkTrack">Track a job</button></span></span>
-          <button type="button" class="link small" id="aca-bkJobTypes">Job types</button></div>
+</div>
       </div>
       <div id="aca-bkBanner" class="bk-banner hidden"></div>
       <div class="toolbar">
         <input type="text" id="aca-bkSearch" placeholder="Search by organization&#8230;" aria-label="Search bookings" />
+        <button type="button" class="small bk-fbtn" id="aca-bkFilters" aria-expanded="false" aria-controls="aca-bkType">Filters</button>
         <select id="aca-bkType" class="small" aria-label="Job type"><option value="">All types</option></select>
         <select id="aca-bkStage" class="small" aria-label="Stage"><option value="">Any stage</option><option value=":owed">Owes deliverables</option><option value=":overdue">Deliverables overdue</option></select>
         <div class="chips bk-chips" id="aca-bkScope" role="group">
@@ -294,7 +305,6 @@
   const seqOf = (id) => seqType[id];
 
   async function load(force) {
-    el("bkMoreWrap").classList.toggle("hidden", !canEdit("bookings"));
     if (loaded && !force && currentTabIs()) { render(); return; }
     clearError("bkErr");
     try {
@@ -376,6 +386,7 @@
     return '<div class="bk-chk">Checklist: ' + (open ? open + " to do" + (late ? ', <span class="late">' + late + " late</span>" : "") : "all done") + "</div>";
   }
   function render() {
+    filtersLabel();
     const q = el("bkSearch").value.trim().toLowerCase(), tk = el("bkType").value;
     let list = rows.filter((b) => (scope === "cancelled" ? b.status === "cancelled" : b.status !== "cancelled"));
     if (tk) list = list.filter((b) => b.type_key === tk);
@@ -400,6 +411,11 @@
   el("bkSearch").addEventListener("input", render);
   el("bkType").addEventListener("change", render);
   el("bkStage").addEventListener("change", render);
+  // Phone Filters button: opens type, stage and saved views; its label counts the ones that are set.
+  function filtersLabel() { const n = [el("bkType").value, el("bkStage").value].filter(Boolean).length, b = el("bkFilters");
+    b.textContent = n ? "Filters (" + n + ")" : "Filters"; b.classList.toggle("on", n > 0); }
+  el("bkFilters").addEventListener("click", () => { const t = el("bkFilters").parentElement; t.classList.toggle("fopen"); el("bkFilters").setAttribute("aria-expanded", String(t.classList.contains("fopen"))); });
+
   el("bkScope").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-scope]"); if (!b) return;
     scope = b.dataset.scope;
@@ -981,11 +997,6 @@
     });
     pick(tk);
   }
-  el("bkJobTypes").addEventListener("click", () => openJobTypes());
-  el("bkTrack").addEventListener("click", () => { menu(false); openTrack(); });
-  const menu = (on) => { el("bkMenu").classList.toggle("hidden", !on); el("bkMore").setAttribute("aria-expanded", String(on)); };
-  el("bkMore").addEventListener("click", (e) => { e.stopPropagation(); menu(el("bkMenu").classList.contains("hidden")); });
-  document.addEventListener("click", (e) => { if (!e.target.closest("#aca-bkMoreWrap")) menu(false); });
 
   // ---- one job screen (2026-10-24). Every way into a job opens its page (jobpage.js). What used to be this
   // page's side panel is the job page's Booking tab (mountTab below); All jobs keeps a short preview with Open.
@@ -1122,94 +1133,6 @@
     return '<div class="bk-sec"><h3>Tracking only</h3><div class="bk-sub">This job did not go through Book a job. It is here for its stages and deliverables only: no emails, no calendar event and no hub reminders come from it.</div>' +
       (b.gotphoto_job ? '<div class="bk-sub" style="margin-top:6px">GotPhoto job <strong>' + esc(b.gotphoto_job.name) + "</strong>" + (b.gotphoto_job.gp_activated_at ? ", gallery live since " + esc(fmtWhen(b.gotphoto_job.gp_activated_at)) : ", gallery not live yet") + "</div>" : "") +
       (can ? '<div style="margin-top:8px"><button type="button" class="small" data-v="untrack">Stop tracking</button></div>' : "") + "</div>";
-  }
-  async function openTrack() {
-    const can = canEdit("bookings");
-    const box = dialog(`<div class="bk-fhead"><h2>Track a job</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">\u2715</button></div>
-      <div class="bk-sub" style="margin-bottom:10px">Put jobs that did not go through Book a job on this screen, to track their stages and deliverables. Nothing is sent for them: no emails, no calendar event, no hub reminders.</div>
-      <div class="toolbar" style="padding:0;margin-bottom:8px"><input type="text" id="aca-bkTrQ" placeholder="Filter GotPhoto jobs&#8230;" /></div>
-      <div id="aca-bkTrList" class="bk-jt-rows" style="max-height:46vh;overflow:auto"><div class="empty"><span class="spin"></span>Loading GotPhoto jobs&#8230;</div></div>
-      <details style="margin-top:10px"><summary class="bk-sub" style="cursor:pointer">Add a job that is not in GotPhoto</summary>
-        <div class="bk-jt-row" style="margin-top:8px"><span id="aca-bkTrMOrg"></span><select id="aca-bkTrMType" class="small">${types.map((t) => '<option value="' + esc(t.key) + '">' + esc(t.label) + "</option>").join("")}</select>
-          <input type="date" id="aca-bkTrMDay" class="small" aria-label="Picture day" /><input type="text" id="aca-bkTrMTitle" placeholder="Title (optional)" /><button type="button" class="small" data-v="manual">Track it</button></div></details>
-      <label class="bk-sub" style="display:flex;gap:6px;align-items:center;margin-top:12px"><input type="checkbox" id="aca-bkTrAuto"${can ? "" : " disabled"} /> Add new GotPhoto jobs to tracking by themselves (hourly, when the organization is clear)</label>
-      <div id="aca-bkTrErr" class="inline-error hidden" style="margin:10px 0 0"></div>
-      <div class="og-actions bk-factions" style="margin-top:12px">${can ? '<button type="button" class="primary" data-v="track" disabled>Track selected</button>' : ""}<button type="button" data-v="close">Close</button></div>`, true);
-    box.classList.add("bk-form");
-    let jobs = [];
-    const picked = new Set(), orgFor = {}, typeFor = {};
-    // A small organization search that sets orgFor[key] (key = job id, or "manual").
-    const orgPicker = (key, cur) => cur ? '<span class="bk-sub"><strong>' + esc(cur.name) + '</strong> <button type="button" class="link" data-v="orgchange" data-k="' + esc(key) + '">change</button></span>'
-      : '<span style="position:relative;display:inline-block;flex:1 1 200px"><input type="text" data-orgq="' + esc(key) + '" placeholder="Organization&#8230;" autocomplete="off" style="width:100%" /><span class="bk-orgs hidden" data-orgl="' + esc(key) + '" style="position:absolute;z-index:5;left:0;right:0"></span></span>';
-    const typeSel = (key, k) => '<select class="small" data-type="' + esc(key) + '"' + (can ? "" : " disabled") + ">" + types.map((t) => '<option value="' + esc(t.key) + '"' + (t.key === k ? " selected" : "") + ">" + esc(t.label) + "</option>").join("") + "</select>";
-    function draw() {
-      const q = el("bkTrQ").value.trim().toLowerCase();
-      const list = jobs.filter((j) => !q || (j.name + " " + (j.org_name || "")).toLowerCase().includes(q));
-      el("bkTrList").innerHTML = list.map((j) => '<div class="bk-jt-row" data-job="' + esc(j.gotphoto_job_id) + '"><input type="checkbox" data-pick="' + esc(j.gotphoto_job_id) + '"' + (picked.has(j.gotphoto_job_id) ? " checked" : "") + (can ? "" : " disabled") + ' aria-label="Track ' + esc(j.name) + '" />' +
-          '<span style="flex:1 1 220px;min-width:0"><strong>' + esc(j.name) + '</strong><span class="bk-sub"> ' + esc(fmtDay(j.picture_day)) + (j.status === "published" ? "" : " &middot; " + esc(j.status)) + "</span></span>" +
-          orgPicker(j.gotphoto_job_id, orgFor[j.gotphoto_job_id]) + typeSel(j.gotphoto_job_id, typeFor[j.gotphoto_job_id]) + "</div>").join("") ||
-        '<div class="bk-sub">' + (jobs.length ? "No GotPhoto job matches that." : "Every GotPhoto job from the last six months and the next year is already on this screen.") + "</div>";
-      const tb = box.querySelector('button[data-v="track"]'); if (tb) { tb.disabled = !picked.size; tb.textContent = picked.size ? "Track " + picked.size + " job" + (picked.size === 1 ? "" : "s") : "Track selected"; }
-    }
-    function drawManual() { el("bkTrMOrg").outerHTML = '<span id="aca-bkTrMOrg" style="display:contents">' + orgPicker("manual", orgFor.manual) + "</span>"; }
-    let searchTimer = null;
-    box.addEventListener("input", (e) => {
-      if (e.target.id === "aca-bkTrQ") return draw();
-      const key = e.target.dataset && e.target.dataset.orgq; if (!key) return;
-      clearTimeout(searchTimer);
-      const q = e.target.value.trim(), out = box.querySelector('[data-orgl="' + CSS.escape(key) + '"]');
-      if (q.length < 2) { out.classList.add("hidden"); return; }
-      searchTimer = setTimeout(async () => {
-        const { data } = await sb.from("prospect_orgs").select("id, name, town").ilike("search_text", "%" + q.replace(/[%_]/g, "") + "%").order("name").limit(8);
-        out.classList.remove("hidden");
-        out.innerHTML = (data || []).map((o) => '<button type="button" data-orgpick="' + esc(o.id) + '" data-name="' + esc(o.name) + '" data-k="' + esc(key) + '"><strong>' + esc(o.name) + "</strong>" + (o.town ? ' <span class="bk-sub">' + esc(o.town) + "</span>" : "") + "</button>").join("") ||
-          '<div class="empty">No match. Add it under Organizations first.</div>';
-      }, 220);
-    });
-    box.addEventListener("change", async (e) => {
-      const t = e.target;
-      if (t.dataset.pick) { if (t.checked) picked.add(t.dataset.pick); else picked.delete(t.dataset.pick); draw(); }
-      if (t.dataset.type) typeFor[t.dataset.type] = t.value;
-      if (t.id === "aca-bkTrAuto") {
-        t.disabled = true; const { error } = await sb.rpc("booking_set_auto_track", { p_on: t.checked }); t.disabled = false;
-        if (error) { t.checked = !t.checked; return toast(cleanErr(error), true); }
-        toast(t.checked ? "New GotPhoto jobs will be added to tracking." : "Automatic tracking is off.");
-      }
-    });
-    box.addEventListener("click", async (e) => {
-      const op = e.target.closest("button[data-orgpick]");
-      if (op) { orgFor[op.dataset.k] = { id: op.dataset.orgpick, name: op.dataset.name }; if (op.dataset.k === "manual") drawManual(); else draw(); return; }
-      const b = e.target.closest("button[data-v]"); if (!b) return;
-      const v = b.dataset.v;
-      if (v === "close") return box.close();
-      if (v === "orgchange") { delete orgFor[b.dataset.k]; if (b.dataset.k === "manual") drawManual(); else draw(); return; }
-      if (v !== "track" && v !== "manual") return;
-      clearError("bkTrErr");
-      let items;
-      if (v === "track") {
-        const missing = [...picked].filter((id) => !orgFor[id]);
-        if (missing.length) return showError("bkTrErr", "Pick the organization for " + missing.length + " of the selected jobs first.");
-        items = [...picked].map((id) => ({ gotphoto_job_id: id, org_id: orgFor[id].id, type_key: typeFor[id] }));
-      } else {
-        if (!orgFor.manual) return showError("bkTrErr", "Pick the organization.");
-        if (!el("bkTrMDay").value) return showError("bkTrErr", "Pick the picture day.");
-        items = [{ org_id: orgFor.manual.id, type_key: el("bkTrMType").value, picture_day: el("bkTrMDay").value, title_label: el("bkTrMTitle").value.trim() }];
-      }
-      b.disabled = true;
-      try {
-        const { data, error } = await sb.rpc("booking_track_jobs", { p_items: items }); if (error) throw error; if (!data.ok) throw new Error(data.error);
-        box.close(); toast("Tracking " + data.added + " job" + (data.added === 1 ? "" : "s") + ". Nothing is sent for them."); load(true);
-      } catch (e2) { b.disabled = false; showError("bkTrErr", cleanErr(e2)); }
-    });
-    drawManual();
-    try {
-      const [{ data, error }, st] = await Promise.all([sb.rpc("admin_trackable_jobs", {}), sb.from("booking_tracking_settings").select("*").maybeSingle()]);
-      if (error) throw error;
-      jobs = data || [];
-      jobs.forEach((j) => { if (j.org_id) orgFor[j.gotphoto_job_id] = { id: j.org_id, name: j.org_name }; typeFor[j.gotphoto_job_id] = j.type_key; });
-      el("bkTrAuto").checked = !!(st.data && st.data.auto_track);
-      draw();
-    } catch (e) { el("bkTrList").innerHTML = '<div class="inline-error">' + esc(cleanErr(e)) + "</div>"; }
   }
   // Stage (2026-10-21): the job type's stages as a row of steps; click one to move the job there.
   function stageBlock(b) {
