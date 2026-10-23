@@ -156,12 +156,13 @@
     // GotPhoto defaults (gp_type_defaults): what a job made by 207 Admin gets. Empty = copied from the newest job.
     const GP_JOB_TYPES = [["sport_other", "Sport (Other)"], ["school_k_12", "K-12 School"]];
     const GP_ARCHIVE = [["month_after", "One month after the shoot"], ["june_1", "June 1 after the shoot (school's out)"]];
-    const GP_ACCESS = [["", "Same as the organization's last job"], ["qr_tagging", "Access code for each person (QR)"], ["single_password", "One access code"]];
     const GP_REG = [["", "Copy from the newest job"], ["off", "Off"], ["optional", "Optional"], ["required", "Required"]];
     const GP_REVIEW = [["", "Copy from the newest job"], ["off", "Off"], ["on", "On"], ["auto", "Auto"]];
     const GP_FAV = [["", "Copy from the newest job"], ["off", "No selection box"], ["favorite", "Favorite photo"], ["yearbook", "Yearbook photo"], ["student_id", "ID card photo"]];
     const GP_PREPAY = [["", "Copy from the newest job"], ["true", "On"], ["false", "Off"]];
-    const GP_SEASONS = [["price_profile_id", "Any season"], ["price_profile_fall", "Fall (Aug to Oct shoots)"], ["price_profile_winter", "Winter (Nov to Feb)"], ["price_profile_spring", "Spring (Mar to Jul)"]];
+    // One price list per job type (Jeremiah 2026-10-23): a new season's list is picked once, here or on the check screen
+    // when a job is created, and stays. The per-season columns are no longer used.
+    const GP_SEASONS = [["price_profile_id", "Price list"]];
     const gpDefOf = (x) => (gpDefs || []).find((d) => d.type_key === x.key) ||
       { type_key: x.key, gp_job_type: x.audience === "school" ? "school_k_12" : "sport_other", archive_rule: x.audience === "school" ? "june_1" : "month_after", labels: {} };
     const pick = (list, v) => (list.find((o) => o[0] === (v == null ? "" : String(v))) || [null, v])[1];
@@ -169,9 +170,9 @@
       if (!gpDefs) return '<p class="st-sum">Could not load.</p>';
       const d = gpDefOf(x), L = d.labels || {}, parts = [];
       parts.push(pick(GP_JOB_TYPES, d.gp_job_type) || d.gp_job_type, "archive " + pick(GP_ARCHIVE, d.archive_rule).toLowerCase());
-      GP_SEASONS.forEach(([k, lab]) => { if (d[k]) parts.push(lab.replace(/ \(.*\)/, "") + " prices: " + (L[k] || d[k])); });
+      GP_SEASONS.forEach(([k, lab]) => { if (d[k]) parts.push(lab + ": " + (L[k] || d[k])); });
       if (d.communication_profile_id) parts.push("emails: " + (L.communication_profile_id || d.communication_profile_id));
-      if (d.access_type) parts.push(pick(GP_ACCESS, d.access_type));
+      if (d.access_type) parts.push(pick(GP_ACCESS, gpAccessOf(d)));
       if (d.prepay != null) parts.push("prepay " + (d.prepay ? "on" : "off") + (d.prepay_deadline_days != null ? ", deadline " + d.prepay_deadline_days + " days after" : ""));
       return '<div class="st-chips">' + parts.map((t) => "<span>" + esc(t) + "</span>").join("") + "</div>" +
         '<p class="st-sum">Anything not set is copied from your newest ' + esc(pick(GP_JOB_TYPES, d.gp_job_type) || "") + " job.</p>";
@@ -188,13 +189,13 @@
       };
       const field = (label, html, hint) => '<div class="field"><label>' + label + "</label>" + html + (hint ? '<p class="muted" style="font-size:12px;margin:4px 0 0">' + hint + "</p>" : "") + "</div>";
       const body = () => '<div style="max-width:560px"><h2>GotPhoto defaults: ' + esc(x.label) + "</h2>" +
-        '<p class="muted" style="font-size:12.5px">What a GotPhoto job made by 207 Admin for this job type gets. Change them each season. Anything left on "copy" comes from your newest job of the same GotPhoto job type.</p>' +
+        '<p class="muted" style="font-size:12.5px">What a GotPhoto job made by 207 Admin for this job type gets. You also see these when you create a job, and a change there is saved here. Anything left on "copy" comes from your newest job of the same GotPhoto job type.</p>' +
         (gpLists === null ? '<p class="muted" id="aca-stGpLoad" style="font-size:12.5px">Loading your GotPhoto price and email profiles\u2026</p>' : gpLists.error ? '<div class="inline-error">' + esc(gpLists.error) + "</div>" : "") +
         field("GotPhoto job type", sel("gp_job_type", GP_JOB_TYPES, d.gp_job_type)) +
         field("Archive date", sel("archive_rule", GP_ARCHIVE, d.archive_rule)) +
-        GP_SEASONS.map(([k, lab]) => field("Price profile: " + lab, profSel(k, "price_profiles", d[k]))).join("") +
+        GP_SEASONS.map(([k, lab]) => field(lab, profSel(k, "price_profiles", d[k]))).join("") +
         field("Communication profile", profSel("communication_profile_id", "communication_profiles", d.communication_profile_id)) +
-        field("Photo access", sel("access_type", GP_ACCESS, d.access_type)) +
+        field("Photo access", sel("access", GP_ACCESS, gpAccessOf(d))) +
         field("Registration after code login", sel("register_after_password_login", GP_REG, d.register_after_password_login)) +
         field("Prepay shop", sel("prepay", GP_PREPAY, d.prepay)) +
         field("Prepay deadline, days after the shoot", '<input type="number" id="aca-stGpprepay_deadline_days" min="-60" max="365" style="width:120px" value="' + esc(d.prepay_deadline_days == null ? "" : String(d.prepay_deadline_days)) + '"' + (can ? "" : " disabled") + " />", "Empty = same distance as on the newest job.") +
@@ -207,8 +208,9 @@
       const m = openModal(body());
       const read = () => {
         const v = (id) => { const n = el("stGp" + id); return n ? n.value : ""; };
-        const p = {}; ["gp_job_type", "archive_rule", "access_type", "register_after_password_login", "communication_profile_id", "prepay", "prepay_deadline_days", "review_orders_photos", "customer_set_favorite_photo", "photographer_goal"]
+        const p = {}; ["gp_job_type", "archive_rule", "register_after_password_login", "communication_profile_id", "prepay", "prepay_deadline_days", "review_orders_photos", "customer_set_favorite_photo", "photographer_goal"]
           .concat(GP_SEASONS.map((s2) => s2[0])).forEach((k) => { p[k] = v(k); });
+        [p.access_type, p.password_source] = v("access") ? v("access").split("|") : ["", ""];
         const labels = {};
         ["communication_profile_id"].concat(GP_SEASONS.map((s2) => s2[0])).forEach((k) => { const n = el("stGp" + k); if (n && n.value) labels[k] = n.options[n.selectedIndex].text; });
         p.labels = labels; return p;

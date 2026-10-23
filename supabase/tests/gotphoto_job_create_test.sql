@@ -103,5 +103,8 @@ select pg_temp.ok((select e->>'job_name' from qs) like '% | School Photos | ' ||
 select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"archive_rule": "june_1", "price_profile_spring": "pp-s", "prepay": "false", "labels": {"price_profile_spring": "Spring 2027"}}'::jsonb)->>'price_profile_spring') = 'pp-s', 'save sets a value');
 select pg_temp.ok((select prepay = false and archive_rule = 'june_1' and labels->>'price_profile_spring' = 'Spring 2027' from public.gp_type_defaults where type_key = 'sports_nodata'), 'save stores the rest');
 
+select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"access_type": "qr_tagging", "password_source": "file_path"}'::jsonb)->>'password_source') = 'file_path', 'save stores how the access codes are made');
+select pg_temp.ok((select price_profile_spring is null and access_type = 'qr_tagging' from public.gp_type_defaults where type_key = 'sports_nodata'), 'one price list: a save clears the season ones');
+select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"access_type": ""}'::jsonb)->>'password_source') is null, 'access back to copy clears how codes are made');
 select 'ALL GOTPHOTO JOB CREATE TESTS PASSED';
 rollback;

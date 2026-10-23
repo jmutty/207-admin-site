@@ -3,6 +3,12 @@
   // poked by the RPC), the admin email series (booking_emails, sent by edge fn booking-sender through Gmail) and,
   // for schools with an access code, the hub school row + reminder signups. Every write goes through an RPC.
   // Spec: docs/plans/2026-10-11-bookings-replace-17hats-design.md
+  // GotPhoto's "Photo access" is two API fields: access_type (qr_tagging = for each person) and password_source (how the
+  // codes are made). Shared with Settings > Job types > GotPhoto defaults.
+  const GP_ACCESS = [["", "Same as the organization's last job"], ["qr_tagging|file_path", "Photo access for each person, with list of names"],
+    ["qr_tagging|qr_code", "Photo access for each person, QR codes"], ["qr_tagging|registration", "Photo access for each person, families register"],
+    ["qr_tagging|manual", "Photo access for each person, codes added by hand"], ["single_password|manual", "One access code for everyone"]];
+  const gpAccessOf = (d) => d && d.access_type ? d.access_type + "|" + (d.password_source || "manual") : "";
   const Bookings = (function () {
   const sb = supabase;
   const cleanErr = (e) => String((e && (e.message || e.details)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
@@ -528,6 +534,71 @@
       else if (a.test_mode) { ban.className = "bk-banner test"; ban.innerHTML = "<strong>Test mode.</strong> Every booking email goes to the test address with a [TEST] subject."; }
       else ban.className = "bk-banner hidden";
     } catch (_e) { /* badge stays unknown; the tab shows its own error */ }
+  }
+
+  // "Create it in GotPhoto now": shows what the job will get (a dry run of gotphoto-jobs) with the price list, emails
+  // and photo access as dropdowns. A change is saved to the job type's GotPhoto defaults first, so the job gets it and
+  // so do the jobs after it (that's how a new season's price list is picked: once, here or in Settings).
+  async function gpCheck(bk) {
+    const box = dialog('<h3 style="margin:0 0 6px">Check the GotPhoto job</h3><p class="muted" id="aca-gpcLoad">Asking GotPhoto what this job would get\u2026</p>', true);
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const post = (path) => fetch(ADMIN_FN_URL + path, { method: "POST", headers: { Authorization: "Bearer " + session.access_token } })
+        .then(async (r) => { let j = {}; try { j = await r.json(); } catch (_) {} return { ok: r.ok && j.ok !== false, j, status: r.status }; });
+      const [dry, lists, dq] = await Promise.all([post("/gpjob?booking=" + encodeURIComponent(bk.id) + "&dry=1"), post("/gplists"),
+        sb.from("gp_type_defaults").select("*").eq("type_key", bk.type_key).maybeSingle()]);
+      const one = (dry.j.made || [])[0];
+      if (!dry.ok || dry.j.error || !one || one.error) {
+        const why = dry.j.error || (one && one.error === "nothing to copy" ? "There's no GotPhoto job of this type to copy settings from yet. Make this one in GotPhoto." : one && one.error) || "Couldn't reach GotPhoto (" + dry.status + ").";
+        box.innerHTML = '<h3 style="margin:0 0 6px">Check the GotPhoto job</h3><div class="inline-error">' + esc(why) + '</div><div class="og-actions" style="margin-top:14px"><button type="button" data-v="close">Close</button></div>';
+        box.addEventListener("click", (ev) => { if (ev.target.closest('[data-v="close"]')) box.close(); });
+        return;
+      }
+      const job = one.body || {}, d = dq.data || null, L = (d && d.labels) || {};
+      const opts = (kind, cur, curLabel) => { const list = (lists.ok && lists.j[kind]) || [];
+        return (cur && !list.some((o) => o.id === cur) ? [{ id: cur, name: curLabel || cur }] : []).concat(list)
+          .map((o) => '<option value="' + esc(o.id) + '"' + (o.id === cur ? " selected" : "") + ">" + esc(o.name) + "</option>").join(""); };
+      const acc0 = gpAccessOf(job), accList = GP_ACCESS.slice(1).concat(acc0 && !GP_ACCESS.some((o) => o[0] === acc0) ? [[acc0, job.access_type === "public" ? "Public" : acc0]] : []);
+      const row = (k, v) => '<div class="bk-sub" style="margin:2px 0"><strong>' + k + ":</strong> " + v + "</div>";
+      const sel = (id, html) => '<select id="aca-gpc' + id + '" style="width:100%">' + html + "</select>";
+      const field = (label, html) => '<div class="field" style="margin-top:10px"><label>' + label + "</label>" + html + "</div>";
+      box.innerHTML = '<h3 style="margin:0 0 6px">Check the GotPhoto job</h3>' +
+        row("Name", esc(job.name || gpJobName(bk)) + (job.internal_name ? " (" + esc(job.internal_name) + ")" : "")) +
+        row("Picture day", esc(fmtDay(job.shoot || bk.picture_day, true))) + (job.archive ? row("Archive", esc(fmtDay(job.archive, true))) : "") +
+        row("Other settings", "copied from " + esc(one.template || "your newest job")) +
+        (lists.ok ? "" : '<div class="inline-error" style="margin-top:8px">Couldn\u2019t load your GotPhoto profile list, so only the current picks show.</div>') +
+        field("Price list", sel("price", opts("price_profiles", job.price_profile_id, L.price_profile_id))) +
+        field("Emails (communication profile)", sel("comm", opts("communication_profiles", job.communication_profile_id, L.communication_profile_id))) +
+        field("Photo access", sel("access", accList.map(([k, l]) => '<option value="' + esc(k) + '"' + (k === acc0 ? " selected" : "") + ">" + esc(l) + "</option>").join(""))) +
+        '<p class="muted" style="font-size:12px;margin:10px 0 0">Anything you change here is also remembered for the next ' + esc(bk.type_label || "jobs of this type") + " jobs (Settings &rsaquo; Job types &rsaquo; GotPhoto defaults).</p>" +
+        '<div class="inline-error hidden" id="aca-gpcErr"></div><div class="og-actions" style="margin-top:14px"><button type="button" data-v="close">Cancel</button><button type="button" class="primary" data-v="make">Create in GotPhoto</button></div>';
+      box.addEventListener("click", async (ev) => {
+        const b = ev.target.closest("[data-v]"); if (!b) return;
+        if (b.dataset.v === "close") return box.close();
+        if (b.dataset.v !== "make") return;
+        const pick = (id) => { const n = el("gpc" + id); return { v: n.value, label: n.options[n.selectedIndex] ? n.options[n.selectedIndex].text : "" }; };
+        const price = pick("price"), comm = pick("comm"), acc = pick("access");
+        const changed = price.v !== (job.price_profile_id || "") || comm.v !== (job.communication_profile_id || "") || acc.v !== acc0;
+        b.disabled = true; b.textContent = "Creating in GotPhoto\u2026";
+        try {
+          if (changed) {
+            const s2 = (x) => x == null ? "" : String(x), dd = d || {};
+            const p = { gp_job_type: s2(dd.gp_job_type), archive_rule: s2(dd.archive_rule), register_after_password_login: s2(dd.register_after_password_login),
+              prepay: s2(dd.prepay), prepay_deadline_days: s2(dd.prepay_deadline_days), review_orders_photos: s2(dd.review_orders_photos),
+              customer_set_favorite_photo: s2(dd.customer_set_favorite_photo), photographer_goal: s2(dd.photographer_goal),
+              price_profile_id: price.v, communication_profile_id: comm.v, labels: Object.assign({}, L, { price_profile_id: price.label, communication_profile_id: comm.label }) };
+            [p.access_type, p.password_source] = acc.v.split("|");
+            const { error } = await sb.rpc("gp_type_defaults_save", { p_type: bk.type_key, p });
+            if (error) throw error;
+          }
+          const r = await post("/gpjob?booking=" + encodeURIComponent(bk.id));
+          const m = (r.j.made || [])[0] || {};
+          if (!r.ok || r.j.error || m.error) toast(m.error && !r.j.error ? "GotPhoto didn't make it. The reason is on the job." : (r.j.error || "Couldn't reach GotPhoto (" + r.status + ")."), true);
+          else toast("Made in GotPhoto. It links here within 5 minutes." + (changed ? " Your changes are the new defaults." : ""));
+          box.close(); await refreshDetail();
+        } catch (e) { b.disabled = false; b.textContent = "Create in GotPhoto"; const n = el("gpcErr"); n.textContent = cleanErr(e); n.classList.remove("hidden"); }
+      });
+    } catch (e) { box.close(); toast(cleanErr(e), true); }
   }
 
   // ---- dialogs
@@ -1486,17 +1557,7 @@
       if (v === "sendnow") { if (!confirm("Send this email now?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_send_now", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Sending\u2026" : "Queued. Sending is turned off, so it waits."); }
       if (v === "resend") { if (!confirm("Send this email again to the same person?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_resend", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Resending\u2026" : "Queued. Sending is turned off, so it waits."); }
       if (v === "setcode") { const code = el("bkDCode").value.trim(); if (!code) return toast("Type the access code first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_set_access_code", { p_id: detail.id, p_code: code, p_retake: el("bkDRetake").value || null }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("School created on the hub."); }
-      if (v === "gpmake") {
-        if (!confirm("Create \u201c" + gpJobName(detail) + "\u201d in GotPhoto now?")) return;
-        b.disabled = true; b.textContent = "Creating in GotPhoto\u2026";
-        const { data: { session } } = await sb.auth.getSession();
-        const resp = await fetch(ADMIN_FN_URL + "/gpjob?booking=" + encodeURIComponent(detail.id), { method: "POST", headers: { Authorization: "Bearer " + session.access_token } });
-        let body = {}; try { body = await resp.json(); } catch (_) {}
-        const one = (body.made || [])[0] || {};
-        if (!resp.ok || body.ok === false || body.error || one.error) toast(one.error && !body.error ? "GotPhoto didn't make it. The reason is on the job." : (body.error || "Couldn't reach GotPhoto (" + resp.status + ")."), true);
-        else toast("Made in GotPhoto. It links here within 5 minutes.");
-        await refreshDetail(); return;
-      }
+      if (v === "gpmake") { gpCheck(detail); return; }
       if (v === "linkjob") { const job = el("bkDJob").value; if (!job) return toast("Pick the job first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: job }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Linked. Email 0 goes out in about 10 minutes."); }
       if (v === "unlinkjob") { if (!confirm("Unlink the GotPhoto job? Email 0 waits again if it has not gone out.")) return; const { error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: null }); if (error) throw error; toast("Unlinked."); }
       if (v === "adopt") { b.disabled = true; const { data, error } = await sb.rpc("booking_adopt_calendar_date", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Picture day is now " + fmtDay(data.picture_day) + ". Emails rescheduled."); }

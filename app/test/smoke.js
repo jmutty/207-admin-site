@@ -225,8 +225,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const gpMake = await page.$('#aca-bkDetail button[data-v="gpmake"]');
     if (gpMake) {
       await gpMake.click();
+      await page.waitForSelector("#aca-gpcprice");
+      check((await page.$eval("#aca-gpcaccess", (n) => n.options[n.selectedIndex].text)) === "Photo access for each person, with list of names" &&
+        (await page.$eval("#aca-gpcprice", (n) => n.value)) === "pp-fall", "check screen shows what the GotPhoto job would get");
+      await page.selectOption("#aca-gpcprice", "pp-spring");
+      await page.click('.og-modal [data-v="make"]');
       await page.waitForTimeout(300);
-      check(await page.evaluate(() => (window.__gpjobCalls || []).some((u) => u.includes("/admin/gpjob?booking=bk1"))), "Create it in GotPhoto now calls admin /gpjob for the booking");
+      check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "gp_type_defaults_save" && c[1].p.price_profile_id === "pp-spring" && c[1].p.labels.price_profile_id === "Spring Sports 2027" && c[1].p.access_type === "qr_tagging" && c[1].p.password_source === "file_path")), "a changed price list on the check screen becomes the job type's default");
+      check(await page.evaluate(() => (window.__gpjobCalls || []).some((u) => u.includes("/admin/gpjob?booking=bk1") && !u.includes("dry"))), "Create in GotPhoto calls admin /gpjob for the booking");
     }
     await page.click('#aca-bkDetail button[data-next="1"]');
     await page.waitForTimeout(150);
@@ -1958,13 +1964,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!!(await page.$("#aca-stJt-all")) && !!(await page.$("#aca-stAuto")), "every-job-type card and the auto-track switch");
     check(jtx.includes("GotPhoto defaults") && jtx.includes("Sport (Other)") && (await page.textContent("#aca-stJt-school")).includes("K-12 School"), "GotPhoto defaults on each job type card");
     await page.click('#aca-stJt-sports_data [data-st="gpdef"]');
-    await page.waitForFunction(() => { const s = document.querySelector("#aca-stGpprice_profile_fall"); return s && [...s.options].some((o) => o.text === "Fall Sports 2026"); });
+    await page.waitForFunction(() => { const s = document.querySelector("#aca-stGpprice_profile_id"); return s && [...s.options].some((o) => o.text === "Fall Sports 2026"); });
     check(true, "GotPhoto defaults lists the price profiles from GotPhoto");
-    await page.selectOption("#aca-stGpprice_profile_fall", "pp-fall");
+    await page.selectOption("#aca-stGpprice_profile_id", "pp-fall");
     await page.selectOption("#aca-stGpprepay", "false");
+    await page.selectOption("#aca-stGpaccess", "qr_tagging|file_path");
     await page.click('.modal [data-m="save"]');
     await page.waitForTimeout(200);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "gp_type_defaults_save" && c[1].p_type === "sports_data" && c[1].p.price_profile_fall === "pp-fall" && c[1].p.labels.price_profile_fall === "Fall Sports 2026" && c[1].p.prepay === "false")), "saves the GotPhoto defaults with the profile name");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "gp_type_defaults_save" && c[1].p_type === "sports_data" && c[1].p.price_profile_id === "pp-fall" && c[1].p.labels.price_profile_id === "Fall Sports 2026" && c[1].p.prepay === "false")), "saves the GotPhoto defaults with the profile name");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "gp_type_defaults_save" && c[1].p.access_type === "qr_tagging" && c[1].p.password_source === "file_path")), "Photo access for each person, with list of names saves both GotPhoto fields");
     await page.click('#aca-stJt-sports_data [data-st="stages"]');
     await page.waitForSelector('#aca-bkJtTypes button[aria-pressed="true"]');
     check(await page.$eval('#aca-bkJtTypes button[aria-pressed="true"]', (b) => b.dataset.jt) === "sports_data", "Stages & deliverables opens on that job type");
