@@ -3,7 +3,10 @@
   // (migration 20261024060000_director_journey.sql):
   //   DirectorFields  the booking's team times, order deadline and discount end, in Book a job and Edit booking
   //                   (booking_director_get / booking_director_save), plus the day-of phone and rain plan rows in
-  //                   Settings > Sending (booking_settings.day_of_phone / weather_plan).
+  //                   Settings > Sending (booking_settings.day_of_phone / weather_plan). Since 2026-10-24 (adaptive
+  //                   emails) also Shooting (indoors / outdoors / either: weather checks and the rain paragraph),
+  //                   Student data received (schools: the two-week email stops asking), and the picture day
+  //                   emergency contact rows (booking_settings.emergency_name / _phone / _email).
   //   DayPublic       the read-only "Your picture day" page, admin.207photo.com/#day/<token> (anon booking_public).
   //                   No forms, no uploads: everything on it comes from the booking.
   const DirectorFields = (function () {
@@ -21,7 +24,12 @@
       return '<label for="aca-bkTeamTimes">Team times</label><div><textarea id="aca-bkTeamTimes" rows="3" maxlength="4000" placeholder="9:00 U10 Blue&#10;9:15 U10 Red"></textarea>' +
         '<div class="bk-sub">Optional. One line per team, pasted as is. It goes in the two-week email and on their picture day page.</div></div>' +
         '<label>Ordering</label><div><div class="bk-dir-dates"><label>Order by <input type="date" id="aca-bkOrderBy" /></label><label>Discount ends <input type="date" id="aca-bkDiscEnds" /></label></div>' +
-        '<div class="bk-sub">Optional. Once set, the director sees these dates in the emails and on their page.</div><div class="bk-sub" id="aca-bkDayLink"></div></div>';
+        '<div class="bk-sub">Optional. Once set, the director sees these dates in the emails and on their page.</div><div class="bk-sub" id="aca-bkDayLink"></div></div>' +
+        '<label for="aca-bkShoot">Shooting</label><div><select id="aca-bkShoot"><option value="">From the job type (sports outdoors, schools indoors)</option>' +
+          '<option value="outdoors">Outdoors</option><option value="indoors">Indoors</option><option value="either">Indoors or outdoors</option></select>' +
+          '<div class="bk-sub">Outdoors or either: we check the forecast from three days out and tell whoever booked the job if rain or wind is coming. The director gets the rain paragraph.</div></div>' +
+        '<label>Student data</label><div><label style="display:inline-flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="aca-bkSchoolData" /> Received (schools)</label>' +
+          '<div class="bk-sub">Once checked, the two-week email stops asking for it.</div></div>';
     }
     async function fill(id) {
       try {
@@ -30,17 +38,25 @@
         el("bkTeamTimes").value = data.team_times || "";
         el("bkOrderBy").value = data.order_deadline || "";
         el("bkDiscEnds").value = data.discount_ends || "";
+        el("bkShoot").value = data.shoot_setting || "";
+        el("bkSchoolData").checked = !!data.school_data;
+        el("bkShoot").dataset.ready = "1";
         if (data.day_link) el("bkDayLink").innerHTML = 'Their picture day page: <a href="' + esc(data.day_link) + '" target="_blank" rel="noopener">open</a> &middot; <button type="button" class="link" data-dircopy="' + esc(data.day_link) + '">copy link</button>';
         const c = el("bkDayLink").querySelector("[data-dircopy]");
         if (c) c.addEventListener("click", async () => { try { await navigator.clipboard.writeText(c.dataset.dircopy); c.textContent = "copied"; } catch (_e) { toast(c.dataset.dircopy); } });
       } catch (_e) { /* the form still works without them */ }
     }
-    const read = () => el("bkTeamTimes") ? { team_times: el("bkTeamTimes").value.trim(), order_deadline: el("bkOrderBy").value || "", discount_ends: el("bkDiscEnds").value || "" } : null;
-    const isEmpty = (v) => !v || (!v.team_times && !v.order_deadline && !v.discount_ends);
+    const read = () => el("bkTeamTimes") ? { team_times: el("bkTeamTimes").value.trim(), order_deadline: el("bkOrderBy").value || "", discount_ends: el("bkDiscEnds").value || "",
+      shoot_setting: el("bkShoot").value || "", school_data: el("bkSchoolData").checked, _ready: el("bkShoot").dataset.ready === "1" } : null;
+    const isEmpty = (v) => !v || (!v.team_times && !v.order_deadline && !v.discount_ends && !v.shoot_setting && !v.school_data);
     // Saved after booking_create / booking_update (their signatures stay as they are). Returns "" or the reason it failed.
     async function save(id, v, isNew) {
       if (!v || !id || (isNew && isEmpty(v))) return "";
       if (v.order_deadline && v.discount_ends && v.discount_ends > v.order_deadline) return "the discount can't end after the order deadline";
+      v = Object.assign({}, v);
+      // an existing booking whose values never loaded keeps what it has (blank would reset Shooting to the job type's)
+      if (!isNew && !v._ready) { delete v.shoot_setting; delete v.school_data; }
+      delete v._ready;
       try {
         const { error } = await sb.rpc("booking_director_save", { p_id: id, p: v });
         if (error) throw error;
@@ -53,9 +69,13 @@
       return '<label for="aca-ssDayPhone">Picture day phone</label><div><input type="text" id="aca-ssDayPhone" value="' + esc(bs.day_of_phone == null ? "(207) 558-3185" : bs.day_of_phone) + '" placeholder="(207) 558-3185" />' +
           '<span class="muted" style="font-size:12.5px;display:block;margin-top:2px">Directors see it in their emails and on their picture day page, for problems that morning.</span></div>' +
         '<label for="aca-ssWeather">Rain plan</label><div><textarea id="aca-ssWeather" rows="2">' + esc(bs.weather_plan || "") + "</textarea>" +
-          '<span class="muted" style="font-size:12.5px;display:block;margin-top:2px">One or two sentences for outdoor picture days, in the two-week email.</span></div>';
+          '<span class="muted" style="font-size:12.5px;display:block;margin-top:2px">One or two sentences for outdoor picture days, in the two-week email.</span></div>' +
+        '<label for="aca-ssEmName">Emergency contact</label><div><div class="bk-dir-dates"><input type="text" id="aca-ssEmName" value="' + esc(bs.emergency_name || "") + '" placeholder="Name" />' +
+          '<input type="text" id="aca-ssEmPhone" value="' + esc(bs.emergency_phone || "") + '" placeholder="Cell" /><input type="email" id="aca-ssEmEmail" value="' + esc(bs.emergency_email || "") + '" placeholder="Email" /></div>' +
+          '<span class="muted" style="font-size:12.5px;display:block;margin-top:2px">On every picture day plan and the picture day page, whoever booked the job, with &ldquo;call more than twice to ring through&rdquo;. Leave the cell blank to leave it out.</span></div>';
     }
-    const sendingRead = () => el("ssDayPhone") ? { day_of_phone: el("ssDayPhone").value.trim(), weather_plan: el("ssWeather").value.trim() } : {};
+    const sendingRead = () => el("ssDayPhone") ? { day_of_phone: el("ssDayPhone").value.trim(), weather_plan: el("ssWeather").value.trim(),
+      emergency_name: el("ssEmName").value.trim(), emergency_phone: el("ssEmPhone").value.trim(), emergency_email: el("ssEmEmail").value.trim() } : {};
 
     return { formHtml, fill, read, save, sendingHtml, sendingRead };
   })();
@@ -125,7 +145,10 @@
       if (d.arrival) onDay.push("We arrive by <b>" + esc(d.arrival) + "</b> to set up.");
       if (d.needs) onDay.push("What we need: " + esc(d.needs));
       onDay.push("Please send us the name and mobile number of your on-site contact for the day (just reply to our email).");
-      h += sec("On picture day", list(onDay) + (d.weather ? "<p style=\"margin-top:10px\"><b>If the weather is bad:</b> " + esc(d.weather) + "</p>" : ""));
+      h += sec("On picture day", list(onDay) + (d.weather ? "<p style=\"margin-top:10px\"><b>If the weather looks bad:</b> " + esc(d.weather) + "</p>" : ""));
+      const em = d.emergency;
+      if (em && em.phone) h += sec("Picture day emergency", "<p>If something goes wrong and you can&#8217;t reach us, call <b>" + esc(em.name || "Jeremiah") + '</b> directly at <a href="' + esc(tel(em.phone)) + '">' + esc(em.phone) + "</a>" +
+        (em.email ? ' (or email <a href="mailto:' + esc(em.email) + '">' + esc(em.email) + "</a>)" : "") + ".</p><p class=\"m\">That phone screens calls. If it goes to voicemail, call again right away: calling more than twice in a row rings through.</p>");
       if ((d.team_times || []).length) h += sec("Team times", list(d.team_times.map(esc)));
       const before = [];
       if (d.roster) before.push(esc(d.roster));

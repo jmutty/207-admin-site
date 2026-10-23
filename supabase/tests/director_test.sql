@@ -66,7 +66,7 @@ insert into public.partner_terms (org_id, payout_pct, note) values ('00000000-00
 -- ---------------------------------------------------------------- 1. fields + settings
 select pg_temp.ok((select count(distinct day_token) from public.bookings where id::text like '00000000-0000-0000-0000-0000000000b%') = 4
                   and (select bool_and(day_token ~ '^[0-9a-f]{36}$') from public.bookings), 'every booking gets its own 36-hex day token');
-select pg_temp.ok((select day_of_phone from public.booking_settings) <> '' and (select weather_plan from public.booking_settings) like '%7:00 AM%', 'picture day phone + rain plan settings have defaults');
+select pg_temp.ok((select day_of_phone from public.booking_settings) <> '' and ((select weather_plan from public.booking_settings) like '%7:00 AM%' or (select weather_plan from public.booking_settings) like 'If we''re shooting outside%'), 'picture day phone + rain plan settings have defaults');
 select pg_temp.ok((select team_times from public.bookings where id = '00000000-0000-0000-0000-0000000000b1') = '', 'team times start empty');
 select pg_temp.ok((select pg_get_constraintdef(c.oid) from pg_constraint c where c.conrelid = 'public.booking_steps'::regclass and c.contype = 'c' and pg_get_constraintdef(c.oid) ~ 'gallery_live' limit 1) ~ '''booking'''
                   or (select t.typtype from pg_attribute a join pg_type t on t.oid = a.atttypid where a.attrelid = 'public.booking_steps'::regclass and a.attname = 'trigger') = 'e'
@@ -106,7 +106,7 @@ select pg_temp.ok((select v from t where k = 'v1')::jsonb ->> 'team_times' = E'*
 select pg_temp.ok((select v from t where k = 'v2')::jsonb ->> 'team_times' = '', 'no team times: empty token');
 select pg_temp.ok((select v from t where k = 'v1')::jsonb ->> 'families_block' like '**How it works for families**%email and a text%Last day to order:%', 'league families block with the order dates');
 select pg_temp.ok((select v from t where k = 'v2')::jsonb ->> 'families_block' like '%access code%' and (select v from t where k = 'v2')::jsonb ->> 'order_deadline' = '', 'school families block; no order date yet');
-select pg_temp.ok((select v from t where k = 'v1')::jsonb ->> 'weather_line' like '**If the weather is bad:**%' and (select v from t where k = 'v2')::jsonb ->> 'weather_line' = '', 'rain plan for sports only');
+select pg_temp.ok((select v from t where k = 'v1')::jsonb ->> 'weather_line' similar to '\*\*If the weather (is|looks) bad:\*\*%' and (select v from t where k = 'v2')::jsonb ->> 'weather_line' = '', 'rain plan for sports only');
 select pg_temp.ok((select v from t where k = 'v1')::jsonb ->> 'flyer_line' like '%207photo.com/sportsadmin%' and (select v from t where k = 'v2')::jsonb ->> 'flyer_line' like '%207photo.com/schooladmin%', 'flyer line names the right hub');
 select pg_temp.ok((select v from t where k = 'v2')::jsonb ->> 'where_line' = 'we''ll confirm the spot with you', 'no location: where line says we will confirm');
 select pg_temp.ok((select v from t where k = 'v1')::jsonb ->> 'calendar_link' like 'https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?t=' || (select day_token from public.bookings where id = '00000000-0000-0000-0000-0000000000b1'), 'calendar link carries the token');

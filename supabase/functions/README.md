@@ -13,6 +13,8 @@ Project `socluffmclkdljtmiexw`. Only the functions changed in this repo are kept
 | `gotphoto-sales` | Season results: reads each job's orders from the GotPhoto API (`/orders?job_id=`) and stores sales before tax and order counts in `job_results`. Hourly cron (`gotphoto-sales-hourly`) and "Refresh sales" (admin `/sales`). Which order field is the amount is in `results_settings`; `?probe=<job id>` shows the field names and numbers of a job's first orders without writing. Same `GP_*` secrets as gotphoto-sync. | `x-sync-secret` (Vault `sync_trigger_secret`) |
 | `booking-ics` | "Add to your calendar" for a director: `GET ?t=<booking day_token>` returns the booking as a `.ics` (text/calendar), built by the anon SQL function `booking_ics(token)`. Linked from the Booked email (`{{calendar_link}}`) and the "Your picture day" page (`#day/<token>`). | none (token only) |
 | `team` | Team page account actions: create a login with a temporary password (and email them a welcome with it and the phone app link, SQL `team_send_welcome`), reset a password, deactivate or reactivate (ban or unban), remove a deactivated person (deletes the login). Access rules stay in SQL (`team_save` / `team_set_active` / `team_remove` / `team_flag_password`, run with the caller's JWT). | caller's JWT + `is_admin()` |
+| `go` | Tracked links in booking emails: `GET ?e=<booking_emails.id>&u=<base64url link>` logs the click (`booking_link_click`, anon) and redirects. Only our own pages (the hubs, `#day/` page, `booking-ics`); anything else gets a plain page, never a redirect. | none |
+| `booking-weather` | Forecast check for outdoor / either picture days 1 to 3 days out: geocodes the location once (Places Text Search, `GOOGLE_MAPS_API_KEY`), reads the National Weather Service hourly grid, and calls `booking_weather_record` (20%+ rain or gusts over 25 mph during the shoot alerts whoever booked). Cron `booking-weather` twice a day. | `x-booking-secret` (Vault) |
 
 All functions are deployed with `verify_jwt = false` and do their own checks.
 
@@ -26,6 +28,8 @@ supabase functions deploy calendar-write --no-verify-jwt --project-ref socluffmc
 supabase functions deploy offer-drive --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase functions deploy gotphoto-sales --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase functions deploy booking-ics --no-verify-jwt --project-ref socluffmclkdljtmiexw
+supabase functions deploy go --no-verify-jwt --project-ref socluffmclkdljtmiexw
+supabase functions deploy booking-weather --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase secrets set GOOGLE_MAPS_API_KEY=... --project-ref socluffmclkdljtmiexw   # Routes API + Places API (New)
 ```
 

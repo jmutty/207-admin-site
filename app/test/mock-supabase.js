@@ -671,7 +671,7 @@
     const day = (n) => iso(n).slice(0, 10);
     const TOK = "d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2";
     Object.assign(RPC, {
-      booking_director_get: { team_times: "9:00 U10 Blue\n9:15 U10 Red", order_deadline: day(30), discount_ends: day(20),
+      booking_director_get: { team_times: "9:00 U10 Blue\n9:15 U10 Red", order_deadline: day(30), discount_ends: day(20), shoot_setting: "either", school_data: false,
         day_link: "https://admin.207photo.com/#day/" + TOK, calendar_link: "https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?t=" + TOK },
       booking_director_save: { ok: true, day_link: "https://admin.207photo.com/#day/" + TOK },
       partner_statement_queue: { ok: true, email_id: "m11", to: "csnowdeal75@gmail.com", paid_line: "Check for $380.00 mailed on March 2, 2026 (check #1042)." },
@@ -681,7 +681,8 @@
         location: "Brewer Auditorium, 318 Wilson St, Brewer, ME", arrival: "4:30 PM",
         contact: { name: "Jeremiah Mutty", email: "jmutty@207photo.com", phone: "(207) 558-3185" },
         needs: "A spot about 15 by 15 feet out of direct sun (or a room with an outlet if we're indoors), and someone who can send teams over in order.",
-        weather: "Outdoor shoots move to your backup date or an indoor space. We decide together by 7:00 AM on picture day, and we email and call you either way.",
+        weather: "If we're shooting outside and rain or high winds are in the forecast, we'll need a backup plan. We'll touch base the day before.", shoot_setting: "outdoors",
+        emergency: { name: "Jeremiah", phone: "(207) 299-3928", email: "jmutty@207photo.com" },
         team_times: ["5:00 U10 Blue", "5:15 U10 Red", "5:30 U12 Girls"], roster: "We have your roster. Thank you!",
         families: ["Nothing to pay on picture day, and no order forms.", "After picture day, every family on your roster gets an email and a text with a link to their own athlete's gallery.", "They order online from that gallery.", "The early-order discount ends Friday, November 27."],
         order_deadline: day(30), discount_ends: day(20), terms: "Your program gets 10% of online sales (before tax), paid by check after the season.",
@@ -693,7 +694,27 @@
         day_link: "https://admin.207photo.com/#day/" + TOK, calendar_link: "https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?t=" + TOK },
     });
     T.booking_settings.day_of_phone = "(207) 558-3185";
+    Object.assign(T.booking_settings, { emergency_name: "Jeremiah", emergency_phone: "(207) 299-3928", emergency_email: "jmutty@207photo.com" });
     T.booking_settings.weather_plan = "Outdoor shoots move to your backup date or an indoor space. We decide together by 7:00 AM on picture day, and we email and call you either way.";
+  }
+  // adaptive booking emails (2026-10-24): staff tasks on Today and the job page's Parents tab
+  {
+    const day = (n) => iso(n).slice(0, 10);
+    Object.assign(RPC, {
+      booking_followups_mine: [{ id: "fu1", booking_id: "bk1", kind: "roster", key: "roster", title: "No roster: Brewer Travel Basketball Club",
+        detail: "Brewer Travel Basketball Club has picture day soon and no roster with parent emails yet. Keep the date and run it as Roster Only, or move it.",
+        org: "Brewer Travel Basketball Club", picture_day: day(12), created_at: iso(0) }],
+      booking_parents: { audience: "sports", shoot_setting: "outdoors", school_data_at: null, coaches: 0, roster_loaded_at: null, code_count: 0, workflow: "families",
+        messages: [{ key: "heads", title: "One week before", due: day(5), sent_at: null, copied_at: iso(-20), counts_from: day(2) },
+                   { key: "day", title: "Day before", due: day(11), sent_at: null, copied_at: null, counts_from: day(9) },
+                   { key: "live", title: "Photos are online", due: null, sent_at: null, copied_at: null, counts_from: null },
+                   { key: "lastcall", title: "Last call", due: null, sent_at: null, copied_at: null, counts_from: null }],
+        clicks: [{ at: iso(-1), url: "https://207photo.com/sportsadmin/#job=1/send=heads/r", subject: "Tomorrow: send your \"One week before\" message" }],
+        weather: [{ day: day(12), checked_at: iso(0), max_pop: 40, max_gust: 12, bad: true, error: null }],
+        followups: [{ id: "fu1", kind: "roster", key: "roster", title: "No roster: Brewer Travel Basketball Club", detail: "Keep the date and run it as Roster Only, or move it.",
+          created_at: iso(0), done_at: null, done_note: null, snooze_until: null }] },
+      booking_followup_done: { ok: true }, booking_followup_snooze: { ok: true }, booking_run_roster_only: { ok: true },
+    });
   }
   // ws/agreement (2026-10-24): the school agreement builder. Hancock Grammar School is the school partner.
   {
