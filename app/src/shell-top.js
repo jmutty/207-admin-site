@@ -672,7 +672,8 @@
   // What's wrong, in a few words, on a line that names its job ("Island Cheer · Mon, Oct 26: nobody to email").
   const JOB_REASON = { bookingFailed: "an email failed to send", bookingNoContact: "nobody to email", bookingNeedsTime: "needs its start and end time",
     bookingNeedsTimeLater: "no time yet (no rush)", bookingCalendar: "out of step with Google Calendar", bookingNeedsCode: "needs the school's access code",
-    bookingNeedsJob: "not linked to its GotPhoto gallery yet", bookingNeedsCoaches: "no coach email addresses yet", bookingDeliverablesOverdue: "a deliverable is overdue" };
+    bookingNeedsJob: "not linked to its GotPhoto gallery yet", bookingNeedsCoaches: "no coach email addresses yet", bookingDeliverablesOverdue: "a deliverable is overdue",
+    photosMissing: "no photos in GotPhoto yet" };
   const GROUPS = [["err", "Fix now"], ["warn", "Waiting on you"], ["soon", "Check soon"]];
   const attention = {}; // key -> { count, label, tab, level, onGo, jobs }
   // jobs (optional, 2026-10-24): [{ id, title, day, tab? }] the bookings behind the count (tab: which job tab Open lands on). When they account for the whole

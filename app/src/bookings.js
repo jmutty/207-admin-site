@@ -241,7 +241,7 @@
   const stageOf = (id) => stagesAll.find((s) => s.id === id);
   const typeTemplates = (k) => templates.filter((t) => !t.archived_at && (!t.type_key || t.type_key === k)).sort((a, b) => (a.type_key ? 0 : 1) - (b.type_key ? 0 : 1) || a.sort - b.sort || a.label.localeCompare(b.label));
   const STAGE_AUTO = { booked: "Ticks itself when the job is booked.", picture_day: "Ticks itself the morning after the last picture day.",
-    gallery_live: "Ticks itself when the GotPhoto gallery goes live.", deliverables_done: "Ticks itself when every deliverable is done or skipped." };
+    photos_uploaded: "Ticks itself when the first photos are up in GotPhoto.", gallery_live: "Ticks itself when the GotPhoto gallery goes live.", deliverables_done: "Ticks itself when every deliverable is done or skipped." };
   const byType = (k) => types.find((t) => t.key === k) || {};
   const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
   const addDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };

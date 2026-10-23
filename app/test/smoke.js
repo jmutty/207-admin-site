@@ -1043,7 +1043,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-panel-job", (n) => n.classList.contains("active")), "clicking the row opens the job page");
     check(!(await page.$('#aca-nav button[data-tab="job"]')), "the job page is not in the menu");
     const tabs = await page.$$eval("#aca-jpTabs button", (bs) => bs.map((b) => b.dataset.t));
-    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "hub", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "hub", "crew", "checklist", "results", "gotphoto", "time", "notes", "history"]), "tabs: " + tabs.join(","));
     await page.click('#aca-jpTabs button[data-t="hub"]');
     await page.waitForSelector("#aca-jpBody .pr-tbl");
     const hubTxt = await page.textContent("#aca-jpBody");

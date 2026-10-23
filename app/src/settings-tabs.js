@@ -320,6 +320,7 @@
     // ================================================================ Company
     async function loadCompany() {
       if (typeof loadHealth === "function") loadHealth();
+      if (typeof GpTasks !== "undefined") GpTasks.loadSettings();
       try {
         const d = await Schedule.scheduleData();
         el("stCoBody").innerHTML = card("stStudio", "Studio and setup", "Drive times and trip miles start from the studio. Setup and teardown are added around each job on the Schedule.",
