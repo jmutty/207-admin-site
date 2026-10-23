@@ -28,12 +28,14 @@ const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 // Settings copied from the newest job of the same GotPhoto job type, unless gp_type_defaults sets them (item.set).
 // Left out on purpose: coupon_id and prepay_code (often one job's own), estimated_subjects and notes (this
 // job's), the dates (set or shifted below).
-const COPY_KEYS = ["job_type_id", "access_type", "password_source", "register_after_password_login", "review_orders_photos",
+// register_after_password_login is left out on purpose: sent, it came out "off" whatever its value (2026-10-23);
+// left out, GotPhoto may fill it in from the last job like its own create screen does (to check on the next job).
+const COPY_KEYS = ["job_type_id", "access_type", "password_source", "review_orders_photos",
   "show_photo_name", "can_request_individual_photos", "can_request_group_photos", "can_request_sibling_photos",
   "duration_of_shoot", "price_profile_id", "communication_profile_id", "photographer_goal", "watermark_id", "prepay",
   "customer_set_favorite_photo", "customer_set_favorite_photo_restrict"];
 // From this organization's own last job, when it has one.
-const ORG_KEYS = ["contractee_id", "location_address_id", "access_type", "password_source", "register_after_password_login"];
+const ORG_KEYS = ["contractee_id", "location_address_id", "access_type", "password_source"];
 
 function secretMatches(given: string | null): boolean {
   const enc = new TextEncoder();
