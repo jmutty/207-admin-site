@@ -1557,7 +1557,7 @@
       if (v === "preview") {
         const { data, error } = await sb.rpc("booking_email_preview", { p_email: em });
         if (error) throw error;
-        const box = dialog('<div class="bk-mail-head">To ' + esc(data.kind === "coach" ? ((data.to_emails || []).join(", ") || "the coaches on file (none yet)") : (data.to_name ? data.to_name + " " : "") + (data.to_email || "")) + "<strong>" + esc(data.subject) + '</strong></div><div class="bk-mail">' + mdToHtml(data.body) + "</div>" +
+        const box = dialog('<div class="bk-mail-head">To ' + esc(data.kind === "coach" ? ((data.to_emails || []).join(", ") || "the coaches on file (none yet)") : (data.to_name ? data.to_name + " " : "") + (data.to_email || "")) + "<strong>" + esc(data.subject) + '</strong></div>' + (data.body ? '<div class="bk-mail">' + mdToHtml(data.body) + "</div>" : '<p class="muted">No copy of this email was kept. It is in Gmail under this subject.</p>') +
           '<div class="og-actions" style="margin-top:14px"><button type="button" data-v="close">Close</button></div>', true);
         box.addEventListener("click", (ev) => { if (ev.target.closest('button[data-v="close"]')) box.close(); });
         return;
