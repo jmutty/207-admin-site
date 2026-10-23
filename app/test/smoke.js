@@ -1053,7 +1053,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     const ov = await page.textContent("#aca-jpBody");
     check(ov.includes("Sam Helper") && ov.includes("40 min drive") && ov.includes("Chris Snowdeal"), "overview shows crew and contacts");
-    check(!ov.includes("Use the side door"), "booking notes are not on Overview");
+    check(ov.includes("Use the side door") && ov.includes("HLL-Guest") && ov.includes("On-site details"), "On-site details on Overview: WiFi and For the crew");
+    await page.waitForSelector("#aca-jpLatest .jp-notes li", { timeout: 3000 }).catch(() => {});
+    check((await page.textContent("#aca-jpLatest")).includes("Parking is behind the gym") && !!(await page.$("#aca-jpLatest #aca-jpNote")), "latest job notes and an Add box top Overview");
+    await page.click('#aca-jpOnsite [data-os="edit"]');
+    await page.fill("#aca-jpOsPw", "newpass");
+    await page.click('#aca-jpOsForm [type=submit]');
+    await page.waitForTimeout(200);
+    check((await page.textContent("#aca-jpOnsite")).includes("newpass") && !(await page.$("#aca-jpOsForm")), "On-site details save in place");
     check(!(await page.$('#aca-panel-job [data-j="booking"]')), "no Open the booking button");
     // Edit booking: the crew is there to change, and moving the day says what moves with it
     await page.click('#aca-panel-job button[data-j="edit"]');
@@ -1082,7 +1089,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent("#aca-jpBody")).includes("$1,234.50 from 40 orders"), "results show sales");
     await page.click('#aca-jpTabs button[data-t="notes"]');
     await page.waitForSelector(".jp-notes li[data-n]");
-    check((await page.textContent(".jp-booknote")).includes("From the booking") && (await page.textContent(".jp-booknote")).includes("Use the side door"), "booking notes top the Notes tab");
+    check((await page.textContent(".jp-booknote")).includes("For the crew") && (await page.textContent(".jp-booknote")).includes("Use the side door"), "booking notes top the Notes tab");
     check((await page.$eval(".jp-notes .at", (n) => n.textContent)) === "@Sam Helper", "a mention is highlighted");
     await page.click("#aca-jpNote");
     await page.keyboard.type("Ask @sa");

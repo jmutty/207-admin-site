@@ -143,6 +143,7 @@ export async function buildEvent(b: any, day?: any, dayNo?: number, dayCount?: n
   return eventBody({
     orgName: org?.name ?? "", typeLabel: type?.label ?? b.type_key, titleLabel: b.title_label, titleOverride: b.title_override,
     startAt: day ? day.start_at : b.start_at, endAt: day ? day.end_at : b.end_at, location: b.location, notes: b.notes, accessCode: b.access_code, retakeDay: b.retake_day,
+    wifiNetwork: b.wifi_network, wifiPassword: b.wifi_password,
     contacts: (contacts ?? []).map((c: any) => ({ name: [c.first_name, c.last_name].filter(Boolean).join(" "), email: c.email, role: c.role })),
     shortId: String(b.id).slice(0, 8),
     // booking_days always carry a placeholder 9:00 start, so the booking-wide time_set decides (a later day of

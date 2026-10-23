@@ -367,8 +367,10 @@
         '</div><div><div class="op-side">' +
         (contact ? '<div class="jp-sec" style="margin-bottom:14px"><h3>Main contact</h3><div style="font-size:13.5px"><b>' + esc(cName || contact.email) + "</b>" + (contact.role ? ", " + esc(contact.role) : "") +
           (contact.email ? '<div class="mono" style="overflow-wrap:anywhere">' + esc(contact.email) + "</div>" : "") + (contact.phone ? "<div>" + esc(contact.phone) + "</div>" : "") + "</div></div>" : "") +
+        '<div class="jp-sec jp-onsite" id="aca-opWifi" style="margin-bottom:14px"></div>' +
         '<div class="jp-sec" style="margin:0"><h3>At a glance</h3><dl class="jp-dl">' + glance.map((g) => "<dt>" + esc(g[0]) + "</dt><dd>" + esc(g[1]) + "</dd>").join("") + "</dl></div>" +
         "</div></div></div>";
+      renderWifi();
       box.onclick = (e) => {
         const b = e.target.closest("[data-go]"); if (!b) return;
         const g = b.dataset.go, arg = g.slice(g.indexOf(":") + 1);
@@ -383,6 +385,35 @@
         if (g.startsWith("ob:")) return Outbox.focus(arg || null, O.id);
         if (g.startsWith("send:")) { const x = (outbox || []).find((r) => r.id === arg); if (x) { b.disabled = true; emailVerb(x, "sendnow"); } return; }
         if (g.startsWith("tab:")) return goTab(arg);
+      };
+    }
+    // The partner's WiFi (2026-10-24): new bookings start with it, and WiFi saved on a job lands here, so it carries
+    // from season to season. Saving here also updates upcoming jobs that still had the old one (org_wifi_save).
+    function renderWifi(editing) {
+      const box = el("opWifi"); if (!box) return;
+      const can = canEdit("partners") || canEdit("bookings"), has = O.wifi_network || O.wifi_password;
+      if (!has && !can) { box.remove(); return; }
+      const head = "<h3>WiFi" + (can && !editing ? '<button type="button" class="small quiet" data-wf="edit">' + (has ? "Edit" : "Add") + "</button>" : "") + "</h3>";
+      if (editing) {
+        box.innerHTML = head + '<form id="aca-opWfForm"><label for="aca-opWfNet">Network</label><input type="text" id="aca-opWfNet" maxlength="120" value="' + esc(O.wifi_network || "") + '" />' +
+          '<label for="aca-opWfPw">Password</label><input type="text" id="aca-opWfPw" maxlength="120" autocomplete="off" value="' + esc(O.wifi_password || "") + '" />' +
+          '<div class="row"><button type="submit" class="small primary">Save</button><button type="button" class="small" data-wf="cancel">Cancel</button></div></form>';
+        el("opWfNet").focus();
+      } else box.innerHTML = head + (has ? '<dl class="jp-dl">' + (O.wifi_network ? "<dt>Network</dt><dd>" + esc(O.wifi_network) + "</dd>" : "") +
+          (O.wifi_password ? '<dt>Password</dt><dd><span class="pw">' + esc(O.wifi_password) + "</span></dd>" : "") + '</dl><p class="oncal">New bookings start with this WiFi.</p>'
+        : '<p class="muted" style="margin:0;font-size:13px">Not known yet. Add it here or on a job, and new bookings start with it.</p>');
+      box.onclick = (e) => { const t = e.target.closest("[data-wf]"); if (t) renderWifi(t.dataset.wf === "edit"); };
+      const f = el("opWfForm");
+      if (f) f.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = f.querySelector("[type=submit]"); btn.disabled = true;
+        const net = el("opWfNet").value.trim(), pw = el("opWfPw").value.trim();
+        const { data, error } = await sb.rpc("org_wifi_save", { p_org: O.id, p_network: net, p_password: pw });
+        if (error) { btn.disabled = false; toast(cleanErr(error), true); return; }
+        O.wifi_network = net || null; O.wifi_password = pw || null;
+        const n = num(data && data.jobs);
+        toast(n ? "Saved. " + n + (n === 1 ? " upcoming job" : " upcoming jobs") + " and the calendar got the new WiFi." : "Saved.");
+        renderWifi();
       };
     }
     function payoutText(t) {
