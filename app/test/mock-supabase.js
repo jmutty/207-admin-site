@@ -133,6 +133,10 @@
   // ?as=money: Season results view only.
   const AS_MONEY = /[?&]as=money\b/.test(location.search);
   const RPC = {
+    // Partner page > Merge into… (2026-10-24)
+    partner_merge_preview: { keep: "Hancock Grammar School", other: "Brewer Travel Basketball Club", blocked: null, contacts: 2, same_people: 1, jobs: 1,
+      gotphoto_jobs: 3, agreements: 0, reviews: 1, history: 14, emails: 0, followups: 1, gotphoto_names: ["Brewer Travel BB"], cal_dates: 2 },
+    partner_merge: { kept: "Hancock Grammar School", merged: "Brewer Travel Basketball Club", contacts_moved: 1, same_people: 1, jobs_moved: 1 },
     my_access: AS_PART ? { user_id: "u6", email: "pat@207photo.com", name: "Pat Parttime", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { openjobs: "view" } }
       : AS_MONEY ? { user_id: "u6", email: "bo@207photo.com", name: "Bo Books", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { results: "view" } }
       : AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
