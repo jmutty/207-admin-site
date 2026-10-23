@@ -1,7 +1,8 @@
   // ================================================================ DIRECTOR JOURNEY (ws/director, 2026-10-24)
   // What a league or school director gets from us, beyond the booking email series
   // (migration 20261024060000_director_journey.sql):
-  //   DirectorFields  the booking's team times, order deadline and discount end, in Book a job and Edit booking
+  //   DirectorFields  the booking's team times and ordering dates (free shipping, 20% off, order by; worked out from
+  //                   the picture day unless typed, 2026-10-24), in Book a job and Edit booking
   //                   (booking_director_get / booking_director_save), plus the day-of phone and rain plan rows in
   //                   Settings > Sending (booking_settings.day_of_phone / weather_plan). Since 2026-10-24 (adaptive
   //                   emails) also Shooting (indoors / outdoors / either: weather checks and the rain paragraph),
@@ -21,13 +22,15 @@
 
     // The rows for the booking form's og-grid (label + field pairs). Values arrive with fill() for an existing booking.
     function formHtml() {
+      datesAuto = true; lastCtx = null; shootKey = ""; clearTimeout(shootTimer); // a fresh form
       return '<label for="aca-bkTeamTimes">Team times</label><div><textarea id="aca-bkTeamTimes" rows="3" maxlength="4000" placeholder="9:00 U10 Blue&#10;9:15 U10 Red"></textarea>' +
         '<div class="bk-sub">Optional. One line per team, pasted as is. It goes in the two-week email and on their picture day page.</div></div>' +
-        '<label>Ordering</label><div><div class="bk-dir-dates"><label>Order by <input type="date" id="aca-bkOrderBy" /></label><label>Discount ends <input type="date" id="aca-bkDiscEnds" /></label></div>' +
-        '<div class="bk-sub">Optional. Once set, the director sees these dates in the emails and on their page.</div><div class="bk-sub" id="aca-bkDayLink"></div></div>' +
-        '<label for="aca-bkShoot">Shooting</label><div><select id="aca-bkShoot"><option value="">From the job type (sports outdoors, schools indoors)</option>' +
-          '<option value="outdoors">Outdoors</option><option value="indoors">Indoors</option><option value="either">Indoors or outdoors</option></select>' +
-          '<div class="bk-sub">Outdoors or either: we check the forecast from three days out and tell whoever booked the job if rain or wind is coming. The director gets the rain paragraph.</div></div>' +
+        '<label>Ordering</label><div><div class="bk-dir-dates"><label>Free shipping ends <input type="date" id="aca-bkFreeShip" /></label><label>20% off ends <input type="date" id="aca-bkDiscEnds" /></label><label>Order by <input type="date" id="aca-bkOrderBy" /></label></div>' +
+          '<div class="bk-sub" id="aca-bkDatesNote"></div>' +
+          '<div class="bk-sub">The director sees the 20% date and the order date in the emails and on their page. Free shipping is for us only.</div><div class="bk-sub" id="aca-bkDayLink"></div></div>' +
+        '<label for="aca-bkShoot">Shooting</label><div><select id="aca-bkShoot"><option value="">Automatic</option>' +
+          '<option value="outdoors">Outdoors</option><option value="indoors">Indoors</option><option value="either">Indoors or outdoors</option></select> <span class="bk-sub" id="aca-bkShootNote"></span>' +
+          '<div class="bk-sub">Automatic is indoors. Only a fall or spring sports job can be outdoors: it follows this partner&rsquo;s last job of that season. Outdoors or either: we check the forecast from three days out and the director gets the rain paragraph.</div></div>' +
         '<label>Student data</label><div><label style="display:inline-flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="aca-bkSchoolData" /> Received (schools)</label>' +
           '<div class="bk-sub">Once checked, the two-week email stops asking for it.</div></div>';
     }
@@ -36,8 +39,12 @@
         const { data, error } = await sb.rpc("booking_director_get", { p_id: id });
         if (error || !data || !el("bkTeamTimes")) return;
         el("bkTeamTimes").value = data.team_times || "";
+        datesAuto = data.dates_auto !== false;
         el("bkOrderBy").value = data.order_deadline || "";
         el("bkDiscEnds").value = data.discount_ends || "";
+        el("bkFreeShip").value = data.free_ship_ends || "";
+        el("bkOrderBy").dataset.ready = "1";
+        if (datesAuto && lastCtx) autoDates(lastCtx); else datesNote();
         el("bkShoot").value = data.shoot_setting || "";
         el("bkSchoolData").checked = !!data.school_data;
         el("bkShoot").dataset.ready = "1";
@@ -47,16 +54,74 @@
       } catch (_e) { /* the form still works without them */ }
     }
     const read = () => el("bkTeamTimes") ? { team_times: el("bkTeamTimes").value.trim(), order_deadline: el("bkOrderBy").value || "", discount_ends: el("bkDiscEnds").value || "",
-      shoot_setting: el("bkShoot").value || "", school_data: el("bkSchoolData").checked, _ready: el("bkShoot").dataset.ready === "1" } : null;
-    const isEmpty = (v) => !v || (!v.team_times && !v.order_deadline && !v.discount_ends && !v.shoot_setting && !v.school_data);
+      free_ship_ends: el("bkFreeShip").value || "", dates_auto: datesAuto,
+      shoot_setting: el("bkShoot").value || "", school_data: el("bkSchoolData").checked, _ready: el("bkShoot").dataset.ready === "1", _datesReady: el("bkOrderBy").dataset.ready === "1" } : null;
+    const isEmpty = (v) => !v || (!v.team_times && !v.order_deadline && !v.discount_ends && !v.free_ship_ends && !v.shoot_setting && !v.school_data);
+
+    // ---- Ordering dates (2026-10-24): worked out from the launch, the day after the last picture day
+    // (booking_order_dates in 20261024230000_booking_autofill.sql; keep the two in step).
+    //   sports   free shipping to launch + 3, 20% off to launch + 14, order by launch + 30
+    //   schools  free shipping to launch + 14, 20% off to launch + 1 month, order by May 31 (the gallery archives June 1)
+    // Typing a date stops it for this booking; "Work them out again" turns it back on.
+    let datesAuto = true, lastCtx = null, shootKey = "", shootTimer = null;
+    const ymd = (y, m, d) => y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+    const plusDays = (s, n) => { const t = new Date(s + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+    const plusMonth = (s) => { const [y, m, d] = s.split("-").map(Number); const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
+      return ymd(ny, nm, Math.min(d, new Date(Date.UTC(ny, nm, 0)).getUTCDate())); };
+    function orderDates(audience, lastDay) {
+      if (!lastDay) return null;
+      const launch = plusDays(lastDay, 1);
+      if (audience === "school") { const [y, m] = lastDay.split("-").map(Number); return { free: plusDays(launch, 14), disc: plusMonth(launch), order: ymd(y + (m >= 6 ? 1 : 0), 5, 31) }; }
+      return { free: plusDays(launch, 3), disc: plusDays(launch, 14), order: plusDays(launch, 30) };
+    }
+    function datesNote() {
+      const n = el("bkDatesNote"); if (!n) return;
+      n.innerHTML = datesAuto ? "Worked out from the day after the last picture day. They follow the picture day if it moves."
+        : 'Typed by hand, so they stay put. <button type="button" class="link" data-dirauto="1">Work them out again</button>';
+      const b = n.querySelector("[data-dirauto]");
+      if (b) b.addEventListener("click", () => { datesAuto = true; if (lastCtx) autoDates(lastCtx); else datesNote(); });
+    }
+    function wireDates() {
+      ["bkFreeShip", "bkDiscEnds", "bkOrderBy"].forEach((k) => { const x = el(k); if (x && !x.dataset.wired) { x.dataset.wired = "1"; const typed = () => { datesAuto = false; datesNote(); }; x.addEventListener("input", typed); x.addEventListener("change", typed); } });
+    }
+    // ctx: { audience, lastDay, orgId, typeKey, firstDay, label, bookingId }. Called by the booking form whenever
+    // the type, days, title or organization change.
+    function autoDates(ctx) {
+      lastCtx = ctx; wireDates();
+      if (!el("bkOrderBy")) return;
+      if (datesAuto) {
+        const o = orderDates(ctx.audience, ctx.lastDay);
+        el("bkFreeShip").value = o ? o.free : ""; el("bkDiscEnds").value = o ? o.disc : ""; el("bkOrderBy").value = o ? o.order : "";
+      }
+      datesNote();
+      // What "Automatic" shooting comes to, next to the dropdown.
+      const key = [ctx.orgId, ctx.typeKey, ctx.firstDay, ctx.label].join("|");
+      if (key === shootKey) return;
+      shootKey = key; clearTimeout(shootTimer);
+      const note = el("bkShootNote"); if (note) note.textContent = "";
+      if (!ctx.orgId || !ctx.typeKey || !ctx.firstDay) return;
+      shootTimer = setTimeout(async () => {
+        try {
+          const { data, error } = await sb.rpc("booking_shoot_auto", { p_org: ctx.orgId, p_type: ctx.typeKey, p_day: ctx.firstDay, p_label: ctx.label || "", p_exclude: ctx.bookingId || null });
+          if (error || shootKey !== key || !el("bkShootNote")) return;
+          el("bkShootNote").textContent = "Automatic comes to " + (data === "outdoors" ? "outdoors" : data === "either" ? "indoors or outdoors" : "indoors") + ".";
+        } catch (_e) { /* just the hint */ }
+      }, 300);
+    }
     // Saved after booking_create / booking_update (their signatures stay as they are). Returns "" or the reason it failed.
     async function save(id, v, isNew) {
       if (!v || !id || (isNew && isEmpty(v))) return "";
-      if (v.order_deadline && v.discount_ends && v.discount_ends > v.order_deadline) return "the discount can't end after the order deadline";
+      if (!v.dates_auto) {
+        if (v.free_ship_ends && v.discount_ends && v.free_ship_ends > v.discount_ends) return "free shipping can't end after the 20% off";
+        if (v.order_deadline && ((v.discount_ends && v.discount_ends > v.order_deadline) || (v.free_ship_ends && v.free_ship_ends > v.order_deadline))) return "the discount can't end after the order deadline";
+      }
       v = Object.assign({}, v);
-      // an existing booking whose values never loaded keeps what it has (blank would reset Shooting to the job type's)
+      // an existing booking whose values never loaded keeps what it has (blank would make Shooting automatic again,
+      // and the dates would be worked out again)
       if (!isNew && !v._ready) { delete v.shoot_setting; delete v.school_data; }
-      delete v._ready;
+      if (!isNew && !v._datesReady) { delete v.order_deadline; delete v.discount_ends; delete v.free_ship_ends; delete v.dates_auto; }
+      if (v.dates_auto) { delete v.order_deadline; delete v.discount_ends; delete v.free_ship_ends; }
+      delete v._ready; delete v._datesReady;
       try {
         const { error } = await sb.rpc("booking_director_save", { p_id: id, p: v });
         if (error) throw error;
@@ -77,7 +142,7 @@
     const sendingRead = () => el("ssDayPhone") ? { day_of_phone: el("ssDayPhone").value.trim(), weather_plan: el("ssWeather").value.trim(),
       emergency_name: el("ssEmName").value.trim(), emergency_phone: el("ssEmPhone").value.trim(), emergency_email: el("ssEmEmail").value.trim() } : {};
 
-    return { formHtml, fill, read, save, sendingHtml, sendingRead };
+    return { formHtml, fill, read, save, autoDates, sendingHtml, sendingRead };
   })();
 
   // ================================================================ PUBLIC: Your picture day (no sign-in)
