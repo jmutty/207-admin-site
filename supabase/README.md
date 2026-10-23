@@ -59,6 +59,8 @@ psql -d shadow -v ON_ERROR_STOP=1    -f tests/email_delivery_test.sql       # Re
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023200000_polish.sql
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023210000_team_home.sql   # home address on the Team page
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/polish_test.sql       # picture day off, ask who's available + pick, no partner emails on checklists, payout kinds + season end, notification modes + morning digest; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261024040000_jobs_one_screen.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/jobs_test.sql         # crew + open-offer people open the job and its checklist, My jobs from home + checklist counts, My day job links, the crew moves with the day; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
