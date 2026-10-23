@@ -1,4 +1,4 @@
--- Tests for 20261024080000_adaptive_booking_emails. Run against a NON-production copy of the schema with the
+-- Tests for 20261024080000_adaptive_booking_emails (and 20261024203500_short_email_links). Run against a NON-production copy of the schema with the
 -- migration applied, inside a transaction that is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/adaptive_emails_test.sql
 -- "ALL ADAPTIVE EMAIL TESTS PASSED" at the end means every check held.
@@ -157,15 +157,30 @@ select pg_temp.ok((select (public.booking_director_facts('00000000-0000-0000-000
 select pg_temp.ok((public.booking_director_facts('00000000-0000-0000-0000-0000000000b4') ->> 'weather') like 'If we''re shooting outside%', 'an "either" booking gets the weather paragraph');
 select pg_temp.ok((public.booking_director_facts('00000000-0000-0000-0000-0000000000b1') #>> '{emergency,phone}') = '(207) 299-3928', 'the day page gets the emergency contact');
 
-select pg_temp.ok((select x = 'See https://socluffmclkdljtmiexw.supabase.co/functions/v1/go?e=00000000-0000-0000-0000-000000000001&u='
-                          || translate(encode(convert_to('https://207photo.com/sportsadmin/#job=J/send=heads/r', 'UTF8'), 'base64'), '+/=', '-_')
-                          || '. Home https://socluffmclkdljtmiexw.supabase.co/functions/v1/go?e=00000000-0000-0000-0000-000000000001&u='
-                          || translate(encode(convert_to('https://207photo.com/sportsadmin/#job=J', 'UTF8'), 'base64'), '+/=', '-_')
-                          || ' and https://example.com/x stays.'
-                   from (select public.booking_track_links('See https://207photo.com/sportsadmin/#job=J/send=heads/r. Home https://207photo.com/sportsadmin/#job=J and https://example.com/x stays.',
-                                                           '00000000-0000-0000-0000-000000000001') x) q), 'links are tracked, longest first, others untouched');
+-- 20261024203500_short_email_links: tracked links are short admin.207photo.com/go/<code> links with words
+select set_config('ae.email', (select id::text from public.booking_emails where booking_id = '00000000-0000-0000-0000-0000000000b1' limit 1), true);
+select set_config('ae.tracked', public.booking_track_links('See https://207photo.com/sportsadmin/#job=J/send=heads/r. Home https://207photo.com/sportsadmin/#job=J and https://example.com/x stays. '
+                    || '[Add it to your calendar](https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?b=1)', current_setting('ae.email')::uuid), true);
+select pg_temp.ok(current_setting('ae.tracked') = 'See [Open the message on your hub](https://admin.207photo.com/go/'
+                    || (select code from public.booking_link_codes where email_id = current_setting('ae.email')::uuid and url = 'https://207photo.com/sportsadmin/#job=J/send=heads/r')
+                    || '). Home [Open your hub](https://admin.207photo.com/go/'
+                    || (select code from public.booking_link_codes where email_id = current_setting('ae.email')::uuid and url = 'https://207photo.com/sportsadmin/#job=J')
+                    || ') and https://example.com/x stays. [Add it to your calendar](https://admin.207photo.com/go/'
+                    || (select code from public.booking_link_codes where email_id = current_setting('ae.email')::uuid and url = 'https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?b=1')
+                    || ')', 'links are short, longest first, bare ones get words, [words](link) keeps its words, others untouched');
+select pg_temp.ok(public.booking_track_links('https://admin.207photo.com/#day/abc', current_setting('ae.email')::uuid) ~ '^\[Open your picture day page\]\(https://admin\.207photo\.com/go/[A-Za-z0-9_-]{8}\)$', 'the picture day page link reads "Open your picture day page"');
+select pg_temp.ok(public.booking_track_links('See https://207photo.com/sportsadmin/#job=J', current_setting('ae.email')::uuid)
+                  = public.booking_track_links('See https://207photo.com/sportsadmin/#job=J', current_setting('ae.email')::uuid), 'rendering again gives the same code');
+select pg_temp.ok(public.booking_track_links('See https://207photo.com/sportsadmin/#job=J', '00000000-0000-0000-0000-000000000001') = 'See https://207photo.com/sportsadmin/#job=J', 'no such email: left alone');
 select pg_temp.ok((public.booking_render_row((select e.id from public.booking_emails e join public.booking_steps s on s.id = e.step_id
-                    where e.booking_id = '00000000-0000-0000-0000-0000000000b1' and s.step_no = 1 limit 1)) ->> 'body') like '%functions/v1/go?e=%', 'rendered emails carry tracked links');
+                    where e.booking_id = '00000000-0000-0000-0000-0000000000b1' and s.step_no = 1 limit 1)) ->> 'body') like '%admin.207photo.com/go/%', 'rendered emails carry short links');
+select set_config('ae.code', (select code from public.booking_link_codes where url = 'https://207photo.com/sportsadmin/#job=J' limit 1), true);
+select pg_temp.act(null);
+select pg_temp.ok(public.booking_link_go(current_setting('ae.code'), false) = 'https://207photo.com/sportsadmin/#job=J', 'anon looks a code up');
+select pg_temp.ok(public.booking_link_go('zzzzzzzz') is null and public.booking_link_go('../etc') is null, 'unknown or malformed codes answer nothing');
+select pg_temp.raises($$select public.booking_link_code(gen_random_uuid(), 'https://207photo.com/sportsadmin')$$, 'anon cannot make codes');
+reset role;
+select pg_temp.ok((select count(*) from public.booking_link_clicks where booking_id = '00000000-0000-0000-0000-0000000000b1') = 0, 'a HEAD-style lookup logs nothing');
 
 select set_config('ae.email', (select id::text from public.booking_emails where booking_id = '00000000-0000-0000-0000-0000000000b1' limit 1), true);
 select pg_temp.act(null);
