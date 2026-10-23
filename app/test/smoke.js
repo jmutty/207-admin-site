@@ -1182,6 +1182,16 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.goto(`http://127.0.0.1:${port}/test/harness.html#partners/outbox/44444444-4444-4444-4444-444444444444`);
     await page.waitForSelector("#aca-obTrail a");
     check((await page.textContent("#aca-obTrail")).includes("Island Cheer") && (await page.textContent("#aca-obOrgTag")).includes("Island Cheer"), "one partner's Outbox, with a trail back");
+    // Every kind of row opens its panel with the email in it (a stray variable left it blank, 2026-10-23).
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#partners/outbox`);
+    await page.waitForSelector("#aca-obChips");
+    await page.click('#aca-obChips button[data-f="all"]');
+    for (const id of ["ob2", "ob3", "ob4", "ob5", "ob6", "digest"]) {
+      await page.$eval('#aca-obBody tr[data-id="' + id + '"]', (n) => n.click());
+      await page.waitForTimeout(100);
+      const box = await page.$("#aca-obPanel:not(.hidden) #aca-obPreview");
+      check(!!box && (await box.textContent()).trim().length > 0 && !(await box.textContent()).includes("Loading"), "Outbox row " + id + " shows its email in the panel");
+    }
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

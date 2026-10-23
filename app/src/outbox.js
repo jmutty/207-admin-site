@@ -236,15 +236,6 @@
     const p = el("obPanel"); p.classList.remove("hidden"); Orgs.measureTop();
     const s = STATUS[r.status] || ["muted", r.status];
     const acts = verbs(r);
-    if (ed && isOutreach(r) && r.status === "needs_review") acts.push('<button type="button" class="primary" data-v="approve">Approve and send</button>');
-    if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) acts.push('<button type="button" data-v="edit">Edit</button><button type="button" data-v="skip">Don’t send</button>');
-    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed", "skipped"].includes(r.status)) acts.push('<button type="button" class="primary" data-v="sendnow">Send now</button>');
-    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed"].includes(r.status)) acts.push('<button type="button" data-v="bskip">Don’t send</button>');
-    if (ed && r.src === "booking" && r.status === "sent") acts.push('<button type="button" data-v="resend">Resend</button>');
-    if (r.src === "booking" && r.booking_id) acts.push('<button type="button" data-v="booking">Open the job</button>');
-    if (r.src === "makeup") acts.push('<button type="button" class="primary" data-v="makeups">Open in Makeups</button>');
-    if (r.src === "hub" && r.booking_id) acts.push('<button type="button" data-v="hub">Open the job</button>');
-    if (r.src === "digest") acts.push('<button type="button" data-v="settings">Morning email settings</button>');
     p.innerHTML = `
       <div class="og-phead"><div class="og-ptop"><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600;line-height:22px">${esc(r.subject || "")}</div>
         <div class="muted" style="font-size:13px">To ${esc(r.to_name || "")}${r.to_email ? " &lt;" + esc(r.to_email) + "&gt;" : ""}${r.org ? " at " + esc(r.org) : ""}. ${esc(r.detail || "")}.</div></div>
