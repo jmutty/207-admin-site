@@ -714,7 +714,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent("#aca-scGrid")).includes("40 h") && (await page.textContent("#aca-scGrid")).includes("under"), "hours against the weekly target");
     check(await visible(page, "#aca-scWarn"), "asks for the studio address");
     check((await page.$$("#aca-scGrid .sc-chip.none")).length === 3, "jobs with nobody on them stand out");
-    check((await page.textContent("#aca-scGrid")).includes("Jobs not assigned") && (await page.$$("#aca-scGrid .sc-chip[data-booking]")).length === (await page.$$("#aca-scGrid .sc-chip.none")).length + (await page.$$("#aca-scGrid .sc-chip.tracked")).length, "only jobs nobody is on sit in Jobs not assigned");
+    check((await page.textContent("#aca-scGrid")).includes("Jobs not assigned") && (await page.$$("#aca-scGrid .sc-chip[data-booking]")).length === (await page.$$("#aca-scGrid .sc-chip.none")).length + (await page.$$("#aca-scGrid .sc-chip.tracked")).length + (await page.$$("#aca-scGrid .sc-chip.part")).length, "only jobs that still need people sit in Jobs not assigned");
     await page.click("#aca-scGrid .sc-b.sc-k-job:not(.drive)");
     await page.waitForSelector('.sc-modal [data-m="more"]');
     await page.click('.sc-modal [data-m="more"]');
@@ -791,8 +791,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     // a Part time / 1099 person drives from home
     await page.evaluate(() => { window.__rpcCalls.length = 0; window.__driveCalls = []; });
     await page.click('#aca-scGrid .sc-chip.none[data-booking="bk2"]');
-    await page.waitForSelector(".sc-modal .sc-people input");
-    await page.check('.sc-modal .sc-people input[value="u5"]');
+    await page.waitForSelector('#aca-scPick li input[value="u5"]');
+    await page.check('#aca-scPick li input[value="u5"]');
     await page.click('.sc-modal [data-m="save"]');
     await page.waitForTimeout(200);
     check(await page.evaluate(() => window.__driveCalls.some((b) => b.booking_id === "bk2" && b.user_id === "u5")), "a Part time / 1099 person's drive is looked up from their home");
