@@ -28,12 +28,29 @@
       settings = data;
     }
 
-    async function open() {
+    // open({ reason, onClose }): reason is a line above everything (why we're asking, for a new hire).
+    async function open(opts) {
+      opts = opts && typeof opts === "object" ? opts : {};
       el("whoMenu").classList.add("hidden");
-      modal = openModal('<h2>Notifications</h2><div id="aca-pnBody"><p class="muted">Loading&#8230;</p></div>' +
-        '<div class="modal-actions"><span class="grow"></span><button type="button" class="primary" id="aca-pnDone">Done</button></div>', { onClose: () => { modal = null; } });
+      modal = openModal('<h2>Notifications</h2>' + (opts.reason ? '<p class="pn-why">' + esc(opts.reason) + "</p>" : "") + '<div id="aca-pnBody"><p class="muted">Loading&#8230;</p></div>' +
+        '<div class="modal-actions"><span class="grow"></span><button type="button" class="primary" id="aca-pnDone">Done</button></div>',
+        { sheet: true, onClose: () => { modal = null; if (opts.onClose) opts.onClose(); } });
       el("pnDone").addEventListener("click", () => modal.close());
       render();
+    }
+    // { devices, here }: how many devices this person has notifications on, and whether this is one of them.
+    async function status() {
+      try {
+        await loadSettings();
+        const sub = await currentSub();
+        return { devices: (settings.devices || []).length, here: !!(sub && settings.devices.some((d) => d.endpoint === sub.endpoint)) };
+      } catch (_e) { return null; }
+    }
+    // After a new hire picks their password: open Notifications with the reason, unless they're already on here.
+    async function ask(reason) {
+      const st = await status();
+      if (st && st.here && "Notification" in window && Notification.permission === "granted") return;
+      open({ reason, onClose: () => NotifCard.load() });
     }
 
     async function render() {
@@ -66,8 +83,27 @@
       const devices = others.length
         ? '<h3 class="pn-h">Your other devices</h3>' + others.map((d) => '<div class="pn-dev"><span>' + esc(d.label || "Device") + ' <span class="muted">since ' + esc(fmtDate(d.created_at)) + '</span></span><button type="button" class="small" data-off="' + esc(d.id) + '">Turn off</button></div>').join("")
         : "";
-      body.innerHTML = '<div class="inline-error hidden" id="aca-pnErr"></div>' + state + topics + devices;
+      body.innerHTML = '<div class="inline-error hidden" id="aca-pnErr"></div>' + state + topics + '<div id="aca-pnDigest"></div>' + devices;
       wire();
+      digestRow();
+    }
+
+    // "Morning email goes to you" (2026-10-24, full access only): puts this person's address on (or takes it off) the
+    // morning email's recipients, admin_settings.digest_recipients, through me_digest / me_digest_set.
+    async function digestRow() {
+      const box = el("pnDigest"); if (!box || !ACCESS.is_admin) return;
+      const { data, error } = await supabase.rpc("me_digest");
+      if (error || !data || !el("pnDigest")) return;
+      box.innerHTML = '<h3 class="pn-h">Morning email</h3><label class="pn-digest"><input type="checkbox" id="aca-pnDigestOn"' + (data.on ? " checked" : "") + " /><span><b>Morning email goes to you</b><br>" +
+        '<span class="muted">The Today page, by email, around 7am' + (data.enabled === false ? ". It&#8217;s turned off for everyone right now (Settings)." : ".") + "</span></span></label>";
+      el("pnDigestOn").addEventListener("change", async (e) => {
+        const on = e.target.checked;
+        e.target.disabled = true;
+        const { error: err2 } = await supabase.rpc("me_digest_set", { p_on: on });
+        e.target.disabled = false;
+        if (err2) { e.target.checked = !on; fail(err2); return; }
+        toast(on ? "The morning email will come to you." : "You're off the morning email.");
+      });
     }
 
     function fail(e) { const n = el("pnErr"); if (n) { n.textContent = e.message || String(e); n.classList.remove("hidden"); } }
@@ -130,7 +166,7 @@
       if (e.data && e.data.go) { const h = new URL(e.data.go, location.origin).hash; if (h && h !== location.hash) location.hash = h; }
     });
 
-    return { open };
+    return { open, status, ask };
   })();
-  el("notifBtn").addEventListener("click", () => Push.open());
+  el("notifBtn").addEventListener("click", () => Push.open({ onClose: () => NotifCard.load() }));
 

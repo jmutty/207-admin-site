@@ -4,9 +4,16 @@
   // key); everything else is SQL: team_list / team_save / team_audit_list, all checked with is_admin()
   // and logged in team_audit. This file is also the example for new modules: one registerPage() call,
   // one panel in a src/*.html partial, one IIFE holding the page's state.
+  // One person record (ws/settings 2026-10-24): access presets by employment type, the access grid folded under
+  // "Change access" with "Copy access from", rows named and grouped like the menu (modules with no page hidden),
+  // Longest drive and Pay (the person's own timeclock_rates row) on the same form; the list shows type and roles.
   registerPage({ id: "team", group: "System", section: "system", module: "team", tabs: [["team", "Team"]], onShow: () => Team.load() });
 
   const Team = (function () {
+    const tmCss = document.createElement("style");
+    tmCss.textContent = ".aca .tm-acc { margin: 0 0 8px; font-size: 13.5px; } .aca .tm-presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; font-size: 13px; }" +
+      " .aca #aca-tmMore > summary { cursor: pointer; font-weight: 600; font-size: 13.5px; margin: 4px 0 8px; } .aca .tm-copy { margin: 4px 0 10px; font-size: 13px; }";
+    document.head.appendChild(tmCss);
     const TEAM_FN_URL = SUPABASE_URL + "/functions/v1/team";
     let modules = [], people = [];
     const LEVEL_WORD = { view: "view", edit: "edit" };
@@ -45,6 +52,31 @@
     // Employment type (2026-10-23): Part time and 1099 get Open jobs offers; Salaried and 1099 get no overtime.
     const TYPES = [["full_time", "Full time"], ["salaried", "Salaried"], ["part_time", "Part time"], ["contractor", "1099 contractor"]];
     const typeLabel = (t) => (TYPES.find((x) => x[0] === t) || [null, ""])[1];
+    const rolesOf = (uid) => ((crewRoles.members || {})[uid] || []).map((id) => ((crewRoles.roles || []).find((r) => r.id === id) || {}).label).filter(Boolean);
+
+    // Access presets. Part time and 1099 people get My day, Time clock, My records and Open jobs (all view); the
+    // database gives the same when their type is set (migration 20261024020000). Office is a starting point.
+    const PHOTO = { assignments: "view", timeclock: "view", staffrecords: "view", openjobs: "view" };
+    const PRESETS = [["contractor", "1099 photographer", PHOTO], ["part_time", "Part-time photographer", PHOTO],
+      ["office", "Office", { bookings: "edit", parents: "edit", partners: "view", agreements: "view", scheduling: "edit", timeoff: "view", openjobs: "view", assignments: "edit",
+                             workflows: "edit", timeclock: "view", staffrecords: "view", inventory: "view", emails: "view", galleries: "view", hub: "view" }],
+      ["admin", "Admin (full access)", null]];
+    const presetFor = (type) => (type === "part_time" ? "part_time" : type === "contractor" ? "contractor" : type === "full_time" || type === "salaried" ? "office" : null);
+
+    // The menu's words for each module: [group, "Tab, Tab"]. Modules on no page (no menu tab) are left out of the grid.
+    function menuWords() {
+      const out = {};
+      MENU.forEach(([group, entries]) => entries.forEach(([, title, specs]) => specs.map(parseSpec).forEach((sp) => {
+        const it = itemOf(sp.tab); if (!it || it.hidden) return;
+        const mod = sp.module || it.module; if (!mod) return;
+        const label = sp.label || (it.tabs.find((t) => t[0] === sp.tab) || [])[1] || title;
+        const o = out[mod] || (out[mod] = { group: null, words: [] });
+        if (!o.group || (o.group === "My work" && group !== "My work")) o.group = group || "Today";
+        if (!o.words.includes(label)) o.words.push(label);
+      })));
+      RAIL.forEach((it) => { if (it.hidden || !it.module || out[it.module]) return; out[it.module] = { group: (it.group || "Other").replace("Outreach", "Partners"), words: it.tabs.map((t) => t[1]) }; });
+      return out;
+    }
 
     function accessText(p) {
       if (p.is_admin) return "<b>Full access</b>";
@@ -55,7 +87,8 @@
     function render() {
       el("teamBody").innerHTML = people.length ? people.map((p) =>
         "<tr" + (p.active ? "" : ' class="muted"') + '><td class="name">' + esc(p.name || p.email) + (p.is_me ? ' <span class="muted">(you)</span>' : "") +
-        '<div class="muted" style="font-size:12.5px">' + [p.job_title, typeLabel(p.employment_type)].filter(Boolean).map(esc).join(" &middot; ") + ((p.job_title || p.employment_type) ? "<br>" : "") + esc(p.email) + (p.weekly_hours != null ? " &middot; " + esc(String(Number(p.weekly_hours))) + " h/week" : "") + "</div></td>" +
+        '<div class="muted" style="font-size:12.5px">' + [p.job_title, typeLabel(p.employment_type)].filter(Boolean).map(esc).join(" &middot; ") + ((p.job_title || p.employment_type) ? "<br>" : "") + esc(p.email) + (p.weekly_hours != null ? " &middot; " + esc(String(Number(p.weekly_hours))) + " h/week" : "") +
+          (rolesOf(p.user_id).length ? '<br>Crew roles: ' + esc(rolesOf(p.user_id).join(", ")) : "") + "</div></td>" +
         "<td>" + accessText(p) + "</td>" +
         "<td>" + esc(p.last_sign_in_at ? fmtAgo(p.last_sign_in_at) : "never") + "</td>" +
         "<td>" + (!p.active ? '<span class="pill muted">Deactivated</span>' : p.must_change_password ? '<span class="pill warn">Temporary password</span>' : '<span class="pill ok">Active</span>') + "</td>" +
@@ -67,12 +100,15 @@
 
     // Module grid: one row per module, None / View / Edit. Planned modules can be granted ahead of launch.
     function grid(current) {
-      const sections = [];
-      modules.forEach((m) => { if (!sections.includes(m.section)) sections.push(m.section); });
-      return sections.map((s) => '<div class="tm-sec">' + esc(s) + "</div>" + modules.filter((m) => m.section === s).map((m) => {
+      const words = menuWords(), groups = [];
+      MENU.forEach(([g]) => { if (!groups.includes(g || "Today")) groups.push(g || "Today"); });
+      const shownMods = modules.filter((m) => words[m.key]);
+      shownMods.forEach((m) => { if (!groups.includes(words[m.key].group)) groups.push(words[m.key].group); });
+      return groups.filter((g) => shownMods.some((m) => words[m.key].group === g)).map((g) => '<div class="tm-sec">' + esc(g) + "</div>" + shownMods.filter((m) => words[m.key].group === g).map((m) => {
         const lv = current[m.key] || "none";
-        return '<div class="tm-row"><div><b>' + esc(m.label) + "</b>" + (m.status === "planned" ? ' <span class="pill muted">Coming soon</span>' : "") +
-          '<div class="muted">' + esc(m.description) + '</div></div><div class="seg" role="radiogroup" aria-label="' + esc(m.label) + '">' +
+        const w = words[m.key].words.slice(0, 4).join(", ");
+        return '<div class="tm-row"><div><b>' + esc(w) + "</b>" + (m.status === "planned" ? ' <span class="pill muted">Coming soon</span>' : "") +
+          '<div class="muted">' + esc(m.description) + '</div></div><div class="seg" role="radiogroup" aria-label="' + esc(w) + '">' +
           ["none", "view", "edit"].map((l) => '<label><input type="radio" name="tm-' + esc(m.key) + '" value="' + l + '"' + (lv === l ? " checked" : "") + " /><span>" + l[0].toUpperCase() + l.slice(1) + "</span></label>").join("") +
           "</div></div>";
       }).join("")).join("");
@@ -92,13 +128,23 @@
         '<p class="muted" id="aca-tmTypeNote" style="font-size:12.5px;margin:-6px 0 12px"></p>' +
         '<div class="field"><label for="aca-tmHome">Home address</label><input type="text" id="aca-tmHome" maxlength="300" value="' + esc(p.home_address || "") + '" placeholder="Street and town, or just the town" />' +
         '<span class="muted" style="font-size:12.5px">Drive times for Part time and 1099 people are measured from here (Open jobs, the Schedule, mileage). The town alone is enough.</span></div>' +
+        '<div class="tm-two"><div class="field"><label for="aca-tmDrive">Longest drive (minutes, one way)</label><input type="number" id="aca-tmDrive" min="5" max="300" step="5" value="' + esc(p.max_drive_min == null ? 60 : p.max_drive_min) + '" />' +
+        '<span class="muted" style="font-size:12.5px">Open jobs offers only go to jobs within this drive.</span></div>' +
+        '<div class="field"><label for="aca-tmRate">Pay</label><div style="display:flex;gap:6px;align-items:center">$<input type="number" id="aca-tmRate" min="0" max="10000" step="0.5" style="width:96px" placeholder="from defaults" />' +
+        '<select id="aca-tmBasis" aria-label="Per"><option value="hourly">per hour</option><option value="day">per day</option><option value="job">per job</option></select></div>' +
+        '<span class="muted" style="font-size:12.5px" id="aca-tmRateNote">Their own rate. Empty uses the defaults (Settings, Team &amp; pay).</span></div></div>' +
         '<div class="field"><label for="aca-tmHours">Default hours per week</label><input type="number" id="aca-tmHours" min="0" max="80" step="0.5" style="width:110px" value="' + esc(p.weekly_hours == null ? "" : String(Number(p.weekly_hours))) + '" placeholder="e.g. 32" />' +
         '<span class="muted" style="font-size:12.5px">The Schedule shows how many hours they are scheduled against this each week. Leave empty if it doesn&#39;t apply.</span></div>' +
         ((crewRoles.roles || []).length ? '<div class="field"><label>Crew roles</label><div id="aca-tmRoles" style="display:flex;flex-wrap:wrap;gap:4px 16px">' + crewRoles.roles.map((r) =>
           '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" value="' + esc(r.id) + '"' + (((crewRoles.members || {})[p.user_id] || []).includes(r.id) ? " checked" : "") + " /> " + esc(r.label) + "</label>").join("") +
           '</div><span class="muted" style="font-size:12.5px">What they can do on a job. The Schedule&#39;s crew picker shows these and suggests the first one. Roles are set up under Crew settings on the Schedule.</span></div>' : "") +
         '<label class="tm-full"><input type="checkbox" id="aca-tmAdmin"' + (p.is_admin ? " checked" : "") + (p.is_me ? " disabled" : "") + ' /> <span><b>Full access</b><br><span class="muted">Everything, including Settings and this Team page. For owners and managers only.</span></span></label>' +
-        '<div id="aca-tmGrid" class="tm-grid' + (p.is_admin ? " hidden" : "") + '">' + grid(p.modules) + "</div>" +
+        '<div id="aca-tmAccess"' + (p.is_admin ? ' class="hidden"' : "") + '><p class="tm-acc"><b>Access:</b> <span id="aca-tmAccTxt"></span></p>' +
+        '<div class="tm-presets"><span class="muted">Start from</span>' + PRESETS.map((x) => '<button type="button" class="small" data-preset="' + x[0] + '">' + esc(x[1]) + "</button>").join("") + "</div>" +
+        '<details id="aca-tmMore"' + (isNew ? " open" : "") + '><summary>Change access</summary>' +
+        (people.length ? '<div class="tm-copy"><label for="aca-tmCopyFrom" class="muted">Copy access from</label> <select class="small" id="aca-tmCopyFrom"><option value="">Pick someone&#8230;</option>' +
+          people.filter((x) => x.user_id !== p.user_id && !x.is_admin).map((x) => '<option value="' + esc(x.user_id) + '">' + esc(x.name || x.email) + "</option>").join("") + "</select></div>" : "") +
+        '<div id="aca-tmGrid" class="tm-grid">' + grid(p.modules) + "</div></details></div>" +
         '<div class="inline-error hidden" id="aca-tmErr"></div>' +
         '<div class="modal-actions">' +
         (isNew || p.is_me ? "" : '<button type="button" class="small" id="aca-tmReset">Reset password</button><button type="button" class="small" id="aca-tmActive">' + (p.active ? "Deactivate" : "Reactivate") + "</button>" +
@@ -107,12 +153,44 @@
         '<span class="grow"></span><button type="button" class="small" id="aca-tmCancel">Cancel</button><button type="button" class="primary" id="aca-tmSave">' + (isNew ? "Add and create login" : "Save") + "</button></div>");
       const err = (t) => { const n = el("tmErr"); n.textContent = t; n.classList.remove("hidden"); };
       if (el("tmSignins")) el("tmSignins").addEventListener("click", () => HistoryView.signins(p.user_id, "Sign-ins: " + (p.name || p.email)));
-      el("tmAdmin").addEventListener("change", () => el("tmGrid").classList.toggle("hidden", el("tmAdmin").checked));
+      el("tmAdmin").addEventListener("change", () => el("tmAccess").classList.toggle("hidden", el("tmAdmin").checked));
       const typeNote = () => { el("tmTypeNote").textContent = ({ full_time: "Hourly, with overtime on the time clock.", salaried: "Hours are tracked, but no overtime on the time clock.",
-        part_time: "Gets Open jobs offers near them (and Open jobs access). Overtime applies.", contractor: "Gets Open jobs offers near them (and Open jobs access). No overtime; kept out of the payroll CSV and listed separately." })[el("tmType").value] || ""; };
-      el("tmType").addEventListener("change", typeNote); typeNote();
+        part_time: "Gets Open jobs offers near them, plus My day, Time clock, My records and Open jobs. Overtime applies.", contractor: "Gets Open jobs offers near them, plus My day, Time clock, My records and Open jobs. No overtime; kept out of the payroll CSV and listed separately." })[el("tmType").value] || ""; };
       el("tmCancel").addEventListener("click", () => m.close());
-      const picked = () => { const o = {}; modules.forEach((x) => { const r = m.querySelector('input[name="tm-' + x.key + '"]:checked'); if (r && r.value !== "none") o[x.key] = r.value; }); return o; };
+      // Modules not in the grid (no page) keep whatever level the person already has.
+      const picked = () => { const o = {}; modules.forEach((x) => { const r = m.querySelector('input[name="tm-' + x.key + '"]'); if (!r) { if (p.modules[x.key]) o[x.key] = p.modules[x.key]; return; }
+        const c = m.querySelector('input[name="tm-' + x.key + '"]:checked'); if (c && c.value !== "none") o[x.key] = c.value; }); return o; };
+      const setGrid = (lv, add) => modules.forEach((x) => { const want = lv[x.key] || "none"; if (add && want === "none") return;
+        const cur = (m.querySelector('input[name="tm-' + x.key + '"]:checked') || {}).value || "none";
+        if (add && (cur === "edit" || (cur === "view" && want === "view"))) return;
+        const r = m.querySelector('input[name="tm-' + x.key + '"][value="' + want + '"]'); if (r) r.checked = true; });
+      const accTxt = () => { const o = picked(), w = menuWords(); const list = modules.filter((x) => o[x.key]).map((x) => ((w[x.key] && w[x.key].words[0]) || x.label) + (o[x.key] === "edit" ? " (edit)" : ""));
+        el("tmAccTxt").textContent = list.length ? list.join(", ") : "nothing yet"; };
+      m.addEventListener("change", (e) => { if (e.target.name && e.target.name.startsWith("tm-")) accTxt(); });
+      m.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => {
+        const x = PRESETS.find((y) => y[0] === b.dataset.preset);
+        if (!x[2]) { if (!p.is_me) { el("tmAdmin").checked = true; el("tmAccess").classList.add("hidden"); } return; }
+        setGrid(x[2], false); accTxt(); toast("Access set to " + x[1] + ". Open Change access to adjust.");
+      }));
+      if (el("tmCopyFrom")) el("tmCopyFrom").addEventListener("change", (e) => {
+        const from = people.find((x) => x.user_id === e.target.value); if (!from) return;
+        setGrid(from.modules || {}, false); accTxt(); el("tmMore").open = true; toast("Copied " + (from.name || from.email) + "\u2019s access.");
+      });
+      // Changing the type applies its preset: a new person gets exactly it, someone already on the team only gains.
+      el("tmType").addEventListener("change", () => {
+        typeNote();
+        const k = presetFor(el("tmType").value), x = PRESETS.find((y) => y[0] === k);
+        if (!x || !x[2] || el("tmAdmin").checked || (!isNew && k === "office")) return;
+        setGrid(x[2], !isNew); accTxt();
+        el("tmTypeNote").textContent += " Access " + (isNew ? "set to" : "now includes") + " the " + x[1] + " preset.";
+      });
+      typeNote(); accTxt();
+      // Pay: the person's own rate (the same row as Pay rates > a person).
+      let myRate = null;
+      supabase.rpc("timeclock_rates").then(({ data }) => {
+        myRate = ((data && data.rates) || []).find((r) => r.scope === "person" && r.scope_key === p.user_id) || null;
+        if (myRate && el("tmRate")) { el("tmRate").value = myRate.rate; el("tmBasis").value = myRate.basis; if (myRate.basis === "day" && myRate.half_day_rate != null) el("tmRateNote").textContent = "Their own rate. Half day $" + Number(myRate.half_day_rate).toFixed(2) + " (change it under Pay rates)."; }
+      }, () => {});
 
       el("tmSave").addEventListener("click", async () => {
         const name = el("tmName").value.trim(), email = el("tmEmail").value.trim(), isAdmin = el("tmAdmin").checked;
@@ -126,6 +204,17 @@
         const setProfile = async (uid) => { if (type === (p.employment_type || null) && title === (p.job_title || "")) return; const { error } = await supabase.rpc("team_set_profile", { p_user_id: uid, p_type: type || "", p_title: title }); if (error) throw error; };
         const home = el("tmHome").value.trim();
         const setHome = async (uid) => { if (home === (p.home_address || "")) return; const { error } = await supabase.rpc("team_set_home", { p_user_id: uid, p_home: home }); if (error) throw error; };
+        const drive = Math.round(Number(el("tmDrive").value) || 60);
+        if (drive < 5 || drive > 300) return err("Longest drive is 5 to 300 minutes.");
+        const setDrive = async (uid) => { if (drive === (p.max_drive_min == null ? 60 : Number(p.max_drive_min))) return; const { error } = await supabase.rpc("team_set_max_drive", { p_user_id: uid, p_min: drive }); if (error) throw error; };
+        const rateTxt = el("tmRate").value.trim(), basis = el("tmBasis").value;
+        if (rateTxt !== "" && !(Number(rateTxt) >= 0 && Number(rateTxt) <= 10000)) return err("Pay is $0 to $10,000.");
+        const setPay = async (uid) => {
+          if (rateTxt === "") { if (myRate) { const { error } = await supabase.rpc("timeclock_rate_remove", { p_id: myRate.id }); if (error) throw error; } return; }
+          if (myRate && Number(myRate.rate) === Number(rateTxt) && myRate.basis === basis) return;
+          const { error } = await supabase.rpc("timeclock_rate_save", { p: { id: myRate ? myRate.id : null, scope: "person", scope_key: uid, basis, rate: rateTxt, half_day_rate: myRate && basis === "day" ? myRate.half_day_rate : null } });
+          if (error) throw error;
+        };
         const roleIds = el("tmRoles") ? [...el("tmRoles").querySelectorAll("input:checked")].map((x) => x.value) : null;
         const roles0 = ((crewRoles.members || {})[p.user_id] || []).slice().sort().join();
         const setRoles = async (uid) => { if (!roleIds || roleIds.slice().sort().join() === roles0) return; const { error } = await supabase.rpc("team_set_roles", { p_user_id: uid, p_roles: roleIds }); if (error) throw error; };
@@ -133,7 +222,7 @@
         try {
           if (isNew) {
             const r = await teamFn({ action: "create", email, name, is_admin: isAdmin, permissions: isAdmin ? {} : picked(), send_welcome: el("tmWelcome").checked });
-            try { await setHours(r.user_id); await setProfile(r.user_id); await setHome(r.user_id); await setRoles(r.user_id); } catch (_e) { toast("Added, but the hours, job title, type, home address or roles did not save. Edit them on the Team page.", true); }
+            try { await setHours(r.user_id); await setProfile(r.user_id); await setHome(r.user_id); await setRoles(r.user_id); await setDrive(r.user_id); await setPay(r.user_id); } catch (_e) { toast("Added, but the hours, job title, type, home address, roles, longest drive or pay did not save. Edit them on the Team page.", true); }
             m.close();
             showPassword({ user_id: r.user_id, name, email }, r.temp_password, true, r);
           } else {
@@ -143,6 +232,8 @@
             await setProfile(p.user_id);
             await setHome(p.user_id);
             await setRoles(p.user_id);
+            await setDrive(p.user_id);
+            await setPay(p.user_id);
             m.close();
             toast("Saved. " + (name || email) + " sees the change the next time they load the page.");
           }
@@ -199,6 +290,12 @@
         : "<ul class=\"tm-log\">" + data.map((r) => "<li><span class=\"muted\">" + esc(fmtDate(r.at)) + "</span> " + esc(r.actor || "Someone") + " " + esc(ACTIONS[r.action] || r.action) + " " + esc(r.target || "") + "</li>").join("") + "</ul>";
     }
 
-    return { load };
+    // Open one person's record (Open jobs > Part-timers & 1099 links here).
+    async function edit(uid) {
+      if (!people.length) await load();
+      const p = people.find((x) => x.user_id === uid);
+      if (p) openEditor(p); else toast("That person is not on the team list.", true);
+    }
+    return { load, edit };
   })();
 

@@ -624,12 +624,127 @@
       sources: [{ source: "pictureday", sent: 300, delivered: 292, bounced: 5, failed: 3, opened: 210 }, { source: "day_email", sent: 200, delivered: 200, bounced: 0, failed: 0, opened: 120 }, { source: "makeup", sent: 142, delivered: 133, bounced: 4, failed: 4, opened: 43 }],
       bounced: [{ email: "parent@example.com", n: 2, last: ago(3) }] };
   }
+  // ws/settings (2026-10-24): Settings tabs (Team emails, Job types, Team & pay, Company), one person record,
+  // the job calculator's shared assumptions, and the app_modules rows the real database has.
+  {
+    T.admin_settings = { id: true, digest_enabled: true, digest_time: "07:00:00", digest_recipients: ["test@207photo.com"], calc_assumptions: null };
+    [["inventory", "Gear inventory", "Ops", "Gear, bins, kits and check-outs.", 300], ["openjobs", "Open jobs", "Staff", "Offer jobs to part-timers and 1099.", 207],
+     ["workflows", "Job checklists", "Jobs", "Checklist steps per job type.", 25]].forEach(([key, label, section, description, sort]) => {
+      if (!T.app_modules.some((m) => m.key === key)) T.app_modules.push({ key, label, section, description, sort, status: "live", admin_only: false });
+    });
+    RPC.settings_team_emails = { day_plan_on: true, day_plan_hour: 20, day_email_on: true, day_email_hour: 7, crew_confirm_on: true, week_email_auto: true, week_email_dow: 5, week_email_hour: 15,
+      clock: { mileage_rate: 0.7, overtime_after: 40, remind_before_min: 15, remind_out_after_min: 30, ot_warn_hours: 4 },
+      topics: [{ key: "help_request", label: "New help request", description: "A parent asked for help finding their access code.", module: "parents", default_mode: "push" },
+               { key: "crew_ask", label: "Put on a job", description: "You were put on a booked job. Confirm or say you can't make it.", module: "scheduling", default_mode: "push" },
+               { key: "expense_update", label: "Expense update", description: "An expense was approved or sent back.", module: "timeclock", default_mode: "email" },
+               { key: "checklist_late", label: "Checklist task late", description: "A job checklist task is past due.", module: "workflows", default_mode: "off" }] };
+    RPC.push_topic_set_default = { ok: true }; RPC.team_set_max_drive = null; RPC.booking_type_add = { ok: true, key: "dance_recital" }; RPC.booking_set_auto_track = { ok: true };
+    RPC.team_list.push({ user_id: "u6", email: "pat@207photo.com", name: "Pat Parttime", is_admin: false, is_me: false, active: true, must_change_password: false, employment_type: "part_time", job_title: "Photographer",
+                         home_address: "12 Elm St, Bangor ME", max_drive_min: 60, last_sign_in_at: iso(-2), modules: { openjobs: "view", assignments: "view", timeclock: "view", staffrecords: "view" } },
+                       { user_id: "u8", email: "casey@example.com", name: "Casey Third", is_admin: false, is_me: false, active: true, must_change_password: false, employment_type: "contractor", job_title: "",
+                         home_address: "Orono", max_drive_min: 30, last_sign_in_at: null, modules: { openjobs: "view" } });
+  }
 
+  // ws/shell (2026-10-24): the account menu's Help line, "Morning email goes to you", and ?nodevice=1 for a person
+  // with no device that has notifications on (the Today card and the new-hire ask).
+  {
+    RPC.help_contacts = [{ name: "Jeremiah Mutty", email: "test@207photo.com", phone: "207-555-0142" }];
+    RPC.me_digest = { on: true, enabled: true, email: "test@207photo.com" };
+    RPC.me_digest_set = { ok: true };
+    if (/[?&]nodevice=1\b/.test(location.search)) RPC.push_my_settings.devices = [];
+  }
+  // ws/jobs (2026-10-24): one job screen (the Booking tab), checklists on All jobs, crew links into their job.
+  {
+    if (/[?&]tracked=1\b/.test(location.search)) RPC.job_get.booking.status = "tracked";
+    // view-only Bookings: no Edit booking. A part-timer (Open jobs only) opens a job they are on: crew access only.
+    if (AS_VIEWER) RPC.job_get.can = Object.assign({}, RPC.job_get.can, { bookings_edit: false });
+    if (AS_PART) RPC.job_get.can = { bookings: false, bookings_edit: false, pictureday: false, workflows: false, results: false, scheduling: false, crew: true };
+    // My jobs: from home, and their own checklist steps on the job
+    if (Array.isArray(RPC.crew_mine) && RPC.crew_mine[0]) Object.assign(RPC.crew_mine[0], { from_home: true, checklist_open: 2, checklist_late: 1 });
+    // My day: one checklist step (a task made by a job checklist) next to the plain tasks
+    if (Array.isArray(RPC.assignments_day)) RPC.assignments_day.push({ task_id: "w1", user_id: "u2", user_name: "Sam Helper", title: "Confirm start time and crew with the contact", notes: "", repeat: "once", priority: "normal",
+      est_minutes: null, on_date: new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }), overdue: false, done_at: null, done_by: null, booking_id: "bk3", booking_title: "Island Cheer & Tumbling \u2022 Cheer" });
+    RPC.schedule_remove = { ok: true };
+  }
+  // ws/director (2026-10-24): the director's picture day page, the booking's team times / order dates, Email statement.
+  {
+    const day = (n) => iso(n).slice(0, 10);
+    const TOK = "d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2";
+    Object.assign(RPC, {
+      booking_director_get: { team_times: "9:00 U10 Blue\n9:15 U10 Red", order_deadline: day(30), discount_ends: day(20),
+        day_link: "https://admin.207photo.com/#day/" + TOK, calendar_link: "https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?t=" + TOK },
+      booking_director_save: { ok: true, day_link: "https://admin.207photo.com/#day/" + TOK },
+      partner_statement_queue: { ok: true, email_id: "m11", to: "csnowdeal75@gmail.com", paid_line: "Check for $380.00 mailed on March 2, 2026 (check #1042)." },
+      booking_public: (/#day\/0{36}/.test(location.hash)) ? { found: false } : {
+        found: true, cancelled: /[?&]daycancel=1\b/.test(location.search), org: "Brewer Travel Basketball Club", audience: "sports", workflow: "families", job: "Winter Sports",
+        picture_day: day(12), days: [{ day: day(12), label: "", start: "5:00 PM", end: "7:00 PM" }], when_line: "Saturday, November 7, 5:00 PM to 7:00 PM", time_set: true,
+        location: "Brewer Auditorium, 318 Wilson St, Brewer, ME", arrival: "4:30 PM",
+        contact: { name: "Jeremiah Mutty", email: "jmutty@207photo.com", phone: "(207) 558-3185" },
+        needs: "A spot about 15 by 15 feet out of direct sun (or a room with an outlet if we're indoors), and someone who can send teams over in order.",
+        weather: "Outdoor shoots move to your backup date or an indoor space. We decide together by 7:00 AM on picture day, and we email and call you either way.",
+        team_times: ["5:00 U10 Blue", "5:15 U10 Red", "5:30 U12 Girls"], roster: "We have your roster. Thank you!",
+        families: ["Nothing to pay on picture day, and no order forms.", "After picture day, every family on your roster gets an email and a text with a link to their own athlete's gallery.", "They order online from that gallery.", "The early-order discount ends Friday, November 27."],
+        order_deadline: day(30), discount_ends: day(20), terms: "Your program gets 10% of online sales (before tax), paid by check after the season.",
+        deliverables: [{ label: "Team composites", done: true, link: "https://www.dropbox.com/sh/x" }, { label: "Coach banner", done: false, link: null }],
+        retake: "Missed picture day? There's no on-location makeup day; families can book a makeup at 207photo.com/makeups.", retake_day: null,
+        hub: "207photo.com/sportsadmin", hub_link: "https://207photo.com/sportsadmin/#job=1",
+        flyer: "A printable flyer, a parent email and a text message are written for you on the hub (207photo.com/sportsadmin). Post the flyer and send the email about a week before picture day.",
+        agreement: { status: "sent", link: "https://admin.207photo.com/#agree/a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2", accepted_at: null },
+        day_link: "https://admin.207photo.com/#day/" + TOK, calendar_link: "https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?t=" + TOK },
+    });
+    T.booking_settings.day_of_phone = "(207) 558-3185";
+    T.booking_settings.weather_plan = "Outdoor shoots move to your backup date or an indoor space. We decide together by 7:00 AM on picture day, and we email and call you either way.";
+  }
+  // ws/agreement (2026-10-24): the school agreement builder. Hancock Grammar School is the school partner.
+  {
+    const day = (n) => iso(n).slice(0, 10);
+    const H = "22222222-2222-2222-2222-222222222222";
+    const STD = { RATIO: "300", TA_GALLERY: "10", TA_FILES: "15", TA_COMPOSITE: "30", TA_CARDS: "15", TA_SHIP: "3", INS_OCC: "1000000", INS_AGG: "2000000", INS_SAM_AMT: "1000000",
+      FIX_RATE: "75", RESCHED_FEE: "250", LIAB_CAP: "10000", COUNTY: "Penobscot", SPACE_SIZE: "20 ft by 30 ft", SETUP_MIN: "30", BREAKDOWN: "30", NET_DAYS: "30", ROSTER_EMAIL: "info@207photo.com" };
+    RPC.agreement_orgs = RPC.agreement_orgs.concat([{ id: H, name: "Hancock Grammar School", town: "Hancock", stage: "client", audience: "school" }]);
+    RPC.agreements_list = RPC.agreements_list.concat([{ id: "ag2", org_id: H, org: "Hancock Grammar School", title: "School Photography Service Agreement 2026-2027", status: "draft",
+      picture_day: day(30), renewal_date: day(250), w9_status: "not_needed", coi_status: "needed", token: "b1b2c3d4e5f60718293a4b5c6d7e8f90a1b2", email: null, has_builder: true, audience: "school" }]);
+    const ctx = {
+      org: { id: H, name: "Hancock Grammar School", town: "Hancock", audience: "school", legal_name: "", billing_address: "" },
+      contacts: [{ id: "c4", name: "Pat Lee", role: "Principal", email: "plee@hancock.k12.me.us", phone: "207-555-0144", primary: true },
+                 { id: "c6", name: "Ann Office", role: "Secretary", email: "office@hancock.k12.me.us", phone: "", primary: false }],
+      bookings: [{ id: "bk2", picture_day: day(30), retake_day: day(58), status: "booked", type_key: "school", audience: "school", label: "School Photos" }],
+      defaults: STD, last: null, agreement: null, from: null };
+    // With p_id: the saved draft (ag2) and its choices.
+    Object.defineProperty(RPC, "agreement_builder_context", { enumerable: true, get() {
+      const last = window.__rpcCalls[window.__rpcCalls.length - 1] || [];
+      const a = last[1] || {};
+      if (a.p_id === "ag2") return Object.assign({}, ctx, { agreement: { id: "ag2", status: "draft", title: "School Photography Service Agreement 2026-2027", booking_id: "bk2", token: "b1b2c3d4e5f60718293a4b5c6d7e8f90a1b2",
+        builder: { on: { FALL: true, YEARBOOK: true, EXCLUSIVITY: true }, val: { SCHOOL_NAME: "Hancock Grammar School", BUILDINGS: "Main building", YEAR_START: "2026", YEAR_END: "2027", FALL: day(30), RATIO: "250" } } } });
+      return ctx;
+    } });
+    RPC.agreement_builder_save = { ok: true, id: "ag9" };
+    RPC.agreement_builder_apply = { ok: true, jobs: 1, added: 4, message: "Added 4 deliverables to 1 job." };
+    RPC.agreement_defaults_save = { ok: true };
+    // The public page: the builder token shows stored HTML (with junk the page must strip).
+    const plain = RPC.agreement_public;
+    const built = { found: true, title: "School Photography Service Agreement 2026-2027", org: "Hancock Grammar School", picture_day: day(30), status: "sent", text: "SCHOOL PHOTOGRAPHY SERVICE AGREEMENT",
+      html: '<div class="ab-doc-in"><h1 class="ab-p ab-title">SCHOOL PHOTOGRAPHY SERVICE AGREEMENT</h1><h2 class="ab-sec">8. EXCLUSIVITY</h2><p class="ab-p evil" style="color:red">For the term of this Agreement.</p>' +
+        '<script>window.__pwn = 1<\/script><img src="x" onerror="window.__pwn = 2"><a href="javascript:window.__pwn=3">link text</a><table class="ab-table ab-w190"><tbody><tr><td class="ab-b">School or SAU</td><td class="ab-b">Hancock Grammar School</td></tr></tbody></table></div>' };
+    Object.defineProperty(RPC, "agreement_public", { enumerable: true, get() { return /#agree\/b1b2/.test(location.hash) ? built : plain; } });
+  }
+  // ws/partners (2026-10-24): booking "Don't send", the Brewer booking carries GotPhoto job "1" (help request links),
+  // ?clients=1 makes Brewer a client (the Partners list opens on Clients).
+  {
+    RPC.booking_email_skip = { ok: true, status: "skipped" };
+    RPC.admin_bookings[0].gotphoto_job_id = "1";
+    if (/[?&]clients=1\b/.test(location.search)) T.prospect_orgs.filter((o) => o.id === "11111111-1111-1111-1111-111111111111")
+      .forEach((o) => Object.assign(o, { stage: "client", client_since: "2024-09-01", last_job_at: "2026-09-19", next_job_at: iso(12).slice(0, 10) }));
+  }
+
+  if (RPC.time_off_list && RPC.time_off_list.team[0]) RPC.time_off_list.team[0].jobs.forEach((j) => { j.booking_id = "bk5"; }); // B7: jobs carry booking_id
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
-    auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
+    auth: { getSession: async () => ({ data: { session: /[?&]signedout=1\b/.test(location.search) ? null : { user: { email: "test@207photo.com" }, access_token: "x" } } }), // ws/shell: ?signedout=1 shows sign-in
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
-            updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }) },
+            updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }),
+            // ws/shell (2026-10-24): Forgot password on the sign-in form
+            resetPasswordForEmail: async (email, o) => (window.__writes = (window.__writes || []).concat([["auth", "resetPasswordForEmail", email, o && o.redirectTo]]), { data: {}, error: null }) },
     from: q, storage, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: RPC[n] !== undefined ? RPC[n] : [], error: null }),
   }) };
   // Edge functions: the Team page's account actions.

@@ -11,7 +11,10 @@
   //     show: (job) => true, render: (booking, el, job) => { el.innerHTML = "..."; } });
   // `module` (optional) hides the tab from people who can't see that area; `show(job)` (optional) can hide it per job.
   // `job` is the job_get() result; render may be async. Built-in orders: overview 10, checklist 30,
-  // results 60, notes 80, history 90.
+  // results 60, notes 80, history 90. Others: booking 12 (bookings.js), crew 15, time 65.
+  // One job screen (2026-10-24): every way into a job opens this page (Bookings.openId / jobLink); the old booking
+  // panel is the Booking tab; Edit booking is the header's main button. Crew who have no job area see Overview,
+  // Notes and the Checklist (when they have steps on it).
   function registerJobTab(t) { (registerJobTab.list || (registerJobTab.list = [])).push(t); }
   // A link to a job page, for other modules: '<a href="' + jobLink(id) + '">'.
   function jobLink(id, tab) { return "#jobs/job/" + encodeURIComponent(id) + (tab ? "/" + tab : ""); }
@@ -126,6 +129,10 @@
     .aca .jp-stages { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 18px; padding: 0; list-style: none; font-size: 13px; }
     .aca .jp-stages li { color: var(--faint); } .aca .jp-stages li.on { color: var(--ok-fg); font-weight: 600; } .aca .jp-stages li.cur { color: var(--text); }
     .aca .jp-stages li::before { content: "\\25CB  "; } .aca .jp-stages li.on::before { content: "\\25CF  "; }
+    .aca .jp-stage1 { display: none; margin: 4px 0 14px; font-size: 13.5px; color: var(--muted); } .aca .jp-stage1 b { color: var(--text); font-weight: 600; }
+    .aca .jp-booknote { max-width: 760px; margin: 0 0 18px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 0 6px 6px 0; }
+    .aca .jp-booknote h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+    .aca .jp-booknote div { white-space: pre-wrap; font-size: 14px; overflow-wrap: anywhere; }
     .aca .jp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 40px; }
     .aca .jp-sec { margin: 0 0 22px; min-width: 0; }
     .aca .jp-sec h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--head); }
@@ -166,6 +173,8 @@
     .aca .hv-table th { font-size: 12px; color: var(--faint); font-weight: 600; }
     @media (max-width: 760px) {
       .aca .jp-grid { grid-template-columns: 1fr; }
+      .aca .jp-stages { display: none; } .aca .jp-stage1 { display: block; }
+      .aca .jp-head .acts { width: 100%; } .aca .jp-head .acts button.primary { flex: 1 1 auto; min-height: 40px; }
       .aca .jp-dl { grid-template-columns: 1fr; gap: 0; } .aca .jp-dl dd { margin-bottom: 6px; }
       .aca .hv-list li { grid-template-columns: 1fr; gap: 0; }
       .aca .jp-rows li { flex-wrap: wrap; gap: 0 10px; } .aca .jp-rows li .r { white-space: normal; }
@@ -184,10 +193,10 @@
     function tabs() {
       const builtIn = [
         { id: "overview", label: "Overview", order: 10, render: renderOverview },
-        { id: "checklist", label: "Checklist", order: 30, show: (j) => !!j.tasks && (j.tasks.length || j.can.workflows), count: (j) => (j.tasks || []).filter((t) => !t.done).length, render: renderChecklist },
-        { id: "results", label: "Results", order: 60, module: "results", render: renderResults },
+        { id: "checklist", label: "Checklist", order: 30, show: (j) => !!j.tasks && (j.tasks.length || canSee("workflows")), count: (j) => (j.tasks || []).filter((t) => !t.done).length, render: renderChecklist },
+        { id: "results", label: "Sales", order: 60, module: "results", render: renderResults }, // "Sales" = money (ws/partners 2026-10-24)
         { id: "notes", label: "Notes", order: 80, count: (j) => num(j.notes_count), render: renderNotes },
-        { id: "history", label: "History", order: 90, render: renderHistory },
+        { id: "history", label: "History", order: 90, show: (j) => jobArea(j), render: renderHistory },
       ];
       const extra = registerJobTab.list || [];
       return builtIn.filter((b) => !extra.some((t) => t.id === b.id)).concat(extra)
@@ -195,10 +204,12 @@
         .sort((a, b) => (a.order || 50) - (b.order || 50));
     }
     const safe = (f) => { try { return f(); } catch (e) { return false; } };
+    // Someone with a job area (not only on the crew).
+    const jobArea = (j) => { const c = (j && j.can) || {}; return !!(c.bookings || c.scheduling || c.workflows || c.results || c.pictureday); };
 
     function show() {
       const h = parseHash();
-      if (!h) { root().innerHTML = '<div class="empty">Open a job from Bookings, the Schedule or search.</div>'; return; }
+      if (!h) { root().innerHTML = '<div class="empty">Open a job from All jobs, My jobs, the Schedule or search.</div>'; return; }
       if (J && J.booking.id === h.id) { if (h.tab && h.tab !== curTab) pick(h.tab); return; }
       if (loadingId === h.id) return;
       load(h.id, h.tab);
@@ -214,7 +225,7 @@
       if (my !== seq) return;
       loadingId = null;
       if (error || !data) {
-        root().innerHTML = '<div class="inline-error">' + esc(error ? (error.code === "42501" ? "You don't have access to this job. Ask Jeremiah to add the area on the Team page." : cleanErr(error)) : "That job doesn't exist any more.") + "</div>";
+        root().innerHTML = '<div class="inline-error">' + esc(error ? (error.code === "42501" ? "You don't have access to this job. " + askWho("Ask", "to add the area on the Team page.") : cleanErr(error)) : "That job doesn't exist any more.") + "</div>";
         return;
       }
       J = data; people = null;
@@ -235,14 +246,17 @@
       root().innerHTML =
         // A job lives inside its organization (2026-10-23): the trail leads back to the organization's page.
         '<p class="jp-trail">' + (b.org_id && canSee("partners") ? '<a href="#partners/orgs">Organizations</a> &#8250; <a href="' + orgLink(b.org_id, "jobs") + '">' + esc(b.org_name || "Organization") + "</a> &#8250; Jobs"
-          : '<a href="#jobs/bookings" id="aca-jpBack">&#8592; Jobs</a>') + "</p>" +
+          : '<a href="#jobs/bookings" id="aca-jpBack">&#8592; ' + (canSee("bookings") ? "All jobs" : "Back") + "</a>") + "</p>" +
         '<div class="jp-head"><div><h2>' + esc(b.title) + status + '</h2><div class="s">' + esc(dayLine(b)) + " \u00b7 " + esc(b.type_label || "") +
         (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></div>" +
-        '<div class="acts">' + (c.bookings ? '<button type="button" class="small" data-j="booking">Open the booking</button>' : "") +
+        // Edit booking is the page's main action (one Edit button; the Booking tab has none).
+        '<div class="acts">' + (c.bookings_edit && b.status === "booked" && typeof Bookings !== "undefined" ? '<button type="button" class="small primary" data-j="edit">Edit booking</button>' : "") +
         '<span class="jp-dl-menu"><button type="button" class="small" data-j="dl">Download &#9662;</button></span></div></div>' +
-        (J.stages && J.stages.length ? '<ul class="jp-stages">' + J.stages.map((s) => '<li class="' + (s.reached ? "on" : "") + (J.stage && J.stage.label === s.label ? " cur" : "") + '">' + esc(s.label) + "</li>").join("") + "</ul>" : "") +
+        (J.stages && J.stages.length ? '<ul class="jp-stages">' + J.stages.map((s) => '<li class="' + (s.reached ? "on" : "") + (J.stage && J.stage.label === s.label ? " cur" : "") + '">' + esc(s.label) + "</li>").join("") + "</ul>" +
+          // On a phone the row of stages is one line: "In production, 3 of 6".
+          '<p class="jp-stage1">' + stageLine() + "</p>" : "") +
         '<div class="jp-tabs" role="tablist" id="aca-jpTabs"></div><div id="aca-jpBody"></div>';
-      if (el("jpBack")) el("jpBack").onclick = (e) => { e.preventDefault(); showTab(canSee("bookings") ? "bookings" : "today"); };
+      if (el("jpBack")) el("jpBack").onclick = (e) => { e.preventDefault(); if (canSee("bookings")) showTab("bookings"); else history.back(); };
       root().querySelector(".jp-head").addEventListener("click", onHeadClick);
       el("jpTabs").innerHTML = tabs().map((t) => {
         const n = t.count ? safe(() => t.count(J)) : 0;
@@ -253,7 +267,7 @@
 
     function onHeadClick(e) {
       const t = e.target.closest("[data-j]"); if (!t) return;
-      if (t.dataset.j === "booking") { showTab("bookings"); Bookings.openId(J.booking.id); }
+      if (t.dataset.j === "edit") Bookings.edit(J.booking.id);
       if (t.dataset.j === "dl") {
         const wrap = t.parentNode, open = wrap.querySelector("div");
         if (open) { open.remove(); return; }
@@ -266,6 +280,10 @@
       }
     }
 
+    function stageLine() {
+      const list = J.stages || [], i = J.stage ? list.findIndex((s) => s.label === J.stage.label) : -1;
+      return i < 0 ? "No stage yet" : "<b>" + esc(list[i].label) + "</b>, " + (i + 1) + " of " + list.length;
+    }
     function pick(id) {
       const list = tabs();
       const t = list.find((x) => x.id === id) || list[0];
@@ -290,12 +308,13 @@
         b.retake_day ? ["Retake day", fmtDayIso(b.retake_day, { weekday: "short", month: "short" })] : null,
         c.bookings && b.access_code ? ["Access code", b.access_code] : null,
         J.stage ? ["Stage", J.stage.label + " (" + fmtAgo(J.stage.at) + ")"] : null,
+        J.deliverables && J.deliverables.length ? ["Deliverables", J.deliverables.filter((d) => d.status !== "todo").length + " of " + J.deliverables.length + " delivered"] : null,
       ].filter(Boolean);
       const contacts = J.contacts || [];
       box.innerHTML = '<div class="jp-grid"><div>' +
         '<div class="jp-sec"><h3>The job</h3><dl class="jp-dl">' + facts.map((f) => "<dt>" + esc(f[0]) + "</dt><dd>" + esc(f[1] || "\u2014") + "</dd>").join("") +
         "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="' + orgLink(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + "</dd></dl></div>" +
-        (b.notes ? '<div class="jp-sec"><h3>Booking notes</h3><div style="white-space:pre-wrap;font-size:13.5px">' + esc(b.notes) + "</div></div>" : "") +
+        (b.notes ? '<p class="muted" style="font-size:13px;margin:-12px 0 18px">Notes from the booking are on the <a href="' + jobLink(b.id, "notes") + '">Notes</a> tab.</p>' : "") +
         (contacts.length ? '<div class="jp-sec"><h3>Contacts</h3><ul class="jp-rows">' + contacts.map((p) => "<li><span>" + esc(p.name || p.email || "") +
           (p.role ? ' <span class="muted">' + esc(p.role) + "</span>" : "") + '</span><span class="r">' + esc([p.email, p.phone].filter(Boolean).join(" \u00b7 ")) + "</span></li>").join("") + "</ul></div>" : "") +
         "</div><div>" +
@@ -303,8 +322,6 @@
           '</span><span class="r">' + esc(T.fmtDay(T.local(p.starts_at).day, { weekday: "short" }) + ", " + timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at)) +
           (p.drive_before_min ? " \u00b7 " + num(p.drive_before_min) + " min drive" : "") + "</span></li>").join("") + "</ul>"
           : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>.' : "") + "</div>") + "</div>" +
-        (J.deliverables && J.deliverables.length ? '<div class="jp-sec"><h3>Deliverables</h3><ul class="jp-rows">' + J.deliverables.map((d) => '<li class="' + (d.status === "done" ? "done" : "") +
-          '"><span class="t">' + esc(d.label) + '</span><span class="r">' + (d.status === "done" ? "done" : d.due_date ? dueTxt(d.due_date) : "due after launch") + "</span></li>").join("") + "</ul></div>" : "") +
         "</div></div>";
     }
     function dueTxt(day) {
@@ -319,7 +336,7 @@
       box.innerHTML = '<div class="jp-sec"><h3>Checklist</h3>' + (tasks.length ? '<ul class="jp-rows">' + tasks.map((t) => '<li class="' + (t.done ? "done" : "") + '"><span class="t">' +
         esc(t.title) + (t.priority === "urgent" ? ' <span class="pill err">urgent</span>' : "") + '</span><span class="r">' + esc(t.who || "") + (t.due_on ? " \u00b7 " + (t.done ? esc(T.fmtDay(t.due_on)) : dueTxt(t.due_on)) : "") +
         (t.done ? " \u00b7 done" : "") + "</span></li>").join("") + "</ul>" : '<div class="empty">No checklist tasks on this job.</div>') +
-        '<p class="muted" style="font-size:13px;margin:10px 0 0">People tick their own tasks off in Assignments.' + (canSee("workflows") ? ' Change the steps under <a href="#jobs/wfsteps">Job checklists</a>.' : "") + "</p></div>";
+        '<p class="muted" style="font-size:13px;margin:10px 0 0">People tick their own steps off on My day.' + (canSee("workflows") ? ' Change the steps in <a href="#system/jobtypes">Settings &rsaquo; Job types</a>.' : "") + "</p></div>";
     }
 
     // ---------------------------------------------------------------- results
@@ -332,7 +349,7 @@
         "<dt>Partner share</dt><dd>" + (r.pct != null ? num(r.pct) + "% = " : "") + money(r.due) + "</dd>" +
         "<dt>Paid</dt><dd>" + money(r.paid) + "</dd><dt>Still owed</dt><dd>" + money(r.balance) + "</dd>" +
         (r.gallery_status ? "<dt>Gallery</dt><dd>" + esc(r.gallery_status) + "</dd>" : "") + "</dl>" +
-        '<div class="jp-links"><a class="small" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:4px" href="#jobs/resjobs">Season results</a></div></div>';
+        '<div class="jp-links"><a class="small" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:4px" href="#jobs/resjobs/job">All sales</a></div></div>';
     }
 
     // ---------------------------------------------------------------- notes
@@ -356,7 +373,8 @@
         '</div><div class="b">' + body + "</div></li>";
     }
     async function renderNotes(b, box) {
-      box.innerHTML = '<div class="jp-sec"><h3>Notes</h3><p class="muted" style="margin:0 0 10px;font-size:13px;max-width:760px">Anything the crew or the office should know about this job: parking, who to ask for, what went wrong last year. Type @ to mention someone; they get a notification.</p>' +
+      box.innerHTML = (b.notes ? '<div class="jp-booknote"><h4>From the booking</h4><div>' + esc(b.notes) + "</div></div>" : "") +
+        '<div class="jp-sec"><h3>Notes</h3><p class="muted" style="margin:0 0 10px;font-size:13px;max-width:760px">Anything the crew or the office should know about this job: parking, who to ask for, what went wrong last year. Type @ to mention someone; they get a notification.</p>' +
         '<ul class="jp-notes" id="aca-jpNotes"><li class="empty"><span class="spin"></span>Loading&#8230;</li></ul>' +
         '<div class="jp-compose"><textarea id="aca-jpNote" aria-label="New note" maxlength="4000" placeholder="Write a note. Type @ to mention someone."></textarea>' +
         '<div class="jp-suggest hidden" id="aca-jpSug"></div>' +

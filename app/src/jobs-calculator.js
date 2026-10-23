@@ -73,8 +73,23 @@
   const row = (id, label, val, unit, hint, step, min) => '<label for="aca-jc-' + id + '">' + label + (hint ? '<span class="m">' + hint + '</span>' : '') + '</label>' +
     '<div class="in"><input type="number" id="aca-jc-' + id + '" value="' + val + '" step="' + (step || 1) + '" min="' + (min == null ? 0 : min) + '"><span class="u">' + (unit || '') + '</span></div>';
 
-  function loadAssumptions() { try { const o = JSON.parse(localStorage.getItem(KEY) || "null"); if (o) ASSUME.forEach((k) => { if (o[k] != null) q(k).value = o[k]; }); } catch (e) {} }
-  function saveAssumptions() { try { const o = {}; ASSUME.forEach((k) => { o[k] = num(k); }); localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} }
+  // Assumptions are saved for everyone in admin_settings.calc_assumptions (ws/settings 2026-10-24); they used to be
+  // per device (localStorage KEY). A device's old values are used once, when nothing is saved yet, and then saved.
+  const fill = (o) => { if (o) ASSUME.forEach((k) => { if (o[k] != null) q(k).value = o[k]; }); };
+  async function loadAssumptions() {
+    let saved = null;
+    try { const { data } = await supabase.from("admin_settings").select("calc_assumptions").maybeSingle(); saved = data && data.calc_assumptions; } catch (e) {}
+    if (saved) { fill(saved); calc(); return; }
+    let local = null; try { local = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) {}
+    if (local) { fill(local); calc(); saveNow(); }
+  }
+  async function saveNow() {
+    const o = {}; ASSUME.forEach((k) => { o[k] = num(k); });
+    const { error } = await supabase.from("admin_settings").upsert({ id: true, calc_assumptions: o });
+    const n = q("saved"); if (n) n.textContent = error ? "Could not save: " + (error.message || error) : "Saved for everyone.";
+  }
+  let saveTimer = null;
+  function saveAssumptions() { clearTimeout(saveTimer); const n = q("saved"); if (n) n.textContent = "Saving\u2026"; saveTimer = setTimeout(saveNow, 600); }
 
   function render() {
     const root = el("panel-calc");
@@ -101,7 +116,7 @@
             '<div class="est" style="display:contents">' + row("rate", "Families who order", 50, "%", "Percent of subjects. Fills from the job type.") + row("aov", "Average order", 55, "$", "Net of tax. Fills from the job type.") + '</div>' +
             '<div class="actual" style="display:none">' + row("salesActual", "Sales before tax", 4400, "$", "From the GotPhoto job statistics.", 10) + row("ordersActual", "Orders", 80, "") + '</div>' +
           '</div></div>' +
-        '<details><summary>Assumptions (saved on this device)</summary><div class="kv" style="margin-top:8px">' +
+        '<details><summary>Assumptions (saved for everyone) <span class="muted" id="aca-jc-saved" style="font-weight:400;font-size:12.5px"></span></summary><div class="kv" style="margin-top:8px">' +
           row("wage", "Hourly labor cost", 25, "$/hr") +
           row("perHour", "Subjects photographed per hour", 60, "", "", 5, 1) +
           row("setup", "Setup and teardown per day", 1, "hrs", "", 0.25) +

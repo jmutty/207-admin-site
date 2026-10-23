@@ -47,7 +47,7 @@
     const root = el("panel-delivery");
     root.innerHTML =
       '<div class="em-bar"><div class="seg" role="radiogroup" aria-label="Show">' +
-        [["problems", "Bounced"], ["all", "Everything sent"]].map((f, i) => '<label><input type="radio" name="aca-emF" value="' + f[0] + '"' + (i ? "" : " checked") + " /><span>" + f[1] + "</span></label>").join("") + "</div>" +
+        [["problems", "Bounced and failed"], ["all", "Everything sent"]].map((f, i) => '<label><input type="radio" name="aca-emF" value="' + f[0] + '"' + (i ? "" : " checked") + " /><span>" + f[1] + "</span></label>").join("") + "</div>" +
         '<select class="small" id="aca-emSrc"><option value="">Every kind</option>' + Object.keys(SRC).map((k) => '<option value="' + k + '">' + SRC[k] + "</option>").join("") + "</select>" +
         '<input type="search" id="aca-emQ" placeholder="Address or subject" /><span class="grow"></span>' +
         '<button type="button" class="small hidden" id="aca-emHandled">Mark all handled</button></div>' +
@@ -82,7 +82,7 @@
             "<td>" + esc(r.subject) + (r.test_mode ? '<span class="em-tag t">test</span>' : "") + (r.error && PROBLEM[r.status] ? '<span class="em-err">' + esc(r.error) + "</span>" : "") + "</td>" +
             '<td class="em-hide-sm">' + esc(SRC[r.source] || r.source) + "</td><td>" + statusHtml(r) + "</td></tr>").join("") + "</tbody></table></div>" +
           (more ? '<p style="margin:12px 0"><button type="button" class="small" data-more>Show older</button></p>' : "")
-        : '<p class="empty">' + (filter() === "problems" ? "Nothing bounced. Everything sent was accepted." : "Nothing here yet. Emails show up as they are sent.") + "</p>") +
+        : '<p class="empty">' + (filter() === "problems" ? "Nothing bounced or failed. Everything sent was accepted." : "Nothing here yet. Emails show up as they are sent.") + "</p>") +
         '<p class="muted" style="font-size:12.5px;margin-top:10px">Emails sent through Resend. Booking emails and outreach go through Gmail; see Outbox for those. Status is checked with Resend 10 minutes, 1 hour, 6 hours, 1 day and 3 days after sending.</p>';
     }
     root.addEventListener("change", (ev) => { if (ev.target.name === "aca-emF" || ev.target.id === "aca-emSrc") load(); });

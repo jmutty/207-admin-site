@@ -16,7 +16,7 @@
   registerAttention("timesheetsApprove", { module: "timeclock", level: "soon", name: "timesheets",
     one: "A timesheet from last week is waiting for approval.", many: "{n} timesheets from last week are waiting for approval." });
   registerAttention("timeclockReview", { module: "timeclock", level: "warn", name: "time clock",
-    one: "A clock was stopped at midnight. Check its clock-out time.", many: "{n} clocks were stopped at midnight. Check their clock-out times." });
+    one: "A clock was stopped at midnight. Put in the real time.", many: "{n} clocks were stopped at midnight. Put in the real times." });
   registerAttention("expensesWaiting", { module: "timeclock", level: "soon", name: "expenses",
     one: "An expense is waiting for approval.", many: "{n} expenses are waiting for approval." });
   registerAttention("overtimeNear", { module: "timeclock", level: "soon", name: "overtime",
@@ -44,6 +44,10 @@
     .aca .tc-bar h2 { margin: 0 8px 0 4px; font-size: 17px; font-weight: 600; white-space: nowrap; }
     .aca .tc-bar .grow { flex: 1; }
     .aca .tc-clock { max-width: 560px; }
+    .aca .tc-in { max-width: 720px; margin: 0 0 8px; }
+    .aca .tc-inh { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+    .aca .tc-act { white-space: nowrap; }
+    .aca .tc-act .pill + button { margin-left: 6px; }
     .aca .tc-state { margin: 0; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
     .aca .tc-state.on { color: var(--ok-fg); }
     .aca .tc-big { font-size: 44px; line-height: 52px; font-weight: 600; font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
@@ -82,6 +86,8 @@
     .aca .tc-today p { margin: 8px 0; font-size: 13.5px; }
     .aca .tc-only-sm { display: none; }
     .aca .tc-today .tc-tbtn { display: flex; gap: 8px; flex-wrap: wrap; }
+    .aca .tc-today.tc-quiet { margin-bottom: 16px; } .aca .tc-today .tc-line { margin: 0; padding: 8px 0; border-bottom: 1px solid var(--border); color: var(--muted); }
+    .aca .tc-today .tc-line button.link { font-weight: 600; margin-left: 4px; }
     @media (max-width: 700px) {
       .aca .tc-list li { grid-template-columns: 1fr auto; } .aca .tc-list li > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
       .aca .tc-modal .row2, .aca .tc-modal .row3 { grid-template-columns: 1fr; } .aca .tc-hide-sm { display: none; } .aca .tc-only-sm { display: block; }
@@ -109,16 +115,35 @@
     }
     const mapLink = (l, label) => (l ? '<a href="https://www.google.com/maps?q=' + esc(l.lat + "," + l.lng) + '" target="_blank" rel="noopener" title="Within about ' + esc(l.acc) + ' m">' + label + "</a>" : "");
     const locHtml = (x) => (x.in_loc || x.out_loc ? '<span class="s">' + [mapLink(x.in_loc, "In location"), mapLink(x.out_loc, "Out location")].filter(Boolean).join(" \u00b7 ") + "</span>" : "");
-    const reviewTag = (x) => (x.needs_review ? '<span class="tc-tag" title="Stopped automatically at midnight. Fix the clock-out time and save.">check time</span>' : "");
+    const reviewTag = (x) => (x.needs_review ? '<span class="tc-tag" title="Fix the clock-out time and save.">stopped at midnight</span>' : "");
     const payTxt = (pay) => (pay ? "est. " + money(pay.pay) : "");
     const mErrIn = (m) => (t) => { const n = m.querySelector(".tc-merr"); n.textContent = t; n.classList.remove("hidden"); };
 
     // ---------------------------------------------------------------- Clock
     const clockRoot = el("panel-clock");
-    clockRoot.innerHTML = '<div class="tc-clock"><div id="aca-tcErr" class="inline-error hidden"></div><div id="aca-tcBody"><p class="empty">Loading&#8230;</p></div></div>';
+    clockRoot.innerHTML = '<div class="tc-in hidden" id="aca-tcInNow"></div>' +
+      '<div class="tc-clock"><div id="aca-tcErr" class="inline-error hidden"></div><div id="aca-tcBody"><p class="empty">Loading&#8230;</p></div></div>';
     let st = null, picking = false, ticker = null;
 
+    // Team > Time & pay > Clock (Edit): who's clocked in right now, then your own clock below it.
+    async function loadInNow() {
+      const box = el("tcInNow");
+      const ed = canEdit("timeclock");
+      box.classList.toggle("hidden", !ed);
+      if (!ed) return;
+      try {
+        const { data, error } = await sb.rpc("timesheet_week", { p_start: T.weekStart(T.today()), p_all: true });
+        if (error) throw error;
+        const name = (uid) => T.shortName(((data.people || []).find((p) => p.user_id === uid) || {}).name || "Someone");
+        const open = (data.punches || []).filter((x) => !x.clock_out).sort((a, b) => String(a.clock_in).localeCompare(String(b.clock_in)));
+        box.innerHTML = '<h2 class="tc-inh">Who&#39;s clocked in now</h2>' + (open.length ? '<ul class="tc-list">' + open.map((x) =>
+          '<li><span class="t">' + esc(name(x.user_id)) + "</span><span>" + esc(what(x)) + '<span class="s">since ' + esc(T.fmtTs(x.clock_in)) + (x.day !== T.today() ? " on " + esc(T.fmtDay(x.day)) : "") + "</span></span>" +
+          '<span class="tc-num">' + hm(since(x.clock_in)) + "</span></li>").join("") + "</ul>" : '<p class="empty" style="padding:6px 0">Nobody is clocked in.</p>') +
+          '<p class="tc-sum" style="margin-top:8px"><a href="#staff/timesheets">Timesheets</a> \u00b7 <a href="#staff/mileage">Mileage</a> \u00b7 <a href="#staff/expenses">Expenses</a></p><h2 class="tc-inh" style="margin-top:28px">Your clock</h2>';
+      } catch (e) { box.innerHTML = '<div class="inline-error">Could not load who is clocked in: ' + esc(cleanErr(e)) + "</div>"; }
+    }
     async function loadClock() {
+      loadInNow();
       clearError("tcErr");
       try {
         const { data, error } = await sb.rpc("timeclock_status");
@@ -195,12 +220,13 @@
       '<button type="button" class="small" data-w="add">Add time</button><button type="button" class="small hidden tc-ed" data-w="payroll">Payroll CSV</button>' +
       '<button type="button" class="small hidden tc-ed" data-w="rates">Pay rates</button><button type="button" class="small hidden tc-ed" data-w="settings">Settings</button></div>' +
       '<div id="aca-tsErr" class="inline-error hidden"></div><div id="aca-tsBody"><p class="empty">Loading&#8230;</p></div>';
-    let week = null, who = "me", wk = null, people = [];
+    let week = null, who = null, wk = null, people = [];
 
     async function loadWeek() {
       if (!week) week = T.weekStart(T.today());
       clearError("tsErr");
       const ed = canEdit("timeclock");
+      if (who == null) who = ed ? "all" : "me";
       el("tsWhoWrap").classList.toggle("hidden", !ed);
       weekRoot.querySelectorAll(".tc-ed").forEach((n) => n.classList.toggle("hidden", !ed));
       el("tsTitle").textContent = (week === T.weekStart(T.today()) ? "This week, " : "Week of ") + T.fmtDay(week, { weekday: undefined }) + "\u2013" + T.fmtDay(T.addDays(week, 6), { weekday: undefined });
@@ -208,7 +234,7 @@
         const { data, error } = await sb.rpc("timesheet_week", who === "me" ? { p_start: week } : who === "all" ? { p_start: week, p_all: true } : { p_start: week, p_user: who });
         if (error) throw error;
         wk = data;
-        if (ed) await loadPeople();
+        if (ed) { await loadPeople(); el("tsWho").value = who; }
         renderWeek();
       } catch (e) { showError("tsErr", "Could not load the timesheet: " + cleanErr(e)); }
     }
@@ -231,7 +257,7 @@
       return '<span class="s ' + (d > 0 ? "tc-over" : "tc-under") + '">' + (d > 0 ? "+" : "\u2212") + hm(Math.abs(d)) + "</span>";
     }
     function statusHtml(p) {
-      if (p.review && !p.approved_at) return '<span class="pill warn" title="A clock-out was filled in at midnight">Check time</span>';
+      if (p.review && !p.approved_at) return '<span class="pill warn" title="Fix the clock-out time on the punch">Stopped at midnight</span>';
       if (p.approved_at) return '<span class="pill ok">Approved' + (p.approved_by ? " by " + esc(T.shortName(p.approved_by)) : "") + "</span>";
       if (p.open) return '<span class="pill warn">Clocked in</span>';
       return total(p, "worked_min") ? '<span class="pill muted">Not approved</span>' : "";
@@ -240,6 +266,13 @@
       if (!wk.can_edit || (!total(p, "worked_min") && !p.approved_at)) return "";
       return '<button type="button" class="small" data-approve="' + esc(p.user_id) + '" data-on="' + (p.approved_at ? "0" : "1") + '">' + (p.approved_at ? "Unapprove" : "Approve") + "</button>";
     }
+    // Everyone table: one cell for where the week stands and what to do about it.
+    function statusAct(p) {
+      const btn = approveBtn(p);
+      if (p.approved_at) return '<span class="pill ok" title="' + esc(p.approved_by ? "Approved by " + T.shortName(p.approved_by) : "Approved") + '">Approved</span>' + btn;
+      const pill = p.review ? statusHtml(p) : p.open ? statusHtml(p) : "";
+      return pill + btn;
+    }
     function renderWeek() {
       const days = Array.from({ length: 7 }, (_, i) => T.addDays(wk.week_start, i));
       const head = "<thead><tr><th></th>" + days.map((d) => '<th class="tc-num">' + esc(T.fmtDay(d, { month: undefined, day: "numeric" })) + "</th>").join("") + '<th class="tc-num">Total</th></tr></thead>';
@@ -247,13 +280,13 @@
         const list = wk.people.filter((p) => total(p, "worked_min") || total(p, "scheduled_min") || p.approved_at);
         el("tsBody").innerHTML = !list.length ? '<p class="empty">Nobody has time this week.</p>' :
           '<div class="table-wrap"><table class="tc-week"><thead><tr><th>Person</th>' + days.map((d) => '<th class="tc-num tc-hide-sm">' + esc(T.fmtDay(d, { month: undefined, day: "numeric" })) + "</th>").join("") +
-          '<th class="tc-num">Worked</th><th class="tc-num tc-hide-sm">Scheduled</th><th class="tc-num tc-hide-sm">Overtime</th><th class="tc-num tc-hide-sm">Miles</th><th class="tc-num tc-hide-sm">Est. pay</th><th>Status</th><th></th></tr></thead><tbody>' +
+          '<th class="tc-num">Worked</th><th class="tc-num tc-hide-sm">Overtime</th><th class="tc-num tc-hide-sm">Miles</th><th class="tc-num tc-hide-sm">Est. pay</th><th>Status</th></tr></thead><tbody>' +
           list.map((p) => { const w = total(p, "worked_min"), s = total(p, "scheduled_min"), ot = overtime(p);
             return '<tr class="tc-row" data-person="' + esc(p.user_id) + '"><td class="name">' + esc(T.shortName(p.name)) + "</td>" +
               p.days.map((d) => '<td class="tc-num tc-hide-sm">' + (d.worked_min ? hm(d.worked_min) : "") + (d.scheduled_min ? '<span class="s">' + hm(d.scheduled_min) + "</span>" : "") + "</td>").join("") +
-              '<td class="tc-num">' + hm(w) + diffHtml(w, s) + '</td><td class="tc-num tc-hide-sm">' + (s ? hm(s) : "") + '</td><td class="tc-num tc-hide-sm">' + (ot ? '<span class="tc-over">' + hm(ot) + "</span>" : "") +
-              '</td><td class="tc-num tc-hide-sm">' + (num(p.miles) ? mi(p.miles) : "") + '</td><td class="tc-num tc-hide-sm">' + (p.pay ? money(p.pay.pay) : "") + "</td><td>" + statusHtml(p) + "</td><td>" + approveBtn(p) + "</td></tr>"; }).join("") +
-          "</tbody></table></div>" + '<p class="tc-sum" style="margin-top:8px">Small numbers are scheduled time from the Schedule. Click a person to see and fix their punches. Est. pay uses the pay rates and leaves out mileage and expenses.</p>';
+              '<td class="tc-num">' + hm(w) + diffHtml(w, s) + '</td><td class="tc-num tc-hide-sm">' + (ot ? '<span class="tc-over">' + hm(ot) + "</span>" : "") +
+              '</td><td class="tc-num tc-hide-sm">' + (num(p.miles) ? mi(p.miles) : "") + '</td><td class="tc-num tc-hide-sm">' + (p.pay ? money(p.pay.pay) : "") + '</td><td class="tc-act">' + statusAct(p) + "</td></tr>"; }).join("") +
+          "</tbody></table></div>" + '<p class="tc-sum" style="margin-top:8px">Small numbers under each day are scheduled time from the Schedule; under Worked, how far off the schedule the week is. Click a person to see and fix their punches. Est. pay uses the pay rates and leaves out mileage and expenses.</p>';
         return;
       }
       el("tsBody").innerHTML = wk.people.map((p) => {
@@ -363,10 +396,16 @@
       });
     }
 
+    // Payroll: one dialog, opened from Timesheets and from Settings. It picks its own period (the last finished
+    // week by default), not the week the timesheet happens to show.
     async function openPayroll() {
+      const lastSun = T.addDays(T.weekStart(T.today()), -7);
+      const ends = Array.from({ length: 12 }, (_, i) => T.addDays(lastSun, -7 * i));
       const m = openModal('<div class="tc-modal"><h2>Payroll</h2>' +
         '<div class="row2"><div class="field"><label for="aca-prW">Pay period</label><select id="aca-prW"><option value="1">1 week</option><option value="2">2 weeks</option></select></div>' +
-        '<div class="field"><label>Ending</label><p style="margin:6px 0 0" id="aca-prEnd"></p></div></div>' +
+        '<div class="field"><label for="aca-prE">Ending</label><select id="aca-prE">' + '<option value="' + T.weekStart(T.today()) + '">' + esc(T.fmtDay(T.addDays(T.weekStart(T.today()), 6))) + " (this week, not over)</option>" +
+          ends.map((w, i) => '<option value="' + w + '"' + (i === 0 ? " selected" : "") + ">" + esc(T.fmtDay(T.addDays(w, 6))) + (i === 0 ? " (last week)" : "") + "</option>").join("") + "</select></div></div>" +
+        '<p class="tc-sum" id="aca-prEnd" style="margin:-4px 0 10px"></p>' +
         '<div id="aca-prBody"><p class="empty">Loading&#8230;</p></div><div class="inline-error hidden tc-merr"></div>' +
         '<div class="modal-actions"><button type="button" class="small" data-m="detail" disabled>Every punch (CSV)</button><button type="button" class="small hidden" data-m="exp">Expenses (CSV)</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="small hidden" data-m="cont">1099 contractors (CSV)</button><button type="button" class="primary" data-m="csv" disabled>Download payroll CSV</button></div></div>');
       const mErr = mErrIn(m);
@@ -381,8 +420,8 @@
           '</td><td class="tc-num">' + (num(p.expenses) ? money(p.expenses) : "") + '</td><td class="tc-num" title="' + esc(p.pay ? (p.pay.basis === "day" ? "Day rate " + money(p.pay.rate) : p.pay.basis === "job" ? money(p.pay.rate) + " a job x " + num(p.pay.jobs) : money(p.pay.rate) + " an hour") + ", from the " + p.pay.source + " rate. Mileage and expenses added." : "No pay rate set") + '">' + (total$(p) != null ? money(total$(p)) : '<span class="muted">no rate</span>') + "</td></tr>").join("") +
         "</tbody></table></div>";
       async function run() {
-        const n = +el("prW").value, start = T.addDays(week, -7 * (n - 1));
-        el("prEnd").textContent = T.fmtDay(T.addDays(week, 6)) + " (from " + T.fmtDay(start) + ")";
+        const last = el("prE").value, n = +el("prW").value, start = T.addDays(last, -7 * (n - 1));
+        el("prEnd").textContent = T.fmtDay(start) + " to " + T.fmtDay(T.addDays(last, 6));
         el("prBody").innerHTML = '<p class="empty">Loading&#8230;</p>';
         m.querySelectorAll('[data-m="csv"], [data-m="detail"]').forEach((b) => (b.disabled = true));
         try {
@@ -391,7 +430,7 @@
           pr = data;
           const unapproved = pr.people.filter((p) => num(p.approved_weeks) < num(p.weeks)), open = pr.people.filter((p) => p.open);
           el("prBody").innerHTML = (open.length ? '<p class="tc-warn">Still clocked in: ' + esc(names(open)) + " Their open time counts up to now.</p>" : "") +
-            (unapproved.length ? '<p class="tc-warn">Not approved yet: ' + esc(names(unapproved)) + "</p>" : "") +
+            (unapproved.length ? '<p class="tc-warn">Not approved yet: ' + esc(names(unapproved)) + ' <button type="button" class="small" data-m="approveall">Approve all</button></p>' : "") +
             (pr.people.filter((p) => !isCont(p)).length ? table(pr.people.filter((p) => !isCont(p)), true) : pr.people.length ? "" : '<p class="empty">No time in this period.</p>') +
             (pr.people.some(isCont) ? '<h3 style="margin:16px 0 6px;font-size:14px">1099 contractors</h3><p class="tc-sum" style="margin:0 0 6px">Not in the payroll CSV. Pay them from their own CSV.</p>' + table(pr.people.filter(isCont), false) : "") +
             '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Sunday\u2013Saturday); salaried people and 1099 contractors get none. Mileage at " + rateTxt(pr.mileage_rate) + ". Expenses are the approved ones. Est. pay = pay rate (overtime at 1.5x) + mileage + expenses; set rates under Pay rates. The CSV is for your payroll service.</p>";
@@ -402,11 +441,27 @@
         } catch (e) { mErr(cleanErr(e)); }
       }
       el("prW").addEventListener("change", run);
+      el("prE").addEventListener("change", run);
       run();
-      m.addEventListener("click", (ev) => {
+      m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") return m.close();
         if (!pr) return;
+        if (t.dataset.m === "approveall") {
+          const list = pr.people.filter((p) => num(p.approved_weeks) < num(p.weeks));
+          const open = list.filter((p) => p.open);
+          if (!confirm("Approve " + list.length + (list.length === 1 ? " person's" : " people's") + " time for this period? Approved weeks are locked." + (open.length ? " " + names(open) + " still clocked in; their open time is not approved." : ""))) return;
+          t.disabled = true;
+          const last = el("prE").value, n = +el("prW").value;
+          let failed = 0;
+          for (const p of list.filter((x) => !x.open)) for (let i = 0; i < n; i++) {
+            const { error } = await sb.rpc("timesheet_approve", { p_user: p.user_id, p_week: T.addDays(last, -7 * i), p_approve: true });
+            if (error) failed++;
+          }
+          toast(failed ? failed + " week" + (failed === 1 ? "" : "s") + " could not be approved (nothing worked, or still clocked in)." : "Approved.", !!failed);
+          run(); if (wk) loadWeek(); loadAttention();
+          return;
+        }
         const tag = pr.from + "_to_" + pr.to;
         if (t.dataset.m === "csv") {
           download("207-payroll-" + tag + ".csv", [["Name", "Email", "Type", "Period start", "Period end", "Regular hours", "Overtime hours", "Total hours", "Miles", "Mileage pay", "Expenses", "Est. wages", "Est. total", "Weeks approved"]]
@@ -429,7 +484,9 @@
       });
     }
 
-    async function openSettings() {
+    // Time clock rules: one dialog, opened from Timesheets (Settings) and from Settings > Team & pay.
+    async function openSettings(opts) {
+      opts = opts || {};
       const { data } = await sb.rpc("timeclock_settings_get");
       const v = Object.assign({ mileage_rate: 0.7, overtime_after: 40, gps_on: true, remind_before_min: 15, remind_out_after_min: 30, auto_out: true, ot_warn_hours: 4, half_day_hours: 5 }, data || {});
       const numIn = (id, label, val, min, max, step) => '<div class="field"><label for="aca-' + id + '">' + label + '</label><input type="number" id="aca-' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + esc(val) + '" /></div>';
@@ -439,8 +496,8 @@
         '<div class="row2">' + numIn("tsW", "Overtime warning (hours before; 0 = off)", v.ot_warn_hours, 0, 40, 0.5) + numIn("tsH", "Half day is under (hours)", v.half_day_hours, 1, 12, 0.5) + "</div>" +
         '<div class="row2">' + numIn("tsB", "Clock-in reminder (minutes before; 0 = off; never for salaried people)", v.remind_before_min, 0, 120, 5) + numIn("tsA", "Clock-out reminder (minutes after; 0 = off)", v.remind_out_after_min, 0, 240, 5) + "</div>" +
         box("tsG", "Save the phone\u2019s location with each clock in and out", v.gps_on) +
-        box("tsX", "Stop clocks still running at midnight and flag them to check", v.auto_out) +
-        '<p class="muted" style="font-size:12.5px">Reminders and warnings are phone notifications (people can turn each kind off). Trip miles are a round trip from the studio address on the Schedule page. The half-day rate applies to day-rate people who work less than the hours above.</p>' +
+        box("tsX", "Stop clocks still running at midnight (marked \u201cstopped at midnight\u201d until the real time is put in)", v.auto_out) +
+        '<p class="muted" style="font-size:12.5px">Reminders and warnings are phone notifications (people can turn each kind off). Trip miles are a round trip from the studio address (Settings, Company). The half-day rate applies to day-rate people who work less than the hours above.</p>' +
         '<div class="inline-error hidden tc-merr"></div><div class="modal-actions"><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Save</button></div></div>');
       const mErr = mErrIn(m);
       m.addEventListener("click", async (ev) => {
@@ -452,7 +509,7 @@
             p: { gps_on: el("tsG").checked, auto_out: el("tsX").checked, ot_warn_hours: parseFloat(el("tsW").value) || 0, half_day_hours: parseFloat(el("tsH").value) || 5,
                  remind_before_min: parseInt(el("tsB").value, 10) || 0, remind_out_after_min: parseInt(el("tsA").value, 10) || 0 } });
           if (error) throw error;
-          m.close(); toast("Saved."); loadWeek();
+          m.close(); toast("Saved."); if (wk) loadWeek(); if (opts.onSaved) opts.onSaved();
         } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
       });
     }
@@ -465,7 +522,7 @@
       '<label class="hidden" id="aca-miWhoWrap" style="font-size:13px">Showing <select class="small" id="aca-miWho"><option value="me">Mine</option><option value="all">Everyone</option></select></label>' +
       '<button type="button" class="small" data-v="add">Add trip</button><button type="button" class="small" data-v="sched">Add from schedule</button><button type="button" class="small" data-v="csv">Download CSV</button></div>' +
       '<div id="aca-miErr" class="inline-error hidden"></div><div id="aca-miBody"><p class="empty">Loading&#8230;</p></div>';
-    let month = null, miWho = "me", ml = null;
+    let month = null, miWho = null, ml = null;
     const lookedUp = new Set(); // bookings already asked of Google this session
     const monthStart = (day) => day.slice(0, 8) + "01";
     const addMonths = (day, n) => { const d = new Date(monthStart(day) + "T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); };
@@ -475,6 +532,8 @@
       if (!month) month = monthStart(T.today());
       clearError("miErr");
       el("miWhoWrap").classList.toggle("hidden", !canEdit("timeclock"));
+      if (miWho == null) miWho = canEdit("timeclock") ? "all" : "me";
+      el("miWho").value = miWho;
       el("miTitle").textContent = new Date(month + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long", year: "numeric" });
       try {
         const { data, error } = await sb.rpc("mileage_list", { p_month: month, p_all: miWho === "all" });
@@ -512,7 +571,7 @@
       trips.forEach((t) => { const k = t.user_id; totals[k] = totals[k] || { name: t.name, n: 0, miles: 0 }; totals[k].n++; totals[k].miles += milesOf(t); });
       const sum = Object.values(totals);
       const allMiles = sum.reduce((n, x) => n + x.miles, 0);
-      el("miBody").innerHTML = (!ml.studio_address ? '<p class="tc-warn">No studio address yet, so job miles can\'t be looked up. Set it on the Schedule page (Edit).</p>' : "") +
+      el("miBody").innerHTML = (!ml.studio_address ? '<p class="tc-warn">No studio address yet, so job miles can\'t be looked up. Set it in Settings, Company (or Drive &amp; setup on the Schedule).</p>' : "") +
         '<p class="tc-sum">' + (trips.length ? mi(allMiles) + " miles \u00b7 " + money(allMiles * rate) + " at " + rateTxt(rate) + "." : "No trips this month.") +
         " Clocking in to a job adds its round trip from the studio. Set miles to 0 if you rode with someone.</p>" +
         (all && sum.length > 1 ? '<div class="table-wrap" style="margin-bottom:18px"><table class="tc-week"><thead><tr><th>Person</th><th class="tc-num">Trips</th><th class="tc-num">Miles</th><th class="tc-num">Pay</th></tr></thead><tbody>' +
@@ -634,11 +693,15 @@
         const o = data.open;
         st = st || data;
         st.gps = data.gps;
+        // Clocked out, it's one quiet line (2026-10-24): the orange button on Today belongs to what needs you, not to Clock in.
+        box.classList.toggle("tc-quiet", !o);
+        if (!o) { box.innerHTML = '<p class="tc-line">Time clock: ' + esc(data.jobs && data.jobs.some((j) => j.mine) ? "you have a job today." : hm(data.week_worked_min) + " worked this week.") +
+          ' <button type="button" class="link" data-tc="in">Clock in</button></p>'; return; }
         box.innerHTML = '<h2>Time clock <span class="c">' + (o ? "clocked in" : "clocked out") + '</span><a href="#staff/clock">Clock</a></h2>' +
           (o ? "<p>" + esc(what(o)) + " since " + esc(T.fmtTs(o.clock_in)) + " (" + hm(since(o.clock_in)) + ")</p>" : "<p>" + esc(data.jobs && data.jobs.some((j) => j.mine) ? "You have a job today. Clock in when you start." : hm(data.week_worked_min) + " worked this week.") + "</p>") +
           '<div class="tc-tbtn">' + (o ? '<button type="button" class="primary" data-tc="out">Clock out</button><button type="button" class="small" data-tc="in">Switch</button>' : '<button type="button" class="primary" data-tc="in">Clock in</button>') + "</div>";
       } catch (e) { box.innerHTML = ""; }
     }
 
-    return { loadClock, loadWeek, loadMiles, loadToday, loadAttention, download, hm, money, people: async () => { if (canEdit("timeclock")) await loadPeople(); return people; } };
+    return { loadClock, loadWeek, loadMiles, loadToday, loadAttention, download, hm, money, openSettings, openPayroll, people: async () => { if (canEdit("timeclock")) await loadPeople(); return people; } };
   })();

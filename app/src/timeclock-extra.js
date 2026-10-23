@@ -55,7 +55,7 @@
       '<label class="hidden" id="aca-txWhoWrap" style="font-size:13px">Showing <select class="small" id="aca-txWho"><option value="me">Mine</option><option value="all">Everyone</option></select></label>' +
       '<button type="button" class="primary small" data-x="add">Add expense</button><button type="button" class="small" data-x="csv">Download CSV</button></div>' +
       '<div id="aca-txErr" class="inline-error hidden"></div><div id="aca-txBody"><p class="empty">Loading&#8230;</p></div>';
-    let month = null, xWho = "me", xl = null;
+    let month = null, xWho = null, xl = null;
     const monthStart = (day) => day.slice(0, 8) + "01";
     const addMonths = (day, n) => { const d = new Date(monthStart(day) + "T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); };
 
@@ -63,6 +63,8 @@
       if (!month) month = monthStart(T.today());
       clearError("txErr");
       el("txWhoWrap").classList.toggle("hidden", !canEdit("timeclock"));
+      if (xWho == null) xWho = canEdit("timeclock") ? "all" : "me";
+      el("txWho").value = xWho;
       el("txTitle").textContent = new Date(month + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long", year: "numeric" });
       try {
         const { data, error } = await sb.rpc("expense_list", { p_month: month, p_all: xWho === "all" });
@@ -75,7 +77,7 @@
     function rowHtml(x, all) {
       const s = STATUS[x.status] || ["muted", x.status];
       const thumb = x.receipt_path ? (isPdf(x.receipt_path) ? '<span class="pill muted">PDF</span>' : urls[x.receipt_path] ? '<img class="tx-rcpt" alt="Receipt" src="' + esc(urls[x.receipt_path]) + '" />' : "") : '<span class="muted" style="font-size:12px">no receipt</span>';
-      const acts = xl.can_edit && x.status !== "approved" ? '<button type="button" class="small" data-ok="' + esc(x.id) + '">Approve</button>' + (x.status === "submitted" ? '<button type="button" class="small quiet" data-back="' + esc(x.id) + '">Send back</button>' : "") : "";
+      const acts = xl.can_edit && x.status !== "approved" ? '<button type="button" class="small" data-ok="' + esc(x.id) + '">Approve</button>' + (x.status === "submitted" ? '<button type="button" class="small" data-back="' + esc(x.id) + '">Send back</button>' : "") : "";
       return '<tr class="tc-row" data-exp="' + esc(x.id) + '"><td>' + thumb + '</td><td style="white-space:nowrap">' + esc(T.fmtDay(x.day)) + "</td>" + (all ? "<td>" + esc(T.shortName(x.name)) + "</td>" : "") +
         "<td>" + esc(CAT[x.category] || x.category) + (x.job_title ? '<span class="s" style="display:block;color:var(--muted);font-size:12px">' + esc(x.job_title) + "</span>" : "") +
         (x.note ? '<span class="s" style="display:block;color:var(--muted);font-size:12px">' + esc(x.note) + "</span>" : "") + "</td>" +
@@ -220,7 +222,9 @@
     }
 
     // ---------------------------------------------------------------- Pay rates (Edit)
-    async function openRates() {
+    // Pay rates: one dialog, opened from Timesheets (Pay rates) and from Settings > Team & pay.
+    async function openRates(opts) {
+      opts = opts || {};
       const m = openModal('<div class="tc-modal" style="max-width:760px"><h2>Pay rates</h2>' +
         '<p class="muted" style="font-size:13px;margin:0 0 12px">For estimated pay on timesheets and the payroll CSV. A person’s own rate wins, then their job title’s, then their employment type’s (both set on the Team page). Hourly people get 1.5x after the overtime hours, unless they are salaried or 1099.</p>' +
         '<div id="aca-prtBody"><p class="empty">Loading&#8230;</p></div><div class="inline-error hidden tc-merr"></div>' +
@@ -283,7 +287,7 @@
       }
       m.addEventListener("click", (ev) => {
         const b = ev.target.closest("[data-m]");
-        if (b && b.dataset.m === "cancel") { m.close(); TimeClock.loadWeek(); return; }
+        if (b && b.dataset.m === "cancel") { m.close(); if (opts.onClose) opts.onClose(); else TimeClock.loadWeek(); return; }
         if (!d) return;
         if (b && b.dataset.m === "add") return edit(null);
         const own = ev.target.closest("[data-own]");

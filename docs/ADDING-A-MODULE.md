@@ -145,7 +145,18 @@ call `.ensure()` when the page is shown. Add the page key to the `saved_views.pa
 (migration 20261022234500) so the right module's View controls who sees its views.
 
 Helpers available everywhere: `supabase`, `el(id)`, `esc()`, `fmtDate()`, `fmtAgo()`, `toast()`,
-`showError()`/`clearError()`, `canSee(m)`, `canEdit(m)`, `openModal(html, {locked})`, `setAttention()`.
+`showError()`/`clearError()`, `canSee(m)`, `canEdit(m)`, `openModal(html, {locked, sheet})`, `setAttention()`,
+`askWho("Ask", "to ...")` (names the first full-access person, not a hard-coded "Jeremiah").
+
+Consistency (2026-10-24): dates in lists go through `Fmt.day(d)` ("Wed, Nov 18"), `Fmt.time(ts)` ("2:10pm"),
+`Fmt.dayTime(ts)` and `Fmt.hhmm("15:00")` ("3:00pm"); `fmtDate()` (with the year) is for history only. A table that should
+read on a phone goes in `<div class="table-wrap cards">`: under 700px each row becomes a labelled card (labels come from
+the header), and the cell with the row's buttons gets `class="act"`.
+
+The menu (`MENU` in `app/src/shell-top.js`) belongs to the shell. A tab listed there that isn't registered yet is skipped,
+so ask for the menu change and register the page; a tab in no entry gets an entry of its own. `setAttention(key, count,
+label, tab, level, onGo, jobs)` takes optional `jobs` (`[{ id, title, day }]`): when they account for the whole count,
+Today shows one line per job that opens it. `registerAttention(key, { mine: true, ... })` files an item under My work.
 
 ## 3. Test
 

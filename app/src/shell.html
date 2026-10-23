@@ -64,7 +64,26 @@
     .aca .main { padding: 22px 20px 40px; }
     .aca .whomenu { right: 20px; }
   }
-  @media (max-width: 700px) { .aca header.top .hdrbtn, .aca header.top .search kbd { display: none; } .aca .main { padding: 18px 16px 32px; } }
+  .aca #aca-bookBtn .bk-plus { display: none; font-size: 20px; font-weight: 400; line-height: 1; }
+  .aca #aca-whoBtn .who-f { display: none; }
+  .aca .rail .foot[role="link"] { cursor: pointer; } .aca .rail .foot[role="link"]:hover { color: var(--text); }
+  .aca .whomenu .who-help { padding: 4px 8px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--muted); user-select: text; -webkit-user-select: text; }
+  .aca .whomenu .who-help .h { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--faint); margin-bottom: 2px; }
+  .aca .whomenu .who-help .p { padding: 3px 0; } .aca .whomenu .who-help .p b { color: var(--text); font-weight: 600; }
+  .aca .whomenu .who-help .p span { display: block; overflow-wrap: anywhere; } .aca .whomenu .who-help a { color: var(--muted); }
+  /* Phones: Book a job is a + in the top bar, the account button shows the first name, page tab strips wrap. */
+  @media (max-width: 700px) {
+    .aca header.top .search kbd { display: none; } .aca .main { padding: 18px 16px 32px; }
+    .aca header.top { gap: 8px; padding: 0 12px; }
+    .aca header.top #aca-bookBtn { width: 34px; padding: 0; justify-content: center; }
+    .aca #aca-bookBtn .bk-txt { display: none; } .aca #aca-bookBtn .bk-plus { display: inline; }
+    .aca #aca-whoBtn .who-i { display: none; } .aca #aca-whoBtn .who-f { display: inline; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+    .aca .whomenu { right: 12px; left: 12px; }
+    .aca .pagetabs { flex-wrap: wrap; row-gap: 0; }
+    .aca .pagetabs h1 { flex: 1 0 100%; padding-bottom: 2px; }
+  }
+  /* Job and partner page tabs (jobpage.js .jp-tabs) wrap onto a second row on phones instead of hiding off the edge. */
+  @media (max-width: 760px) { .aca div.jp-tabs { flex-wrap: wrap; overflow-x: visible; } }
 
   /* ---- Page header, page tabs ---- */
   .aca .pagehead { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -162,7 +181,7 @@
   .aca .today-an { flex: 1; min-width: 0; }
   .aca .today-ac { font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
   .aca .today-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #b9b4aa; margin-right: 6px; vertical-align: 1px; }
-  .aca .today-dot.err { background: #c62828; } .aca .today-dot.warn { background: #bf4a1f; }
+  .aca .today-dot.err { background: #c62828; } .aca .today-dot.warn { background: #d4920f; } /* broken red, waiting amber, check soon grey */
   .aca .today-ab { display: none; padding: 0 0 6px 28px; }
   .aca .today-area.open .today-ab { display: block; }
   .aca .today-grp h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--head); display: flex; align-items: center; gap: 8px; height: 32px; border-bottom: 1px solid var(--border); }
@@ -191,6 +210,31 @@
   .aca .today-up .s { color: var(--muted); font-size: 13px; }
   @media (max-width: 1100px) { .aca .today-cols { grid-template-columns: 1fr; } }
   @media (max-width: 700px) { .aca button.today-item { grid-template-columns: 24px minmax(0, 1fr); } .aca button.today-item .today-go { display: none; } }
+  .aca .today-main { display: flex; flex-direction: column; min-width: 0; }
+  /* Phones: what needs you first, then the clock and your tasks. */
+  @media (max-width: 700px) { .aca .today-main #aca-todayList { order: -1; } .aca .today-main #aca-todayNotif { order: -2; } }
+  .aca .today-notif { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 0 0 20px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+  .aca .today-notif .tn-t { flex: 1 1 240px; min-width: 0; font-size: 14px; } .aca .today-notif .tn-t span { display: block; color: var(--muted); font-size: 13px; }
+  .aca .today-notif .tn-b { display: flex; gap: 6px; }
+  .aca .login-card button.login-forgot { display: block; margin: 12px auto 0; font-size: 13px; color: var(--muted); }
+  .aca .login-note { margin: 12px 0 0; font-size: 13px; color: var(--ok-fg); }
+
+  /* ---- Phone tables (2026-10-24, consistency rule: one table style, cards under 700px) ----
+     Opt in per table: <div class="table-wrap cards"><table>...</table></div>. Under 700px each row becomes a card and
+     each cell shows its column name before it (shell-top.js copies the header text into data-label, so modules write
+     nothing extra). Give the cell with the row's buttons class "act": it goes full width at the bottom of the card.
+     A cell with colspan (an empty-state row) shows alone. Wide desktop tables are untouched. */
+  @media (max-width: 700px) {
+    .aca .table-wrap.cards { overflow: visible; }
+    .aca .table-wrap.cards table, .aca .table-wrap.cards tbody, .aca .table-wrap.cards tr, .aca .table-wrap.cards td { display: block; width: 100%; }
+    .aca .table-wrap.cards thead { display: none; }
+    .aca .table-wrap.cards tr { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin: 0 0 10px; background: var(--surface); }
+    .aca .table-wrap.cards tbody tr:last-child td, .aca .table-wrap.cards td { border: 0; padding: 3px 0; }
+    .aca .table-wrap.cards td { display: flex; gap: 10px; align-items: baseline; min-width: 0; overflow-wrap: anywhere; }
+    .aca .table-wrap.cards td[data-label]::before { content: attr(data-label); flex: 0 0 34%; color: var(--faint); font-size: 12px; font-weight: 600; }
+    .aca .table-wrap.cards td.act { flex-wrap: wrap; gap: 6px; padding-top: 8px; }
+    .aca .table-wrap.cards td.act::before, .aca .table-wrap.cards td[colspan]::before { display: none; }
+  }
 
   /* ---- Global search ---- */
   .aca .gs-wrap { position: fixed; inset: 0; background: rgba(31,30,27,.3); z-index: 9996; display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; }
@@ -459,6 +503,14 @@
   .aca .modal p { font-size: 13.5px; line-height: 20px; }
   .aca .modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: flex-end; }
   .aca .modal-actions .grow { flex: 1; }
+  /* openModal(html, { sheet: true }): a bottom sheet on phones (Notifications), a normal dialog on wider screens. */
+  @media (max-width: 700px) {
+    .aca .modal-wrap.sheet { align-items: flex-end; padding: 0; }
+    .aca .modal-wrap.sheet .modal { max-width: none; border-radius: 14px 14px 0 0; max-height: 88vh; overflow: auto; padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); }
+  }
+  .aca .pn-why { margin: 0 0 10px; padding: 9px 12px; border-radius: 4px; background: var(--surface-2); font-size: 13.5px; }
+  .aca .pn-digest { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line2); font-size: 13.5px; }
+  .aca .pn-digest input { margin-top: 3px; }
   .aca .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; flex: none; }
   .aca .seg label { cursor: pointer; }
   .aca .seg input { position: absolute; opacity: 0; pointer-events: none; }
@@ -503,7 +555,9 @@
       <div class="field"><label for="aca-email">Email</label><input type="email" id="aca-email" name="email" autocomplete="username" required /></div>
       <div class="field"><label for="aca-password">Password</label><input type="password" id="aca-password" name="password" autocomplete="current-password" required /></div>
       <button type="submit" class="primary" id="aca-loginBtn">Sign in</button>
+      <button type="button" class="link login-forgot" id="aca-forgotBtn">Forgot password?</button>
       <div class="login-error hidden" id="aca-loginError" role="alert"></div>
+      <p class="login-note hidden" id="aca-forgotNote" role="status"></p>
     </form>
     <form class="login-card hidden" id="aca-codeForm" autocomplete="off">
       <h1>Check your email</h1>
@@ -526,24 +580,24 @@
         <div class="brand"><img src="/logo.png" alt="207 Photo" class="logo" /><span class="brand-admin">Admin</span></div>
         <!-- Built from RAIL in shell-top.js after sign-in (only the pages this person can see). -->
         <nav aria-label="Sections" id="aca-nav"></nav>
-        <div class="foot" id="aca-syncStatus"><span class="dot"></span>Checking sync&#8230;</div>
+        <div class="foot hidden" id="aca-syncStatus" role="link" tabindex="0" title="Settings &#8250; Company"><span class="dot"></span>Checking sync&#8230;</div>
       </aside>
 
       <div class="content">
         <header class="top">
           <button type="button" class="small quiet menubtn" id="aca-menuBtn" aria-label="Open menu">&#9776;</button>
           <div class="search" id="aca-gsOpen" role="button" tabindex="0" aria-label="Search everything">
-            <input type="text" id="aca-gsTop" placeholder="Search jobs, organizations, schools, parents" aria-label="Search everything" readonly />
+            <input type="text" id="aca-gsTop" placeholder="Search" aria-label="Search everything" readonly />
             <kbd>&#8984;K</kbd>
           </div>
           <span class="grow"></span>
-          <button type="button" class="small hdrbtn" id="aca-bookBtn">Book a job</button>
-          <button type="button" class="small quiet" id="aca-whoBtn" aria-haspopup="menu" aria-expanded="false">JM</button>
+          <button type="button" class="small hdrbtn" id="aca-bookBtn" aria-label="Book a job" title="Book a job"><span class="bk-plus" aria-hidden="true">+</span><span class="bk-txt">Book a job</span></button>
+          <button type="button" class="small quiet" id="aca-whoBtn" aria-haspopup="menu" aria-expanded="false"><span class="who-i">JM</span><span class="who-f"></span></button>
           <div class="whomenu hidden" id="aca-whoMenu" role="menu">
             <div class="who" id="aca-whoami"></div>
+            <div class="who-help hidden" id="aca-whoHelp"></div>
             <button type="button" id="aca-notifBtn" role="menuitem">Notifications</button>
             <button type="button" id="aca-pwBtn" role="menuitem">Change password</button>
-            <button type="button" id="aca-syncNowBtn" role="menuitem">Sync GotPhoto now</button>
             <button type="button" id="aca-signOutBtn" role="menuitem">Sign out</button>
           </div>
         </header>
@@ -558,7 +612,7 @@
             <p class="today-lead" id="aca-todayLead"><span class="spin"></span>Checking everything&#8230;</p>
             <div id="aca-todayUnchecked" class="inline-error hidden"></div>
             <div class="today-cols">
-              <div><section id="aca-todayMine" class="today-mine hidden"></section><div id="aca-todayList"></div></div>
+              <div class="today-main"><section id="aca-todayNotif" class="today-notif hidden"></section><section id="aca-todayMine" class="today-mine hidden"></section><div id="aca-todayList"></div></div>
               <div class="today-side">
                 <section id="aca-todayUpBox"><h2>Coming up</h2><div id="aca-todayUp"><p>Loading&#8230;</p></div></section>
                 <section id="aca-todayOutBox"><h2>Going out today</h2><p id="aca-todayOut">Loading&#8230;</p></section>
@@ -571,8 +625,9 @@
         </div>
       </div>
     </div>
-    <!-- Badges older code still writes to (hidden; the rail badges come from setAttention). -->
-    <div class="hidden" aria-hidden="true"><span id="aca-blockBadge"></span><span id="aca-reqBadge"></span><span id="aca-mkBadge"></span><span id="aca-hubLateBadge"></span></div>
+    <!-- Badges older code still writes to (hidden; the rail badges come from setAttention). "Sync GotPhoto now" left the
+         account menu (2026-10-24; the rail's sync line opens Settings > Company); its button stays here for system.js. -->
+    <div class="hidden" aria-hidden="true"><button type="button" id="aca-syncNowBtn" tabindex="-1">Sync GotPhoto now</button><span id="aca-blockBadge"></span><span id="aca-reqBadge"></span><span id="aca-mkBadge"></span><span id="aca-hubLateBadge"></span></div>
   </div>
 
   <div id="aca-toast" role="status" aria-live="polite"></div>

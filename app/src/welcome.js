@@ -43,13 +43,18 @@
         step(1, "Tap " + icon(DOTS) + " at the bottom right, then " + icon(SHARE) + " <b>Share</b>.", PIC_BAR) +
         step(2, "Scroll down and tap <b>Add to Home Screen</b> " + icon(PLUS) + ". Tap <b>More</b> or <b>Edit Actions</b> if it isn&#8217;t in the list.", PIC_SHEET) +
         step(3, "Tap <b>Add</b> at the top right.", PIC_ADD) +
-        step(4, "Open <b>207 Admin</b> from your home screen and sign in with the email and temporary password we sent you.", PIC_HOME) + "</ol>";
+        step(4, "Open <b>207 Admin</b> from your home screen and sign in with the email and temporary password we sent you.", PIC_HOME) +
+        step(5, NOTIF_STEP) + "</ol>";
     }
+    // The last step everywhere (2026-10-24): notifications only work in the home-screen app, so they're turned on there.
+    const NOTIF_STEP = "When it asks, tap <b>Turn on for this device</b> so you hear about jobs offered to you and changes to your schedule. " +
+      "(Later: tap your name at the top right, then <b>Notifications</b>.)";
     function androidSteps() {
       return '<ol class="wl-steps">' +
         step(1, "In Chrome, tap " + icon(KEBAB) + " at the top right.") +
         step(2, "Tap <b>Add to home screen</b> or <b>Install app</b>, then <b>Install</b>.") +
-        step(3, "Open <b>207 Admin</b> from your home screen and sign in with the email and temporary password we sent you.", PIC_HOME) + "</ol>" +
+        step(3, "Open <b>207 Admin</b> from your home screen and sign in with the email and temporary password we sent you.", PIC_HOME) +
+        step(4, NOTIF_STEP) + "</ol>" +
         '<p class="wl-small">Samsung Internet: tap &#9776;, then <b>Add page to</b> &#8594; <b>Home screen</b>.</p>';
     }
 
