@@ -185,6 +185,20 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-bkBody tr[data-id="bk1"]');
     await page.waitForSelector("#aca-jpTabs button");
     check(page.url().endsWith("#jobs/job/bk1") && await page.$eval("#aca-bkPanel", (n) => n.classList.contains("hidden")), "a row goes straight to the job page, no preview");
+    // Email the job's contacts from the job page (2026-10-23)
+    await page.waitForSelector("#aca-jpMails h3");
+    check((await page.textContent("#aca-jpMails")).includes("Gym change"), "Overview lists emails sent from this job");
+    await page.click('#aca-jpMails a[data-mail]');
+    check(await page.isVisible("#aca-jpMails .jp-mailbody"), "an email opens to show what it said");
+    await page.click('.jp-head button[data-j="email"]');
+    await page.waitForSelector("#aca-ogJeTo");
+    check(await page.isChecked('#aca-ogJeTo input[value="c1"]') && await page.isDisabled('#aca-ogJeTo input[value="c3"]'), "Email: the job's contacts are ticked, a bounced one can't be");
+    check((await page.inputValue("#aca-ogJeSubj")).includes("Winter Sports"), "Email: subject starts as the job name");
+    await page.fill("#aca-ogJeBody", "Hi Chris, quick question.");
+    await page.click('.og-modal button[data-v="now"]');
+    await page.waitForTimeout(250);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "job_email_send" && c[1].p_booking === "bk1" && c[1].p_now === true && c[1].p_contacts.join() === "c1")), "Send now calls job_email_send for the ticked people");
+    check(!(await page.$("#aca-ogJeTo")), "the composer closes once sent");
     // Remove someone from a job's emails, on Overview and on the Booking tab (2026-10-23)
     await page.waitForSelector("#aca-jpBody button[data-rmc]");
     check((await page.$$("#aca-jpBody button[data-rmc]")).length === 2, "Overview: Remove next to each person who gets the emails");
