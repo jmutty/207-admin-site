@@ -43,8 +43,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "myday", "orgs", "jobs", "parents", "schedule", "tasks", "people", "timepay", "inventory", "sending"]), "menu has every page: " + items.join(","));
-    const FIRST = { jobs: "bookings", parents: "requests", people: "team", timepay: "clock" };
+    // ws/settings: the new Settings tabs (settingsmore) are their own entry until the shell's MENU lists them under Settings
+    check(JSON.stringify(items.filter((t) => t !== "settingsmore")) === JSON.stringify(["today", "myday", "orgs", "jobs", "parents", "schedule", "tasks", "people", "timepay", "inventory", "sending"]), "menu has every page: " + items.join(","));
+    const FIRST = { jobs: "bookings", parents: "requests", people: "team", timepay: "clock", settingsmore: "teamemails" };
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -60,6 +61,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(JSON.stringify(await tabsOf("tasks")) === JSON.stringify(["tasks", "checklists", "wfsteps"]), "Tasks: one list and job checklists");
     check(JSON.stringify(await tabsOf("people")) === JSON.stringify(["team", "clearances", "onboarding"]), "People: team and records");
     check(JSON.stringify(await tabsOf("sending")) === JSON.stringify(["sending", "library", "delivery", "health", "signin", "calc"]), "Settings holds the email library, Bounced and the job calculator");
+    const moreTabs = items.includes("settingsmore") ? await tabsOf("settingsmore") : await tabsOf("sending");
+    check(["teamemails", "jobtypes", "teampay", "company"].every((t) => moreTabs.includes(t)), "Settings has Team emails, Job types, Team & pay and Company");
     check((await page.textContent("#aca-nav")).includes("Work") && !(await page.textContent("#aca-nav")).includes("Outreach"), "Organizations, Jobs and Parents sit under Work");
     await page.click('#aca-nav button[data-tab="today"]');
     await page.waitForTimeout(300);
@@ -72,7 +75,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     // Team: add a person
     await page.click('#aca-nav button[data-tab="people"]');
     await page.waitForSelector("#aca-teamBody [data-edit]");
-    check((await page.$$("#aca-teamBody tr")).length === 3, "team list shows 3 people");
+    check((await page.$$("#aca-teamBody tr")).length === 5, "team list shows 5 people");
+    check((await page.textContent("#aca-teamBody")).includes("Crew roles: Second shooter, Check-in"), "team list shows each person's crew roles");
     await page.click("#aca-teamAdd");
     await page.fill("#aca-tmName", "New Person");
     await page.fill("#aca-tmEmail", "new@207photo.com");
@@ -89,12 +93,22 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.check("#aca-tmAdmin");
     check(!(await visible(page, "#aca-tmGrid")), "full access hides the module grid");
     await page.uncheck("#aca-tmAdmin");
+    // ws/settings: the grid is folded under Change access, named like the menu; modules with no page are hidden
+    check(!(await page.$eval("#aca-tmMore", (d) => d.open)), "access grid starts folded");
+    await page.click("#aca-tmMore > summary");
+    check(!(await page.$('input[name="tm-taskboard"]')), "a module with no page (Task board) is not offered");
+    check((await page.textContent("#aca-tmGrid")).includes("Ask who's available") && (await page.textContent("#aca-tmGrid")).includes("Timesheets"), "grid uses the menu's words");
+    await page.selectOption("#aca-tmCopyFrom", "u6");
+    check(await page.isChecked('input[name="tm-timeclock"][value="view"]') && await page.isChecked('input[name="tm-bookings"][value="none"]'), "Copy access from someone");
+    await page.click('[data-preset="office"]');
+    check(await page.isChecked('input[name="tm-bookings"][value="edit"]'), "Office preset");
     await page.check('input[name="tm-parents"][value="edit"]', { force: true });
     await page.fill("#aca-tmHome", "Bangor");
     await page.click("#aca-tmSave");
     await page.waitForTimeout(200);
     const save = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "team_save").pop());
     check(save && save[1].p_permissions.parents === "edit" && save[1].p_permissions.bookings === "edit" && save[1].p_is_admin === false, "edit saves through team_save");
+    check(save && save[1].p_permissions.taskboard === undefined, "a hidden module the person did not have stays off");
     const home = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "team_set_home").pop());
     check(home && home[1].p_home === "Bangor" && home[1].p_user_id === "u2", "a home address (or just the town) saves from the Team page");
     // Remove: only offered for deactivated people
@@ -827,7 +841,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector("#aca-teamBody [data-edit]");
     check((await page.textContent("#aca-teamBody")).includes("40 h/week"), "team list shows weekly hours");
     check((await page.textContent("#aca-teamBody")).includes("Owner \u00b7 Salaried"), "team list shows job title and employment type");
+    await page.click("#aca-teamAdd");
+    await page.selectOption("#aca-tmType", "part_time");
+    check(await page.isChecked('input[name="tm-assignments"][value="view"]') && await page.isChecked('input[name="tm-openjobs"][value="view"]') && await page.isChecked('input[name="tm-staffrecords"][value="view"]') &&
+      await page.isChecked('input[name="tm-timeclock"][value="view"]') && await page.isChecked('input[name="tm-bookings"][value="none"]'), "part time: My day, Time clock, My records and Open jobs preset");
+    await page.click("#aca-tmCancel");
     await page.click('#aca-teamBody [data-edit="u2"]');
+    await page.waitForTimeout(100);
+    check((await page.inputValue("#aca-tmRate")) === "200" && (await page.inputValue("#aca-tmBasis")) === "day", "pay shows their own rate");
+    await page.fill("#aca-tmRate", "220");
     await page.fill("#aca-tmHours", "28");
     await page.fill("#aca-tmTitle", "Second shooter");
     await page.selectOption("#aca-tmType", "contractor");
@@ -835,6 +857,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-tmSave");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_hours" && c[1].p_hours === 28 && c[1].p_user_id === "u2")), "saves weekly hours");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_rate_save" && c[1].p.scope === "person" && c[1].p.scope_key === "u2" && c[1].p.id === "r3" && c[1].p.rate === "220" && c[1].p.basis === "day")), "pay writes their own rate row");
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_profile" && c[1].p_user_id === "u2" && c[1].p_type === "contractor" && c[1].p_title === "Second shooter")), "saves job title and employment type");
     await page.click('#aca-teamBody [data-edit="u2"]');
     await page.waitForSelector("#aca-tmRoles input");
@@ -1203,16 +1226,21 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "openjobs_post" && c[1].p.booking_id === "bk2" && c[1].p.spots === 2 && c[1].p.pay === "$200" && c[1].p.user_ids.join() === "u6,u8")), "sends the offer");
     check(!(await page.$(".modal")), "dialog closes");
+    // ws/settings: Part-timers & 1099 is read-only; Edit opens the person's Team record
     await page.click("#aca-ojPeople");
     await page.waitForSelector(".oj-ppl tr[data-u]");
-    await page.selectOption('.oj-ppl tr[data-u="u2"] .oj-type', "contractor");
-    await page.waitForTimeout(100);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_profile" && c[1].p_user_id === "u2" && c[1].p_type === "contractor")), "sets someone to 1099 (gets offers)");
-    await page.fill('.oj-ppl tr[data-u="u2"] .oj-home', "5 Birch St, Brewer ME");
-    await page.selectOption('.oj-ppl tr[data-u="u2"] .oj-max', "45");
-    await page.waitForTimeout(100);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "openjobs_person_save" && c[1].p_user === "u2" && c[1].p_max_drive === 45)), "saves their longest drive");
-    await page.click('.modal [data-m="done"]');
+    check(!(await page.$(".oj-ppl select, .oj-ppl input")), "part-timers list is read-only");
+    await page.click('.oj-ppl tr[data-u="u6"] [data-editp]');
+    await page.waitForSelector("#aca-tmDrive");
+    check(await page.$eval("#aca-panel-team", (n) => n.classList.contains("active")) && (await page.inputValue("#aca-tmName")) === "Pat Parttime", "Edit opens their Team record");
+    await page.fill("#aca-tmDrive", "45");
+    await page.click("#aca-tmSave");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "team_set_max_drive" && c[1].p_user_id === "u6" && c[1].p_min === 45)), "longest drive saves from the Team record");
+    await page.evaluate(() => { location.hash = "#staff/openjobs"; });
+    await page.waitForSelector("#aca-ojPosted .oj-card");
+    check(await page.$eval("#aca-ojPostedSec", (n) => !!n.nextElementSibling && n.nextElementSibling.id === "aca-ojMineSec"), "B10: offers you sent come first");
+    check((await page.textContent("#aca-ojPosted")).includes("Email them instead"), "B11: no notifications offers an email instead");
     await page.close();
     const p2 = await open(browser, port, "", "#staff/openjobs/bk1");
     await p2.page.waitForSelector("#aca-ojCands .oj-cand");
@@ -1395,6 +1423,105 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
+  console.log("Settings tabs (owner, ws/settings)");
+  {
+    const { page, errors } = await open(browser, port, "", "#system/teamemails");
+    await page.waitForSelector("#aca-stTopics select[data-deftopic]");
+    check((await page.textContent("#aca-stDaily")).includes("8pm") && (await page.textContent("#aca-stDaily")).includes("7am"), "Team emails: your-day notification and morning email");
+    check((await page.textContent("#aca-stCrew")).includes("Fridays at 3pm"), "Team emails: weekly schedule email in 12-hour time");
+    check((await page.textContent("#aca-stClock")).includes("15 minutes before"), "Team emails: clock reminders");
+    check((await page.$$("#aca-stTopics select[data-deftopic]")).length === 4 && (await page.textContent("#aca-stTopics")).includes("account menu"), "Team emails: every notification kind with its default; each person can change theirs");
+    await page.selectOption('#aca-stTopics select[data-deftopic="crew_ask"]', "email");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "push_topic_set_default" && c[1].p_topic === "crew_ask" && c[1].p_mode === "email")), "changes a notification default");
+    check(await page.isChecked("#aca-stDgOn") && (await page.textContent("#aca-stDgTo")).includes("test@207photo.com"), "morning digest moved here");
+    await page.click('#aca-stCrew [data-st="crew"]');
+    await page.waitForSelector("#aca-scWkH");
+    check(!(await page.$("#aca-scRoles")) && (await page.$eval("#aca-scWkH", (n) => n.selectedOptions[0].textContent)) === "3pm", "the Schedule's crew dialog, emails half, 12-hour times");
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_settings_save" && c[1].p.week_email_hour === 15)), "saves through crew_settings_save");
+    await page.click('#aca-stDaily [data-st="daily"]');
+    await page.waitForSelector("#aca-asPlanHour");
+    await page.selectOption("#aca-asMailHour", "6");
+    await page.click('.as-modal [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "day_email_settings_save" && c[1].p_hour === 6)), "morning email hour saves from Settings");
+    // Job types
+    await page.click('#aca-pagetabs button[data-tab="jobtypes"], #aca-nav button[data-tab="jobtypes"]').catch(() => page.evaluate(() => { location.hash = "#system/jobtypes"; }));
+    await page.evaluate(() => { location.hash = "#system/jobtypes"; });
+    await page.waitForSelector("#aca-stJt-sports_data");
+    const jtx = await page.textContent("#aca-stJt-sports_data");
+    check(jtx.includes("Picture day done") && jtx.includes("Team composites") && jtx.includes("Sports with data"), "a job type card: stages, deliverables, its booking emails");
+    check(!!(await page.$("#aca-stJt-all")) && !!(await page.$("#aca-stAuto")), "every-job-type card and the auto-track switch");
+    await page.click('#aca-stJt-sports_data [data-st="stages"]');
+    await page.waitForSelector('#aca-bkJtTypes button[aria-pressed="true"]');
+    check(await page.$eval('#aca-bkJtTypes button[aria-pressed="true"]', (b) => b.dataset.jt) === "sports_data", "Stages & deliverables opens on that job type");
+    await page.click('.bk-form [data-v="close"] >> visible=true');
+    await page.click('#aca-stJtTop [data-st="addtype"]');
+    await page.fill("#aca-stNtName", "Dance recital");
+    await page.click('.modal [data-m="save"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_type_add" && c[1].p_label === "Dance recital" && c[1].p_copy_from === "school")), "adds a job type from an existing one");
+    // Team & pay
+    await page.evaluate(() => { location.hash = "#system/teampay"; });
+    await page.waitForSelector("#aca-stRoles .st-chips span");
+    check((await page.textContent("#aca-stRoles")).includes("Second shooter") && (await page.textContent("#aca-stKinds")).includes("SafeSport"), "Team & pay: crew roles and kinds of clearance");
+    check((await page.textContent("#aca-stRates")).includes("Part time") && (await page.textContent("#aca-stRules")).includes("Overtime after 40"), "Team & pay: pay rate defaults and time clock rules");
+    await page.click('#aca-stKinds [data-st="kinds"]');
+    await page.waitForSelector("#aca-srTypeList");
+    check((await page.textContent(".sr-listh")).includes("Warn (days)"), "the same Kinds of clearance dialog, with a header row");
+    await page.click("#aca-srTCancel");
+    await page.click('#aca-stRoles [data-st="roles"]');
+    await page.waitForSelector("#aca-scRoles li");
+    check(!(await page.$("#aca-scWkH")), "crew roles open the roles half of the Schedule's dialog");
+    await page.click('.sc-modal [data-m="cancel"]');
+    // Company
+    await page.evaluate(() => { location.hash = "#system/company"; });
+    await page.waitForSelector("#aca-stStudio");
+    check((await page.textContent("#aca-stStudio")).includes("not set") && await page.isVisible("#aca-syncNowBtn2") && await page.isVisible("#aca-mfaStatus"), "Company: studio, sync and sign-in security");
+    await page.click('#aca-stStudio [data-st="studio"]');
+    await page.waitForSelector("#aca-scAddr");
+    await page.click('.sc-modal [data-m="cancel"]');
+    await page.evaluate(() => { location.hash = "#system/health"; });
+    await page.waitForTimeout(300);
+    check(await page.$eval("#aca-panel-company", (n) => n.classList.contains("active")), "an old Sync link lands on Company");
+    // Sending: switches save right away; the Outreach block; Send window
+    await page.evaluate(() => { location.hash = "#system/sending"; });
+    await page.waitForSelector('[data-sw="legacy"]');
+    check(!(await page.textContent("#aca-panel-sending")).includes("Quiet hours") && (await page.textContent("#aca-panel-sending")).includes("Send window"), "Quiet hours is now Send window");
+    check(!!(await page.$('[data-sw="otest"]')) && !!(await page.$('[data-sw="track"]')), "Outreach test mode and track opens live in Sending");
+    await page.click('[data-sw="legacy"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "booking_settings" && w[1] === "update" && w[2].legacy_hub_reminders === false)), "a switch saves the moment it is flipped");
+    // Email library: no second sending editor; partner emails
+    await page.evaluate(() => { location.hash = "#system/library"; });
+    await page.waitForSelector("#aca-bkLibPBody [data-ptpl]");
+    check((await page.$$("#aca-bkLibPBody [data-ptpl]")).length === 3, "Partner emails: rebook, review request, agreement");
+    await page.click('#aca-bkLibPBody [data-ptpl="review"]');
+    await page.waitForSelector("#aca-pfTpLink");
+    check(true, "opens the Partners review template dialog");
+    await page.click("#aca-pfTpCancel");
+    await page.click("#aca-bkLibSettings");
+    await page.waitForTimeout(200);
+    check(await page.$eval("#aca-panel-sending", (n) => n.classList.contains("active")) && !(await page.$("#aca-bsQ1")), "Sending settings button goes to Settings > Sending (no second dialog)");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Settings tabs on a phone (390px)");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    for (const tab of ["teamemails", "jobtypes", "teampay", "company", "sending"]) {
+      await page.goto(`http://127.0.0.1:${port}/test/harness.html#system/${tab}`);
+      await page.waitForSelector("#aca-panel-" + tab + ".active .card, #aca-panel-" + tab + ".active .ss");
+      await page.waitForTimeout(300);
+      check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), tab + ": no sideways scroll at 390px");
+    }
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
   console.log("Settings > Bounced (owner)");
   {
     const { page, errors } = await open(browser, port, "", "#system/delivery");
