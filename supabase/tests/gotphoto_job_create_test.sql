@@ -80,6 +80,12 @@ select pg_temp.ok(not public.gp_create_claim((select e from q)), 'a linked booki
 
 -- Defaults per job type: archive date, price profile by season, school jobs.
 select pg_temp.ok((select (e->'set'->>'archive')::date from q) = ((now() + interval '41 days')::date + interval '1 month')::date, 'sports: archive one month after the shoot');
+insert into public.booking_days (booking_id, day, removed) values
+  ('00000000-0000-0000-0000-0000000000b2', (now() + interval '42 days')::date, false),
+  ('00000000-0000-0000-0000-0000000000b2', (now() + interval '45 days')::date, false),
+  ('00000000-0000-0000-0000-0000000000b2', (now() + interval '50 days')::date, true);
+select pg_temp.ok((select (e->'set'->>'archive')::date from jsonb_array_elements(public.gp_create_queue('00000000-0000-0000-0000-0000000000b2')) e)
+  = ((now() + interval '45 days')::date + interval '1 month')::date, 'multi-day: archive one month after the last day (removed days ignored)');
 update public.gp_type_defaults set price_profile_id = 'pp-any', price_profile_fall = 'pp-fall', price_profile_winter = 'pp-winter', price_profile_spring = 'pp-spring', prepay_deadline_days = 10
  where type_key = 'sports_data';
 update public.bookings set picture_day = make_date(extract(year from now())::int + 1, 9, 20) where id = '00000000-0000-0000-0000-0000000000b2';
@@ -103,7 +109,7 @@ select pg_temp.ok((select e->>'job_name' from qs) like '% | School Photos | ' ||
 select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"archive_rule": "june_1", "price_profile_spring": "pp-s", "prepay": "false", "labels": {"price_profile_spring": "Spring 2027"}}'::jsonb)->>'price_profile_spring') = 'pp-s', 'save sets a value');
 select pg_temp.ok((select prepay = false and archive_rule = 'june_1' and labels->>'price_profile_spring' = 'Spring 2027' from public.gp_type_defaults where type_key = 'sports_nodata'), 'save stores the rest');
 
-select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"access_type": "qr_tagging", "password_source": "file_path"}'::jsonb)->>'password_source') = 'file_path', 'save stores how the access codes are made');
+select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"access_type": "qr_tagging", "password_source": "qr_code_list"}'::jsonb)->>'password_source') = 'qr_code_list', 'save stores how the access codes are made');
 select pg_temp.ok((select price_profile_spring is null and access_type = 'qr_tagging' from public.gp_type_defaults where type_key = 'sports_nodata'), 'one price list: a save clears the season ones');
 select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"access_type": ""}'::jsonb)->>'password_source') is null, 'access back to copy clears how codes are made');
 select 'ALL GOTPHOTO JOB CREATE TESTS PASSED';

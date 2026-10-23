@@ -3,11 +3,12 @@
   // poked by the RPC), the admin email series (booking_emails, sent by edge fn booking-sender through Gmail) and,
   // for schools with an access code, the hub school row + reminder signups. Every write goes through an RPC.
   // Spec: docs/plans/2026-10-11-bookings-replace-17hats-design.md
-  // GotPhoto's "Photo access" is two API fields: access_type (qr_tagging = for each person) and password_source (how the
-  // codes are made). Shared with Settings > Job types > GotPhoto defaults.
-  const GP_ACCESS = [["", "Same as the organization's last job"], ["qr_tagging|file_path", "Photo access for each person, with list of names"],
-    ["qr_tagging|qr_code", "Photo access for each person, QR codes"], ["qr_tagging|registration", "Photo access for each person, families register"],
-    ["qr_tagging|manual", "Photo access for each person, codes added by hand"], ["single_password|manual", "One access code for everyone"]];
+  // GotPhoto's "Photo access" is two API fields: access_type (qr_tagging = access code for each person, single_password =
+  // one access code) and password_source, the method. Labels are GotPhoto's own; "with list of names" is qr_code_list
+  // (read back from real jobs 2026-10-23, it is missing from GotPhoto's API docs). Shared with Settings > Job types.
+  const GP_ACCESS = [["", "Same as the organization's last job"], ["qr_tagging|qr_code_list", "Each person: QR-Tagging \u2013 with list of names"],
+    ["qr_tagging|qr_code", "Each person: QR-Tagging"], ["qr_tagging|registration", "Each person: QR-Tagging \u2013 Registration for picture day"],
+    ["qr_tagging|manual", "Each person: Manual tagging"], ["single_password|manual", "One access code"]];
   const gpAccessOf = (d) => d && d.access_type ? d.access_type + "|" + (d.password_source || "manual") : "";
   const Bookings = (function () {
   const sb = supabase;

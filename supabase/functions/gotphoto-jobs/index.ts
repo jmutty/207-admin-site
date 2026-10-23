@@ -13,6 +13,8 @@
 // ?booking=<id> does one booking now, whatever gp_create_settings.auto_enabled says.
 // ?dry=1 builds the jobs it would make and returns them without claiming or creating anything.
 // ?lists=1 returns GotPhoto's price profiles and communication profiles (id + name) for Settings.
+// ?peek=<job id>[,<job id>] returns how those GotPhoto jobs are set up (access, dates, profiles), to check a
+// made job against GotPhoto's own screens.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const GP_AUTH = "https://auth.getphoto.io/oauth/access_token";
@@ -119,6 +121,19 @@ Deno.serve(async (req) => {
       };
       const [price_profiles, communication_profiles] = await Promise.all([list("price_profiles"), list("communication_profiles").catch(() => null)]);
       return Response.json({ ok: true, price_profiles, communication_profiles });
+    } catch (e) { return Response.json({ ok: false, error: String((e as Error).message ?? e) }, { status: 502 }); }
+  }
+  if (url.searchParams.get("peek")) {
+    try {
+      const token = await login();
+      const ids = url.searchParams.get("peek")!.split(",").slice(0, 10);
+      const keys = ["name", "internal_name", "access_type", "password_source", "register_after_password_login", "shoot", "archive",
+        "prepay_deadline", "registration_deadline", "price_profile_id", "communication_profile_id"];
+      const jobs = await Promise.all(ids.map(async (id) => {
+        const j = await getJob(id, token).catch((e) => ({ error: String(e.message ?? e) } as Record<string, unknown>));
+        return Object.fromEntries([["id", id], ...keys.filter((k) => k in j).map((k) => [k, j[k]]), ...("error" in j ? [["error", j.error]] : [])]);
+      }));
+      return Response.json({ ok: true, jobs });
     } catch (e) { return Response.json({ ok: false, error: String((e as Error).message ?? e) }, { status: 502 }); }
   }
   const booking = url.searchParams.get("booking");

@@ -805,7 +805,7 @@
     if (String(url).includes("/functions/v1/admin/gpjob")) {
       window.__gpjobCalls = (window.__gpjobCalls || []).concat([String(url)]);
       if (String(url).includes("dry=1")) return new Response(JSON.stringify({ ok: true, linked: 0, dry: true, made: [{ booking_id: "bk1", template: "Inferno Hockey | Winter | 2026",
-        body: { name: "Brewer Travel Basketball Club | Winter Sports | 2026", internal_name: "JOB00867", shoot: "2026-11-16", archive: "2026-12-16", price_profile_id: "pp-fall", communication_profile_id: "cp1", access_type: "qr_tagging", password_source: "file_path" } }] }), { status: 200 });
+        body: { name: "Brewer Travel Basketball Club | Winter Sports | 2026", internal_name: "JOB00867", shoot: "2026-11-16", archive: "2026-12-16", price_profile_id: "pp-fall", communication_profile_id: "cp1", access_type: "qr_tagging", password_source: "qr_code_list" } }] }), { status: 200 });
       return new Response(JSON.stringify({ ok: true, linked: 0, made: [{ booking_id: "bk1", gotphoto_job_id: "9001", name: "Brewer Travel Basketball Club | Winter Sports | 2026" }] }), { status: 200 });
     }
     if (String(url).includes("/functions/v1/admin/sales")) {
