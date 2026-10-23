@@ -16,6 +16,7 @@ docs/ADDING-A-MODULE.md            how to add a new area (scheduling, time clock
   `index.html` loads supabase-js and then `loader.js`, which
   pulls the current app bundle from Supabase Storage (`admin-app/207-admin.js`). Deploying the app
   never needs a change here.
+  `_redirects` sends the short email links (`/go/<code>`) to the `go` edge function, which logs the click and redirects.
 - **Security.** The browser holds only the public anon key. All data access goes through Postgres
   row-level security and `SECURITY DEFINER` RPCs, under the signed-in person's own Supabase Auth
   login. Sign-in has two steps: a password, then a 6-digit code emailed to them, or a device

@@ -1,0 +1,3 @@
+# Short links in booking emails (2026-10-24): admin.207photo.com/go/<code> -> the "go" edge function, which logs
+# the click and redirects (supabase/functions/go). Codes come from booking_link_codes.
+/go/:code https://socluffmclkdljtmiexw.supabase.co/functions/v1/go?c=:code 302
