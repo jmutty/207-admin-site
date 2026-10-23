@@ -53,6 +53,8 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141500_timeclock_roun
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/timeclock_round_two_test.sql   # location, reminders (booked only), midnight clock-out, pay rates, expenses + receipts bucket, overtime warnings, job time, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141600_email_delivery.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/email_delivery_test.sql       # Resend sends recorded by the pg_net trigger, answers + look-ups, bounces, resend, report, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023101500_crew_confirm_time_off.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/crew_confirm_time_off_test.sql   # crew roles, confirm asks (booked only, quiet hours, one reminder), public Confirm / Can't make it, people needed, crew picker, capacity, weekly email, time off approvals, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new

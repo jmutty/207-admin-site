@@ -60,6 +60,7 @@
       { key: "settings", label: "Settings", section: "System", description: "", sort: 90, status: "live", admin_only: true },
       { key: "team", label: "Team", section: "System", description: "", sort: 95, status: "live", admin_only: true },
       { key: "scheduling", label: "Scheduling", section: "Staff", description: "The week's bar schedule.", sort: 200, status: "live", admin_only: false },
+      { key: "timeoff", label: "Time off approvals", section: "Staff", description: "Approve or decline time off requests.", sort: 206, status: "live", admin_only: false },
       { key: "assignments", label: "Assignments", section: "Staff", description: "Daily, weekly and monthly tasks.", sort: 205, status: "live", admin_only: false },
       { key: "taskboard", label: "Task board", section: "Staff", description: "Board, calendar and workload.", sort: 206, status: "live", admin_only: false },
       { key: "staffrecords", label: "Staff records", section: "Staff", description: "Clearances and onboarding.", sort: 215, status: "live", admin_only: false },
@@ -469,6 +470,43 @@
       RPC.booking_set_stage = { ok: true };
     }
     RPC.workflow_step_save = { ok: true, id: "ws9" }; RPC.workflow_step_archive = { ok: true }; RPC.workflow_attention = { overdue: 1 };
+    // Crew (2026-10-23): roles, confirm answers, time off requests, the crew picker, weekly email.
+    {
+      const W = RPC.schedule_week, roles = [{ id: "r1", label: "Lead" }, { id: "r2", label: "Second shooter" }, { id: "r3", label: "Posing" }, { id: "r4", label: "Check-in" }];
+      W.people[0].roles = ["r1"]; W.people[1].roles = ["r2", "r4"]; W.people[2].roles = ["r3"];
+      Object.assign(W.entries[0], { role_id: "r1", role: "Lead", confirm: { status: "confirmed", reason: "", asked_at: iso(-2), answered_at: iso(-1), changed: false } });
+      Object.assign(W.entries[1], { role_id: "r2", role: "Second shooter", confirm: { status: "pending", reason: "", asked_at: iso(-1), answered_at: null, changed: false } });
+      W.crew = { roles, needed: { bk1: 3 }, declined: [{ booking_id: "bk1", user_id: "u5", name: "Alex Assistant", reason: "Dentist", answered_at: iso(-1) }],
+        requests: [{ id: "to1", user_id: "u2", first_day: add(sun, 5), last_day: add(sun, 5), start_time: null, end_time: null, note: "Family wedding" }],
+        settings: { crew_confirm_on: true, week_email_auto: false, week_email_dow: 5, week_email_hour: 15 } };
+      RPC.my_day.entries.forEach((e) => { if (e.id === "se2") Object.assign(e, { role: "Second shooter", confirm: { status: "pending", token: "c".repeat(32) } }); });
+      RPC.crew_capacity = { team: 3, days: [{ day: add(sun, 2), jobs: 1, needed: 3, on_jobs: 2, off: 0, asked_off: 0 }, { day: add(sun, 4), jobs: 1, needed: 1, on_jobs: 0, off: 1, asked_off: 0 },
+        { day: add(sun, 12), jobs: 3, needed: 4, on_jobs: 1, off: 0, asked_off: 1 }] };
+      const pp = (id, name, r, x) => Object.assign({ user_id: id, name, roles: r, has_home: true, home_min: null, off: false, asked_off: false, busy: [], on_it: false, declined: false }, x || {});
+      RPC.crew_options = { destination: "89 western ave, hampden me", studio_min: 25, roles,
+        people: [pp("u1", "Jeremiah Mutty", ["r1"], { home_min: 22, on_it: true }), pp("u2", "Sam Helper", ["r2", "r4"], { home_min: 41, on_it: true }),
+          pp("u5", "Alex Assistant", ["r3"], { has_home: false, declined: true, busy: [{ starts_at: at(add(sun, 2), "13:00"), ends_at: at(add(sun, 2), "15:00"), kind: "studio", title: null }] })] };
+      RPC.crew_roles_list = { can_edit: true, roles: roles.map((r, i) => Object.assign({ sort: (i + 1) * 10 }, r)), members: { u1: ["r1"], u2: ["r2", "r4"], u5: ["r3"] } };
+      RPC.crew_role_save = { ok: true, id: "r9" }; RPC.crew_role_archive = { ok: true }; RPC.team_set_roles = { ok: true };
+      RPC.crew_needed_set = { ok: true }; RPC.crew_ask_now = { ok: true }; RPC.crew_settings_save = { ok: true };
+      RPC.week_email_preview = [{ user_id: "u1", name: "Jeremiah Mutty", subject: "Your schedule, week of Oct 18: 1 job", sent_at: null },
+        { user_id: "u2", name: "Sam Helper", subject: "Your schedule, week of Oct 18: 1 job, 1 to confirm", sent_at: iso(-3) }];
+      RPC.week_email_send = { ok: true, sent: 2, nothing_on: 1, no_email: 0 };
+      RPC.crew_attention = { waiting: 1, mine: 1, timeoff: AS_STAFF ? 0 : 1 };
+      RPC.crew_mine = [{ booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", location: "89 Western Ave, Hampden ME", status: "pending", token: "c".repeat(32), changed: false,
+        days: [{ starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, role: "Second shooter", note: "" }] },
+        { booking_id: "bk2", title: "Brewer Travel Basketball Club \u2022 Winter Sports", location: "", status: "confirmed", token: "d".repeat(32), changed: false,
+        days: [{ starts_at: at(add(sun, 4), "16:00"), ends_at: at(add(sun, 4), "19:00"), drive_before_min: 0, role: null, note: "" }] }];
+      RPC.crew_answer = { ok: true, status: "confirmed" };
+      RPC.crew_public = { title: "Hampden Academy \u2022 School Photos", name: "Sam", location: "89 Western Ave, Hampden ME", status: "pending", reason: "", changed: false, cancelled: false,
+        days: [{ starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, role: "Second shooter", note: "" }], crew: [{ name: "Jeremiah Mutty", role: "Lead" }] };
+      RPC.crew_for_booking = { can_edit: true, booking_status: "booked", needed: 3, crew: [{ user_id: "u1", name: "Jeremiah Mutty", roles: ["Lead"], status: "confirmed", days: [{ starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00") }] }], declined: [] };
+      RPC.time_off_list = { me: AS_STAFF ? "u2" : "u1", can_view: !AS_STAFF, can_edit: !AS_STAFF,
+        mine: [{ id: "to2", user_id: AS_STAFF ? "u2" : "u1", name: "", first_day: add(sun, 20), last_day: add(sun, 22), start_time: null, end_time: null, note: "Vacation", status: "approved", decided_by: "Jeremiah Mutty", decided_at: iso(-2), decision_note: "Enjoy!", created_at: iso(-4), jobs: [] }],
+        team: AS_STAFF ? [] : [{ id: "to1", user_id: "u2", name: "Sam Helper", first_day: add(sun, 5), last_day: add(sun, 5), start_time: null, end_time: null, note: "Family wedding", status: "pending", decided_by: null, decided_at: null, decision_note: "", created_at: iso(-1),
+          jobs: [{ starts_at: at(add(sun, 5), "10:00"), title: "Island Cheer \u2022 Cheer" }] }] };
+      RPC.time_off_request = { ok: true, id: "to9" }; RPC.time_off_cancel = { ok: true }; RPC.time_off_decide = { ok: true };
+    }
     RPC.assignment_check = { ok: true }; RPC.assignment_save = { ok: true, id: "t9" }; RPC.assignment_archive = { ok: true }; RPC.staff_settings_save = { ok: true }; RPC.day_email_status = { on: true, hour: 7, mine: true }; RPC.day_email_settings_save = { ok: true }; RPC.day_email_mine = { ok: true, on: false }; RPC.team_set_hours = { ok: true };
   }
   // Open jobs (2026-10-22): offers to part-timers.

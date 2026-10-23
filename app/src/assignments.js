@@ -101,6 +101,8 @@
         }
         rows.push([sDay < day ? 0 : T.local(e.starts_at).min, '<li><span class="t">' + esc(T.fmtTs(e.starts_at)) + "\u2013" + esc(T.fmtTs(e.ends_at)) + (eDay > day ? "+" : "") + "</span><span>" +
           esc(e.kind === "job" ? e.booking_title : e.title || ({ studio: "Studio", admin: "Admin" })[e.kind] || "Work") + (e.booking_status === "cancelled" ? ' <span class="as-tag urgent">cancelled</span>' : "") +
+          (e.role ? ' <span class="muted">(' + esc(e.role) + ")</span>" : "") +
+          (e.confirm && e.confirm.status === "confirmed" ? ' <span class="pill ok">Confirmed</span>' : e.confirm && e.confirm.status === "pending" ? ' <a class="pill warn" href="#crew/' + esc(e.confirm.token) + '">Confirm</a>' : "") +
           (e.booking_location ? '<span class="s">' + esc(e.booking_location) + "</span>" : "") + (e.note ? '<span class="s">' + esc(e.note) + "</span>" : "") + "</span></li>"]);
         if (e.kind === "job" && e.drive_after_min) {
           const back = new Date(en.getTime() + e.drive_after_min * 6e4).toISOString();

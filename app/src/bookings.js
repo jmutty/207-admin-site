@@ -665,13 +665,32 @@
     box.addEventListener("click", (e) => { const dd = el("bkCrewDd"); if (dd && dd.open && !dd.contains(e.target)) dd.open = false; });
     renderLabels(); renderDays(); renderFormDlv();
     if (el("bkCrew")) Schedule.team().then((ppl) => {
-      el("bkCrew").innerHTML = ppl.length ? ppl.map((x) => '<label class="bk-contact"><input type="checkbox" class="bk-crew" value="' + esc(x.user_id) + '" /> ' + esc(x.name) + "</label>").join("") : '<span class="bk-sub">Nobody on the team yet.</span>';
+      el("bkCrew").innerHTML = ppl.length ? ppl.map((x) => '<label class="bk-contact"><input type="checkbox" class="bk-crew" value="' + esc(x.user_id) + '" data-name="' + esc(x.name) + '" /> ' + esc(x.name) + "</label>").join("") : '<span class="bk-sub">Nobody on the team yet.</span>';
       const sync = () => {
-        const names = [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.parentNode.textContent.trim());
+        const names = [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.dataset.name);
         el("bkCrewSum").textContent = names.length ? names.join(", ") : "Nobody yet";
         el("bkCrewSum").classList.toggle("none", !names.length);
       };
       el("bkCrew").addEventListener("change", sync); sync();
+      // Opening the list notes who is off or busy that day, their roles and the drive from home (crew.js CrewPick).
+      let noted = "";
+      el("bkCrewDd").addEventListener("toggle", async () => {
+        if (!el("bkCrewDd").open || typeof CrewPick === "undefined") return;
+        const day = (box.querySelector(".bk-d-day") || {}).value || "", loc = el("bkLoc").value.trim(), key = day + "|" + loc;
+        if (!day || key === noted) return;
+        noted = key;
+        try {
+          const cp = await CrewPick.options(null, day, loc || null);
+          el("bkCrew").querySelectorAll(".bk-crew").forEach((x) => {
+            const p = cp.people.find((y) => y.user_id === x.value); if (!p) return;
+            const [line, lvl, rn] = CrewPick.describe(p, cp);
+            let n = x.parentNode.querySelector(".bk-crewnote");
+            if (!n) { n = document.createElement("span"); n.className = "bk-sub bk-crewnote"; n.style.cssText = "display:block;margin-left:24px"; x.parentNode.appendChild(n); x.parentNode.style.flexWrap = "wrap"; }
+            n.textContent = (rn.length ? rn.join(", ") + " \u00b7 " : "") + (loc ? line : line.replace(/ ?\u00b7? ?(no home address.*|drive from home unknown|\d+ min from home)$/, ""));
+            n.style.color = lvl === "bad" ? "var(--err-fg)" : lvl === "warn" ? "#8a6100" : "";
+          });
+        } catch (_e) { noted = ""; }
+      });
     }).catch(() => { el("bkCrew").innerHTML = '<span class="bk-sub">Could not load the team. Add people on the Schedule after booking.</span>'; });
     if (!isNew) { renderContacts(); renderPreview(); } else { renderPreview(); setTimeout(() => { const q = el("bkOrgQ"); if (q) q.focus(); }, 50); }
   }
