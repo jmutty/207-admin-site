@@ -74,6 +74,7 @@ insert into public.lookup_requests (parent_email) values ('parent@example.com');
 select pg_temp.ok((select count(*) from public.push_outbox where topic = 'help_request' and sent_at is null) = 1, 'help request queues one notification');
 select pg_temp.ok((select count(*) from net.calls where url like '%/push-sender' and headers ? 'x-push-secret') = 1, 'and wakes push-sender with the secret');
 select pg_temp.ok((select body from public.push_outbox where topic = 'help_request' and sent_at is null) like 'Parent/guardian box NOT ticked.%', 'no checkbox: the push says it was not ticked');
+select pg_temp.ok(not exists (select 1 from pg_trigger where tgrelid = 'public.lookup_requests'::regclass and tgname = 'lookup_request_email'), 'no alert email per help request (push + morning email instead)');
 insert into public.lookup_requests (parent_email) values ('parent2@example.com');
 select pg_temp.ok((select count(*) from public.push_outbox where topic = 'help_request' and sent_at is null) = 1, 'a second one within 10 minutes is merged');
 select pg_temp.act(null, 'service_role');

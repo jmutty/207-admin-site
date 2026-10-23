@@ -18,3 +18,8 @@ begin
   return null;
 end $$;
 revoke all on function public.push_on_help_request() from public, anon, authenticated;
+
+-- No more alert email to info@ for every help request (Jeremiah, 2026-10-23): the push covers it, and anything
+-- still pending shows in the 7am morning email ("A parent asked for help finding a code."). The trigger was made
+-- outside these migrations; notify_lookup_request() stays so it can be switched back on.
+drop trigger if exists lookup_request_email on public.lookup_requests;
