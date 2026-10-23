@@ -654,7 +654,7 @@
       const dayBtn = e.target.closest(".sc-head [data-day]");
       if (dayBtn) { anchor = dayBtn.dataset.day; setView("day"); return; }
       const chip = e.target.closest("[data-booking]");
-      if (chip) { const b = data.bookings.find((x) => x.booking_id === chip.dataset.booking && x.day === chip.dataset.day); if (b) editable() ? openAssign(b) : openBookingInfo(b); return; }
+      if (chip) { const b = data.bookings.find((x) => x.booking_id === chip.dataset.booking && x.day === chip.dataset.day); if (b) { if (editable()) openAssign(b); else location.hash = jobLink(b.booking_id); } return; } // people who can't staff it go to the job page
       const gc = e.target.closest("[data-gcal]");
       if (gc) {
         const c = (data.calendar || []).find((x) => x.event_id === gc.dataset.gcal); if (!c) return;
@@ -1323,13 +1323,6 @@
         : T.fmtDay(T.local(c.start_at).day, { weekday: "long" }) + ", " + T.fmtTs(c.start_at) + "\u2013" + T.fmtTs(c.end_at);
       const m = openModal('<div class="sc-modal"><h2>' + esc(c.summary) + '</h2><p class="sc-facts">' + esc(when) + (c.off_user ? "<br>Time off for " + esc(personName(c.off_user)) : "") +
         '<br><span class="muted">From the Google Calendar. Change it there and the schedule follows within a few minutes.</span></p>' +
-        '<div class="modal-actions"><span class="grow"></span><button type="button" class="primary" data-m="ok">OK</button></div></div>');
-      m.querySelector('[data-m="ok"]').addEventListener("click", () => m.close());
-    }
-    function openBookingInfo(b) {
-      const who = data.entries.filter((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day === b.day).map((e) => personName(e.user_id));
-      const m = openModal('<div class="sc-modal"><h2>' + esc(bookingLabel(b)) + '</h2><p class="sc-facts">' + esc(T.fmtDay(b.day, { weekday: "long" })) + ", " + esc(b.start_at ? T.fmtTs(b.start_at) + "\u2013" + T.fmtTs(b.end_at) : "time not set yet") +
-        (b.location ? "<br>" + esc(b.location) : "") + "<br><b>On it:</b> " + (who.length ? esc(who.join(", ")) : "nobody yet") + "</p>" +
         '<div class="modal-actions"><span class="grow"></span><button type="button" class="primary" data-m="ok">OK</button></div></div>');
       m.querySelector('[data-m="ok"]').addEventListener("click", () => m.close());
     }

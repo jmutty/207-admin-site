@@ -95,7 +95,7 @@
   .aca .pagetabs button[aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
   .aca .pagetabs .n { font-size: 12px; color: var(--faint); margin-left: 4px; }
   .aca .pagetabs .n.bad { color: var(--err-fg); font-weight: 600; }
-  #aca-mkRefresh, #aca-hubactRefresh, #aca-ogRefresh, #aca-ogReadyRefresh { display: none !important; }
+  #aca-mkRefresh, #aca-ogRefresh, #aca-ogReadyRefresh { display: none !important; }
   .aca .howlink { font-size: 13px; color: var(--muted); }
   .aca .howbody { margin: 8px 0 0; padding: 10px 12px; background: var(--surface-2); border-radius: 4px; color: var(--muted); font-size: 13px; max-width: 80ch; }
 
@@ -246,32 +246,6 @@
   .aca .gs .gs-item .m { color: var(--muted); font-size: 13px; }
   .aca .gs .gs-empty { padding: 14px 10px; color: var(--muted); font-size: 13px; }
 
-  .aca .hubact-org { border-top: 1px solid var(--line2); padding: 12px 0 14px; }
-  .aca .hubact-org.nudge { box-shadow: inset 2px 0 0 var(--err-fg); padding-left: 10px; }
-  .aca .hubact-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; cursor: pointer; user-select: none; }
-  .aca .hubact-chev { border: 0; background: transparent; height: auto; padding: 0 2px; }
-  .aca .hubact-org.folded .hubact-chev .sl-chev { transform: rotate(-45deg); margin-top: 0; }
-  .aca .hubact-org.folded .hubact-sends, .aca .hubact-org.folded .hubact-who { display: none; }
-  .aca .hubact-head .name { font-weight: 600; font-size: 14px; }
-  .aca .hubact-sends { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  .aca .hubact-sends td { padding: 5px 10px 5px 0; font-size: 13px; vertical-align: top; border: none; }
-  .aca .hubact-sends td.t { width: 210px; } .aca .hubact-sends td.d { width: 110px; white-space: nowrap; } .aca .hubact-sends td.s { width: 130px; }
-  .aca .hubact-sends tr.late td.t { font-weight: 600; color: var(--err-fg); }
-  .aca .hubact-who { margin-top: 8px; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
-  .aca .hubact-contact { display: inline-flex; align-items: center; gap: 6px; background: var(--hidden-bg); border-radius: 999px; padding: 2px 4px 2px 10px; }
-  .aca .hubact-x { border: none; background: transparent; color: var(--hidden-fg); font-size: 16px; line-height: 1; padding: 0 6px; height: auto; cursor: pointer; border-radius: 999px; }
-  .aca .hubact-x:hover { background: var(--err-bg); color: var(--err-fg); }
-  .aca .hubact-addform { flex-basis: 100%; margin-top: 10px; padding: 14px 16px 16px; background: var(--surface-2); border-radius: 4px; }
-  .aca .hubact-addform.hidden { display: none; }
-  .aca .hubact-form-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 12px; font-size: 13px; }
-  .aca .hubact-form-head strong { font-size: 14px; }
-  .aca .hubact-fields { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 12px; max-width: 720px; }
-  .aca .hubact-fields input { width: 100%; box-sizing: border-box; }
-  @media (max-width: 760px) { .aca .hubact-fields { grid-template-columns: 1fr 1fr; } .aca .hubact-f-email { grid-column: 1 / -1; } }
-  .aca .hubact-form-actions { display: flex; gap: 8px; margin-top: 14px; }
-  .aca .hubact-edit { border: none; background: transparent; padding: 0; height: auto; font: inherit; color: inherit; cursor: pointer; text-align: left; }
-  .aca .hubact-contact:hover { background: var(--sel-bg); }
-  .aca .hubact-contact.editing { background: var(--sel-bg); box-shadow: 0 0 0 1px var(--accent) inset; }
 
   /* Jobs: table + drawer */
   .aca .jobs-layout { display: flex; gap: 0; align-items: stretch; border-top: 1px solid var(--border); }
@@ -474,8 +448,8 @@
   @media (max-width: 760px) {
     .aca .card-head > div:first-child { flex-basis: auto; }
     .aca button { min-height: 40px; }
-    .aca button.small, .aca button.link, .aca .chips button, .aca .sl-foldbtn, .aca .howlink, .aca .hubact-chev, .aca .hubact-x, .aca .hubact-edit, .aca .ob-chev, .aca .bk-mailtog, .aca .tri button { min-height: 40px; }
-    .aca .hubact-chev, .aca .hubact-x, .aca .ob-chev, .aca .bk-mailtog { min-width: 40px; justify-content: center; }
+    .aca button.small, .aca button.link, .aca .chips button, .aca .sl-foldbtn, .aca .howlink, .aca .ob-chev, .aca .bk-mailtog, .aca .tri button { min-height: 40px; }
+    .aca .ob-chev, .aca .bk-mailtog { min-width: 40px; justify-content: center; }
     .aca .chips button { padding: 0 14px; }
     .aca .rail nav button { height: 40px; }
     .aca .menubtn { min-width: 40px; }
@@ -674,7 +648,7 @@
     </div>
     <!-- Badges older code still writes to (hidden; the rail badges come from setAttention). "Sync GotPhoto now" left the
          account menu (2026-10-24; the rail's sync line opens Settings > Company); its button stays here for system.js. -->
-    <div class="hidden" aria-hidden="true"><button type="button" id="aca-syncNowBtn" tabindex="-1">Sync GotPhoto now</button><span id="aca-blockBadge"></span><span id="aca-reqBadge"></span><span id="aca-mkBadge"></span><span id="aca-hubLateBadge"></span></div>
+    <div class="hidden" aria-hidden="true"><button type="button" id="aca-syncNowBtn" tabindex="-1">Sync GotPhoto now</button><span id="aca-blockBadge"></span><span id="aca-reqBadge"></span><span id="aca-mkBadge"></span></div>
   </div>
 
   <div id="aca-toast" role="status" aria-live="polite"></div>

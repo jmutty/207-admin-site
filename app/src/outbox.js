@@ -243,7 +243,7 @@
     if (ed && r.src === "booking" && r.status === "sent") acts.push('<button type="button" data-v="resend">Resend</button>');
     if (r.src === "booking" && r.booking_id) acts.push('<button type="button" data-v="booking">Open the job</button>');
     if (r.src === "makeup") acts.push('<button type="button" class="primary" data-v="makeups">Open in Makeups</button>');
-    if (r.src === "hub") acts.push('<button type="button" data-v="hub">Open Hub activity</button>');
+    if (r.src === "hub" && r.booking_id) acts.push('<button type="button" data-v="hub">Open the job</button>');
     if (r.src === "digest") acts.push('<button type="button" data-v="settings">Morning email settings</button>');
     p.innerHTML = `
       <div class="og-phead"><div class="og-ptop"><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600;line-height:22px">${esc(r.subject || "")}</div>
@@ -267,7 +267,7 @@
     if (opt.inPartner) return acts;
     if (r.src === "booking" && r.booking_id) acts.push('<button type="button" class="small" data-v="booking">Open the job</button>');
     if (r.src === "makeup") acts.push('<button type="button" class="primary small" data-v="makeups">Open in Makeups</button>');
-    if (r.src === "hub") acts.push('<button type="button" class="small" data-v="hub">Open Hub activity</button>');
+    if (r.src === "hub" && r.booking_id) acts.push('<button type="button" class="small" data-v="hub">Open the job</button>');
     if (r.src === "digest") acts.push('<button type="button" class="small" data-v="settings">Morning email settings</button>');
     if (r.org_id) acts.push('<button type="button" class="small" data-v="org">Open ' + esc(r.org) + "</button>");
     return acts;
@@ -329,7 +329,7 @@
       if (v === "org") { location.hash = "#partners/org/" + r.org_id + "/emails"; return; }
       if (v === "booking") { location.hash = jobLink(r.booking_id); return; }
       if (v === "makeups") return showTab("makeups");
-      if (v === "hub") return showTab("hubact");
+      if (v === "hub") { location.hash = jobLink(r.booking_id, "parents"); return; } // hub activity is on the job's Parents tab
       if (v === "settings") return showTab("sending");
       b.disabled = true;
       if (await act(r, v, () => load())) await load(); else b.disabled = false;

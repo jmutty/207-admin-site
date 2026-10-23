@@ -496,7 +496,7 @@
           (num(h.late_count) ? ' <span class="pill err">' + num(h.late_count) + " late</span>" : "") + "</div>" +
           ((h.sends || []).length ? '<table class="op-table"><tbody>' + h.sends.map((s) => "<tr><td>" + esc(s.title || "") + "</td><td>" + esc(s.date ? day(s.date, { year: undefined }) : "On booking") + '</td><td><span class="pill ' +
             ({ grabbed: "ok", late: "err", due: "accent", missed: "warn" }[s.status] || "muted") + '">' + esc({ grabbed: "Grabbed", late: "Late", due: "Due today", upcoming: "Not due yet", waiting: "Gallery not live yet", missed: "Not grabbed" }[s.status] || s.status) + "</span></td></tr>").join("") + "</tbody></table>" : "") +
-          "</div>").join("") + trailA("#jobs/hubact", "Hub activity for everyone", "font-size:13px") : '<div class="empty" style="padding:4px 0">No hub messages for ' + esc(O.name) + ".</div>") + "</div>" : "");
+          "</div>").join("") : '<div class="empty" style="padding:4px 0">No hub messages for ' + esc(O.name) + ".</div>") + "</div>" : "");
       box.onclick = async (e) => {
         const b = e.target.closest("button[data-v]"); if (!b) return;
         const tr = b.closest("tr[data-id]"), x = tr && byId[tr.dataset.id]; if (!x) return;

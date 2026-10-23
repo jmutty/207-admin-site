@@ -5,7 +5,7 @@
 //   jobs.js             JOBS: Jobs (+ drawer), Search settings, Blocked names
 //   parents.js          PARENTS: Help requests, Makeups
 //   partners-prospect-tools.js, partners-orgs.js, partners-library.js, partners-hub.js
-//                       PARTNERS: Organizations, Ready to send, Library, Schools, Hub activity
+//                       PARTNERS: Organizations, Ready to send, Library
 //   system.js           SYSTEM: Search log, Sync log (+ data quality), header sync status
 //   shell-end.js        auth listener + init()
 // into ONE function body (shared scope), base64-encodes it, and drops it into shell.html + the
@@ -251,7 +251,6 @@
     if (canSeeAny(["galleries", "findmyphotos"])) await ensureRules();
     if (canSeeAny(["galleries", "findmyphotos", "parents"])) loadJobs();
     if (canSee("findmyphotos")) loadBlocks();
-    if (canSee("hub")) loadSchools();
     // Everything Today summarizes. Today shows "Checking..." until these settle.
     todayFirst = Promise.all(todayLoaders(true)).catch(() => {}).then(markUnchecked);
     foldHelp();
@@ -328,7 +327,6 @@
     { id: "today",     group: "",         section: "today",    module: null,           tabs: [["today", "Today"]] },
     { id: "bookings",  group: "Jobs",     section: "jobs",     module: "bookings",     tabs: [["bookings", "Bookings"]] },
     { id: "jobs",      group: "Jobs",     section: "jobs",     module: "galleries",    tabs: [["jobs", "Galleries"]] },
-    { id: "hubact",    group: "Jobs",     section: "jobs",     module: "hub",          title: "Hub activity", tabs: [["hubact", "Activity"]] }, // #jobs/schools: partners-hub.js sends it to Hub activity (ws/partners)
     { id: "calc",      group: "System",   section: "system",    module: "bookings",     tabs: [["calc", "Job calculator"]] },
     { id: "requests",  group: "Parents",  section: "parents",  module: "parents",      tabs: [["requests", "Help requests"]] },
     { id: "makeups",   group: "Parents",  section: "parents",  module: "parents",      tabs: [["makeups", "Makeups"]] },
@@ -356,9 +354,9 @@
     // Partner first (2026-10-23): everything about one league or school is on its own page (#partners/org/<id>,
     // orgpage.js), so the cross-partner lists sit under three entries. The fourth item is the Today area.
     // 2026-10-24: Organizations is now Partners; Outreach to review lives in the Outbox; Seasons, Sales by job and
-    // Payouts are one Jobs > Sales tab (resjobs); Schools on the hub folded into Hub activity.
+    // Payouts are one Jobs > Sales tab (resjobs). 2026-10-25: Hub activity is on each job's Parents tab.
     ["Work", [["orgs", "Partners", ["orgs=All partners", "outbox=Outbox", "rebook=Due to rebook", "reviews", "agreements"], "Partners"],
-              ["jobs", "Jobs", ["bookings=All jobs", "jobs=Galleries", "hubact=Hub activity", "resjobs=Sales"], "Jobs"],
+              ["jobs", "Jobs", ["bookings=All jobs", "jobs=Galleries", "resjobs=Sales"], "Jobs"],
               ["parents", "Parents", ["requests", "makeups", "retakes", "searchlog=Find My Photos", "settings=Search rules", "blocks=Blocked"], "Parents"]]],
     ["Team", [["schedule", "Schedule", ["schedule", "openjobs@edit=Open jobs", "timeoff@edit:timeoff=Time off"]],
               ["tasks", "Tasks", ["tasks@edit"]],
@@ -372,7 +370,7 @@
   // Tabs that moved in the 2026-10-24 reshape. Old links (#jobs/payouts, #partners/ready, #system/health...) land on
   // the first of these that's in this person's menu. If none is yet (its module isn't merged), the old page still
   // opens on its own, outside the menu.
-  const MOVED = { payouts: ["resjobs"], seasons: ["resjobs"], ready: ["outbox"], schools: ["hubact"], checklists: ["bookings"],
+  const MOVED = { payouts: ["resjobs"], seasons: ["resjobs"], ready: ["outbox"], schools: ["bookings"], hubact: ["bookings"], checklists: ["bookings"],
     wfsteps: ["jobtypes"], health: ["company"], signin: ["company"] };
   // ...except these, whose pages still work on their own until their module hides or drops them (Seasons and Payouts
   // become Jobs > Sales; Job checklists becomes a column on All jobs). Until then their links open the old page.
@@ -667,7 +665,7 @@
     makeups:          ["A makeup to confirm and send.", "{n} makeups to confirm and send."],
     retakesNew:       ["A new retake request since yesterday.", "{n} new retake requests since yesterday."],
     followups:        ["A prospect follow-up is due.", "{n} prospect follow-ups are due."],
-    hubLate:          ["A team or school hasn't grabbed its hub message yet.", "{n} teams or schools haven't grabbed their hub messages yet."],
+    hubLate:          ["A job's hub message is late: the team or school hasn't grabbed it.", "{n} jobs have late hub messages: the teams or schools haven't grabbed them."],
     bookingCalendar:  ["A booking is out of step with Google Calendar.", "{n} bookings are out of step with Google Calendar."],
     dataQuality:      ["A published gallery is missing search fields.", "{n} published galleries are missing search fields."],
   };
@@ -820,7 +818,7 @@
   }
   el("todayUp").addEventListener("click", (e) => {
     const r = e.target.closest("[data-booking]"); if (!r) return;
-    showTab("bookings"); Bookings.openId(r.dataset.booking);
+    location.hash = jobLink(r.dataset.booking); // straight to the job page
   });
 
   // "Turn on notifications on this phone" (2026-10-24): a card at the top of Today until this person has a device

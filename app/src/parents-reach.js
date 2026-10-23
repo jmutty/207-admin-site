@@ -90,6 +90,7 @@
         if (error) throw error;
         d = data;
       } catch (e) { box.innerHTML = '<div class="inline-error">Could not load: ' + esc(cleanErr(e)) + "</div>"; return; }
+      const hub = await hubFor(bk, d);
       const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
       const school = d.audience === "school";
       const facts = [
@@ -102,9 +103,10 @@
       let h = '<div class="pr-sec"><div class="pr-facts">' + facts + "</div></div>";
       if (tasks.length) h += '<div class="pr-sec"><h3>For us to do</h3>' + tasks.map((f) => taskHtml(f, d.audience)).join("") + "</div>";
       h += '<div class="pr-sec"><h3>Messages to families</h3><p class="muted" style="margin:0 0 8px;font-size:13px">A copy on the hub counts as sent only close to when it was due' +
-        " (a copy weeks early, or three messages grabbed at once, doesn't). When one counts, the reminder email for it isn't sent.</p>" +
+        " (a copy weeks early, or three messages grabbed at once, doesn't). When one counts, the reminder email for it isn't sent. Grabbed means they copied or downloaded it on the hub, not that they sent it.</p>" +
+        (hub ? '<p class="pr-facts" style="margin:0 0 8px">' + hub.facts + "</p>" : "") +
         '<div style="overflow-x:auto"><table class="pr-tbl"><thead><tr><th>Message</th><th>Due</th><th>On the hub</th></tr></thead><tbody>' +
-        (d.messages || []).map((m) => "<tr><td>" + esc(m.title) + '</td><td class="m">' + esc(dayOrNot(m.due) || "after the gallery opens") + "</td><td>" + msgStatus(m, today) + "</td></tr>").join("") +
+        (d.messages || []).map((m) => "<tr><td>" + esc(m.title) + '</td><td class="m">' + esc(dayOrNot(m.due) || "after the gallery opens") + "</td><td>" + msgStatus(m, today) + grabbed(hub, m) + "</td></tr>").join("") +
         "</tbody></table></div></div>";
       if ((d.weather || []).length) {
         h += '<div class="pr-sec"><h3>Weather</h3><table class="pr-tbl"><thead><tr><th>Day</th><th>Forecast during the shoot</th><th>Checked</th></tr></thead><tbody>' +
@@ -134,6 +136,34 @@
           render(bk, box);
         } catch (e) { btn.disabled = false; toast(cleanErr(e), true); }
       };
+    }
+    // This job's row on the hub (what the old Hub activity page showed): who grabbed each message, the hub link and who
+    // gets the send-day reminders. Only for people with the hub area; null when the job isn't on the hub yet.
+    async function hubFor(bk, d) {
+      if (!canSee("hub") || typeof HubActivity === "undefined") return null;
+      try {
+        const { data: rows } = await sb.rpc("admin_bookings", { p_from: bk.picture_day, p_to: bk.picture_day });
+        const b = (rows || []).find((r) => r.id === bk.id) || {};
+        const school = d.audience === "school";
+        const orgId = school ? b.hub_school_id : bk.gotphoto_job_id || b.gotphoto_job_id;
+        const row = await HubActivity.forBooking(d.audience, orgId);
+        if (!row) return null;
+        const who = (b.contacts || []).map((c) => c.name || c.email).filter(Boolean);
+        const facts = [
+          '<span><a href="' + esc(HubActivity.link(d.audience, orgId)) + '" target="_blank" rel="noopener">Open their hub page</a></span>',
+          num(row.late_count) ? '<span class="pill err">' + num(row.late_count) + " late</span>" : "",
+          "<span>Send-day reminders go to: <b>" + (who.length ? esc(who.join(", ")) : "nobody yet") + '</b> <a href="' + esc(jobLink(bk.id, "booking")) + '">change</a></span>',
+        ].filter(Boolean).join("");
+        return { row, facts };
+      } catch (_e) { return null; }
+    }
+    // Who grabbed it, under the status. The day-before message is one per picture day ("day-2026-10-30").
+    function grabbed(hub, m) {
+      if (!hub) return "";
+      const sends = (hub.row.sends || []).filter((s) => s.key === m.key || (m.key === "day" && /^day-/.test(s.key || "")));
+      const lines = sends.map((s) => HubActivity.grabbedLine(s)).filter(Boolean);
+      const late = !m.sent_at && sends.some((s) => s.status === "late") ? '<div class="m">Late: nobody grabbed it. Still worth sending.</div>' : "";
+      return lines.map((l) => '<div class="m">' + esc(l) + "</div>").join("") + late;
     }
     function linkName(u) {
       const s = String(u || "");
