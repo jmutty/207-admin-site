@@ -657,7 +657,7 @@
     bookingNeedsJob: "not linked to its GotPhoto gallery yet", bookingNeedsCoaches: "no coach email addresses yet", bookingDeliverablesOverdue: "a deliverable is overdue" };
   const GROUPS = [["err", "Fix now"], ["warn", "Waiting on you"], ["soon", "Check soon"]];
   const attention = {}; // key -> { count, label, tab, level, onGo, jobs }
-  // jobs (optional, 2026-10-24): [{ id, title, day }] the bookings behind the count. When they account for the whole
+  // jobs (optional, 2026-10-24): [{ id, title, day, tab? }] the bookings behind the count (tab: which job tab Open lands on). When they account for the whole
   // count, Today shows one line per job that opens that job instead of one count line that opens the list.
   function setAttention(key, count, label, tab, level, onGo, jobs) {
     attention[key] = { count: count || 0, label, tab, level: LEVEL_OVERRIDE[key] || level || "warn", onGo, key, jobs: Array.isArray(jobs) ? jobs : null };
@@ -707,7 +707,7 @@
       const dot = (lv) => '<span class="today-dot ' + lv + '" title="' + esc(GROUPS.find((g) => g[0] === lv)[1]) + '"></span>';
       const row = (a) => {
         const jobs = a.jobs && a.jobs.length && a.jobs.length === a.count ? a.jobs : null;
-        if (jobs) return jobs.map((j) => '<button type="button" class="today-item" data-job="' + esc(j.id) + '" data-key="' + esc(a.key) + '">' +
+        if (jobs) return jobs.map((j) => '<button type="button" class="today-item" data-job="' + esc(j.id) + '"' + (j.tab ? ' data-jobtab="' + esc(j.tab) + '"' : "") + ' data-key="' + esc(a.key) + '">' +
           '<span class="today-n">' + dot(a.level) + '</span><span class="today-l"><b>' + esc(j.title || "A job") + "</b>" + (j.day ? ' <span class="today-where">' + esc(Fmt.day(j.day)) + "</span>" : "") +
           ": " + esc(JOB_REASON[a.key] || sentence(a)) + '</span><span class="today-go">Open</span></button>').join("");
         return '<button type="button" class="today-item" data-go="' + esc(a.tab) + '" data-key="' + esc(a.key || "") + '">' +
@@ -736,7 +736,7 @@
       return;
     }
     const j = e.target.closest("[data-job]");
-    if (j) { location.hash = jobLink(j.dataset.job, "booking"); return; } // the job page (its Booking tab when there is one)
+    if (j) { location.hash = jobLink(j.dataset.job, j.dataset.jobtab || "booking"); return; } // the job page (its Booking tab, or the tab the item names)
     const b = e.target.closest("[data-go]");
     if (!b) return;
     showTab(b.dataset.go);

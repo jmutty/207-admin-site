@@ -989,6 +989,25 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
+  console.log("Did families hear? (Parents tab, Today task)");
+  {
+    const { page, errors } = await open(browser, port, "", "#today");
+    await page.waitForSelector('#aca-todayList .today-item[data-key="followRoster"]');
+    const row = await page.$('#aca-todayList .today-item[data-key="followRoster"]');
+    check((await row.textContent()).includes("Brewer Travel Basketball Club") && (await row.textContent()).includes("no roster two weeks out"), "Today: the roster task names its job");
+    check(await row.getAttribute("data-jobtab") === "parents", "Today: it opens the job's Parents tab");
+    await page.evaluate(() => { location.hash = "#jobs/job/bk1/parents"; });
+    await page.waitForSelector("#aca-jpBody .pr-tbl");
+    const txt = await page.textContent("#aca-jpBody");
+    check(txt.includes("Shooting: Outdoors") && txt.includes("Coaches on file: 0") && txt.includes("Roster: not yet"), "Parents tab: shooting, coaches, roster");
+    check(txt.includes("too early to count") && txt.includes("Not yet"), "Parents tab: an early copy doesn't count");
+    check(txt.includes("40% rain, gusts to 12 mph") && txt.includes("Hub message: One week before"), "Parents tab: the weather check and the link opened");
+    await page.click("[data-pr-roster]");
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_run_roster_only" && c[1].p_booking === "bk1")), "Keep date runs the job as Roster Only");
+    check(!errors.length, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
   console.log("Job page (owner)");
   {
     const { page, errors } = await open(browser, port, "", "#jobs/bookings");
@@ -1001,7 +1020,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-panel-job", (n) => n.classList.contains("active")), "the link opens the job page");
     check(!(await page.$('#aca-nav button[data-tab="job"]')), "the job page is not in the menu");
     const tabs = await page.$$eval("#aca-jpTabs button", (bs) => bs.map((b) => b.dataset.t));
-    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "parents", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
     const ov = await page.textContent("#aca-jpBody");
     check(ov.includes("Sam Helper") && ov.includes("40 min drive") && ov.includes("Chris Snowdeal"), "overview shows crew and contacts");
     check(!ov.includes("Use the side door"), "booking notes are not on Overview");
@@ -1540,7 +1559,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_public" && c[1].p_token === "d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2")), "asks for this token only");
     check(txt.includes("Brewer Travel Basketball Club") && txt.includes("5:00 PM to 7:00 PM") && txt.includes("Brewer Auditorium"), "shows the partner, the time and the place");
     check(txt.includes("We arrive by 4:30 PM") && txt.includes("(207) 558-3185") && txt.includes("on-site contact"), "day-of: arrival, phone, on-site contact ask");
-    check(txt.includes("5:15 U10 Red") && txt.includes("If the weather is bad"), "team times and the rain plan");
+    check(txt.includes("5:15 U10 Red") && txt.includes("If the weather looks bad"), "team times and the rain plan");
+    check(txt.includes("Picture day emergency") && txt.includes("(207) 299-3928") && txt.includes("calling more than twice"), "the emergency contact, with how to ring through");
     check(txt.includes("How it works for families") && txt.includes("no order forms") && txt.includes("10% of online sales"), "families block and the program's terms");
     check(await page.$eval('#aca-dayPublic a[href="https://www.dropbox.com/sh/x"]', (a) => !!a) && txt.includes("Coach banner"), "delivered files link out, the rest are listed as coming");
     check(await page.$eval("#aca-dyCal", (a) => a.href.includes("/functions/v1/booking-ics?t=d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2")), "Add to your calendar downloads the .ics");
