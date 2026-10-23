@@ -39,8 +39,10 @@ insert into public.push_subscriptions (user_id, endpoint, p256dh, auth) values
   ('00000000-0000-0000-0000-0000000000a2', 'https://push.example/p1', 'k', 'a'), ('00000000-0000-0000-0000-0000000000a1', 'https://push.example/m', 'k', 'a');
 
 insert into public.booking_types (key, label, default_duration_min) values ('school', 'School Photos', 120) on conflict do nothing;
-insert into public.bookings (id, type_key, title_override, status, picture_day, location) values
-  ('00000000-0000-0000-0000-0000000000b1', 'school', 'Hampden Academy', 'booked', current_date + 5, '89 Western Ave, Hampden ME');
+insert into public.prospect_orgs (id, name) values ('00000000-0000-0000-0000-0000000000f1', 'Hampden Academy (test)');
+insert into public.bookings (id, org_id, type_key, title_override, status, picture_day, location, start_at, end_at) values
+  ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000f1', 'school', 'Hampden Academy', 'booked', current_date + 5, '89 Western Ave, Hampden ME',
+   (current_date + 5 + time '09:00') at time zone 'America/New_York', (current_date + 5 + time '12:00') at time zone 'America/New_York');
 insert into public.booking_days (booking_id, day, start_at, end_at, sort) values
   ('00000000-0000-0000-0000-0000000000b1', current_date + 5, (current_date + 5 + time '09:00') at time zone 'America/New_York', (current_date + 5 + time '12:00') at time zone 'America/New_York', 0);
 update public.bookings set time_set = true, end_set = true, start_at = (current_date + 5 + time '09:00') at time zone 'America/New_York',
@@ -105,7 +107,7 @@ select pg_temp.raises($$insert into public.workflow_steps (title, anchor, partne
 
 -- ---------------------------------------------------------------- 4. partner terms: percent, deliverables or nothing
 insert into public.prospect_orgs (id, name, gotphoto_names) values
-  ('00000000-0000-0000-0000-00000000a0a1', 'Brewer Youth Basketball', '{}'), ('00000000-0000-0000-0000-00000000a0a2', 'Hampden Rec', '{}');
+  ('00000000-0000-0000-0000-00000000a0a1', 'Brewer Youth Basketball', '{}'), ('00000000-0000-0000-0000-00000000a0a2', 'Hampden Rec (test)', '{}');
 insert into public.job_results (gotphoto_job_id, job_name, picture_day, org_id, org_set, gp_sales) values
   ('pt1', 'BYB | Last winter', make_date(extract(year from current_date)::int - 1, 1, 15), '00000000-0000-0000-0000-00000000a0a1', true, 1000),
   ('pt2', 'BYB | This week',   current_date,                                              '00000000-0000-0000-0000-00000000a0a1', true, 500),
@@ -119,7 +121,7 @@ select public.results_set_terms('00000000-0000-0000-0000-00000000a0a2', null, ''
 select pg_temp.ok((select due = 100 and payout_state = 'owed' from public.job_results_calc where gotphoto_job_id = 'pt1'), 'percent: 10% of $1,000 owed');
 select pg_temp.ok((select due = 0 and payout_state = 'none' from public.job_results_calc where gotphoto_job_id = 'pt3'), 'deliverables: no money owed');
 select pg_temp.ok((select p ->> 'payout_kind' = 'deliverables' and p ->> 'gets' = 'Action photos for the banquet'
-                     from jsonb_array_elements(public.results_partners()) p where p ->> 'name' = 'Hampden Rec'), 'partners list shows what they get');
+                     from jsonb_array_elements(public.results_partners()) p where p ->> 'name' = 'Hampden Rec (test)'), 'partners list shows what they get');
 select pg_temp.ok((public.results_attention() ->> 'owed')::int = 1 and (public.results_attention() ->> 'total')::numeric = 100, 'Today: only the payout from a season that is over');
 select public.results_set_terms('00000000-0000-0000-0000-00000000a0a1', null, '', 'none');
 select pg_temp.ok((select due = 0 from public.job_results_calc where gotphoto_job_id = 'pt1'), 'nothing: no money owed');
@@ -157,6 +159,7 @@ select pg_temp.ok(exists (select 1 from public.push_digest where tag = 'tag_all'
 select pg_temp.ok((select jsonb_array_length(c -> 'subs') = 0 from jsonb_array_elements(public.push_claim(50)) c where c ->> 'tag' = 'tag_all'), 'broadcast: no push to Morning email people');
 
 -- the morning email's Today items, run as each person
+select set_config('request.jwt.claim.sub', '', true); -- as the cron job runs it
 select pg_temp.ok(exists (select 1 from jsonb_array_elements(public.digest_today_items('00000000-0000-0000-0000-0000000000a3')) i where i ->> 't' like 'A job was offered%') is false, 'Riley has nothing waiting (they answered)');
 update public.job_offers set status = 'open' where id = (select id from v_offer);
 update public.job_offer_recipients set answer = null, answered_at = null where offer_id = (select id from v_offer) and user_id = '00000000-0000-0000-0000-0000000000a3';
