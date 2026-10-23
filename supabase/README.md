@@ -44,6 +44,8 @@ psql -d shadow -v ON_ERROR_STOP=1    -f tests/employment_type_test.sql   # job t
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql         # again: offers now follow the employment type
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023091300_job_gear.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/job_gear_test.sql      # gear lists per job type, copies on booked jobs only, scan/check out for a job, repairs block check-out, past-due push, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023114700_partner_portal.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/partner_portal_test.sql   # portal link, public page (jobs, team times, deliverables, agreement, sales), proofs + rounds, files both ways, storage paths, booked-only email, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new
