@@ -625,6 +625,20 @@
       bounced: [{ email: "parent@example.com", n: 2, last: ago(3) }] };
   }
 
+  // ws/jobs (2026-10-24): one job screen (the Booking tab), checklists on All jobs, crew links into their job.
+  {
+    if (/[?&]tracked=1\b/.test(location.search)) RPC.job_get.booking.status = "tracked";
+    // view-only Bookings: no Edit booking. A part-timer (Open jobs only) opens a job they are on: crew access only.
+    if (AS_VIEWER) RPC.job_get.can = Object.assign({}, RPC.job_get.can, { bookings_edit: false });
+    if (AS_PART) RPC.job_get.can = { bookings: false, bookings_edit: false, pictureday: false, workflows: false, results: false, scheduling: false, crew: true };
+    // My jobs: from home, and their own checklist steps on the job
+    if (Array.isArray(RPC.crew_mine) && RPC.crew_mine[0]) Object.assign(RPC.crew_mine[0], { from_home: true, checklist_open: 2, checklist_late: 1 });
+    // My day: one checklist step (a task made by a job checklist) next to the plain tasks
+    if (Array.isArray(RPC.assignments_day)) RPC.assignments_day.push({ task_id: "w1", user_id: "u2", user_name: "Sam Helper", title: "Confirm start time and crew with the contact", notes: "", repeat: "once", priority: "normal",
+      est_minutes: null, on_date: new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }), overdue: false, done_at: null, done_by: null, booking_id: "bk3", booking_title: "Island Cheer & Tumbling \u2022 Cheer" });
+    RPC.schedule_remove = { ok: true };
+  }
+
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
