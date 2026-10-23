@@ -10,7 +10,7 @@
                  tabs: [["seasons", "Seasons"], ["payouts", "Partner payouts"], ["resjobs", "Jobs"]],
                  onShow: (tab) => Results.show(tab) });
   registerAttention("payoutsOwed", { module: "results", level: "soon", name: "partner payouts",
-    one: "A partner payout is owed for a picture day more than a month ago.", many: "{n} partner payouts are owed for picture days more than a month ago." });
+    one: "A partner payout is owed for a season that is over.", many: "{n} partner payouts are owed for seasons that are over." });
   registerTodayLoader("results", () => Results.loadAttention());
 
   const Results = (function () {
@@ -179,19 +179,19 @@
       jobs.filter(want).forEach((j) => { const id = j.org_id || ""; if (!groups.has(id)) groups.set(id, { id, name: j.org_name || "No organization", list: [] }); groups.get(id).list.push(j); });
       const list = [...groups.values()].map((g) => Object.assign(g, { a: agg(g.list) })).sort((x, y) => y.a.balance - x.a.balance || x.name.localeCompare(y.name));
       const owedAll = agg(jobs.filter((j) => j.state === "owed"));
-      const termed = partners.filter((p) => p.payout_pct != null);
+      const termed = partners.filter(hasTerms);
       const chip = (k, l) => '<button type="button" data-f="' + k + '" aria-pressed="' + (payFilter === k) + '">' + l + "</button>";
 
       root.innerHTML = '<div class="card">' +
         '<div class="rs-bar"><h2>Partner payouts</h2><span class="grow"></span></div>' +
         '<p class="rs-sub">' + (owedAll.jobs ? "<b>" + cents(owedAll.balance) + "</b> owed on " + owedAll.jobs + (owedAll.jobs === 1 ? " job" : " jobs") + ". " : "Nothing owed right now. ") +
-          "A partner's share is a percent of sales before tax, set under Terms below. Orders that come in after you pay show up as owed again for the difference.</p>" +
+          "A partner gets a percent of sales before tax, deliverables instead (like action photos), or nothing; set it under Terms below. Payouts show on Today once the season is over. Orders that come in after you pay show up as owed again for the difference.</p>" +
         '<div class="toolbar"><div class="chips">' + chip("owed", "Owed") + chip("waiting", "Waiting for sales") + chip("paid", "Paid") + chip("all", "All") + "</div></div>" +
         (list.length ? list.map((g) => {
           const ids = g.list.filter((j) => j.state === "owed").map((j) => j.id);
           const p = partnerOf(g.id);
           return '<div class="rs-org" data-org="' + esc(g.id) + '"><div class="rs-orgh"><b>' + esc(g.name) + "</b>" +
-            '<span class="muted">' + (p && p.payout_pct != null ? esc(n(p.payout_pct)) + "% of sales" : g.id ? "no terms" : "") + '</span><span class="grow"></span>' +
+            '<span class="muted">' + (p && hasTerms(p) ? esc(termsText(p)) : g.id ? "no terms" : "") + '</span><span class="grow"></span>' +
             (g.a.balance > 0.005 ? '<span class="owed">' + cents(g.a.balance) + " owed</span>" : "") +
             '<button type="button" class="small quiet" data-copy="' + esc(g.id) + '">Copy statement</button>' +
             (edit() && ids.length ? '<button type="button" class="small primary" data-payall="' + esc(ids.join(",")) + '">Record payment</button>' : "") + "</div>" +
@@ -202,12 +202,12 @@
             "</tbody></table></div></div>";
         }).join("") : '<p class="empty">' + (payFilter === "owed" ? "Nothing is owed." : "Nothing here.") + "</p>") +
         '<div class="rs-h">Terms</div>' +
-        '<div class="table-wrap"><table class="rs-t"><thead><tr><th>Partner</th><th class="r">Share of sales</th><th class="hide-sm">Note</th><th></th></tr></thead><tbody>' +
-          (termed.length ? termed.map((p) => "<tr><td class=\"name\">" + esc(p.name) + '</td><td class="r">' + esc(n(p.payout_pct)) + '%</td><td class="hide-sm muted">' + esc(p.note) + "</td><td class=\"jstate\">" +
+        '<div class="table-wrap"><table class="rs-t"><thead><tr><th>Partner</th><th>They get</th><th class="hide-sm">Note</th><th></th></tr></thead><tbody>' +
+          (termed.length ? termed.map((p) => "<tr><td class=\"name\">" + esc(p.name) + "</td><td>" + esc(termsText(p)) + '</td><td class="hide-sm muted">' + esc(p.note) + "</td><td class=\"jstate\">" +
             (edit() ? '<button type="button" class="small" data-terms="' + esc(p.id) + '">Change</button>' : "") + "</td></tr>").join("")
-            : '<tr><td colspan="4" class="empty">No partner gets a share yet.</td></tr>') +
+            : '<tr><td colspan="4" class="empty">No partner terms yet.</td></tr>') +
         "</tbody></table></div>" +
-        (edit() ? '<div class="toolbar"><button type="button" id="aca-rsAddTerms">Add a partner&#8217;s share</button></div>' : "") + "</div>";
+        (edit() ? '<div class="toolbar"><button type="button" id="aca-rsAddTerms">Add a partner&#8217;s terms</button></div>' : "") + "</div>";
 
       root.querySelectorAll("[data-f]").forEach((b) => b.addEventListener("click", () => { payFilter = b.dataset.f; renderPayouts(); }));
       root.querySelectorAll("tr[data-job]").forEach((tr) => tr.addEventListener("click", () => openJob(tr.dataset.job)));
@@ -260,24 +260,35 @@
       });
     }
 
+    // Partner terms (polish pass 2026-10-23): a percent of sales, deliverables instead (like action photos), or nothing.
+    const TERM_KINDS = { percent: "A percent of sales", deliverables: "Deliverables instead (like action photos)", none: "Nothing" };
+    const hasTerms = (p) => p.payout_pct != null || !!p.payout_kind;
+    const termsText = (p) => (p.payout_kind === "deliverables" ? (p.gets ? p.gets : "Deliverables") + ", no money" : p.payout_kind === "none" ? "Nothing" : n(p.payout_pct) + "% of sales");
+
     function openTerms(orgId) {
       const p = orgId ? partnerOf(orgId) : null;
-      const choices = partners.filter((x) => x.payout_pct == null);
-      const m = openModal("<h2>" + (p ? esc(p.name) + "&#8217;s share" : "Add a partner&#8217;s share") + "</h2>" +
+      const choices = partners.filter((x) => !hasTerms(x));
+      const kind = (p && p.payout_kind) || "percent";
+      const m = openModal("<h2>" + (p ? esc(p.name) + "&#8217;s terms" : "Add a partner&#8217;s terms") + "</h2>" +
         (p ? "" : '<div class="field"><label for="aca-rsTOrg">Partner</label><select id="aca-rsTOrg">' + choices.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("") + "</select></div>") +
-        '<div class="field"><label for="aca-rsTPct">Share of sales before tax (%)</label><input type="number" id="aca-rsTPct" min="0" max="100" step="0.5" value="' + esc(p ? n(p.payout_pct) : 10) + '" /></div>' +
+        '<div class="field"><label for="aca-rsTKind">They get</label><select id="aca-rsTKind">' + Object.keys(TERM_KINDS).map((k) => '<option value="' + k + '"' + (k === kind ? " selected" : "") + ">" + TERM_KINDS[k] + "</option>").join("") + "</select></div>" +
+        '<div class="field" id="aca-rsTPctF"><label for="aca-rsTPct">Share of sales before tax (%)</label><input type="number" id="aca-rsTPct" min="0" max="100" step="0.5" value="' + esc(p && p.payout_pct != null ? n(p.payout_pct) : 10) + '" /></div>' +
+        '<div class="field" id="aca-rsTGetsF"><label for="aca-rsTGets">What they get</label><input type="text" id="aca-rsTGets" maxlength="200" placeholder="Action photos for the program" value="' + esc(p ? p.gets || "" : "") + '" /></div>' +
         '<div class="field"><label for="aca-rsTNote">Note</label><input type="text" id="aca-rsTNote" maxlength="500" placeholder="Partner Plan, paid after the gallery closes" value="' + esc(p ? p.note : "") + '" /></div>' +
         '<p id="aca-rsTErr" class="inline-error hidden"></p>' +
         '<div class="modal-actions">' + (p ? '<button type="button" class="quiet" data-rm>Remove</button><span class="grow"></span>' : "") + '<button type="button" data-x>Cancel</button><button type="button" class="primary" data-go>Save</button></div>');
       m.querySelector("[data-x]").addEventListener("click", m.close);
-      const save = async (pct) => {
-        const org = p ? p.id : el("rsTOrg").value;
-        const { error } = await sb.rpc("results_set_terms", { p_org: org, p_pct: pct, p_note: el("rsTNote").value.trim() });
+      const sync = () => { const k = el("rsTKind").value; el("rsTPctF").classList.toggle("hidden", k !== "percent"); el("rsTGetsF").classList.toggle("hidden", k !== "deliverables"); };
+      el("rsTKind").addEventListener("change", sync); sync();
+      const save = async (pct, remove) => {
+        const org = p ? p.id : el("rsTOrg").value, k = el("rsTKind").value;
+        const { error } = await sb.rpc("results_set_terms", { p_org: org, p_pct: remove ? null : k === "percent" ? pct : 0, p_note: el("rsTNote").value.trim(),
+          p_kind: remove ? null : k, p_gets: k === "deliverables" ? el("rsTGets").value.trim() : "" });
         if (error) { const b = el("rsTErr"); b.textContent = cleanErr(error); b.classList.remove("hidden"); return; }
-        m.close(); toast(pct == null ? "Removed." : "Saved."); await load(true); rerender();
+        m.close(); toast(remove ? "Removed." : "Saved."); await load(true); rerender();
       };
-      m.querySelector("[data-go]").addEventListener("click", () => { const v = el("rsTPct").value; save(v === "" ? null : parseFloat(v)); });
-      const rm = m.querySelector("[data-rm]"); if (rm) rm.addEventListener("click", () => save(null));
+      m.querySelector("[data-go]").addEventListener("click", () => { const v = el("rsTPct").value; save(v === "" ? 0 : parseFloat(v), false); });
+      const rm = m.querySelector("[data-rm]"); if (rm) rm.addEventListener("click", () => save(null, true));
     }
 
     // ---------------------------------------------------------------- Jobs
@@ -329,7 +340,7 @@
       if (!j) return;
       const can = edit(), dis = can ? "" : " disabled";
       const p = partnerOf(j.org_id);
-      const terms = p && p.payout_pct != null ? esc(n(p.payout_pct)) + "% (" + esc(p.name) + "&#8217;s terms)" : "none";
+      const terms = p && hasTerms(p) ? esc(termsText(p)) + " (" + esc(p.name) + "&#8217;s terms)" : "none";
       const gp = j.gp_synced_at ? (j.gp_sales == null ? "no sales" : dollars(n(j.gp_sales)) + ", " + n(j.gp_orders) + " orders") + ", read " + esc(fmtAgo(j.gp_synced_at)) : "not read yet";
       const m = openModal("<h2>" + esc(j.name) + "</h2>" +
         '<p class="rs-src">' + [fmtD(j.picture_day, true) ? "Picture day " + esc(fmtD(j.picture_day, true)) : "", j.season ? esc(seasonLabel(j.season, j.season_year)) : "",

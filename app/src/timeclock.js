@@ -6,13 +6,21 @@
   // RPCs: timeclock_status / timeclock_in / timeclock_out / timesheet_week / timepunch_save / timepunch_remove /
   // timesheet_approve / timesheet_payroll / timeclock_settings_save / mileage_list / mileage_save / mileage_remove /
   // mileage_refresh / mileage_from_schedule / timeclock_attention (migration 20261022213000).
+  // Round two (migration 20261023141500): location on clock in/out, reminders and midnight clock-out (server side),
+  // estimated pay and overtime warnings on timesheets; Expenses and Pay rates live in timeclock-extra.js.
   registerPage({ id: "clock", group: "Staff", section: "staff", module: "timeclock", title: "Time clock", selfService: true, // View = use it for yourself
-                 tabs: [["clock", "Clock"], ["timesheets", "Timesheets"], ["mileage", "Mileage"]],
-                 onShow: (tab) => (tab === "timesheets" ? TimeClock.loadWeek() : tab === "mileage" ? TimeClock.loadMiles() : TimeClock.loadClock()) });
+                 tabs: [["clock", "Clock"], ["timesheets", "Timesheets"], ["mileage", "Mileage"], ["expenses", "Expenses"]],
+                 onShow: (tab) => (tab === "timesheets" ? TimeClock.loadWeek() : tab === "mileage" ? TimeClock.loadMiles() : tab === "expenses" ? TimeClockExtra.loadExpenses() : TimeClock.loadClock()) });
   registerAttention("timeclockOpen", { module: "timeclock", level: "warn", name: "time clock",
     one: "A clock has been running for more than 12 hours. Someone probably forgot to clock out.", many: "{n} clocks have been running for more than 12 hours." });
   registerAttention("timesheetsApprove", { module: "timeclock", level: "soon", name: "timesheets",
     one: "A timesheet from last week is waiting for approval.", many: "{n} timesheets from last week are waiting for approval." });
+  registerAttention("timeclockReview", { module: "timeclock", level: "warn", name: "time clock",
+    one: "A clock was stopped at midnight. Check its clock-out time.", many: "{n} clocks were stopped at midnight. Check their clock-out times." });
+  registerAttention("expensesWaiting", { module: "timeclock", level: "soon", name: "expenses",
+    one: "An expense is waiting for approval.", many: "{n} expenses are waiting for approval." });
+  registerAttention("overtimeNear", { module: "timeclock", level: "soon", name: "overtime",
+    one: "Someone is close to overtime this week.", many: "{n} people are close to overtime this week." });
   registerTodayLoader("timeclock", () => TimeClock.loadToday());
 
   const TimeClock = (function () {
@@ -87,6 +95,22 @@
       a.href = URL.createObjectURL(new Blob([rows.map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" }));
       a.download = name; document.body.appendChild(a); a.click(); a.remove();
     }
+    // The phone's location for a punch, when Settings asks for it. Never holds the clock up: a refusal, no GPS or
+    // more than 6 seconds = no location.
+    function getLoc() {
+      if (!st || !st.gps || !navigator.geolocation) return Promise.resolve(null);
+      return new Promise((ok) => {
+        const done = (v) => { clearTimeout(t); ok(v); };
+        const t = setTimeout(() => ok(null), 6500);
+        navigator.geolocation.getCurrentPosition(
+          (p) => done({ lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6, acc: Math.round(p.coords.accuracy || 0) }),
+          () => done(null), { enableHighAccuracy: false, timeout: 6000, maximumAge: 120000 });
+      });
+    }
+    const mapLink = (l, label) => (l ? '<a href="https://www.google.com/maps?q=' + esc(l.lat + "," + l.lng) + '" target="_blank" rel="noopener" title="Within about ' + esc(l.acc) + ' m">' + label + "</a>" : "");
+    const locHtml = (x) => (x.in_loc || x.out_loc ? '<span class="s">' + [mapLink(x.in_loc, "In location"), mapLink(x.out_loc, "Out location")].filter(Boolean).join(" \u00b7 ") + "</span>" : "");
+    const reviewTag = (x) => (x.needs_review ? '<span class="tc-tag" title="Stopped automatically at midnight. Fix the clock-out time and save.">check time</span>' : "");
+    const payTxt = (pay) => (pay ? "est. " + money(pay.pay) : "");
     const mErrIn = (m) => (t) => { const n = m.querySelector(".tc-merr"); n.textContent = t; n.classList.remove("hidden"); };
 
     // ---------------------------------------------------------------- Clock
@@ -121,11 +145,16 @@
             : '<p class="empty" style="padding:8px 0">No jobs today.</p>') +
           '<div class="tc-kinds">' + ["studio", "admin", "other"].map((k) => '<button type="button" data-in="' + k + '">' + KIND[k] + "</button>").join("") + "</div>" +
           '<input type="text" class="tc-note" id="aca-tcNote" maxlength="200" placeholder="Note (optional)" />' +
+          (st.gps ? '<p class="muted" style="margin:-4px 0 12px;font-size:12.5px">Your location is saved with each clock in and out, if your phone allows it.</p>' : "") +
           (o ? '<p style="margin:0"><button type="button" class="link" data-c="cancel">Keep going on ' + esc(what(o)) + "</button></p>" : "");
       }
       const today = st.today || [];
       const worked = today.reduce((n, p) => n + num(p.minutes), 0);
-      el("tcBody").innerHTML = top +
+      const otLeft = st.overtime_applies === false || !st.overtime_after ? null : Math.round(num(st.overtime_after) * 60) - num(st.week_worked_min);
+      const warn = (st.review ? '<p class="tc-warn" style="margin-top:14px">' + (st.review === 1 ? "A clock of yours was" : st.review + " clocks of yours were") +
+          ' stopped at midnight. <a href="#staff/timesheets">Put in the real time</a>.</p>' : "") +
+        (otLeft != null && otLeft <= 4 * 60 ? '<p class="tc-warn" style="margin-top:14px">' + (otLeft > 0 ? hm(otLeft) + " left before overtime this week." : "You are into overtime this week.") + "</p>" : "");
+      el("tcBody").innerHTML = top + warn +
         '<div class="tc-sec"><h3>Today</h3>' + (today.length ? '<ul class="tc-list">' + today.map((p) => "<li><span class=\"t\">" + esc(T.fmtTs(p.clock_in)) + "\u2013" + (p.clock_out ? esc(T.fmtTs(p.clock_out)) : "now") + "</span><span>" + esc(what(p)) +
           (p.edited ? '<span class="tc-tag">edited</span>' : "") + (p.note ? '<span class="s">' + esc(p.note) + "</span>" : "") + '</span><span class="tc-num">' + hm(p.minutes) + "</span></li>").join("") + "</ul>" : '<p class="empty">Nothing yet today.</p>') +
           (today.length ? '<p class="tc-sum" style="margin-top:8px">' + hm(worked) + " worked" + (st.today_scheduled_min ? " of " + hm(st.today_scheduled_min) + " scheduled" : "") + "</p>" : "") + "</div>" +
@@ -141,12 +170,15 @@
       b.disabled = true;
       try {
         if (b.dataset.c === "out") {
-          const { data, error } = await sb.rpc("timeclock_out", { p_note: "" });
+          const loc = await getLoc();
+          const { data, error } = await sb.rpc("timeclock_out", { p_note: "", p_loc: loc });
           if (error) throw error;
           toast("Clocked out. " + hm(data && data.minutes) + ".");
         } else {
           const k = b.dataset.in;
-          const { data, error } = await sb.rpc("timeclock_in", { p_kind: k, p_booking: k === "job" ? b.dataset.b : null, p_note: (el("tcNote") && el("tcNote").value.trim()) || "" });
+          const note = (el("tcNote") && el("tcNote").value.trim()) || "";
+          const loc = await getLoc();
+          const { data, error } = await sb.rpc("timeclock_in", { p_kind: k, p_booking: k === "job" ? b.dataset.b : null, p_note: note, p_loc: loc });
           if (error) throw error;
           toast((data && data.switched ? "Switched. " : "Clocked in. ") + (k === "job" ? b.firstChild.textContent : KIND[k]) + ".");
         }
@@ -161,7 +193,7 @@
       '<button type="button" class="small" data-w="next" aria-label="Week after">&rsaquo;</button><h2 id="aca-tsTitle">Timesheet</h2><span class="grow"></span>' +
       '<label class="hidden" id="aca-tsWhoWrap" style="font-size:13px">Showing <select class="small" id="aca-tsWho"><option value="me">Me</option><option value="all">Everyone</option></select></label>' +
       '<button type="button" class="small" data-w="add">Add time</button><button type="button" class="small hidden tc-ed" data-w="payroll">Payroll CSV</button>' +
-      '<button type="button" class="small hidden tc-ed" data-w="settings">Settings</button></div>' +
+      '<button type="button" class="small hidden tc-ed" data-w="rates">Pay rates</button><button type="button" class="small hidden tc-ed" data-w="settings">Settings</button></div>' +
       '<div id="aca-tsErr" class="inline-error hidden"></div><div id="aca-tsBody"><p class="empty">Loading&#8230;</p></div>';
     let week = null, who = "me", wk = null, people = [];
 
@@ -199,6 +231,7 @@
       return '<span class="s ' + (d > 0 ? "tc-over" : "tc-under") + '">' + (d > 0 ? "+" : "\u2212") + hm(Math.abs(d)) + "</span>";
     }
     function statusHtml(p) {
+      if (p.review && !p.approved_at) return '<span class="pill warn" title="A clock-out was filled in at midnight">Check time</span>';
       if (p.approved_at) return '<span class="pill ok">Approved' + (p.approved_by ? " by " + esc(T.shortName(p.approved_by)) : "") + "</span>";
       if (p.open) return '<span class="pill warn">Clocked in</span>';
       return total(p, "worked_min") ? '<span class="pill muted">Not approved</span>' : "";
@@ -214,21 +247,22 @@
         const list = wk.people.filter((p) => total(p, "worked_min") || total(p, "scheduled_min") || p.approved_at);
         el("tsBody").innerHTML = !list.length ? '<p class="empty">Nobody has time this week.</p>' :
           '<div class="table-wrap"><table class="tc-week"><thead><tr><th>Person</th>' + days.map((d) => '<th class="tc-num tc-hide-sm">' + esc(T.fmtDay(d, { month: undefined, day: "numeric" })) + "</th>").join("") +
-          '<th class="tc-num">Worked</th><th class="tc-num tc-hide-sm">Scheduled</th><th class="tc-num tc-hide-sm">Overtime</th><th class="tc-num tc-hide-sm">Miles</th><th>Status</th><th></th></tr></thead><tbody>' +
+          '<th class="tc-num">Worked</th><th class="tc-num tc-hide-sm">Scheduled</th><th class="tc-num tc-hide-sm">Overtime</th><th class="tc-num tc-hide-sm">Miles</th><th class="tc-num tc-hide-sm">Est. pay</th><th>Status</th><th></th></tr></thead><tbody>' +
           list.map((p) => { const w = total(p, "worked_min"), s = total(p, "scheduled_min"), ot = overtime(p);
             return '<tr class="tc-row" data-person="' + esc(p.user_id) + '"><td class="name">' + esc(T.shortName(p.name)) + "</td>" +
               p.days.map((d) => '<td class="tc-num tc-hide-sm">' + (d.worked_min ? hm(d.worked_min) : "") + (d.scheduled_min ? '<span class="s">' + hm(d.scheduled_min) + "</span>" : "") + "</td>").join("") +
               '<td class="tc-num">' + hm(w) + diffHtml(w, s) + '</td><td class="tc-num tc-hide-sm">' + (s ? hm(s) : "") + '</td><td class="tc-num tc-hide-sm">' + (ot ? '<span class="tc-over">' + hm(ot) + "</span>" : "") +
-              '</td><td class="tc-num tc-hide-sm">' + (num(p.miles) ? mi(p.miles) : "") + "</td><td>" + statusHtml(p) + "</td><td>" + approveBtn(p) + "</td></tr>"; }).join("") +
-          "</tbody></table></div>" + '<p class="tc-sum" style="margin-top:8px">Small numbers are scheduled time from the Schedule. Click a person to see and fix their punches.</p>';
+              '</td><td class="tc-num tc-hide-sm">' + (num(p.miles) ? mi(p.miles) : "") + '</td><td class="tc-num tc-hide-sm">' + (p.pay ? money(p.pay.pay) : "") + "</td><td>" + statusHtml(p) + "</td><td>" + approveBtn(p) + "</td></tr>"; }).join("") +
+          "</tbody></table></div>" + '<p class="tc-sum" style="margin-top:8px">Small numbers are scheduled time from the Schedule. Click a person to see and fix their punches. Est. pay uses the pay rates and leaves out mileage and expenses.</p>';
         return;
       }
       el("tsBody").innerHTML = wk.people.map((p) => {
         const w = total(p, "worked_min"), s = total(p, "scheduled_min"), ot = overtime(p);
         const punches = wk.punches.filter((x) => x.user_id === p.user_id);
         const mine = p.user_id === wk.me;
-        return '<div class="tc-person"><h3>' + esc(mine && who === "me" ? "Your timesheet" : T.shortName(p.name)) + " " + statusHtml(p) + '<span class="grow"></span>' + approveBtn(p) + "</h3>" +
-          '<p class="tc-sum">' + hm(w) + " worked" + (s ? " of " + hm(s) + " scheduled" : "") + (ot ? ' \u00b7 <span class="tc-over">' + hm(ot) + " overtime</span>" : "") + (num(p.miles) ? " \u00b7 " + mi(p.miles) + " mi" : "") + "</p>" +
+        const hist = wk.can_edit && typeof HistoryView !== "undefined" ? '<button type="button" class="small quiet" data-hist="' + esc(p.user_id) + '" data-name="' + esc(p.name) + '">History</button>' : "";
+        return '<div class="tc-person"><h3>' + esc(mine && who === "me" ? "Your timesheet" : T.shortName(p.name)) + " " + statusHtml(p) + '<span class="grow"></span>' + hist + approveBtn(p) + "</h3>" +
+          '<p class="tc-sum">' + hm(w) + " worked" + (s ? " of " + hm(s) + " scheduled" : "") + (ot ? ' \u00b7 <span class="tc-over">' + hm(ot) + " overtime</span>" : "") + (num(p.miles) ? " \u00b7 " + mi(p.miles) + " mi" : "") + (p.pay ? " \u00b7 " + payTxt(p.pay) : "") + (num(p.expenses) ? " \u00b7 " + money(p.expenses) + " expenses" : "") + "</p>" +
           '<ul class="tc-list tc-days tc-only-sm">' + p.days.filter((d) => d.worked_min || d.scheduled_min).map((d) => '<li><span class="t">' + esc(T.fmtDay(d.day)) + '</span><span class="tc-num">' + (d.worked_min ? hm(d.worked_min) : "\u2013") +
             (d.scheduled_min ? '<span class="s">of ' + hm(d.scheduled_min) + " scheduled</span>" : "") + "</span></li>").join("") + "</ul>" +
           '<div class="table-wrap tc-hide-sm"><table class="tc-week">' + head + "<tbody>" +
@@ -237,11 +271,14 @@
           "</tbody></table></div>" +
           '<div class="tc-sec" style="margin-top:14px"><h3>Punches</h3>' + (punches.length ? '<ul class="tc-list">' + punches.map((x) =>
             '<li class="tc-row" data-punch="' + esc(x.id) + '"><span class="t">' + esc(T.fmtDay(x.day)) + " " + esc(T.fmtTs(x.clock_in)) + "\u2013" + (x.clock_out ? esc(T.fmtTs(x.clock_out)) : "now") + "</span><span>" + esc(what(x)) +
-            (x.edited ? '<span class="tc-tag" title="' + esc(x.edited_by ? "Changed by " + x.edited_by : "Typed in") + '">edited</span>' : "") + (x.note ? '<span class="s">' + esc(x.note) + "</span>" : "") +
+            reviewTag(x) + (x.edited ? '<span class="tc-tag" title="' + esc(x.edited_by ? "Changed by " + x.edited_by : "Typed in") + '">edited</span>' : "") + (x.note ? '<span class="s">' + esc(x.note) + "</span>" : "") + locHtml(x) +
             '</span><span class="tc-num">' + hm(x.minutes) + "</span></li>").join("") + "</ul>" : '<p class="empty">No time clocked this week.</p>') + "</div></div>";
       }).join("") || '<p class="empty">Nothing this week.</p>';
     }
     weekRoot.addEventListener("click", async (ev) => {
+      if (ev.target.closest("a[href^='https:']")) return; // a map link inside a punch row
+      const hb = ev.target.closest("[data-hist]");
+      if (hb) { HistoryView.open("punches", hb.dataset.hist, "Time clock: " + hb.dataset.name); return; }
       const ap = ev.target.closest("[data-approve]");
       if (ap) {
         ev.stopPropagation(); ap.disabled = true;
@@ -265,6 +302,7 @@
       else if (v === "add") return openPunch(null);
       else if (v === "payroll") return openPayroll();
       else if (v === "settings") return openSettings();
+      else if (v === "rates") return TimeClockExtra.openRates();
       loadWeek();
     });
     el("tsWho").addEventListener("change", () => { who = el("tsWho").value; loadWeek(); });
@@ -288,6 +326,7 @@
           '<div class="field"><label for="aca-tpI">Clock in</label><input type="time" id="aca-tpI" step="60" value="' + (x ? T.hhmm(T.local(x.clock_in).min) : "09:00") + '" /></div>' +
           '<div class="field"><label for="aca-tpO">Clock out</label><input type="time" id="aca-tpO" step="60" data-dp-after="#aca-tpI" value="' + (x && x.clock_out ? T.hhmm(T.local(x.clock_out).min) : open ? "" : "17:00") + '"' + (open ? ' placeholder="Still clocked in"' : "") + " /></div></div>" +
         (open ? '<p class="muted" style="margin:-4px 0 10px;font-size:12.5px">Leave clock-out empty to stay clocked in.</p>' : "") +
+        (x && x.needs_review ? '<p class="tc-warn">This clock was still running at midnight, so it was stopped then. Put in the time work really stopped, then Save.</p>' : "") +
         '<div class="field"><label for="aca-tpN">Note</label><textarea id="aca-tpN" maxlength="500">' + esc(x ? x.note : "") + "</textarea></div>" +
         '<div class="inline-error hidden tc-merr"></div>' +
         '<div class="modal-actions">' + (isNew ? "" : '<button type="button" class="small warn" data-m="remove">Remove</button>') + '<span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (isNew ? "Add" : "Save") + "</button></div></div>");
@@ -329,14 +368,17 @@
         '<div class="row2"><div class="field"><label for="aca-prW">Pay period</label><select id="aca-prW"><option value="1">1 week</option><option value="2">2 weeks</option></select></div>' +
         '<div class="field"><label>Ending</label><p style="margin:6px 0 0" id="aca-prEnd"></p></div></div>' +
         '<div id="aca-prBody"><p class="empty">Loading&#8230;</p></div><div class="inline-error hidden tc-merr"></div>' +
-        '<div class="modal-actions"><button type="button" class="small" data-m="detail" disabled>Every punch (CSV)</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="small hidden" data-m="cont">1099 contractors (CSV)</button><button type="button" class="primary" data-m="csv" disabled>Download payroll CSV</button></div></div>');
+        '<div class="modal-actions"><button type="button" class="small" data-m="detail" disabled>Every punch (CSV)</button><button type="button" class="small hidden" data-m="exp">Expenses (CSV)</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="small hidden" data-m="cont">1099 contractors (CSV)</button><button type="button" class="primary" data-m="csv" disabled>Download payroll CSV</button></div></div>');
       const mErr = mErrIn(m);
       let pr = null;
       // 1099 contractors are kept out of the payroll CSV and listed on their own (employment type, Team page).
       const isCont = (p) => p.employment_type === "contractor";
       const TYPE = { full_time: "Full time", salaried: "Salaried", part_time: "Part time", contractor: "1099" };
-      const table = (list, ot) => '<div class="table-wrap"><table class="tc-week"><thead><tr><th>Person</th><th class="tc-num">' + (ot ? "Regular" : "Hours") + "</th>" + (ot ? '<th class="tc-num">Overtime</th>' : "") + '<th class="tc-num">Miles</th><th class="tc-num">Mileage</th></tr></thead><tbody>' +
-        list.map((p) => '<tr><td class="name">' + esc(p.name) + (p.employment_type === "salaried" ? ' <span class="pill muted">Salaried</span>' : "") + '</td><td class="tc-num">' + hrs2(ot ? p.regular_min : p.worked_min) + "</td>" + (ot ? '<td class="tc-num">' + (p.overtime_min ? hrs2(p.overtime_min) : "") + "</td>" : "") + '<td class="tc-num">' + mi(p.miles) + '</td><td class="tc-num">' + money(p.mileage_pay) + "</td></tr>").join("") +
+      const estPay = (p) => (p.pay ? num(p.pay.pay) : null);
+      const total$ = (p) => (estPay(p) == null ? null : estPay(p) + num(p.mileage_pay) + num(p.expenses));
+      const table = (list, ot) => '<div class="table-wrap"><table class="tc-week"><thead><tr><th>Person</th><th class="tc-num">' + (ot ? "Regular" : "Hours") + "</th>" + (ot ? '<th class="tc-num">Overtime</th>' : "") + '<th class="tc-num">Miles</th><th class="tc-num">Mileage</th><th class="tc-num">Expenses</th><th class="tc-num">Est. pay</th></tr></thead><tbody>' +
+        list.map((p) => '<tr><td class="name">' + esc(p.name) + (p.employment_type === "salaried" ? ' <span class="pill muted">Salaried</span>' : "") + '</td><td class="tc-num">' + hrs2(ot ? p.regular_min : p.worked_min) + "</td>" + (ot ? '<td class="tc-num">' + (p.overtime_min ? hrs2(p.overtime_min) : "") + "</td>" : "") + '<td class="tc-num">' + mi(p.miles) + '</td><td class="tc-num">' + money(p.mileage_pay) +
+          '</td><td class="tc-num">' + (num(p.expenses) ? money(p.expenses) : "") + '</td><td class="tc-num" title="' + esc(p.pay ? (p.pay.basis === "day" ? "Day rate " + money(p.pay.rate) : p.pay.basis === "job" ? money(p.pay.rate) + " a job x " + num(p.pay.jobs) : money(p.pay.rate) + " an hour") + ", from the " + p.pay.source + " rate. Mileage and expenses added." : "No pay rate set") + '">' + (total$(p) != null ? money(total$(p)) : '<span class="muted">no rate</span>') + "</td></tr>").join("") +
         "</tbody></table></div>";
       async function run() {
         const n = +el("prW").value, start = T.addDays(week, -7 * (n - 1));
@@ -352,10 +394,11 @@
             (unapproved.length ? '<p class="tc-warn">Not approved yet: ' + esc(names(unapproved)) + "</p>" : "") +
             (pr.people.filter((p) => !isCont(p)).length ? table(pr.people.filter((p) => !isCont(p)), true) : pr.people.length ? "" : '<p class="empty">No time in this period.</p>') +
             (pr.people.some(isCont) ? '<h3 style="margin:16px 0 6px;font-size:14px">1099 contractors</h3><p class="tc-sum" style="margin:0 0 6px">Not in the payroll CSV. Pay them from their own CSV.</p>' + table(pr.people.filter(isCont), false) : "") +
-            '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Sunday\u2013Saturday); salaried people and 1099 contractors get none. Mileage at " + rateTxt(pr.mileage_rate) + ".</p>";
+            '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Sunday\u2013Saturday); salaried people and 1099 contractors get none. Mileage at " + rateTxt(pr.mileage_rate) + ". Expenses are the approved ones. Est. pay = pay rate (overtime at 1.5x) + mileage + expenses; set rates under Pay rates. The CSV is for your payroll service.</p>";
           m.querySelector('[data-m="csv"]').disabled = !pr.people.some((p) => !isCont(p));
           m.querySelector('[data-m="detail"]').disabled = !pr.people.length;
           m.querySelector('[data-m="cont"]').classList.toggle("hidden", !pr.people.some(isCont));
+          m.querySelector('[data-m="exp"]').classList.toggle("hidden", !(pr.expense_rows || []).length);
         } catch (e) { mErr(cleanErr(e)); }
       }
       el("prW").addEventListener("change", run);
@@ -366,12 +409,18 @@
         if (!pr) return;
         const tag = pr.from + "_to_" + pr.to;
         if (t.dataset.m === "csv") {
-          download("207-payroll-" + tag + ".csv", [["Name", "Email", "Type", "Period start", "Period end", "Regular hours", "Overtime hours", "Total hours", "Miles", "Mileage pay", "Weeks approved"]]
-            .concat(pr.people.filter((p) => !isCont(p)).map((p) => [p.name, p.email || "", TYPE[p.employment_type] || "", pr.from, pr.to, hrs2(p.regular_min), hrs2(p.overtime_min), hrs2(p.worked_min), (Math.round(num(p.miles) * 10) / 10).toFixed(1), num(p.mileage_pay).toFixed(2), p.approved_weeks + " of " + p.weeks])));
+          download("207-payroll-" + tag + ".csv", [["Name", "Email", "Type", "Period start", "Period end", "Regular hours", "Overtime hours", "Total hours", "Miles", "Mileage pay", "Expenses", "Est. wages", "Est. total", "Weeks approved"]]
+            .concat(pr.people.filter((p) => !isCont(p)).map((p) => [p.name, p.email || "", TYPE[p.employment_type] || "", pr.from, pr.to, hrs2(p.regular_min), hrs2(p.overtime_min), hrs2(p.worked_min), (Math.round(num(p.miles) * 10) / 10).toFixed(1), num(p.mileage_pay).toFixed(2), num(p.expenses).toFixed(2),
+              estPay(p) == null ? "" : estPay(p).toFixed(2), total$(p) == null ? "" : total$(p).toFixed(2), p.approved_weeks + " of " + p.weeks])));
         }
         if (t.dataset.m === "cont") {
-          download("207-1099-" + tag + ".csv", [["Name", "Email", "Job title", "Period start", "Period end", "Hours", "Miles", "Mileage pay", "Weeks approved"]]
-            .concat(pr.people.filter(isCont).map((p) => [p.name, p.email || "", p.job_title || "", pr.from, pr.to, hrs2(p.worked_min), (Math.round(num(p.miles) * 10) / 10).toFixed(1), num(p.mileage_pay).toFixed(2), p.approved_weeks + " of " + p.weeks])));
+          download("207-1099-" + tag + ".csv", [["Name", "Email", "Job title", "Period start", "Period end", "Hours", "Miles", "Mileage pay", "Expenses", "Est. fees", "Est. total", "Weeks approved"]]
+            .concat(pr.people.filter(isCont).map((p) => [p.name, p.email || "", p.job_title || "", pr.from, pr.to, hrs2(p.worked_min), (Math.round(num(p.miles) * 10) / 10).toFixed(1), num(p.mileage_pay).toFixed(2), num(p.expenses).toFixed(2),
+              estPay(p) == null ? "" : estPay(p).toFixed(2), total$(p) == null ? "" : total$(p).toFixed(2), p.approved_weeks + " of " + p.weeks])));
+        }
+        if (t.dataset.m === "exp") {
+          download("207-expenses-" + tag + ".csv", [["Name", "Date", "Amount", "For", "Job", "Note", "Approved by"]]
+            .concat((pr.expense_rows || []).map((x) => [x.name, x.day, num(x.amount).toFixed(2), x.category, x.job_title || "", x.note, x.reviewed_by || ""])));
         }
         if (t.dataset.m === "detail") {
           download("207-punches-" + tag + ".csv", [["Name", "Date", "Clock in", "Clock out", "Hours", "What", "Job", "Note", "Edited"]]
@@ -381,11 +430,17 @@
     }
 
     async function openSettings() {
-      const { data } = await sb.rpc("timesheet_payroll", { p_start: week, p_weeks: 1 });
+      const { data } = await sb.rpc("timeclock_settings_get");
+      const v = Object.assign({ mileage_rate: 0.7, overtime_after: 40, gps_on: true, remind_before_min: 15, remind_out_after_min: 30, auto_out: true, ot_warn_hours: 4, half_day_hours: 5 }, data || {});
+      const numIn = (id, label, val, min, max, step) => '<div class="field"><label for="aca-' + id + '">' + label + '</label><input type="number" id="aca-' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + esc(val) + '" /></div>';
+      const box = (id, label, on) => '<label style="display:flex;gap:8px;align-items:center;margin:0 0 10px;font-size:14px"><input type="checkbox" id="aca-' + id + '"' + (on ? " checked" : "") + " /> " + label + "</label>";
       const m = openModal('<div class="tc-modal"><h2>Time clock settings</h2>' +
-        '<div class="row2"><div class="field"><label for="aca-tsR">Mileage rate ($ a mile)</label><input type="number" id="aca-tsR" min="0" max="5" step="0.005" value="' + esc(data ? data.mileage_rate : "0.70") + '" /></div>' +
-        '<div class="field"><label for="aca-tsO">Overtime after (hours a week)</label><input type="number" id="aca-tsO" min="0" max="80" step="0.5" value="' + esc(data ? data.overtime_after : "40") + '" /></div></div>' +
-        '<p class="muted" style="font-size:12.5px">Used for the payroll CSV and the Mileage page. Trip miles are a round trip from the studio address on the Schedule page.</p>' +
+        '<div class="row2">' + numIn("tsR", "Mileage rate ($ a mile)", v.mileage_rate, 0, 5, 0.005) + numIn("tsO", "Overtime after (hours a week)", v.overtime_after, 0, 80, 0.5) + "</div>" +
+        '<div class="row2">' + numIn("tsW", "Overtime warning (hours before; 0 = off)", v.ot_warn_hours, 0, 40, 0.5) + numIn("tsH", "Half day is under (hours)", v.half_day_hours, 1, 12, 0.5) + "</div>" +
+        '<div class="row2">' + numIn("tsB", "Clock-in reminder (minutes before; 0 = off; never for salaried people)", v.remind_before_min, 0, 120, 5) + numIn("tsA", "Clock-out reminder (minutes after; 0 = off)", v.remind_out_after_min, 0, 240, 5) + "</div>" +
+        box("tsG", "Save the phone\u2019s location with each clock in and out", v.gps_on) +
+        box("tsX", "Stop clocks still running at midnight and flag them to check", v.auto_out) +
+        '<p class="muted" style="font-size:12.5px">Reminders and warnings are phone notifications (people can turn each kind off). Trip miles are a round trip from the studio address on the Schedule page. The half-day rate applies to day-rate people who work less than the hours above.</p>' +
         '<div class="inline-error hidden tc-merr"></div><div class="modal-actions"><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Save</button></div></div>');
       const mErr = mErrIn(m);
       m.addEventListener("click", async (ev) => {
@@ -393,7 +448,9 @@
         if (t.dataset.m === "cancel") return m.close();
         t.disabled = true;
         try {
-          const { error } = await sb.rpc("timeclock_settings_save", { p_rate: parseFloat(el("tsR").value), p_overtime: parseFloat(el("tsO").value) });
+          const { error } = await sb.rpc("timeclock_settings_save", { p_rate: parseFloat(el("tsR").value), p_overtime: parseFloat(el("tsO").value),
+            p: { gps_on: el("tsG").checked, auto_out: el("tsX").checked, ot_warn_hours: parseFloat(el("tsW").value) || 0, half_day_hours: parseFloat(el("tsH").value) || 5,
+                 remind_before_min: parseInt(el("tsB").value, 10) || 0, remind_out_after_min: parseInt(el("tsA").value, 10) || 0 } });
           if (error) throw error;
           m.close(); toast("Saved."); loadWeek();
         } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
@@ -549,7 +606,11 @@
         setAttention("timeclockOpen", num(data.open_long), "", "timesheets");
         setAttention("timesheetsApprove", canEdit("timeclock") ? num(data.to_approve) : 0, "", "timesheets",
           null, () => { week = data.last_week; who = "all"; el("tsWho").value = "all"; loadWeek(); });
-      } catch (e) { setAttention("timeclockOpen", 0); setAttention("timesheetsApprove", 0); }
+        setAttention("timeclockReview", num(data.review), "", "timesheets");
+        setAttention("expensesWaiting", canEdit("timeclock") ? num(data.expenses) : 0, "", "expenses");
+        setAttention("overtimeNear", canEdit("timeclock") ? num(data.near_ot) : 0, "", "timesheets",
+          null, () => { week = T.weekStart(T.today()); who = "all"; el("tsWho").value = "all"; loadWeek(); });
+      } catch (e) { ["timeclockOpen", "timesheetsApprove", "timeclockReview", "expensesWaiting", "overtimeNear"].forEach((k) => setAttention(k, 0)); }
     }
     // A clock card at the top of Today: clocked in to what (with Clock out), or a Clock in button.
     async function loadToday() {
@@ -563,7 +624,7 @@
           const b = ev.target.closest("[data-tc]"); if (!b) return;
           if (b.dataset.tc === "in") { location.hash = "#staff/clock"; return; }
           b.disabled = true;
-          try { const { data, error } = await sb.rpc("timeclock_out", { p_note: "" }); if (error) throw error; toast("Clocked out. " + hm(data && data.minutes) + "."); loadToday(); }
+          try { const loc = await getLoc(); const { data, error } = await sb.rpc("timeclock_out", { p_note: "", p_loc: loc }); if (error) throw error; toast("Clocked out. " + hm(data && data.minutes) + "."); loadToday(); }
           catch (e) { b.disabled = false; toast(cleanErr(e), true); }
         });
       }
@@ -571,11 +632,13 @@
         const { data, error } = await sb.rpc("timeclock_status");
         if (error) throw error;
         const o = data.open;
+        st = st || data;
+        st.gps = data.gps;
         box.innerHTML = '<h2>Time clock <span class="c">' + (o ? "clocked in" : "clocked out") + '</span><a href="#staff/clock">Clock</a></h2>' +
           (o ? "<p>" + esc(what(o)) + " since " + esc(T.fmtTs(o.clock_in)) + " (" + hm(since(o.clock_in)) + ")</p>" : "<p>" + esc(data.jobs && data.jobs.some((j) => j.mine) ? "You have a job today. Clock in when you start." : hm(data.week_worked_min) + " worked this week.") + "</p>") +
           '<div class="tc-tbtn">' + (o ? '<button type="button" class="primary" data-tc="out">Clock out</button><button type="button" class="small" data-tc="in">Switch</button>' : '<button type="button" class="primary" data-tc="in">Clock in</button>') + "</div>";
       } catch (e) { box.innerHTML = ""; }
     }
 
-    return { loadClock, loadWeek, loadMiles, loadToday, loadAttention };
+    return { loadClock, loadWeek, loadMiles, loadToday, loadAttention, download, hm, money, people: async () => { if (canEdit("timeclock")) await loadPeople(); return people; } };
   })();

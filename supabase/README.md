@@ -39,9 +39,25 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022213500_picture_day_pl
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/pictureday_test.sql   # form, teams, slots, coach answers, sending switch/test mode/quiet hours, booked only, roster bucket, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022233000_staff_gear_records.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/staff_records_test.sql   # clearances, school-job warnings (booked only), onboarding + auto ticks, morning push, gear value + service log, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261022234500_checklist_flow_views.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/workflows_test.sql    # the job checklist tests still hold after it
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/checklist_flow_test.sql   # waits for, groups, reminders (owner push, manager push + email), partner email on done (booking settings, booked only), task board + bulk + workload, saved views, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023090000_employment_type.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/employment_type_test.sql   # job title + type (full access only), Open jobs to Part time / 1099, no overtime for salaried / 1099; rolls back
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/open_jobs_test.sql         # again: offers now follow the employment type
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023091300_job_gear.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/job_gear_test.sql      # repairs block check-out (alone and in a kit), fixing logs a repair, past-due push, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023101500_crew_confirm_time_off.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/crew_confirm_time_off_test.sql   # crew roles, confirm asks (booked only, quiet hours, one reminder), public Confirm / Can't make it, people needed, crew picker, capacity, weekly email, time off approvals, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023120000_job_setup_batching.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/job_batching_test.sql   # setup/teardown defaults + extents, trips (batch, unbatch, one-bar trips), job-to-job cache, mileage share, emails, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141500_timeclock_round_two.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/timeclock_round_two_test.sql   # location, reminders (booked only), midnight clock-out, pay rates, expenses + receipts bucket, overtime warnings, job time, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141600_email_delivery.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/email_delivery_test.sql       # Resend sends recorded by the pg_net trigger, answers + look-ups, bounces, resend, report, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023200000_polish.sql
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023210000_team_home.sql   # home address on the Team page
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/polish_test.sql       # picture day off, ask who's available + pick, no partner emails on checklists, payout kinds + season end, notification modes + morning digest; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new

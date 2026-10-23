@@ -95,16 +95,21 @@
         const s = new Date(e.starts_at), en = new Date(e.ends_at);
         const sDay = T.local(e.starts_at).day, eDay = T.local(e.ends_at).day;
         if (e.kind === "off") { rows.push([0, '<li><span class="t">All day</span><span>Time off' + (e.title ? ": " + esc(e.title) : "") + "</span></li>"]); return; }
+        const su = e.kind === "job" ? num(e.setup_min) : 0, td = e.kind === "job" ? num(e.teardown_min) : 0;
         if (e.kind === "job" && e.drive_before_min) {
-          const leave = new Date(s - e.drive_before_min * 6e4).toISOString();
-          rows.push([T.local(leave).min, '<li class="drive"><span class="t drive">' + esc(T.fmtTs(leave)) + '</span><span class="drive">Leave the studio (' + num(e.drive_before_min) + " min drive)</span></li>"]);
+          const leave = new Date(s - (e.drive_before_min + su) * 6e4).toISOString();
+          rows.push([T.local(leave).min, '<li class="drive"><span class="t drive">' + esc(T.fmtTs(leave)) + '</span><span class="drive">' + (e.from_last_job ? "Leave the last job" : e.from_home ? "Leave home" : "Leave the studio") + " (" + num(e.drive_before_min) + " min drive)</span></li>"]);
         }
+        if (su) { const at = new Date(s - su * 6e4).toISOString(); rows.push([T.local(at).min, '<li><span class="t drive">' + esc(T.fmtTs(at)) + '</span><span class="drive">Set up (' + su + " min)</span></li>"]); }
         rows.push([sDay < day ? 0 : T.local(e.starts_at).min, '<li><span class="t">' + esc(T.fmtTs(e.starts_at)) + "\u2013" + esc(T.fmtTs(e.ends_at)) + (eDay > day ? "+" : "") + "</span><span>" +
           esc(e.kind === "job" ? e.booking_title : e.title || ({ studio: "Studio", admin: "Admin" })[e.kind] || "Work") + (e.booking_status === "cancelled" ? ' <span class="as-tag urgent">cancelled</span>' : "") +
+          (e.role ? ' <span class="muted">(' + esc(e.role) + ")</span>" : "") +
+          (e.confirm && e.confirm.status === "confirmed" ? ' <span class="pill ok">Confirmed</span>' : e.confirm && e.confirm.status === "pending" ? ' <a class="pill warn" href="#crew/' + esc(e.confirm.token) + '">Confirm</a>' : "") +
           (e.booking_location ? '<span class="s">' + esc(e.booking_location) + "</span>" : "") + (e.note ? '<span class="s">' + esc(e.note) + "</span>" : "") + "</span></li>"]);
+        if (td) { rows.push([T.local(e.ends_at).min + 0.5, '<li><span class="t drive">' + esc(T.fmtTs(e.ends_at)) + '</span><span class="drive">Tear down (' + td + " min)</span></li>"]); }
         if (e.kind === "job" && e.drive_after_min) {
-          const back = new Date(en.getTime() + e.drive_after_min * 6e4).toISOString();
-          rows.push([T.local(back).min, '<li><span class="t drive">' + esc(T.fmtTs(back)) + '</span><span class="drive">Back at the studio (' + num(e.drive_after_min) + " min drive)</span></li>"]);
+          const back = new Date(en.getTime() + (e.drive_after_min + td) * 6e4).toISOString();
+          rows.push([T.local(back).min, '<li><span class="t drive">' + esc(T.fmtTs(back)) + '</span><span class="drive">' + (e.from_home ? "Back home" : "Back at the studio") + " (" + num(e.drive_after_min) + " min drive)</span></li>"]);
         }
       });
       rows.sort((a, b) => a[0] - b[0]);
@@ -169,10 +174,11 @@
     // ---------------------------------------------------------------- Tasks (manage)
     const taskRoot = el("panel-tasks");
     taskRoot.innerHTML =
-      '<div class="card"><div class="card-head"><div><h2>Tasks</h2><p>Daily, weekly, monthly and one-time tasks for each person. They show on that person&#39;s My day and in the evening notification. A missed task carries over until it is done (or its next due day comes around); urgent ones go to the top.</p></div>' +
+      '<div class="card"><div class="card-head"><div><h2>Tasks</h2><p>One plain list. Most tasks are one-time: tick them off here or on My day. Daily, weekly and monthly ones repeat on their own. Job checklist steps land here too, with whoever shoots the job; open one to give it to someone else. A missed task carries over until it is done; urgent ones go to the top.</p></div>' +
+      '<label class="small" style="display:inline-flex;gap:5px;align-items:center;font-size:13px"><input type="checkbox" id="aca-asShowDone" /> Show done</label>' +
       '<select class="small hidden" id="aca-asFilter" aria-label="Person"></select><button type="button" class="primary hidden" id="aca-asAdd">Add task</button></div>' +
       '<div id="aca-asTErr" class="inline-error hidden"></div>' +
-      '<div class="table-wrap"><table class="as-table"><thead><tr><th>Task</th><th>Who</th><th>Repeats</th><th class="as-hide-sm">Last done</th></tr></thead><tbody id="aca-asTBody"><tr><td colspan="4" class="empty">Loading&#8230;</td></tr></tbody></table></div></div>' +
+      '<div class="table-wrap"><table class="as-table"><thead><tr><th style="width:28px"></th><th>Task</th><th>Who</th><th>Repeats</th><th class="as-hide-sm">Last done</th></tr></thead><tbody id="aca-asTBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div></div>' +
       '<div class="card hidden" id="aca-asSetCard"><div class="card-head"><div><h2>Evening notification</h2><p>Each person with Assignments gets a notification with the next day&#39;s jobs (and when to leave), other scheduled time and tasks. Nothing is sent when there is nothing on. Set it before noon and it is about the same day instead. Everyone can switch it off for themselves under Notifications.</p></div></div>' +
       '<div class="as-settings"><label><input type="checkbox" id="aca-asPlanOn" /> Send it</label> at <select class="small" id="aca-asPlanHour"></select> <button type="button" class="small" id="aca-asPlanSave">Save</button></div>' +
       '<div class="card-head"><div><h2>Morning email</h2><p>Each person with Assignments also gets an email in the morning with that day&#39;s schedule (with when to leave for on site jobs, hours and a lunch reminder at 6 hours) and their tasks, urgent first. Nothing is sent on a day with nothing on. Everyone can switch it off for themselves on My day.</p></div></div>' +
@@ -213,17 +219,32 @@
       } catch (e) { showError("asTErr", "Could not load tasks: " + cleanErr(e)); }
     }
     const nameOf = (id) => { const p = people.find((x) => x.user_id === id); return p ? p.name : "Someone"; };
+    // One-time tasks first (by due day, done ones hidden unless asked), then the repeating ones.
     function renderList() {
-      const rows = list.tasks.filter((t) => !filter || t.user_id === filter)
-        .sort((a, b) => nameOf(a.user_id).localeCompare(nameOf(b.user_id)) || (b.priority === "urgent") - (a.priority === "urgent") || a.title.localeCompare(b.title));
+      const showDone = el("asShowDone").checked;
+      const rows = list.tasks.filter((t) => (!filter || t.user_id === filter) && (showDone || t.repeat !== "once" || !t.last_done))
+        .sort((a, b) => (a.repeat === "once" ? 0 : 1) - (b.repeat === "once" ? 0 : 1) || (a.repeat === "once" ? String(a.due_on).localeCompare(String(b.due_on)) : 0) ||
+          (b.priority === "urgent") - (a.priority === "urgent") || nameOf(a.user_id).localeCompare(nameOf(b.user_id)) || a.title.localeCompare(b.title));
+      const late = (t) => t.repeat === "once" && !t.last_done && t.due_on < T.today();
       el("asTBody").innerHTML = rows.length ? rows.map((t) =>
-        '<tr class="' + (list.can_edit ? "as-row" : "") + '" data-id="' + esc(t.id) + '"><td><b>' + esc(t.title) + "</b>" + (t.priority === "urgent" ? '<span class="as-tag urgent">Urgent</span>' : "") + (t.notes ? '<div class="muted" style="font-size:12.5px">' + esc(t.notes) + "</div>" : "") + "</td>" +
+        '<tr class="' + (list.can_edit ? "as-row" : "") + '" data-id="' + esc(t.id) + '"><td>' + (t.repeat === "once" && (list.can_edit || t.user_id === list.me)
+          ? '<input type="checkbox" data-check="' + esc(t.id) + '" data-on="' + esc(t.due_on) + '"' + (t.last_done ? " checked" : "") + ' aria-label="Done: ' + esc(t.title) + '" />' : "") + "</td>" +
+        "<td><b" + (t.last_done && t.repeat === "once" ? ' style="text-decoration:line-through;color:var(--muted)"' : "") + ">" + esc(t.title) + "</b>" + (t.priority === "urgent" ? '<span class="as-tag urgent">Urgent</span>' : "") + (late(t) ? '<span class="as-tag overdue">Overdue</span>' : "") + (t.notes ? '<div class="muted" style="font-size:12.5px">' + esc(t.notes) + "</div>" : "") + "</td>" +
         "<td>" + esc(nameOf(t.user_id)) + "</td><td>" + esc(repeatText(t)) + '</td><td class="as-hide-sm">' + esc(t.last_done ? T.fmtDay(t.last_done) : "never") + "</td></tr>").join("")
-        : '<tr><td colspan="4" class="empty">' + (list.can_edit ? "No tasks yet. Add one and it shows on that person&#39;s My day." : "Nothing assigned to you.") + "</td></tr>";
+        : '<tr><td colspan="5" class="empty">' + (list.can_edit ? "Nothing to do. Add a task and it shows on that person&#39;s My day." : "Nothing assigned to you.") + "</td></tr>";
     }
+    el("asShowDone").addEventListener("change", () => list && renderList());
+    el("asTBody").addEventListener("change", async (e) => {
+      const c = e.target.closest("input[data-check]"); if (!c) return;
+      c.disabled = true;
+      const { error } = await sb.rpc("assignment_check", { p_task: c.dataset.check, p_on: c.dataset.on, p_done: c.checked });
+      if (error) { toast(cleanErr(error), true); c.checked = !c.checked; c.disabled = false; return; }
+      toast(c.checked ? "Checked off." : "Back on the list.");
+      loadTasks();
+    });
     el("asFilter").addEventListener("change", () => { filter = el("asFilter").value; renderList(); });
     el("asAdd").addEventListener("click", () => openTask(null));
-    el("asTBody").addEventListener("click", (e) => { const r = e.target.closest("tr.as-row"); if (r) openTask(list.tasks.find((t) => t.id === r.dataset.id)); });
+    el("asTBody").addEventListener("click", (e) => { if (e.target.closest("input[data-check]")) return; const r = e.target.closest("tr.as-row"); if (r) openTask(list.tasks.find((t) => t.id === r.dataset.id)); });
     el("asPlanSave").addEventListener("click", async () => {
       try {
         const { error } = await sb.rpc("staff_settings_save", { p_on: el("asPlanOn").checked, p_hour: +el("asPlanHour").value });
@@ -242,7 +263,7 @@
 
     function openTask(t) {
       const isNew = !t;
-      t = t || { user_id: filter || "", title: "", notes: "", repeat: "daily", weekdays: [1, 2, 3, 4, 5], month_day: 1, due_on: T.today(), starts_on: T.today(), priority: "normal", est_minutes: null };
+      t = t || { user_id: filter || "", title: "", notes: "", repeat: "once", weekdays: [1, 2, 3, 4, 5], month_day: 1, due_on: T.today(), starts_on: T.today(), priority: "normal", est_minutes: null };
       const wd = t.repeat === "daily" && !(t.weekdays || []).length ? [0, 1, 2, 3, 4, 5, 6] : t.weekdays || [];
       const m = openModal('<div class="as-modal"><h2>' + (isNew ? "Add a task" : "Change task") + "</h2>" +
         '<div class="row2"><div class="field"><label for="aca-atWho">For</label><select id="aca-atWho">' + (t.user_id ? "" : '<option value="">Pick someone\u2026</option>') + people.map((p) => '<option value="' + esc(p.user_id) + '"' + (p.user_id === t.user_id ? " selected" : "") + ">" + esc(p.name) + (p.gets_day_plan ? "" : " (no Assignments access)") + "</option>").join("") + "</select></div>" +

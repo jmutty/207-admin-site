@@ -1,18 +1,21 @@
   // ================================================================ STAFF: Open jobs (2026-10-22)
   // Jobs offered to part-time photographers and 1099 contractors near them (employment type on the Team page). A manager (Edit) picks a booked job, sees each
   // part-timer's drive from home (offer-drive edge function, Google Maps) and who is busy, and sends it to
-  // the ones they tick. Each gets a push and answers here: Take it or Pass. First come, first served: taking
-  // it puts them on the schedule with their own drive time; once every spot is taken the offer is filled.
+  // the ones they tick. Each gets a push and answers here: I'm available, or Can't make it. The manager sees
+  // who said yes and picks (2026-10-23, Jeremiah: not first come, first served); picking puts that person on
+  // the schedule with their own drive time, and once every spot is picked the offer is filled.
   // View = a part-timer (only the offers sent to you); Edit = post offers, see answers, set up part-timers.
   // RPCs: openjobs_mine / openjobs_answer / openjobs_attention (view); openjobs_upcoming / openjobs_candidates /
-  // openjobs_post / openjobs_list / openjobs_close / openjobs_people / openjobs_person_save (edit).
+  // openjobs_post / openjobs_list / openjobs_pick / openjobs_close / openjobs_people / openjobs_person_save (edit).
   // Link #staff/openjobs/<booking id> opens "Offer a job" on that booking.
   registerPage({ id: "openjobs", group: "Staff", section: "staff", module: "openjobs", title: "Open jobs", selfService: true, // View = answer your own offers
                  tabs: [["openjobs", "Open jobs"]], onShow: () => OpenJobs.load() });
   registerAttention("openJobsWaiting", { module: "openjobs", level: "warn", name: "open job offers",
-    one: "A job was offered to you. Take it or pass.", many: "{n} jobs were offered to you. Take them or pass." });
+    one: "A job was offered to you. Say if you're available.", many: "{n} jobs were offered to you. Say if you're available." });
+  registerAttention("openJobsToPick", { module: "openjobs", level: "warn", name: "open jobs to pick",
+    one: "People said they're available for an open job. Pick who gets it.", many: "{n} open jobs have people available. Pick who gets them." });
   registerAttention("openJobsNoTakers", { module: "openjobs", level: "soon", name: "open jobs nobody took",
-    one: "Everyone passed on an open job. Offer it to more people or staff it yourself.", many: "Everyone passed on {n} open jobs." });
+    one: "Nobody can make an open job. Offer it to more people or staff it yourself.", many: "Nobody can make {n} open jobs." });
   registerTodayLoader("openjobs", () => OpenJobs.loadAttention());
 
   const OpenJobs = (function () {
@@ -72,7 +75,7 @@
       if (!days || !days.length) return "No days left";
       return days.map((d) => T.fmtDay(d.day) + ", " + (d.start_at ? T.fmtTs(d.start_at) + "–" + T.fmtTs(d.end_at) : "time not set yet")).join("; ");
     }
-    const spotsText = (o) => o.spots === 1 ? (o.taken ? "Taken" : "1 person needed") : o.taken + " of " + o.spots + " spots taken";
+    const spotsText = (o) => (o.spots === 1 ? (o.taken ? "Filled" : "1 person needed") : o.taken + " of " + o.spots + " picked") + (num(o.yes) ? " \u00b7 " + num(o.yes) + " available" : "");
 
     // ---------------------------------------------------------------- load
     let pending = null;   // a booking id from #staff/openjobs/<id>
@@ -105,18 +108,20 @@
       if (!offers.length) { el("ojMine").innerHTML = '<p class="empty">No jobs offered to you right now. When one comes up near you, you get a notification and it shows here.</p>'; return; }
       el("ojMine").innerHTML = offers.map((o) => {
         const me = o.mine || {};
-        const open = o.status === "open" && !me.answer;
-        const tag = me.answer === "accepted" ? '<span class="oj-tag ok">You took it</span>' : me.answer === "declined" ? '<span class="oj-tag">You passed</span>'
-          : o.status === "filled" ? '<span class="oj-tag">Already taken</span>' : o.status === "closed" ? '<span class="oj-tag">No longer needed</span>' : "";
+        const open = o.status === "open" && !me.answer, picked = !!me.picked_at;
+        const tag = picked ? '<span class="oj-tag ok">You\u2019re on it</span>' : o.status === "filled" ? '<span class="oj-tag">Filled</span>' : o.status === "closed" ? '<span class="oj-tag">No longer needed</span>'
+          : me.answer === "accepted" ? '<span class="oj-tag ok">You said you\u2019re available</span>' : me.answer === "declined" ? '<span class="oj-tag">You can\u2019t make it</span>' : "";
         return '<div class="oj-card' + (open ? "" : " done") + '" data-offer="' + esc(o.id) + '"><h4>' + esc(o.title) + tag + "</h4>" +
           '<p class="oj-facts"><b>' + esc(daysText(o.days)) + "</b>" + (o.location ? "<br>" + mapLink(o.location) : "") +
           (me.drive_min != null ? "<br>About " + num(me.drive_min) + " min drive from home" : "") + (o.pay ? "<br>Pay: " + esc(o.pay) : "") +
           (o.spots > 1 ? "<br>" + esc(spotsText(o)) : "") + "</p>" +
           (o.note ? '<p class="oj-note">' + esc(o.note) + "</p>" : "") +
           (me.answer === "declined" && me.reason ? '<p class="oj-facts">You said: ' + esc(me.reason) + "</p>" : "") +
-          (me.answer === "accepted" ? '<p class="oj-facts">It is on your schedule' + (canSee("assignments") ? ' (<a href="#staff/myday">My day</a>)' : "") + ".</p>" : "") +
-          (open || (me.answer === "declined" && o.status === "open")
-            ? '<div class="oj-acts"><button type="button" class="primary" data-take="' + esc(o.id) + '">Take it</button>' + (open ? '<button type="button" data-pass="' + esc(o.id) + '">Pass</button>' : "") + "</div>" : "") +
+          (picked ? '<p class="oj-facts">It is on your schedule' + (canSee("assignments") ? ' (<a href="#staff/myday">My day</a>)' : "") + ".</p>"
+            : me.answer === "accepted" && o.status === "open" ? '<p class="oj-facts">Thanks. You\u2019ll get a notification if you\u2019re picked.</p>' : "") +
+          (o.status === "open" && !picked
+            ? '<div class="oj-acts">' + (me.answer !== "accepted" ? '<button type="button" class="primary" data-take="' + esc(o.id) + '">I\u2019m available</button>' : "") +
+              (me.answer !== "declined" ? '<button type="button" data-pass="' + esc(o.id) + '">Can\u2019t make it</button>' : "") + "</div>" : "") +
           "</div>";
       }).join("");
     }
@@ -127,32 +132,42 @@
         try {
           const { data, error } = await sb.rpc("openjobs_answer", { p_offer: take.dataset.take, p_accept: true, p_reason: "" });
           if (error) throw error;
-          if (!data.ok) toast(data.error === "filled" ? "Someone already took this one. Thanks for answering!" : "This job is no longer open.", true);
-          else toast("It's yours." + (data.scheduled ? " It is on your schedule." : "") + (data.untimed ? " A day without a time yet gets added once it has one." : ""));
+          if (!data.ok) toast(data.error === "filled" ? "This one is already filled. Thanks for answering!" : "This job is no longer open.", true);
+          else toast("Thanks. You'll hear back if you're picked.");
         } catch (e) { toast(cleanErr(e), true); }
         load();
       }
       if (pass) openPass(pass.dataset.pass);
       const close = ev.target.closest("[data-close]");
-      if (close && confirm("Close this offer? People who haven't answered can't take it any more.")) {
+      if (close && confirm("Close this offer? Nobody else can say they're available.")) {
         close.disabled = true;
         const { error } = await sb.rpc("openjobs_close", { p_offer: close.dataset.close });
         if (error) toast(cleanErr(error), true); else toast("Closed.");
+        load();
+      }
+      const pick = ev.target.closest("[data-pick]");
+      if (pick) {
+        pick.disabled = true;
+        try {
+          const { data, error } = await sb.rpc("openjobs_pick", { p_offer: pick.dataset.offer, p_user: pick.dataset.pick });
+          if (error) throw error;
+          toast(data.filled ? "Picked. Every spot is filled." : "Picked." + (data.scheduled ? " It is on their schedule." : ""));
+        } catch (e) { toast(cleanErr(e), true); }
         load();
       }
       const again = ev.target.closest("[data-again]");
       if (again) openOffer(again.dataset.again);
     });
     function openPass(id) {
-      const m = openModal('<div class="oj-modal"><h2>Pass on this job</h2><div class="field"><label for="aca-ojReason">Why (optional)</label><input type="text" id="aca-ojReason" maxlength="300" placeholder="Busy that day, too far, ..." /></div>' +
-        '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="pass">Pass</button></div></div>');
+      const m = openModal('<div class="oj-modal"><h2>Can\u2019t make it</h2><div class="field"><label for="aca-ojReason">Why (optional)</label><input type="text" id="aca-ojReason" maxlength="300" placeholder="Busy that day, too far, ..." /></div>' +
+        '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="pass">Send</button></div></div>');
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") return m.close();
         t.disabled = true;
         const { error } = await sb.rpc("openjobs_answer", { p_offer: id, p_accept: false, p_reason: el("ojReason").value.trim() });
         if (error) { toast(cleanErr(error), true); t.disabled = false; return; }
-        m.close(); toast("Thanks, we'll ask someone else."); load();
+        m.close(); toast("Thanks for letting us know."); load();
       });
     }
 
@@ -165,7 +180,8 @@
           : o.status === "filled" ? '<span class="oj-tag ok">Filled</span>' : o.status === "closed" ? '<span class="oj-tag">Closed</span>'
           : !o.days.length ? '<span class="oj-tag">Past</span>' : '<span class="oj-tag warn">Open</span>';
         const who = (o.recipients || []).map((r) => {
-          const a = r.answer === "accepted" ? '<span class="oj-tag ok">Took it</span>' : r.answer === "declined" ? '<span class="oj-tag">Passed</span>'
+          const a = r.picked_at ? '<span class="oj-tag ok">Picked</span>' : r.answer === "accepted" ? '<span class="oj-tag ok">Available</span>' + (live && o.taken < o.spots ? '<button type="button" class="small" data-offer="' + esc(o.id) + '" data-pick="' + esc(r.user_id) + '">Pick</button>' : "")
+            : r.answer === "declined" ? '<span class="oj-tag">Can\u2019t make it</span>'
             : r.seen_at ? '<span class="oj-tag">Seen, no answer</span>' : r.notified ? '<span class="oj-tag">Notified</span>' : '<span class="oj-tag warn">No notifications on</span>';
           return '<li><span class="n">' + esc(T.shortName(r.name)) + "</span>" + a + (r.drive_min != null ? '<span class="s">' + num(r.drive_min) + " min</span>" : "") +
             (r.reason ? '<span class="s">&ldquo;' + esc(r.reason) + "&rdquo;</span>" : "") + (r.answered_at ? '<span class="s">' + esc(fmtAgo(r.answered_at)) + "</span>" : "") + "</li>";
@@ -321,6 +337,7 @@
         if (error) throw error;
         setAttention("openJobsWaiting", num(d && d.waiting), "Jobs offered to you", "openjobs");
         setAttention("openJobsNoTakers", num(d && d.no_takers), "Open jobs nobody took", "openjobs");
+        setAttention("openJobsToPick", num(d && d.to_pick), "Open jobs to pick", "openjobs");
       } catch (_e) { /* Today reports it as unchecked */ }
     }
 

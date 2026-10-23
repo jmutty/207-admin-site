@@ -46,6 +46,10 @@
     prospect_sequence_steps: [{ id: "st1", sequence_id: "q1", step_no: 1, delay_business_days: 0, subject: "{{league|winter}} picture day", body: "{{hi|Hey there}}!\n\n{{personal_line|We're filling our winter calendar now.}}", attachments: [{ path: "portfolio.pdf", filename: "207 Photo - Team & Individual Photos.pdf" }] },
       { id: "st2", sequence_id: "q1", step_no: 2, delay_business_days: 3, subject: null, body: "{{hi|Hey there}}, one more thing worth seeing.", attachments: [] }],
     prospect_saved_views: [],
+    saved_views: [{ id: "sv1", user_id: "u1", page: "taskboard", name: "Editing this week", config: { who: "g:g1", show: "open", checklist: true }, shared: true, sort: 0 }],
+    staff_group_members: [{ group_id: "g1", user_id: "u2" }],
+    bookings: [{ id: "bk1", type_key: "sports_data" }, { id: "bk2", type_key: "school" }, { id: "bk3", type_key: "sports_nodata" }],
+    inventory_bins: [{ id: "bin1", code: "A1", location: "Studio shelf" }], inventory_kits: [{ id: "kit1", name: "Kit 1" }],
     app_modules: [
       { key: "bookings", label: "Bookings", section: "Jobs", description: "Picture-day bookings.", sort: 10, status: "live", admin_only: false },
       { key: "galleries", label: "Galleries", section: "Jobs", description: "GotPhoto galleries.", sort: 20, status: "live", admin_only: false },
@@ -56,9 +60,12 @@
       { key: "settings", label: "Settings", section: "System", description: "", sort: 90, status: "live", admin_only: true },
       { key: "team", label: "Team", section: "System", description: "", sort: 95, status: "live", admin_only: true },
       { key: "scheduling", label: "Scheduling", section: "Staff", description: "The week's bar schedule.", sort: 200, status: "live", admin_only: false },
+      { key: "timeoff", label: "Time off approvals", section: "Staff", description: "Approve or decline time off requests.", sort: 206, status: "live", admin_only: false },
       { key: "assignments", label: "Assignments", section: "Staff", description: "Daily, weekly and monthly tasks.", sort: 205, status: "live", admin_only: false },
+      { key: "taskboard", label: "Task board", section: "Staff", description: "Board, calendar and workload.", sort: 206, status: "live", admin_only: false },
       { key: "staffrecords", label: "Staff records", section: "Staff", description: "Clearances and onboarding.", sort: 215, status: "live", admin_only: false },
-      { key: "timeclock", label: "Time clock & mileage", section: "Staff", description: "Clock in and out, timesheets, mileage.", sort: 210, status: "live", admin_only: false }],
+      { key: "timeclock", label: "Time clock & mileage", section: "Staff", description: "Clock in and out, timesheets, mileage.", sort: 210, status: "live", admin_only: false },
+      { key: "emails", label: "Email delivery", section: "System", description: "Every Resend email and how it went.", sort: 92, status: "live", admin_only: false }],
     prospect_enrollments: [{ org_id: "44444444-4444-4444-4444-444444444444", status: "paused", end_reason: "held for review" }],
     booking_types: [
       { key: "school", label: "School Photos", audience: "school", description: "Four emails: booked, student data (21 days), two weeks, day before. Creates the school on the hub.", title_labels: ["School Photos"], default_duration_min: 180, sort_order: 1 },
@@ -126,7 +133,7 @@
       : AS_MONEY ? { user_id: "u6", email: "bo@207photo.com", name: "Bo Books", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { results: "view" } }
       : AS_GEAR ? { user_id: "u5", email: "gus@207photo.com", name: "Gus Shooter", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { inventory: "view" } }
       : AS_VIEWER ? { user_id: "u4", email: "vic@207photo.com", name: "Vic Viewer", is_admin: false, active: true, trusted: true, must_change_password: false, modules: { bookings: "view" } }
-      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view", staffrecords: "view", timeclock: "view" } }
+      : AS_STAFF ? { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, active: true, trusted: true, must_change_password: /[?&]temp=1\b/.test(location.search), modules: { bookings: "edit", parents: "view", scheduling: "view", assignments: "view", staffrecords: "view", timeclock: "view", taskboard: "view" } }
       : { user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, active: true, trusted: true, must_change_password: false, modules: {} },
     team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, weekly_hours: 40, employment_type: "salaried", job_title: "Owner", last_sign_in_at: iso(-0.01), modules: {} },
       { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, is_me: false, active: true, must_change_password: true, last_sign_in_at: null, modules: { bookings: "edit", parents: "view" } },
@@ -138,7 +145,7 @@
         : [{ key: "help_request", label: "New help request", description: "A parent asked for help finding their access code.", enabled: true },
            { key: "booking_email_failed", label: "Booking email failed", description: "A booking email could not be sent.", enabled: false },
            { key: "sync_failed", label: "GotPhoto sync failing", description: "The GotPhoto sync started failing.", enabled: true }] },
-    push_set_pref: null, push_subscribe: { ok: true }, push_unsubscribe: null, push_test: { ok: true }, push_request_setup: null,
+    push_set_pref: null, push_set_mode: null, push_subscribe: { ok: true }, push_unsubscribe: null, push_test: { ok: true }, push_request_setup: null,
     admin_outbox: [
       { src: "outreach", id: "ob1", at: iso(0.1), to_name: "Island Cheer", to_email: "info@islandcheer.com", org: "Island Cheer & Tumbling", org_id: "44444444-4444-4444-4444-444444444444", subject: "Island Cheer picture day", detail: "Outreach, email 1", status: "needs_review", enrollment_id: "e9" },
       { src: "booking", id: "ob2", at: iso(-1), to_name: "Chris Snowdeal", to_email: "c@x.org", org: "Brewer Travel Basketball Club", booking_id: "b1", subject: "You're booked, start here", detail: "Booking email 1", status: "failed", error: "Gmail refused the send" },
@@ -213,8 +220,28 @@
     inventory_people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }, { user_id: "u5", name: "Gus Shooter" }],
     inventory_check_out: { ok: true, id: 3, holder_name: "Jeremiah Mutty" }, inventory_return: { ok: true },
     inventory_history: [{ id: 2, holder_name: "Gus Shooter", out_at: iso(-3), due_on: null, note: "Hampden", returned_at: null, with_kit: false }],
-    inventory_attention: { service_due: 1 }, inventory_service_log: { ok: true, id: 2 }, inventory_service_remove: { ok: true },
+    inventory_attention: { service_due: 1, gear_missing: 1, past_due: 1, needs_repair: 1 }, inventory_service_log: { ok: true, id: 2 }, inventory_service_remove: { ok: true },
+    // Gear per job (2026-10-23): Hampden tomorrow is missing gear; the light stand is at repair.
+    inventory_condition_set: { ok: true },
+    job_gear_jobs: [{ booking_id: "bkg1", title: "Hampden Rec \u2022 Sports: Parent Contacts", picture_day: iso(1).slice(0, 10), type_label: "Sports: Parent Contacts", lines: 3, got: 1, out: 1 },
+      { booking_id: "bkg2", title: "Testville Elementary \u2022 School Photos", picture_day: iso(9).slice(0, 10), type_label: "School Photos", lines: 0, got: 0, out: 0 }],
+    job_gear: { can_edit: !AS_GEAR, booking: { id: "bkg1", title: "Hampden Rec \u2022 Sports: Parent Contacts", picture_day: iso(1).slice(0, 10), status: "booked", type_label: "Sports: Parent Contacts" },
+      lines: [{ id: "gl1", label: "Sports kit 1", qty: 1, note: "", kit_id: "ik1", item_id: null, from_list: true, got: true, checkout_id: 2, holder_name: "Gus Shooter", returned_at: null, out_what: "Sports kit 1" },
+        { id: "gl2", label: "Canon R6 body", qty: 1, note: "Bring both batteries", kit_id: null, item_id: "ii2", from_list: true, got: false, warn: "Out with Sam Helper, due Fri Oct 24" },
+        { id: "gl3", label: "AA batteries", qty: 24, note: "", kit_id: null, item_id: null, from_list: true, got: false }],
+      extras: [] },
+    job_gear_check_out: { ok: true, id: 9, holder_name: "Jeremiah Mutty", line_id: "gl2" }, job_gear_pack: { ok: true }, job_gear_line_add: { ok: true }, job_gear_line_remove: { ok: true },
+    gear_templates_list: { can_edit: !AS_GEAR, types: [{ key: "school", label: "School Photos" }, { key: "sports_data", label: "Sports: Parent Contacts" }],
+      lines: [{ id: "gt1", type_key: null, kit_id: null, item_id: null, label: "AA batteries", name: "AA batteries", qty: 24, note: "" },
+        { id: "gt2", type_key: "sports_data", kit_id: "ik1", item_id: null, label: "", name: "Sports kit 1", qty: 1, note: "" }] },
+    gear_template_save: { ok: true }, gear_template_archive: { ok: true },
   });
+  T.inventory_items_v.push({ id: "00000000-0000-0000-0000-0000000000a4", name: "Light stand", qty: 1, serial: "", note: "", photo_path: null, bin_id: "ib1", kit_id: null, place_bin_id: "ib1",
+    bin_code: "A-01", bin_location: "Studio, back shelf", kit_name: null, checkout_id: null, holder_name: null, condition: "repair", condition_note: "Sent to the shop", condition_since: iso(-2) });
+  T.inventory_items_v.forEach((r) => { if (!r.condition) r.condition = "ok"; });
+  T.inventory_out_v[1].job_title = "Hampden Rec (Fri Oct 24)";
+  // Labels: a stand-in for the QR library (the real one loads from jsDelivr).
+  window.qrcode = () => ({ addData() {}, make() {}, createSvgTag: () => '<svg class="fake-qr" viewBox="0 0 1 1"></svg>' });
   // Season results (2026-10-22): two falls, a winter and a spring of jobs; Brewer gets 10%, Hampden 5%.
   {
     const BR = "11111111-1111-1111-1111-111111111111", HG = "22222222-2222-2222-2222-222222222222", IC = "44444444-4444-4444-4444-444444444444";
@@ -328,6 +355,29 @@
                  { id: 1, kind: "intake", to_email: "csnowdeal75@gmail.com", to_name: "Chris Snowdeal", subject: "Brewer picture day", status: "sent", created_at: iso(-3), sent_at: iso(-3) }],
         sending: { enabled: true, test_mode: false } },
       pd_attention: { move: 1, to_plan: 0 },
+      // Job page (jobpage.js)
+      job_get: { booking: { id: "bk1", title: "Brewer Travel Basketball Club \u2022 Winter Sports", org_id: "11111111-1111-1111-1111-111111111111", org_name: "Brewer Travel Basketball Club", org_town: "Brewer",
+                            type_key: "league", type_label: "League picture day", audience: "sports", status: "booked", picture_day: pd, start_at: at("09:00"), end_at: at("12:00"), time_set: true, end_set: true,
+                            location: "Brewer Rec Center", retake_day: null, notes: "Use the side door.", gotphoto_job_id: "gp1", access_code: null },
+                 days: [], stage: { label: "Booked", at: iso(-5), auto: true },
+                 stages: [{ id: "s1", label: "Booked", reached: true }, { id: "s2", label: "Picture day done", reached: false }],
+                 crew: [{ user_id: "u2", name: "Sam Helper", starts_at: at("08:30"), ends_at: at("12:30"), drive_before_min: 40, note: "" }],
+                 contacts: [{ name: "Chris Snowdeal", email: "csnowdeal75@gmail.com", phone: "207-555-0100", role: "President" }],
+                 deliverables: [{ label: "Team composites", status: "todo", due_date: null, link: "" }],
+                 tasks: [{ id: "t1", title: "Confirm crew", due_on: iso(-2).slice(0, 10), priority: "normal", who: "Sam Helper", mine: false, done: false },
+                         { id: "t2", title: "Pack kit", due_on: iso(1).slice(0, 10), priority: "urgent", who: "Jeremiah Mutty", mine: true, done: true }],
+                 picture_day: { intake_sent_at: iso(-3), submitted_at: iso(-1), roster_name: "roster.csv", onsite_name: "Chris", onsite_phone: "207-555-0100", teams: 3, timed: 2, confirmed: 1, move: 1 },
+                 results: { sales: 1234.5, orders: 40, pct: 15, due: 185.18, paid: 0, balance: 185.18, payout_state: "owed", gallery_status: "live" },
+                 notes_count: 1,
+                 can: { bookings: true, bookings_edit: true, pictureday: true, workflows: true, results: true, scheduling: true, crew: false } },
+      job_people: [{ user_id: "u2", name: "Sam Helper", crew: true }, { user_id: "u1", name: "Jeremiah Mutty", crew: false }],
+      job_notes_list: [{ id: 1, author_name: "Jeremiah Mutty", body: "Parking is behind the gym. @Sam Helper bring the blue backdrop.", created_at: iso(-1), edited_at: null, mine: true, can_remove: true,
+                         mentions: [{ user_id: "u2", name: "Sam Helper" }] }],
+      job_note_add: { ok: true, id: 2 }, job_note_edit: { ok: true }, job_note_remove: { ok: true },
+      history_get: [{ at: iso(-0.1), who: "Jeremiah Mutty", tbl: "bookings", action: "changed", changes: { location: ["Brewer High", "Brewer Rec Center"] } },
+                    { at: iso(-0.2), who: "Jeremiah Mutty", tbl: "schedule_entries", action: "added", changes: { user_id: [null, "u2"], starts_at: [null, at("08:30")] } },
+                    { at: iso(-5), who: "System", tbl: "stage", action: "changed", changes: { stage: [null, "Booked"] } }],
+      signins_get: [{ at: iso(-0.01), via: "code", ip: "203.0.113.9", country: "US", user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1" }],
       pd_save_plan: { ok: true }, pd_save_team: { ok: true, id: "pt9" }, pd_save_slots: { ok: true, saved: 1 }, pd_remove_team: { ok: true },
       pd_send_intake: { ok: true, to: "csnowdeal75@gmail.com", sending_enabled: true }, pd_send_slots: { ok: true, queued: 1, sending_enabled: true },
       pd_slot_preview: { to_email: "pat@example.org", subject: "U12 Green: picture day Sat, Nov 7 at 9:10 AM", text: "Hi Pat,\n\nHere is U12 Green's picture day time..." },
@@ -353,22 +403,27 @@
     const add = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
     const today = nyDay(Date.now()), sun = add(today, -new Date(today + "T12:00:00Z").getUTCDay());
     const at = (d, hm) => d + "T" + hm + ":00-04:00";
-    RPC.schedule_week = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", studio_address: AS_STAFF ? "1 Main St, Bangor ME" : "",
+    RPC.schedule_week = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", studio_address: AS_STAFF ? "1 Main St, Bangor ME" : "", setup_default: 30, teardown_default: 30,
       calendar: [{ event_id: "ev1@google.com", summary: "Studio makeup session", start_date: add(sun, 3), end_date: add(sun, 3), all_day: false, start_at: at(add(sun, 3), "10:00"), end_at: at(add(sun, 3), "12:00"), off_user: null },
         { event_id: "ev2@google.com", summary: "Alex Off", start_date: add(sun, 6), end_date: add(sun, 6), all_day: true, start_at: null, end_at: null, off_user: "u5" }],
-      people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40 }, { user_id: "u2", name: "Sam Helper", weekly_hours: 24 }, { user_id: "u5", name: "Alex Assistant", weekly_hours: null }],
+      people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40 }, { user_id: "u2", name: "Sam Helper", weekly_hours: 24 }, { user_id: "u5", name: "Alex Assistant", weekly_hours: null, from_home: true }],
       bookings: [{ booking_id: "bk1", day: add(sun, 2), start_at: at(add(sun, 2), "09:00"), end_at: at(add(sun, 2), "12:00"), title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", location: "89 Western Ave, Hampden ME", status: "booked", day_label: "" },
         { booking_id: "bk2", day: add(sun, 4), start_at: at(add(sun, 4), "16:00"), end_at: at(add(sun, 4), "19:00"), title: "Brewer Travel Basketball Club \u2022 Winter Sports", type_label: "Sports", location: "", status: "booked", day_label: "" },
+        { booking_id: "bk4", day: add(sun, 2), start_at: at(add(sun, 2), "14:00"), end_at: at(add(sun, 2), "15:30"), title: "Hampden Rec \u2022 Fall Soccer", type_label: "Sports", location: "Dorothea Dix Park, Hampden ME", status: "booked", day_label: "" },
+        { booking_id: "bk5", day: add(sun, 5), start_at: at(add(sun, 5), "08:30"), end_at: at(add(sun, 5), "11:00"), title: "Ellsworth Elementary \u2022 School Photos", type_label: "School Photos", location: "Ellsworth ME", status: "booked", day_label: "" },
+        { booking_id: "bk6", day: add(sun, 5), start_at: at(add(sun, 5), "12:30"), end_at: at(add(sun, 5), "14:30"), title: "Bucksport Middle \u2022 School Photos", type_label: "School Photos", location: "Bucksport ME", status: "booked", day_label: "" },
         { booking_id: "bk3", day: add(sun, 6), start_at: null, end_at: null, title: "Island Cheer & Tumbling \u2022 Cheer", type_label: "Sports", location: "Deer Isle", status: "booked", day_label: "" }],
-      entries: [{ id: "se1", user_id: "u1", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
-        { id: "se2", user_id: "u2", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
+      entries: [{ id: "se1", user_id: "u1", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
+        { id: "se2", user_id: "u2", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
         { id: "se3", user_id: "u2", kind: "admin", booking_id: null, starts_at: at(add(sun, 2), "12:15"), ends_at: at(add(sun, 2), "16:00"), drive_before_min: 0, drive_after_min: 0, title: "Editing", note: "", booking_title: null },
         { id: "se4", user_id: "u1", kind: "studio", booking_id: null, starts_at: at(add(sun, 1), "08:00"), ends_at: at(add(sun, 1), "16:30"), drive_before_min: 0, drive_after_min: 0, title: "", note: "", booking_title: null },
         { id: "se6", user_id: "u2", kind: "flex", booking_id: null, starts_at: at(add(sun, 4), "09:00"), ends_at: at(add(sun, 4), "11:00"), drive_before_min: 0, drive_after_min: 0, title: "Cull photos", note: "", booking_title: null },
+        { id: "se7", user_id: "u1", kind: "job", booking_id: "bk5", batch_id: "trip1", starts_at: at(add(sun, 5), "08:30"), ends_at: at(add(sun, 5), "11:00"), drive_before_min: 45, drive_after_min: 0, drive_before_m: 70000, drive_after_m: 0, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Ellsworth Elementary \u2022 School Photos", booking_location: "Ellsworth ME", booking_status: "booked" },
+        { id: "se8", user_id: "u1", kind: "job", booking_id: "bk6", batch_id: "trip1", starts_at: at(add(sun, 5), "12:30"), ends_at: at(add(sun, 5), "14:30"), drive_before_min: 25, drive_after_min: 25, drive_before_m: 30000, drive_after_m: 32000, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Bucksport Middle \u2022 School Photos", booking_location: "Bucksport ME", booking_status: "booked" },
         { id: "se5", user_id: "u5", kind: "off", booking_id: null, starts_at: at(add(sun, 3), "00:00"), ends_at: at(add(sun, 5), "00:00"), drive_before_min: 0, drive_after_min: 0, title: "Vacation", note: "", booking_title: null }],
       tasks: [{ user_id: "u2", day: add(sun, 1), n: 2 }, { user_id: "u2", day: add(sun, 2), n: 1 }, { user_id: "u1", day: add(sun, 5), n: 1 }] };
     RPC.schedule_attention = { unstaffed: 2 };
-    RPC.schedule_save = { ok: true, id: "se9", overlaps: 0 }; RPC.schedule_remove = { ok: true }; RPC.schedule_settings_save = { ok: true };
+    RPC.schedule_save = { ok: true, id: "se9", overlaps: 0 }; RPC.schedule_remove = { ok: true }; RPC.schedule_settings_save = { ok: true }; RPC.schedule_batch_save = { ok: true }; RPC.schedule_setup_save = { ok: true, changed: 0 };
     const task = (id, title, repeat, extra) => Object.assign({ task_id: id, user_id: "u2", user_name: "Sam Helper", title, notes: "", repeat, priority: "normal", est_minutes: null, on_date: today, overdue: false, done_at: null, done_by: null }, extra || {});
     RPC.assignments_day = [task("t4", "Call Hampden about retakes", "once", { priority: "urgent", overdue: true, on_date: add(today, -1) }), task("t1", "Back up memory cards", "daily", { est_minutes: 15 }),
       task("t2", "Order print supplies", "weekly", { overdue: true, on_date: add(today, -2) }), task("t3", "Empty the studio trash", "daily", { done_at: new Date().toISOString(), done_by: "Sam Helper" })];
@@ -389,10 +444,73 @@
     RPC.workflow_templates = { can_edit: true,
       types: [{ key: "school", label: "School Photos" }, { key: "sports_data", label: "Sports: league with parent contacts" }, { key: "sports_nodata", label: "Sports: school teams, roster only" }],
       people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }],
-      steps: [{ id: "ws1", type_key: null, title: "Confirm start time and crew with the contact", notes: "Call or email the contact on the booking.", anchor: "picture_day", offset_days: -7, assign_to: "crew", user_id: null, user_name: null, priority: "normal", sort: 10 },
+      groups: [{ id: "g1", name: "Editing team", members: [{ user_id: "u2", name: "Sam Helper" }], steps: 1 }],
+      steps: [{ id: "ws4", type_key: null, title: "Edit the photos", notes: "", anchor: "picture_day", offset_days: 3, assign_to: "group", user_id: null, user_name: null, group_id: "g1", group_name: "Editing team",
+                priority: "normal", sort: 35, waits_for: "ws5", waits_for_title: "Cards uploaded", remind_days: 2, late_days: 1, late_user_id: "u1", late_user_name: "Jeremiah Mutty",
+                partner_email: true, partner_subject: "Proofs posted for {league}", partner_body: "Hi {first_name}" },
+        { id: "ws5", type_key: null, title: "Cards uploaded", notes: "", anchor: "picture_day", offset_days: 1, assign_to: "crew", user_id: null, user_name: null, priority: "normal", sort: 30 },{ id: "ws1", type_key: null, title: "Confirm start time and crew with the contact", notes: "Call or email the contact on the booking.", anchor: "picture_day", offset_days: -7, assign_to: "crew", user_id: null, user_name: null, priority: "normal", sort: 10 },
         { id: "ws2", type_key: null, title: "Send the partner a thank-you", notes: "", anchor: "launch", offset_days: 14, assign_to: "crew", user_id: "u1", user_name: "Jeremiah Mutty", priority: "normal", sort: 50 },
         { id: "ws3", type_key: "sports_data", title: "Order team banners", notes: "", anchor: "booked", offset_days: 2, assign_to: "person", user_id: "u1", user_name: "Jeremiah Mutty", priority: "urgent", sort: 10 }] };
+    // Task board (2026-10-22)
+    {
+      const tk = (id, title, due, extra) => Object.assign({ id, user_id: "u2", user_name: "Sam Helper", title, notes: "", due_on: due, priority: "normal", waiting: false, done_at: null,
+        booking_id: null, group_id: null, group_name: null, checklist: false, waits_for: null }, extra || {});
+      RPC.task_board = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", today,
+        people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }], groups: [{ id: "g1", name: "Editing team" }],
+        tasks: [tk("k1", "Cards uploaded: Hampden Academy", add(today, -1), { checklist: true, booking_id: "bk1" }),
+          tk("k2", "Edit the photos: Hampden Academy", add(today, 2), { checklist: true, booking_id: "bk1", waiting: true, waits_for: "Cards uploaded", group_id: "g1", group_name: "Editing team" }),
+          tk("k3", "Order print supplies", add(today, 3)), tk("k4", "Call Hampden about retakes", today, { user_id: "u1", user_name: "Jeremiah Mutty", priority: "urgent" }),
+          tk("k5", "Pack the kit: Brewer Travel", add(today, -3), { done_at: new Date().toISOString(), checklist: true })],
+        repeating: [{ id: "t1", user_id: "u2", user_name: "Sam Helper", title: "Back up memory cards", day: add(today, 1), priority: "normal", done: false }] };
+      RPC.task_bulk = { ok: true, changed: 1, skipped: 0, why: null };
+      RPC.task_workload = { week: add(today, -new Date(today + "T12:00:00Z").getUTCDay()), today,
+        rows: [{ user_id: "u1", name: "Jeremiah Mutty", groups: [], due_week: 4, done_week: 1, overdue: 0, waiting: 0, later: 2 },
+               { user_id: "u2", name: "Sam Helper", groups: ["Editing team"], due_week: 9, done_week: 6, overdue: 2, waiting: 1, later: 3 }] };
+      RPC.workflow_job = { booking_id: "bk1", status: "booked", can_check: true, me: "u1", people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }], tasks: [
+          { task_id: "k1", title: "Cards uploaded", due_on: add(today, -1), user_id: "u2", user_name: "Sam Helper", done_at: null, priority: "normal", waiting: false },
+          { task_id: "k2", title: "Edit the photos", due_on: add(today, 2), user_id: "u2", user_name: "Sam Helper", group_name: "Editing team", done_at: null, priority: "normal", waiting: true, waits_for: "Cards uploaded" }],
+        emails: [{ kind: "partner", to: "pat@hampden.org", subject: "Proofs posted for Hampden Academy", status: "sent", test_mode: false, at: new Date().toISOString() }] };
+      RPC.staff_group_save = { ok: true, id: "g9" }; RPC.staff_group_archive = { ok: true };
+      RPC.booking_set_stage = { ok: true };
+    }
     RPC.workflow_step_save = { ok: true, id: "ws9" }; RPC.workflow_step_archive = { ok: true }; RPC.workflow_attention = { overdue: 1 };
+    // Crew (2026-10-23): roles, confirm answers, time off requests, the crew picker, weekly email.
+    {
+      const W = RPC.schedule_week, roles = [{ id: "r1", label: "Lead" }, { id: "r2", label: "Second shooter" }, { id: "r3", label: "Posing" }, { id: "r4", label: "Check-in" }];
+      W.people[0].roles = ["r1"]; W.people[1].roles = ["r2", "r4"]; W.people[2].roles = ["r3"];
+      Object.assign(W.entries[0], { role_id: "r1", role: "Lead", confirm: { status: "confirmed", reason: "", asked_at: iso(-2), answered_at: iso(-1), changed: false } });
+      Object.assign(W.entries[1], { role_id: "r2", role: "Second shooter", confirm: { status: "pending", reason: "", asked_at: iso(-1), answered_at: null, changed: false } });
+      W.crew = { roles, needed: { bk1: 3 }, declined: [{ booking_id: "bk1", user_id: "u5", name: "Alex Assistant", reason: "Dentist", answered_at: iso(-1) }],
+        requests: [{ id: "to1", user_id: "u2", first_day: add(sun, 5), last_day: add(sun, 5), start_time: null, end_time: null, note: "Family wedding" }],
+        settings: { crew_confirm_on: false, week_email_auto: false, week_email_dow: 5, week_email_hour: 15 } };
+      RPC.my_day.entries.forEach((e) => { if (e.id === "se2") Object.assign(e, { role: "Second shooter", confirm: { status: "pending", token: "c".repeat(32) } }); });
+      RPC.crew_capacity = { team: 3, days: [{ day: add(sun, 2), jobs: 1, needed: 3, on_jobs: 2, off: 0, asked_off: 0 }, { day: add(sun, 4), jobs: 1, needed: 1, on_jobs: 0, off: 1, asked_off: 0 },
+        { day: add(sun, 12), jobs: 3, needed: 4, on_jobs: 1, off: 0, asked_off: 1 }] };
+      const pp = (id, name, r, x) => Object.assign({ user_id: id, name, roles: r, has_home: true, home_min: null, off: false, asked_off: false, busy: [], on_it: false, declined: false }, x || {});
+      RPC.crew_options = { destination: "89 western ave, hampden me", studio_min: 25, roles,
+        people: [pp("u1", "Jeremiah Mutty", ["r1"], { home_min: 22, on_it: true }), pp("u2", "Sam Helper", ["r2", "r4"], { home_min: 41, on_it: true }),
+          pp("u5", "Alex Assistant", ["r3"], { has_home: false, declined: true, busy: [{ starts_at: at(add(sun, 2), "13:00"), ends_at: at(add(sun, 2), "15:00"), kind: "studio", title: null }] })] };
+      RPC.crew_roles_list = { can_edit: true, roles: roles.map((r, i) => Object.assign({ sort: (i + 1) * 10 }, r)), members: { u1: ["r1"], u2: ["r2", "r4"], u5: ["r3"] } };
+      RPC.crew_role_save = { ok: true, id: "r9" }; RPC.crew_role_archive = { ok: true }; RPC.team_set_roles = { ok: true };
+      RPC.crew_needed_set = { ok: true }; RPC.crew_ask_now = { ok: true }; RPC.crew_settings_save = { ok: true };
+      RPC.week_email_preview = [{ user_id: "u1", name: "Jeremiah Mutty", subject: "Your schedule, week of Oct 18: 1 job", sent_at: null },
+        { user_id: "u2", name: "Sam Helper", subject: "Your schedule, week of Oct 18: 1 job, 1 to confirm", sent_at: iso(-3) }];
+      RPC.week_email_send = { ok: true, sent: 2, nothing_on: 1, no_email: 0 };
+      RPC.crew_attention = { waiting: 1, mine: 1, timeoff: AS_STAFF ? 0 : 1 };
+      RPC.crew_mine = [{ booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", location: "89 Western Ave, Hampden ME", status: "pending", token: "c".repeat(32), changed: false,
+        days: [{ starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, role: "Second shooter", note: "" }] },
+        { booking_id: "bk2", title: "Brewer Travel Basketball Club \u2022 Winter Sports", location: "", status: "confirmed", token: "d".repeat(32), changed: false,
+        days: [{ starts_at: at(add(sun, 4), "16:00"), ends_at: at(add(sun, 4), "19:00"), drive_before_min: 0, role: null, note: "" }] }];
+      RPC.crew_answer = { ok: true, status: "confirmed" };
+      RPC.crew_public = { title: "Hampden Academy \u2022 School Photos", name: "Sam", location: "89 Western Ave, Hampden ME", status: "pending", reason: "", changed: false, cancelled: false,
+        days: [{ starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, role: "Second shooter", note: "" }], crew: [{ name: "Jeremiah Mutty", role: "Lead" }] };
+      RPC.crew_for_booking = { can_edit: true, booking_status: "booked", needed: 3, crew: [{ user_id: "u1", name: "Jeremiah Mutty", roles: ["Lead"], status: "confirmed", days: [{ starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00") }] }], declined: [] };
+      RPC.time_off_list = { me: AS_STAFF ? "u2" : "u1", can_view: !AS_STAFF, can_edit: !AS_STAFF,
+        mine: [{ id: "to2", user_id: AS_STAFF ? "u2" : "u1", name: "", first_day: add(sun, 20), last_day: add(sun, 22), start_time: null, end_time: null, note: "Vacation", status: "approved", decided_by: "Jeremiah Mutty", decided_at: iso(-2), decision_note: "Enjoy!", created_at: iso(-4), jobs: [] }],
+        team: AS_STAFF ? [] : [{ id: "to1", user_id: "u2", name: "Sam Helper", first_day: add(sun, 5), last_day: add(sun, 5), start_time: null, end_time: null, note: "Family wedding", status: "pending", decided_by: null, decided_at: null, decision_note: "", created_at: iso(-1),
+          jobs: [{ starts_at: at(add(sun, 5), "10:00"), title: "Island Cheer \u2022 Cheer" }] }] };
+      RPC.time_off_request = { ok: true, id: "to9" }; RPC.time_off_cancel = { ok: true }; RPC.time_off_decide = { ok: true };
+    }
     RPC.assignment_check = { ok: true }; RPC.assignment_save = { ok: true, id: "t9" }; RPC.assignment_archive = { ok: true }; RPC.staff_settings_save = { ok: true }; RPC.day_email_status = { on: true, hour: 7, mine: true }; RPC.day_email_settings_save = { ok: true }; RPC.day_email_mine = { ok: true, on: false }; RPC.team_set_hours = { ok: true };
   }
   // Open jobs (2026-10-22): offers to part-timers.
@@ -408,7 +526,7 @@
     RPC.openjobs_answer = { ok: true, answer: "accepted", scheduled: 1, untimed: 0 };
     RPC.openjobs_attention = { waiting: 1, no_takers: AS_PART ? 0 : 1 };
     RPC.openjobs_list = [Object.assign(offer("of1"), { recipients: [
-      { user_id: "u6", name: "Pat Parttime", drive_min: 35, notified: true, seen_at: iso(-0.05), answer: null, answered_at: null, reason: "" },
+      { user_id: "u6", name: "Pat Parttime", drive_min: 35, notified: true, seen_at: iso(-0.05), answer: "accepted", answered_at: iso(-0.03), picked_at: null, reason: "" },
       { user_id: "u7", name: "Riley Second", drive_min: 52, notified: true, seen_at: iso(-0.05), answer: "declined", answered_at: iso(-0.02), reason: "Out of town" },
       { user_id: "u8", name: "Casey Third", drive_min: null, notified: false, seen_at: null, answer: null, answered_at: null, reason: "" }] })];
     RPC.openjobs_upcoming = [{ booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", first_day: add(today, 3), days: 1, location: "89 Western Ave, Hampden ME", crew: 1, open_offers: 1 },
@@ -420,6 +538,7 @@
         { user_id: "u9", name: "Dana Nohome", home_set: false, max_drive_min: 60, drive_min: null, meters: null, in_range: false, has_access: false, has_device: false, on_job: false, offered: false, busy: [] }] };
     RPC.openjobs_post = { ok: true, id: "of9", sent: 2, pushed: 1 };
     RPC.openjobs_close = { ok: true };
+    RPC.openjobs_pick = { ok: true, filled: true, scheduled: 1 };
     RPC.openjobs_people = { can_grant: true, people: [{ user_id: "u6", name: "Pat Parttime", part_time: true, employment_type: "part_time", job_title: "Photographer", home_address: "12 Elm St, Bangor ME", max_drive_min: 60, has_access: true, has_device: true },
       { user_id: "u2", name: "Sam Helper", part_time: false, employment_type: null, job_title: "", home_address: "", max_drive_min: 60, has_access: false, has_device: true }] };
     RPC.openjobs_person_save = { ok: true, granted: true }; RPC.team_set_profile = { ok: true, granted: true };
@@ -460,8 +579,53 @@
               { id: "mt2", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: "bk3", job_title: "Island Cheer & Tumbling \u2022 Cheer", location: "Deer Isle", day: add(sun, 3), miles: null, auto: true, note: "", est_miles: null, locked: false },
               { id: "mt3", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: null, job_title: "", location: null, day: add(sun, 1), miles: 12, auto: false, note: "Staples for paper", est_miles: null, locked: false }] };
     RPC.mileage_save = { ok: true, id: "mt9" }; RPC.mileage_remove = { ok: true }; RPC.mileage_refresh = { ok: true, filled: 0 }; RPC.mileage_from_schedule = { ok: true, added: 2 };
-    RPC.timeclock_attention = { open_long: 0, to_approve: AS_STAFF ? 0 : 1, last_week: add(sun, -7) };
+    RPC.timeclock_attention = { open_long: 0, to_approve: AS_STAFF ? 0 : 1, last_week: add(sun, -7), review: 1, expenses: AS_STAFF ? 0 : 1, near_ot: AS_STAFF ? 0 : 1 };
+    // Round two (2026-10-23): location, review flag, pay, expenses, rates, job time.
+    Object.assign(RPC.timeclock_status, { gps: true, overtime_after: 40, overtime_applies: true, review: 1 });
+    RPC.timesheet_week.people.forEach((p, i) => Object.assign(p, { pay: { basis: "hourly", rate: 22, source: "type", pay: 352.5 + i * 10 }, expenses: i ? 0 : 12.75, review: i ? 1 : 0 }));
+    Object.assign(RPC.timesheet_week.punches[0], { in_loc: { lat: 44.7449, lng: -68.837, acc: 12 }, out_loc: { lat: 44.745, lng: -68.84, acc: 20 } });
+    Object.assign(RPC.timesheet_week.punches[RPC.timesheet_week.punches.length - 1], { auto_out: true, needs_review: true, note: "Clocked out automatically at midnight" });
+    RPC.timesheet_payroll.people.forEach((p, i) => Object.assign(p, { pay: i === 2 ? null : { basis: i ? "day" : "hourly", rate: i ? 200 : 25, source: i ? "person" : "title", pay: i ? 400 : 1078.75 }, expenses: i ? 0 : 12.75 }));
+    RPC.timesheet_payroll.expense_rows = [{ id: "x1", name: "Jeremiah Mutty", day: add(sun, 1), amount: 12.75, category: "supplies", job_title: "", note: "AA batteries", reviewed_by: "Jeremiah Mutty" }];
+    RPC.timeclock_settings_get = { mileage_rate: 0.7, overtime_after: 40, gps_on: true, remind_before_min: 15, remind_out_after_min: 30, auto_out: true, ot_warn_hours: 4, half_day_hours: 5 };
+    RPC.expense_list = { can_edit: !AS_STAFF, me, month: today.slice(0, 8) + "01", jobs: [{ booking_id: "bk1", day: add(sun, 2), title: "Hampden Academy \u2022 School Photos" }],
+      expenses: [{ id: "x1", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", day: today, amount: 12.75, category: "supplies", booking_id: null, job_title: "", note: "AA batteries", receipt_path: me + "/r1.jpg", status: "submitted", reviewed_by: null, review_note: "" },
+                 { id: "x2", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", day: today, amount: 18, category: "meals", booking_id: "bk1", job_title: "Hampden Academy \u2022 School Photos", note: "Crew lunch", receipt_path: null, status: "rejected", reviewed_by: "Jeremiah Mutty", review_note: "Need the receipt" },
+                 { id: "x3", user_id: "u2", name: "Sam Helper", day: today, amount: 6, category: "parking", booking_id: null, job_title: "", note: "Garage", receipt_path: "u2/r3.pdf", status: "approved", reviewed_by: "Jeremiah Mutty", review_note: "" }]
+        .filter((x) => !AS_STAFF || x.user_id === "u2") };
+    RPC.expense_save = { ok: true, id: "x9" }; RPC.expense_remove = { ok: true, receipt_path: null }; RPC.expense_review = { ok: true };
+    RPC.timeclock_rates = { half_day_hours: 5, titles: ["lead photographer", "assistant"],
+      rates: [{ id: "r1", scope: "type", scope_key: "part_time", basis: "hourly", rate: 20, half_day_rate: null }, { id: "r2", scope: "title", scope_key: "lead photographer", basis: "hourly", rate: 25, half_day_rate: null },
+              { id: "r3", scope: "person", scope_key: "u2", name: "Sam Helper", basis: "day", rate: 200, half_day_rate: 120 }],
+      people: [{ user_id: "u1", name: "Jeremiah Mutty", employment_type: "salaried", job_title: "Owner", rate: null },
+               { user_id: "u2", name: "Sam Helper", employment_type: "part_time", job_title: "", rate: { basis: "day", rate: 200, half_day_rate: 120, source: "person" } }] };
+    RPC.timeclock_rate_save = { ok: true, id: "r9" }; RPC.timeclock_rate_remove = { ok: true };
+    RPC.timeclock_job = { can_edit: !AS_STAFF, mileage_rate: 0.7, half_day_hours: 5,
+      people: [{ user_id: "u2", name: "Sam Helper", minutes: 255, days: 1, open: false, miles: 26.1, expenses: 18, rate: AS_STAFF ? null : { basis: "hourly", rate: 20, source: "type" } }] };
   }
+  // Email delivery (2026-10-23).
+  {
+    const ago = (h) => new Date(Date.now() - h * 3600e3).toISOString();
+    const row = (id, source, to, subject, status, h, extra) => Object.assign({ id, source, to: [to], from: "207 Admin <alerts@207photo.com>", subject, sent_at: ago(h), status, error: null, opened_at: null, clicked_at: null,
+      last_event: null, test_mode: false, resent_from: null, resent: false, can_resend: source !== "signin", handled_at: null }, extra || {});
+    RPC.email_list = { can_edit: !AS_STAFF, capturing: true, problems: 2, rows: [
+      row(6, "pictureday", "coach@example.org", "U10 Blue: your picture day time", "delivered", 0.5, { opened_at: ago(0.2), clicked_at: ago(0.1) }),
+      row(5, "makeup", "parent@example.com", "Ava's makeup photos are ready", "bounced", 3, { error: "Resend: bounced" }),
+      row(4, "day_email", "sam@207photo.com", "Your day: Thursday", "delivered", 9),
+      row(3, "signin", "sam@207photo.com", "Sign-in code", "delivered", 10),
+      row(2, "pictureday", "typo@exmaple.com", "Picture day times", "failed", 26, { error: "Invalid `to` field." }),
+      row(1, "hub", "watcher@example.com", "Hampden: your photo gallery is live", "sent", 0.1)] };
+    RPC.email_detail = Object.assign({}, RPC.email_list.rows[1], { reply_to: "hello@207photo.com", cc: null, bcc: null, text: "Hi,\n\nAva's makeup photos are ready.", html: "<p>Hi,</p><p>Ava's makeup photos are ready.</p>",
+      resend_id: "re_1", handled_by: null, resent_by: null, resends: [], bounced_contact: false });
+    RPC.email_resend = { ok: true, id: 7 }; RPC.email_mark_handled = { ok: true, n: 1 }; RPC.email_attention = { problems: 2 };
+    const ym = (n) => { const d = new Date(); d.setUTCDate(15); d.setUTCMonth(d.getUTCMonth() - n); return d.toISOString().slice(0, 7); };
+    RPC.email_report = { from: ym(2) + "-01", first_sent_at: ago(24 * 50),
+      months: [{ month: ym(1), sent: 412, delivered: 401, bounced: 6, complained: 1, failed: 4, delayed: 0, opened: 233, clicked: 61, test: 3 }, { month: ym(0), sent: 230, delivered: 224, bounced: 3, complained: 0, failed: 3, delayed: 1, opened: 140, clicked: 30, test: 0 }],
+      sources: [{ source: "pictureday", sent: 300, delivered: 292, bounced: 5, failed: 3, opened: 210 }, { source: "day_email", sent: 200, delivered: 200, bounced: 0, failed: 0, opened: 120 }, { source: "makeup", sent: 142, delivered: 133, bounced: 4, failed: 4, opened: 43 }],
+      bounced: [{ email: "parent@example.com", n: 2, last: ago(3) }] };
+  }
+
+  window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
@@ -486,6 +650,7 @@
     }
     if (String(url).includes("/functions/v1/drive-time")) {
       window.__driveCalls = (window.__driveCalls || []).concat([JSON.parse(opts.body)]);
+      if (JSON.parse(opts.body).from_booking_id) return new Response(JSON.stringify({ ok: true, minutes: 12, meters: 9000, origin: "89 Western Ave, Hampden ME", destination: "Dorothea Dix Park, Hampden ME" }), { status: 200 });
       return new Response(JSON.stringify({ ok: true, minutes: 23, meters: 21000, destination: "89 Western Ave, Hampden ME" }), { status: 200 });
     }
     if (String(url).includes("/functions/v1/place-search")) {

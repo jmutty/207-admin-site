@@ -31,6 +31,9 @@
         if (p.error) throw p.error;
         modules = (m.data || []).filter((x) => !x.admin_only);
         people = p.data || [];
+        // Crew roles (crew.js): what each person can do on a job. Optional, so the page still works without them.
+        const cr = await supabase.rpc("crew_roles_list");
+        crewRoles = cr.error || !cr.data ? { roles: [], members: {} } : cr.data;
         render();
       } catch (e) {
         showError("teamErr", "Could not load the team: " + (e.message || e));
@@ -75,6 +78,7 @@
       }).join("")).join("");
     }
 
+    let crewRoles = { roles: [], members: {} };
     function openEditor(p) {
       const isNew = !p;
       p = p || { name: "", email: "", is_admin: false, active: true, modules: {}, weekly_hours: null, employment_type: null, job_title: "" };
@@ -86,16 +90,23 @@
         '<div class="tm-two"><div class="field"><label for="aca-tmTitle">Job title</label><input type="text" id="aca-tmTitle" maxlength="80" value="' + esc(p.job_title || "") + '" placeholder="e.g. Lead photographer" /></div>' +
         '<div class="field"><label for="aca-tmType">Employment type</label><select id="aca-tmType"><option value="">Not set</option>' + TYPES.map((t) => '<option value="' + t[0] + '"' + (p.employment_type === t[0] ? " selected" : "") + ">" + t[1] + "</option>").join("") + "</select></div></div>" +
         '<p class="muted" id="aca-tmTypeNote" style="font-size:12.5px;margin:-6px 0 12px"></p>' +
+        '<div class="field"><label for="aca-tmHome">Home address</label><input type="text" id="aca-tmHome" maxlength="300" value="' + esc(p.home_address || "") + '" placeholder="Street and town, or just the town" />' +
+        '<span class="muted" style="font-size:12.5px">Drive times for Part time and 1099 people are measured from here (Open jobs, the Schedule, mileage). The town alone is enough.</span></div>' +
         '<div class="field"><label for="aca-tmHours">Default hours per week</label><input type="number" id="aca-tmHours" min="0" max="80" step="0.5" style="width:110px" value="' + esc(p.weekly_hours == null ? "" : String(Number(p.weekly_hours))) + '" placeholder="e.g. 32" />' +
         '<span class="muted" style="font-size:12.5px">The Schedule shows how many hours they are scheduled against this each week. Leave empty if it doesn&#39;t apply.</span></div>' +
+        ((crewRoles.roles || []).length ? '<div class="field"><label>Crew roles</label><div id="aca-tmRoles" style="display:flex;flex-wrap:wrap;gap:4px 16px">' + crewRoles.roles.map((r) =>
+          '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" value="' + esc(r.id) + '"' + (((crewRoles.members || {})[p.user_id] || []).includes(r.id) ? " checked" : "") + " /> " + esc(r.label) + "</label>").join("") +
+          '</div><span class="muted" style="font-size:12.5px">What they can do on a job. The Schedule&#39;s crew picker shows these and suggests the first one. Roles are set up under Crew settings on the Schedule.</span></div>' : "") +
         '<label class="tm-full"><input type="checkbox" id="aca-tmAdmin"' + (p.is_admin ? " checked" : "") + (p.is_me ? " disabled" : "") + ' /> <span><b>Full access</b><br><span class="muted">Everything, including Settings and this Team page. For owners and managers only.</span></span></label>' +
         '<div id="aca-tmGrid" class="tm-grid' + (p.is_admin ? " hidden" : "") + '">' + grid(p.modules) + "</div>" +
         '<div class="inline-error hidden" id="aca-tmErr"></div>' +
         '<div class="modal-actions">' +
         (isNew || p.is_me ? "" : '<button type="button" class="small" id="aca-tmReset">Reset password</button><button type="button" class="small" id="aca-tmActive">' + (p.active ? "Deactivate" : "Reactivate") + "</button>" +
           (p.active ? "" : '<button type="button" class="small warn" id="aca-tmRemove">Remove</button>')) +
+        (isNew ? "" : '<button type="button" class="small" id="aca-tmSignins">Sign-ins</button>') +
         '<span class="grow"></span><button type="button" class="small" id="aca-tmCancel">Cancel</button><button type="button" class="primary" id="aca-tmSave">' + (isNew ? "Add and create login" : "Save") + "</button></div>");
       const err = (t) => { const n = el("tmErr"); n.textContent = t; n.classList.remove("hidden"); };
+      if (el("tmSignins")) el("tmSignins").addEventListener("click", () => HistoryView.signins(p.user_id, "Sign-ins: " + (p.name || p.email)));
       el("tmAdmin").addEventListener("change", () => el("tmGrid").classList.toggle("hidden", el("tmAdmin").checked));
       const typeNote = () => { el("tmTypeNote").textContent = ({ full_time: "Hourly, with overtime on the time clock.", salaried: "Hours are tracked, but no overtime on the time clock.",
         part_time: "Gets Open jobs offers near them (and Open jobs access). Overtime applies.", contractor: "Gets Open jobs offers near them (and Open jobs access). No overtime; kept out of the payroll CSV and listed separately." })[el("tmType").value] || ""; };
@@ -113,11 +124,16 @@
         const setHours = async (uid) => { if (!hoursChanged) return; const { error } = await supabase.rpc("team_set_hours", { p_user_id: uid, p_hours: hours }); if (error) throw error; };
         const type = el("tmType").value || null, title = el("tmTitle").value.trim();
         const setProfile = async (uid) => { if (type === (p.employment_type || null) && title === (p.job_title || "")) return; const { error } = await supabase.rpc("team_set_profile", { p_user_id: uid, p_type: type || "", p_title: title }); if (error) throw error; };
+        const home = el("tmHome").value.trim();
+        const setHome = async (uid) => { if (home === (p.home_address || "")) return; const { error } = await supabase.rpc("team_set_home", { p_user_id: uid, p_home: home }); if (error) throw error; };
+        const roleIds = el("tmRoles") ? [...el("tmRoles").querySelectorAll("input:checked")].map((x) => x.value) : null;
+        const roles0 = ((crewRoles.members || {})[p.user_id] || []).slice().sort().join();
+        const setRoles = async (uid) => { if (!roleIds || roleIds.slice().sort().join() === roles0) return; const { error } = await supabase.rpc("team_set_roles", { p_user_id: uid, p_roles: roleIds }); if (error) throw error; };
         el("tmSave").disabled = true;
         try {
           if (isNew) {
             const r = await teamFn({ action: "create", email, name, is_admin: isAdmin, permissions: isAdmin ? {} : picked(), send_welcome: el("tmWelcome").checked });
-            try { await setHours(r.user_id); await setProfile(r.user_id); } catch (_e) { toast("Added, but the hours, job title or type did not save. Edit them on the Team page.", true); }
+            try { await setHours(r.user_id); await setProfile(r.user_id); await setHome(r.user_id); await setRoles(r.user_id); } catch (_e) { toast("Added, but the hours, job title, type, home address or roles did not save. Edit them on the Team page.", true); }
             m.close();
             showPassword({ user_id: r.user_id, name, email }, r.temp_password, true, r);
           } else {
@@ -125,6 +141,8 @@
             if (error) throw error;
             await setHours(p.user_id);
             await setProfile(p.user_id);
+            await setHome(p.user_id);
+            await setRoles(p.user_id);
             m.close();
             toast("Saved. " + (name || email) + " sees the change the next time they load the page.");
           }
@@ -173,7 +191,7 @@
       });
     }
 
-    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for", hours_set: "changed the weekly hours for", profile_set: "changed the job title or employment type for", welcome_sent: "emailed sign-in details to" };
+    const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for", hours_set: "changed the weekly hours for", profile_set: "changed the job title or employment type for", roles_set: "changed the crew roles for", welcome_sent: "emailed sign-in details to" };
     async function loadLog() {
       const { data, error } = await supabase.rpc("team_audit_list", { p_limit: 30 });
       el("teamLog").innerHTML = error ? '<span class="inline-error">' + esc(error.message) + "</span>"

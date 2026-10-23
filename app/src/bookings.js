@@ -404,7 +404,8 @@
   }
 
   // ---- Book a job / Edit booking
-  async function openForm(existing) {
+  // presetOrg ({ id, name, town }): Book a job from an organization's page starts with it picked (2026-10-23).
+  async function openForm(existing, presetOrg) {
     try { await ensureMeta(); } catch (e) { toast(cleanErr(e), true); return; }
     const isNew = !existing;
     const d = existing || {};
@@ -417,7 +418,7 @@
       <div class="og-grid">
         <label>Organization</label>
         <div>
-          <div class="bk-orgpick" id="aca-bkOrgPick">${org ? '<strong>' + esc(org.name) + '</strong> <a href="#partners/orgs/' + esc(org.id) + '" class="bk-sub" target="_blank" rel="noopener">open organization</a>' + (isNew ? ' <button type="button" class="link" data-v="changeorg">change</button>' : "") : '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'}</div>
+          <div class="bk-orgpick" id="aca-bkOrgPick">${org ? '<strong>' + esc(org.name) + '</strong> <a href="#partners/org/' + esc(org.id) + '" class="bk-sub" target="_blank" rel="noopener">open organization</a>' + (isNew ? ' <button type="button" class="link" data-v="changeorg">change</button>' : "") : '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'}</div>
           <div class="bk-orgs hidden" id="aca-bkOrgList"></div>
         </div>
         <label>Job type${isNew ? "" : ' <span class="bk-sub">(fixed once booked)</span>'}</label>
@@ -556,9 +557,14 @@
     }
     async function pickOrg(o) {
       org = o; chosen.clear();
-      el("bkOrgPick").innerHTML = "<strong>" + esc(o.name) + '</strong> <a href="#partners/orgs/' + esc(o.id) + '" class="bk-sub" target="_blank" rel="noopener">open organization</a> <button type="button" class="link" data-v="changeorg">change</button>';
+      el("bkOrgPick").innerHTML = "<strong>" + esc(o.name) + '</strong> <a href="#partners/org/' + esc(o.id) + '" class="bk-sub" target="_blank" rel="noopener">open organization</a> <button type="button" class="link" data-v="changeorg">change</button>';
       el("bkOrgList").classList.add("hidden");
       if (!el("bkLoc").value) { el("bkLoc").value = o.town || ""; el("bkLoc").dataset.auto = "1"; }
+      // Last time's place, when we have been there before.
+      sb.from("bookings").select("location").eq("org_id", o.id).neq("location", "").order("picture_day", { ascending: false }).limit(1).then(({ data: last }) => {
+        const loc = last && last[0] && last[0].location;
+        if (loc && org === o && (!el("bkLoc").value || el("bkLoc").dataset.auto === "1")) { el("bkLoc").value = loc; el("bkLoc").dataset.auto = "1"; el("bkLocNote").textContent = "Same place as last time."; }
+      }, () => {});
       const { data } = await sb.from("prospect_contacts").select("id, first_name, last_name, email, role, is_primary, bounced_at, unsubscribed_at, stopped_at, history_only").eq("org_id", o.id);
       contacts = (data || []).filter((c) => !c.history_only).map((c) => ({ ...c, emailable: !!c.email && !c.bounced_at && !c.unsubscribed_at && !c.stopped_at }))
         .sort((a, b) => (b.is_primary - a.is_primary) || String(a.first_name || "").localeCompare(String(b.first_name || "")));
@@ -577,7 +583,7 @@
           const { data } = await sb.from("prospect_orgs").select("id, name, town, stage, audience").ilike("search_text", "%" + q.replace(/[%_]/g, "") + "%").order("name").limit(12);
           const list = el("bkOrgList"); list.classList.remove("hidden");
           list.innerHTML = (data || []).map((o) => '<button type="button" data-org="' + esc(o.id) + '"><strong>' + esc(o.name) + "</strong>" + (o.town ? ' <span class="bk-sub">' + esc(o.town) + "</span>" : "") + (o.stage === "client" ? ' <span class="pill ok">Client</span>' : "") + "</button>").join("") ||
-            '<div class="empty">No match. Add the organization under Partners &rsaquo; Organizations first.</div>';
+            '<div class="empty">No match. Add the organization on the Organizations page first.</div>';
           list.querySelectorAll("button[data-org]").forEach((b) => b.addEventListener("click", () => pickOrg((data || []).find((o) => o.id === b.dataset.org))));
         }, 220);
       }
@@ -665,15 +671,36 @@
     box.addEventListener("click", (e) => { const dd = el("bkCrewDd"); if (dd && dd.open && !dd.contains(e.target)) dd.open = false; });
     renderLabels(); renderDays(); renderFormDlv();
     if (el("bkCrew")) Schedule.team().then((ppl) => {
-      el("bkCrew").innerHTML = ppl.length ? ppl.map((x) => '<label class="bk-contact"><input type="checkbox" class="bk-crew" value="' + esc(x.user_id) + '" /> ' + esc(x.name) + "</label>").join("") : '<span class="bk-sub">Nobody on the team yet.</span>';
+      el("bkCrew").innerHTML = ppl.length ? ppl.map((x) => '<label class="bk-contact"><input type="checkbox" class="bk-crew" value="' + esc(x.user_id) + '" data-name="' + esc(x.name) + '" /> ' + esc(x.name) + "</label>").join("") : '<span class="bk-sub">Nobody on the team yet.</span>';
       const sync = () => {
-        const names = [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.parentNode.textContent.trim());
+        const names = [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.dataset.name);
         el("bkCrewSum").textContent = names.length ? names.join(", ") : "Nobody yet";
         el("bkCrewSum").classList.toggle("none", !names.length);
       };
       el("bkCrew").addEventListener("change", sync); sync();
+      // Opening the list notes who is off or busy that day, their roles and the drive from home (crew.js CrewPick).
+      let noted = "";
+      el("bkCrewDd").addEventListener("toggle", async () => {
+        if (!el("bkCrewDd").open || typeof CrewPick === "undefined") return;
+        const day = (box.querySelector(".bk-d-day") || {}).value || "", loc = el("bkLoc").value.trim(), key = day + "|" + loc;
+        if (!day || key === noted) return;
+        noted = key;
+        try {
+          const cp = await CrewPick.options(null, day, loc || null);
+          el("bkCrew").querySelectorAll(".bk-crew").forEach((x) => {
+            const p = cp.people.find((y) => y.user_id === x.value); if (!p) return;
+            const [line, lvl, rn] = CrewPick.describe(p, cp);
+            let n = x.parentNode.querySelector(".bk-crewnote");
+            if (!n) { n = document.createElement("span"); n.className = "bk-sub bk-crewnote"; n.style.cssText = "display:block;margin-left:24px"; x.parentNode.appendChild(n); x.parentNode.style.flexWrap = "wrap"; }
+            n.textContent = (rn.length ? rn.join(", ") + " \u00b7 " : "") + (loc ? line : line.replace(/ ?\u00b7? ?(no home address.*|drive from home unknown|\d+ min from home)$/, ""));
+            n.style.color = lvl === "bad" ? "var(--err-fg)" : lvl === "warn" ? "#8a6100" : "";
+          });
+        } catch (_e) { noted = ""; }
+      });
     }).catch(() => { el("bkCrew").innerHTML = '<span class="bk-sub">Could not load the team. Add people on the Schedule after booking.</span>'; });
-    if (!isNew) { renderContacts(); renderPreview(); } else { renderPreview(); setTimeout(() => { const q = el("bkOrgQ"); if (q) q.focus(); }, 50); }
+    if (!isNew) { renderContacts(); renderPreview(); }
+    else if (presetOrg) { renderPreview(); pickOrg(presetOrg); }
+    else { renderPreview(); setTimeout(() => { const q = el("bkOrgQ"); if (q) q.focus(); }, 50); }
   }
   el("bkNew").addEventListener("click", () => openForm(null));
 
@@ -818,8 +845,8 @@
         <div><h3 style="font-size:15px">${esc(b.title)}</h3>
           <div class="bk-sub">${daysLine(b)} \u00b7 ${esc(b.type_label)}${b.status !== "booked" ? ' \u00b7 <span class="pill muted">' + esc(tracked ? "tracking only" : b.status) + "</span>" : ""}</div>
           ${b.time_set === false && live ? '<div class="bk-sub" style="margin-top:6px"><span class="pill warn">time not set</span> Emails that mention the time are waiting. <button type="button" class="small" data-v="edit">Set the times</button></div>' : ""}
-          <div class="bk-sub"><a href="#partners/orgs/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " \u00b7 " + esc(b.location) : ""}</div></div>
-        <div style="display:flex;gap:6px;flex:0 0 auto">${live ? '<button type="button" class="small" data-v="edit">Edit</button>' : ""}<button type="button" data-v="close" aria-label="Close">\u2715</button></div>
+          <div class="bk-sub"><a href="#partners/org/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " \u00b7 " + esc(b.location) : ""}</div></div>
+        <div style="display:flex;gap:6px;flex:0 0 auto"><a class="small" href="${jobLink(b.id)}" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:4px">Job page</a>${live ? '<button type="button" class="small" data-v="edit">Edit</button>' : ""}<button type="button" data-v="close" aria-label="Close">\u2715</button></div>
       </div>
       ${stageBlock(b)}
       ${dlvBlock(b)}
@@ -1128,5 +1155,5 @@
     } catch (e2) { toast(cleanErr(e2), true); b.disabled = false; }
   });
 
-  return { load: () => load(false), reload: () => load(true), loadAttention, open: (id) => openDetail(id), openId: (id) => openDetail(id), openNew: () => openForm(null), hide: () => { if (openId) closeDetail(); }, mdToHtml, fill };
+  return { load: () => load(false), reload: () => load(true), loadAttention, open: (id) => openDetail(id), openId: (id) => openDetail(id), openNew: (org) => openForm(null, org || null), hide: () => { if (openId) closeDetail(); }, mdToHtml, fill };
   })();

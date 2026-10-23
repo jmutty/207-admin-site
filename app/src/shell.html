@@ -153,6 +153,18 @@
   .aca .today-lead b { font-weight: 600; color: var(--text); }
   .aca .today-cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 48px; margin-top: 28px; align-items: start; }
   .aca .today-grp { margin-bottom: 28px; }
+  .aca .today-areas { border-top: 1px solid var(--border); margin-bottom: 24px; }
+  .aca .today-area { border-bottom: 1px solid var(--border); }
+  .aca button.today-ah { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; min-height: 46px; padding: 8px 4px; border: 0; border-radius: 0; background: transparent; text-align: left; font-size: 15px; font-weight: 600; color: var(--head); }
+  .aca button.today-ah:hover { background: var(--surface-2); }
+  .aca .today-ah .caret { display: inline-block; width: 14px; color: var(--muted); transition: transform .15s; }
+  .aca .today-area.open .today-ah .caret { transform: rotate(90deg); }
+  .aca .today-an { flex: 1; min-width: 0; }
+  .aca .today-ac { font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
+  .aca .today-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #b9b4aa; margin-right: 6px; vertical-align: 1px; }
+  .aca .today-dot.err { background: #c62828; } .aca .today-dot.warn { background: #bf4a1f; }
+  .aca .today-ab { display: none; padding: 0 0 6px 28px; }
+  .aca .today-area.open .today-ab { display: block; }
   .aca .today-grp h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--head); display: flex; align-items: center; gap: 8px; height: 32px; border-bottom: 1px solid var(--border); }
   .aca .today-grp h2 .gd { width: 8px; height: 8px; border-radius: 50%; }
   .aca .today-grp h2 .c { color: var(--faint); font-weight: 400; }
@@ -469,6 +481,9 @@
   .aca .pn-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .aca .pn-topic { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid var(--line2); font-size: 13.5px; }
   .aca .pn-topic .muted { font-size: 12.5px; }
+  .aca .pn-mode { flex-wrap: wrap; justify-content: space-between; align-items: center; }
+  .aca .pn-mode > span { flex: 1 1 220px; min-width: 0; }
+  .aca .pn-mode .seg { flex: none; }
   .aca .pn-dev { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; font-size: 13.5px; }
   @media (max-width: 560px) { .aca .tm-row { flex-direction: column; align-items: flex-start; } }
 </style>
