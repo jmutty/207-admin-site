@@ -109,9 +109,10 @@
     }
 
     // ---------------------------------------------------------------- compose (shared by all three)
-    // kind: rebook | review | agreement; ref: org id | review id | agreement id.
-    async function compose(kind, ref, onDone) {
-      const { data: c0, error } = await sb.rpc("partner_compose", { p_kind: kind, p_ref: ref, p_contact: null });
+    // kind: rebook | review | agreement; ref: org id | review id | agreement id; due: which rebook row (none = the next open one).
+    async function compose(kind, ref, onDone, due) {
+      const dueArg = kind === "rebook" && due ? { p_due: due } : {};
+      const { data: c0, error } = await sb.rpc("partner_compose", { p_kind: kind, p_ref: ref, p_contact: null, ...dueArg });
       if (error) return toast(cleanErr(error), true);
       let c = c0 || {}, edited = false;
       const title = { rebook: "Rebook email", review: "Ask for a review", agreement: "Email the agreement" }[kind];
@@ -132,7 +133,7 @@
       ["pfCmSubj", "pfCmBody"].forEach((id) => el(id).addEventListener("input", () => { edited = true; }));
       if (el("pfCmTo")) el("pfCmTo").addEventListener("change", async () => {
         if (edited) return; // keep what they typed; only the greeting would change
-        const { data } = await sb.rpc("partner_compose", { p_kind: kind, p_ref: ref, p_contact: el("pfCmTo").value });
+        const { data } = await sb.rpc("partner_compose", { p_kind: kind, p_ref: ref, p_contact: el("pfCmTo").value, ...dueArg });
         if (data) { c = data; fill(); }
       });
       const err = (t) => { const n = el("pfCmErr"); n.textContent = t; n.classList.remove("hidden"); };
@@ -141,7 +142,7 @@
         if (!el("pfCmTo")) return err("Nobody to email.");
         const btns = [el("pfCmHold"), el("pfCmGo")]; btns.forEach((b) => { b.disabled = true; });
         const { error: e2 } = await sb.rpc("partner_queue", { p_kind: kind, p_ref: ref, p_contact: el("pfCmTo").value,
-          p_subject: el("pfCmSubj").value, p_body: el("pfCmBody").value, p_approve: approve });
+          p_subject: el("pfCmSubj").value, p_body: el("pfCmBody").value, p_approve: approve, ...dueArg });
         btns.forEach((b) => { b.disabled = false; });
         if (e2) return err(cleanErr(e2));
         m.close();
@@ -224,7 +225,7 @@
       if (error) { showError("pfRbErr", cleanErr(error)); return; }
       clearError("pfRbErr");
       rbRows = Array.isArray(data) ? data : [];
-      if (s && s.rebook_lead_days) el("pfRbLead").textContent = "Last season's clients come back here " + num(s.rebook_lead_days) + " days before last year's date, with what they booked and a ready rebook email. Booking them, or a GotPhoto job, takes them off the list.";
+      if (s && s.rebook_lead_days) el("pfRbLead").textContent = "Last year's clients come back here " + num(s.rebook_lead_days) + " days before last year's date, once for each season they had a picture day, with what they booked and a ready rebook email. A booking or GotPhoto job within about 6 weeks of that date takes them off the list.";
       renderRebook();
       setAttention("rebookDue", rbRows.filter((r) => rbGroup(r) === "now").length, "Due to rebook", "rebook");
     }
@@ -257,8 +258,8 @@
       if (!b || !tr) return;
       const org = tr.dataset.org, due = tr.dataset.due, act = b.dataset.do;
       if (act === "org") return;
-      if (act === "review") { const r = rbRows.find((x) => x.org_id === org); return goReview(r && r.email, org); }
-      if (act === "draft") return compose("rebook", org, loadRebook);
+      if (act === "review") { const r = rbRows.find((x) => x.org_id === org && x.due_on === due); return goReview(r && r.email, org); }
+      if (act === "draft") return compose("rebook", org, loadRebook, due);
       if (act === "todo") return setRebook(org, due, "todo", null, "");
       if (act === "skip") {
         const note = prompt("Not this year. Why? (optional, for next year)", "");
