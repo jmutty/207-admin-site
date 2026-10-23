@@ -58,9 +58,12 @@
       '<div class="cr-sec"><h3>Your requests</h3><div id="aca-toMine"><p class="empty">Loading&#8230;</p></div></div>' +
       '<div class="cr-sec hidden" id="aca-toTeamSec"><h3>The team</h3><div id="aca-toTeam"></div></div>';
 
-    // "Sat Oct 25, 9am-12pm (Lead) · leave 8:15am"
-    const dayLine = (d) => T.fmtDay(T.local(d.starts_at).day) + ", " + T.fmtTs(d.starts_at) + "–" + T.fmtTs(d.ends_at) + (d.role ? " (" + d.role + ")" : "") +
-      (d.drive_before_min ? " · leave " + T.fmtTs(new Date(new Date(d.starts_at) - d.drive_before_min * 6e4).toISOString()) : "");
+    // "Sat Oct 25, 9am-12pm (Lead) · leave 8:15am" (· "from home" for people who start at home, 2026-10-24)
+    const dayLine = (d, home) => T.fmtDay(T.local(d.starts_at).day) + ", " + T.fmtTs(d.starts_at) + "–" + T.fmtTs(d.ends_at) + (d.role ? " (" + d.role + ")" : "") +
+      (d.drive_before_min ? " · leave " + T.fmtTs(new Date(new Date(d.starts_at) - d.drive_before_min * 6e4).toISOString()) + (home ? " from home" : "") : "");
+    // The job's page (notes, contacts, crew, checklist) from each card; job_get lets the crew in.
+    const jobHref = (id, tab) => (typeof jobLink === "function" && id ? jobLink(id, tab) : "");
+    const titleLink = (id, title) => { const h = jobHref(id); return h ? '<a href="' + esc(h) + '">' + esc(title) + "</a>" : esc(title); };
     const chip = (st) => st && CREW_STATUS[st] ? '<span class="pill ' + CREW_STATUS[st][1] + '">' + CREW_STATUS[st][0] + "</span>" : "";
 
     // ---------------------------------------------------------------- my jobs
@@ -77,8 +80,10 @@
     }
     function renderMine() {
       if (!mine.length) { el("crMine").innerHTML = '<p class="empty">You are not on any jobs in the next two months.</p>'; return; }
-      el("crMine").innerHTML = mine.map((j) => '<div class="cr-card' + (j.status === "confirmed" ? " done" : "") + '"><h4>' + esc(j.title) + chip(j.status) + "</h4>" +
-        '<p class="cr-facts">' + j.days.map((d) => "<b>" + esc(dayLine(d)) + "</b>" + (d.note ? "<br>" + esc(d.note) : "")).join("<br>") + (j.location ? "<br>" + mapLink(j.location) : "") + "</p>" +
+      el("crMine").innerHTML = mine.map((j) => '<div class="cr-card' + (j.status === "confirmed" ? " done" : "") + '"><h4>' + titleLink(j.booking_id, j.title) + chip(j.status) + "</h4>" +
+        '<p class="cr-facts">' + j.days.map((d) => "<b>" + esc(dayLine(d, j.from_home)) + "</b>" + (d.note ? "<br>" + esc(d.note) : "")).join("<br>") + (j.location ? "<br>" + mapLink(j.location) : "") +
+        // "Checklist: 2 open, 1 late" (their own steps on this job)
+        (num(j.checklist_open) ? '<br><a href="' + esc(jobHref(j.booking_id, "checklist")) + '">Checklist: ' + num(j.checklist_open) + " open" + (num(j.checklist_late) ? ', <span style="color:var(--err-fg);font-weight:600">' + num(j.checklist_late) + " late</span>" : "") + "</a>" : "") + "</p>" +
         (j.token && j.status !== "declined" ? '<div class="cr-acts">' + (j.status !== "confirmed" ? '<button type="button" class="primary" data-yes="' + esc(j.token) + '">Confirm</button>' : "") +
           '<button type="button" data-no="' + esc(j.token) + '">Can&#39;t make it</button></div>' : "") + "</div>").join("");
     }
@@ -316,7 +321,7 @@
     function render(msg, intent) {
       let h = top(D.title) + "<p>Hi " + esc(D.name) + ". " + (D.changed && D.status === "pending" ? "The time changed on this job. Can you still make it?" : "You&#8217;re on the schedule for this job.") + "</p>";
       h += D.days.map((d) => '<div class="crp-day"><div class="t">' + esc(fmtDay(d.starts_at)) + "<br>" + esc(fmtTime(d.starts_at)) + " – " + esc(fmtTime(d.ends_at)) + "</div>" +
-        '<div class="s">' + [d.role ? "Your role: " + esc(d.role) : "", d.drive_before_min ? "Leave the studio by " + esc(fmtTime(new Date(new Date(d.starts_at) - d.drive_before_min * 6e4))) : "", d.note ? esc(d.note) : ""].filter(Boolean).join("<br>") + "</div></div>").join("");
+        '<div class="s">' + [d.role ? "Your role: " + esc(d.role) : "", d.drive_before_min ? (D.from_home ? "Leave home by " : "Leave the studio by ") + esc(fmtTime(new Date(new Date(d.starts_at) - d.drive_before_min * 6e4))) : "", d.note ? esc(d.note) : ""].filter(Boolean).join("<br>") + "</div></div>").join("");
       if (D.location) h += '<p>Where: <a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(D.location) + '" target="_blank" rel="noopener">' + esc(D.location) + "</a></p>";
       if (D.crew && D.crew.length) h += '<p style="margin:8px 0;color:var(--muted)">Also on it: ' + D.crew.map((c) => esc(c.name) + (c.role ? " (" + esc(c.role) + ")" : "")).join(", ") + "</p>";
       if (msg) h += msg;
