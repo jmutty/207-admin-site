@@ -1110,7 +1110,12 @@
         : '<div class="bk-sec"><h3>School hub</h3>' + (b.hub_school ? '<div class="bk-sub">On 207photo.com/schooladmin as <strong>' + esc(b.hub_school.name) + "</strong>, code <strong>" + esc(b.hub_school.access_code) + "</strong>" + (b.hub_school.retake_day ? ", retake " + esc(fmtDay(b.hub_school.retake_day)) : "") + ". Reminder signups were added for the contacts.</div>" + (can ? hubRowTools(b.hub_school) : "") :
         (live ? '<div class="bk-sub">Not on the hub yet. Email 0 waits until the school exists there. Create the job in GotPhoto first, then enter its access code here.</div>' + gpCreateBlock(b) + (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkDCode" placeholder="GotPhoto access code" style="width:170px" /><input type="date" id="aca-bkDRetake" title="Retake day (optional)" /><button type="button" class="small primary" data-v="setcode">Create on the hub</button></div>' : "") : '<div class="bk-sub">Not on the hub.</div>')) + "</div>"]);
       if (!isSchool) parts.push(["coaches", '<div class="bk-sec"><h3>Coaches</h3>' + coachesBlock(b, live && can) + "</div>"]);
-      parts.push(["contacts", '<div class="bk-sec"><h3>Who gets the emails</h3>' + ((b.contacts || []).map((c) => "<div>" + esc(c.name || "") + ' <span class="bk-sub">' + esc(c.email || "") + "</span></div>").join("") || '<span class="pill err">Nobody to email</span>') + "</div>"]);
+      // Remove takes someone off this job's emails (2026-10-23); Edit booking adds people.
+      const usable = new Set((b.org_contacts || []).filter((c) => c.emailable).map((c) => c.id));
+      parts.push(["contacts", '<div class="bk-sec"><h3>Who gets the emails</h3>' + ((b.contacts || []).map((c) => '<div class="bk-who">' + esc(c.name || "") + ' <span class="bk-sub">' + esc(c.email || "") + "</span>" +
+        (b.org_contacts && !usable.has(c.id) ? ' <span class="pill muted" title="Stopped, bounced or unsubscribed on the partner page">not emailed</span>' : "") +
+        (live && can ? ' <button type="button" class="small quiet" data-v="whorm" data-cid="' + esc(c.id) + '" data-who="' + esc(c.name || c.email || "") + '">Remove</button>' : "") + "</div>").join("") || '<span class="pill err">Nobody to email</span>') +
+        (live && can ? '<div class="bk-sub" style="margin-top:4px">Add people with Edit booking at the top.</div>' : "") + "</div>"]);
       parts.push(["emails", `<div class="bk-sec bk-mailsec${mailFolded ? " folded" : ""}"><h3><button type="button" class="bk-mailtog" data-v="mailfold" aria-expanded="${!mailFolded}"><span class="sl-chev"></span> Emails</button> <span class="bk-sub">${mailSummary(b)}</span></h3>
         <div class="table-wrap bk-mailbody"><table class="bk-emails"><tbody>${emails.map((e, i) => '<tr><td><strong>' + esc((i + 1) + ". " + (e.label || "")) + ((b.days || []).length > 1 && e.day_index != null && b.days[e.day_index] ? " (" + esc(fmtDay(b.days[e.day_index].day)) + (b.days[e.day_index].label ? ", " + esc(b.days[e.day_index].label) : "") + ")" : "") + '</strong>' + (e.kind === "hub" ? ' <span class="pill accent">Hub</span>' : e.kind === "coach" ? ' <span class="pill accent">Coach</span>' : "") + (e.is_resend ? ' <span class="pill muted">resend</span>' : "") +
           '<div class="bk-sub">to ' + (e.kind === "coach" ? esc((e.to_emails || []).join(", ") || "the coaches on file (none yet)") : esc(e.to_name || "") + " " + esc(e.to_email || "")) + ((e.cc_emails || []).length ? ' <span class="muted">cc ' + esc((e.cc_emails || []).join(", ")) + "</span>" : "") + "</div>" +
@@ -1359,6 +1364,11 @@
         const text = (el("bkCoachText").value || "").trim(); if (!text) return toast("Paste at least one email first.", true);
         b.disabled = true; const { data, error } = await sb.rpc("booking_coaches_add", { p_booking: detail.id, p_text: text, p_source: "manual" }); if (error) throw error;
         toast(data.added ? "Added " + data.added + " coach email" + (data.added === 1 ? "" : "s") + "." : (data.seen ? "Nothing new. Our own addresses, no-reply senders and the org's contacts are left out." : "No email address found in that text."), !data.added);
+      }
+      if (v === "whorm") {
+        if (!confirm("Stop this job's emails to " + b.dataset.who + "? Emails that already went out stay sent.")) return;
+        b.disabled = true; const { error } = await sb.rpc("booking_contact_remove", { p_booking: detail.id, p_contact: b.dataset.cid }); if (error) throw error;
+        toast(b.dataset.who + " is off this job's emails.");
       }
       if (v === "coachrm") { b.disabled = true; const { data, error } = await sb.rpc("booking_coach_remove", { p_id: b.dataset.coach }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Removed. The capture will not add them back; paste them to restore."); }
       if (v === "preview") {

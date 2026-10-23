@@ -185,7 +185,20 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-bkBody tr[data-id="bk1"]');
     await page.waitForSelector("#aca-jpTabs button");
     check(page.url().endsWith("#jobs/job/bk1") && await page.$eval("#aca-bkPanel", (n) => n.classList.contains("hidden")), "a row goes straight to the job page, no preview");
+    // Remove someone from a job's emails, on Overview and on the Booking tab (2026-10-23)
+    await page.waitForSelector("#aca-jpBody button[data-rmc]");
+    check((await page.$$("#aca-jpBody button[data-rmc]")).length === 2, "Overview: Remove next to each person who gets the emails");
+    await page.click('#aca-jpBody button[data-rmc="c3"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_contact_remove" && c[1].p_contact === "c3" && c[1].p_booking === "bk1")), "Overview Remove calls booking_contact_remove");
+    await page.waitForSelector("#aca-jpTabs button");
     await page.click('#aca-jpTabs button[data-t="booking"]');
+    await page.waitForSelector("#aca-bkDetail .bk-stages");
+    check((await page.$$('#aca-bkDetail button[data-v="whorm"]')).length === 2, "Booking tab: Remove next to each person who gets the emails");
+    check((await page.textContent("#aca-bkDetail")).includes("not emailed"), "Booking tab: a stopped contact is marked not emailed");
+    await page.click('#aca-bkDetail button[data-v="whorm"][data-cid="c3"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "booking_contact_remove").length === 2), "Booking tab Remove calls booking_contact_remove");
     await page.waitForSelector("#aca-bkDetail .bk-stages");
     check((await page.$$("#aca-bkDetail .bk-stages li")).length === 6, "Booking tab shows the type's six stages");
     check((await page.textContent("#aca-bkDetail .bk-stages li.cur")).includes("In production"), "current stage highlighted");

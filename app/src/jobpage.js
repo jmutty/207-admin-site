@@ -312,18 +312,30 @@
         J.deliverables && J.deliverables.length ? ["Deliverables", J.deliverables.filter((d) => d.status !== "todo").length + " of " + J.deliverables.length + " delivered"] : null,
       ].filter(Boolean);
       const contacts = J.contacts || [];
+      // Remove takes someone off this job's emails (2026-10-23); Edit booking adds people.
+      const rm = c.bookings_edit && b.status === "booked" && contacts.length > 1;
       box.innerHTML = '<div class="jp-grid"><div>' +
         '<div class="jp-sec"><h3>The job</h3><dl class="jp-dl">' + facts.map((f) => "<dt>" + esc(f[0]) + "</dt><dd>" + esc(f[1] || "\u2014") + "</dd>").join("") +
         "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="' + orgLink(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + "</dd></dl></div>" +
         (b.notes ? '<p class="muted" style="font-size:13px;margin:-12px 0 18px">Notes from the booking are on the <a href="' + jobLink(b.id, "notes") + '">Notes</a> tab.</p>' : "") +
-        (contacts.length ? '<div class="jp-sec"><h3>Contacts</h3><ul class="jp-rows">' + contacts.map((p) => "<li><span>" + esc(p.name || p.email || "") +
-          (p.role ? ' <span class="muted">' + esc(p.role) + "</span>" : "") + '</span><span class="r">' + esc([p.email, p.phone].filter(Boolean).join(" \u00b7 ")) + "</span></li>").join("") + "</ul></div>" : "") +
+        (contacts.length ? '<div class="jp-sec"><h3>Who gets the emails</h3><ul class="jp-rows">' + contacts.map((p) => "<li><span>" + esc(p.name || p.email || "") +
+          (p.role ? ' <span class="muted">' + esc(p.role) + "</span>" : "") + '</span><span class="r">' + esc([p.email, p.phone].filter(Boolean).join(" \u00b7 ")) +
+          (rm && p.contact_id ? ' <button type="button" class="small quiet" data-rmc="' + esc(p.contact_id) + '" data-who="' + esc(p.name || p.email || "") + '">Remove</button>' : "") + "</span></li>").join("") + "</ul></div>" : "") +
         "</div><div>" +
         '<div class="jp-sec"><h3>Crew</h3>' + (crew.length ? '<ul class="jp-rows">' + crew.map((p) => "<li><span>" + esc(p.name) + (p.note ? ' <span class="muted">' + esc(p.note) + "</span>" : "") +
           '</span><span class="r">' + esc(T.fmtDay(T.local(p.starts_at).day, { weekday: "short" }) + ", " + timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at)) +
           (p.drive_before_min ? " \u00b7 " + num(p.drive_before_min) + " min drive" : "") + "</span></li>").join("") + "</ul>"
           : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>.' : "") + "</div>") + "</div>" +
         "</div></div>";
+      box.onclick = async (e) => {
+        const t = e.target.closest("button[data-rmc]"); if (!t) return;
+        if (!confirm("Stop this job's emails to " + t.dataset.who + "? Emails that already went out stay sent.")) return;
+        t.disabled = true;
+        const { error } = await sb.rpc("booking_contact_remove", { p_booking: b.id, p_contact: t.dataset.rmc });
+        if (error) { t.disabled = false; toast(cleanErr(error), true); return; }
+        toast(t.dataset.who + " is off this job's emails.");
+        load(b.id, "overview");
+      };
     }
     function dueTxt(day) {
       const d = T.daysBetween(T.today(), day);
