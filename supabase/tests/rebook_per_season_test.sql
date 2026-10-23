@@ -1,4 +1,4 @@
--- Tests for 20261024120000_rebook_per_season. Run against a NON-production copy of the schema, inside a
+-- Tests for 20261024120500_rebook_per_season. Run against a NON-production copy of the schema, inside a
 -- transaction that is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/rebook_per_season_test.sql
 -- "ALL REBOOK PER SEASON TESTS PASSED" at the end means every check held.
