@@ -285,6 +285,7 @@
       return i < 0 ? "No stage yet" : "<b>" + esc(list[i].label) + "</b>, " + (i + 1) + " of " + list.length;
     }
     function pick(id) {
+      if (id === "parents") id = "hub"; // the Parents tab became Hub (2026-10-25); old links still land there
       const list = tabs();
       const t = list.find((x) => x.id === id) || list[0];
       curTab = t.id;

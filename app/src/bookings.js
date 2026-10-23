@@ -24,7 +24,8 @@
   .aca .bk-table td.bk-c-stage .pill + .bk-sub { margin-top: 2px; }
   .aca .bk-table tr.bk-row { cursor: pointer; }
   .aca .bk-table tr.bk-row:hover td { background: var(--surface-2); }
-  .aca .bk-date { font-weight: 700; white-space: nowrap; }
+  .aca .bk-date { font-weight: 700; }
+  .aca .bk-date > span { white-space: nowrap; } /* a multi-day range wraps between its two days, not into the job name */
   .aca .bk-sub { font-size: 12px; color: var(--muted); }
   .aca .bk-type { font-size: 12px; color: var(--muted); }
   .aca .bk-fold { padding: 8px 16px 14px; }
@@ -117,10 +118,6 @@
   .aca .bk-menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; font-weight: 400; }
   .aca .bk-menu button:hover { background: var(--surface-2); }
   .aca .bk-chk { font-size: 12px; color: var(--muted); margin-top: 2px; } .aca .bk-chk .late { color: var(--err-fg); font-weight: 600; }
-  /* Short preview on All jobs; everything else is on the job page */
-  .aca .bk-pv .bk-facts { margin-top: 4px; }
-  .aca .bk-pv-acts { display: flex; gap: 8px; flex-wrap: wrap; }
-  .aca .bk-pv-acts a.primary { text-decoration: none; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 4px; background: var(--accent); color: #fff; font-weight: 600; }
   /* Booking tab on the job page: the stage ladder folds to one line on phones */
   .aca .bk-stage1 { display: none; font-size: 13.5px; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 8px; }
   .aca .bk-tab .bk-sec { padding-left: 0; padding-right: 0; }
@@ -138,7 +135,6 @@
     .aca #aca-bkPanel { position: fixed; top: var(--og-top, 0px); left: 0; right: 0; bottom: 0; width: 100vw; max-width: none; overflow: auto; -webkit-overflow-scrolling: touch; z-index: 60; background: var(--surface); }
     .aca #aca-bkPanel.hidden { display: none; }
     .aca #aca-bkPanel > :first-child { position: sticky; top: 0; z-index: 2; background: var(--surface); }
-    .aca #aca-bkPanel .bk-pv-acts a, .aca #aca-bkPanel .bk-pv-acts button { min-height: 40px; }
   }
   @media (max-width: 760px) {
     .aca .og-modal-wrap:has(.bk-form) { padding: 0; align-items: stretch; }
@@ -401,7 +397,7 @@
     const body = el("bkBody");
     if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty">' + (scope === "upcoming" && !sk ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : scope === "owed" ? "Nothing owed. Every deliverable is done or skipped." : "Nothing here.") + "</td></tr>"; return; }
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
-      '<td class="bk-c-when"><div class="bk-date">' + esc(whenRange(b)) + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div></td>" +
+      '<td class="bk-c-when"><div class="bk-date">' + whenRange(b).split(" to ").map((x, i) => "<span>" + (i ? "to " : "") + esc(x) + "</span>").join(" ") + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div></td>" +
       '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-who">' + ((b.contacts || []).map((c) => esc(c.name || c.email)).join(", ") || (b.status === "tracked" ? '<span class="bk-sub">&mdash;</span>' : '<span class="pill err">no contact</span>')) + "</td>" +
@@ -422,7 +418,8 @@
     el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
     load(true);
   });
-  el("bkBody").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) openDetail(tr.dataset.id); });
+  // A row opens its job page straight away (2026-10-25: no preview first). Links and controls in a row keep their own job.
+  el("bkBody").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-id]"); if (tr && !e.target.closest("a, button, input, select, label")) openJob(tr.dataset.id); });
 
   // ---- attention (Today + Jobs badge)
   registerAttention("bookingDeliverablesOverdue", { module: "bookings", level: "warn", name: "overdue deliverables",
@@ -999,38 +996,13 @@
   }
 
   // ---- one job screen (2026-10-24). Every way into a job opens its page (jobpage.js). What used to be this
-  // page's side panel is the job page's Booking tab (mountTab below); All jobs keeps a short preview with Open.
+  // page's side panel is the job page's Booking tab (mountTab below). A row on All jobs opens it directly.
   function openJob(id, tab, replace) {
     if (openId) closeDetail();
     const h = jobLink(id, tab);
     if (replace) history.replaceState(null, "", h); else history.pushState(null, "", h);
     showTab("job");
   }
-  // The short preview on All jobs: what the row says, bigger, and Open.
-  function openDetail(id) {
-    const b = rows.find((r) => r.id === id);
-    if (!b) { openJob(id); return; }
-    openId = id;
-    const panel = el("bkPanel");
-    panel.classList.remove("hidden");
-    if (window.innerWidth <= 900) { document.documentElement.classList.add("aca-sheet-open"); document.body.classList.add("aca-sheet-open"); }
-    Orgs.measureTop();
-    const who = (b.contacts || []).map((c) => esc(c.name || c.email)).join(", ");
-    panel.innerHTML = '<div class="bk-sec bk-pv" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">' +
-        '<div><h3 style="font-size:15px">' + esc(b.title) + '</h3><div class="bk-sub">' + daysLine(b) + " · " + esc(b.type_label || "") + (b.status !== "booked" ? ' · <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>" : "") + "</div>" +
-        '<div class="bk-sub"><a href="#partners/org/' + esc(b.org_id) + '">' + esc(b.org_name || "") + "</a>" + (b.location ? " · " + esc(b.location) : "") + "</div></div>" +
-        '<button type="button" data-v="close" aria-label="Close">✕</button></div>' +
-      '<div class="bk-sec"><div class="bk-facts">' +
-        (b.status === "cancelled" ? "" : "<span>Stage</span><span>" + stageCell(b) + "</span>") +
-        "<span>Emails</span><span>" + mailSummary(b) + "</span>" +
-        "<span>Calendar</span><span>" + calPill(b) + "</span>" +
-        "<span>Contacts</span><span>" + (who || (b.status === "tracked" ? "&mdash;" : '<span class="pill err">no contact</span>')) + "</span></div></div>" +
-      '<div class="bk-sec bk-pv-acts"><a class="primary" href="' + esc(jobLink(id)) + '" data-v="open">Open</a><button type="button" data-v="close">Close</button></div>';
-  }
-  el("bkPanel").addEventListener("click", (e) => {
-    if (e.target.closest('[data-v="close"]')) { closeDetail(); return; }
-    if (e.target.closest('a[data-v="open"]')) { e.preventDefault(); openJob(openId); }
-  });
   function closeDetail() {
     document.documentElement.classList.remove("aca-sheet-open"); document.body.classList.remove("aca-sheet-open");
     openId = null;
@@ -1388,8 +1360,8 @@
   const addJobTab = () => registerJobTab({ id: "booking", label: "Booking", order: 12, module: "bookings", render: (bk, box) => mountTab(box, bk.id) });
   if (typeof registerJobTab === "function") addJobTab(); else setTimeout(() => { if (typeof registerJobTab === "function") addJobTab(); }, 0);
 
-  // open / openId: a job opens on its page (2026-10-24; tab optional, e.g. "booking" for its emails). preview: All jobs' short drawer.
-  return { load: () => load(false), reload: () => load(true), loadAttention, open: (id, tab) => openJob(id, tab), openId: (id, tab) => openJob(id, tab), preview: (id) => openDetail(id),
+  // open / openId: a job opens on its page (2026-10-24; tab optional, e.g. "booking" for its emails).
+  return { load: () => load(false), reload: () => load(true), loadAttention, open: (id, tab) => openJob(id, tab), openId: (id, tab) => openJob(id, tab),
            edit: editId, openNew: (org) => openForm(null, org || null), hide: () => { if (openId) closeDetail(); }, addSection: (x) => { if (x && x.id && x.html) extraSections.push(x); }, mdToHtml, fill,
     // Settings > Job types (ws/settings): the same dialog; forget cached job types after one is added.
     openJobTypes, resetTypes: () => { types = []; } };
