@@ -7,8 +7,8 @@
   // (migration 20261022180000). View = see checklists and every job's tasks; Edit = change the checklists.
   // 2026-10-22 (migration 20261022234500): a step can wait for another step (its task stays off people's lists until
   // that one is checked off), belong to a group ("Editing team": the least busy member gets it, anyone in it can
-  // check it off), and have reminder rules (push the owner N days before; push + email a manager N days late; email
-  // the partner contact when it is checked off). Each step reads back as a sentence. Groups: staff_group_save / _archive.
+  // check it off), and have reminder rules (push the owner N days before; push + email a manager N days late).
+  // Steps never email leagues or schools (2026-10-23, Jeremiah: hub messages cover that). Each step reads back as a sentence. Groups: staff_group_save / _archive.
   registerPage({ id: "checklists", group: "Jobs", section: "jobs", module: "workflows", title: "Job checklists",
                  tabs: [["checklists", "Jobs"], ["wfsteps", "Checklists"]], onShow: (tab) => (tab === "wfsteps" ? Workflows.loadSteps() : Workflows.loadJobs()) });
   registerAttention("workflowOverdue", { module: "workflows", level: "warn", name: "job checklist tasks",
@@ -75,7 +75,6 @@
       const d = (n) => (n === 1 ? "1 day" : n + " days");
       if (s.remind_days) out.push("A push " + d(s.remind_days) + " before it is due.");
       if (s.late_days) out.push("If it is " + d(s.late_days) + " late, a push and email to " + (s.late_user_name ? T.shortName(s.late_user_name) : "the full-access people") + ".");
-      if (s.partner_email) out.push("Emails the partner contact when it is checked off.");
       return out.join(" ");
     }
 
@@ -213,10 +212,6 @@
         '<label class="wf-rule"><input type="checkbox" id="aca-wsRemOn"' + (s.remind_days ? " checked" : "") + ' /> Push the owner <input type="number" id="aca-wsRem" min="1" max="30" value="' + (s.remind_days || 2) + '" aria-label="Days before" /> days before it is due</label>' +
         '<label class="wf-rule"><input type="checkbox" id="aca-wsLateOn"' + (s.late_days ? " checked" : "") + ' /> If it is <input type="number" id="aca-wsLate" min="1" max="30" value="' + (s.late_days || 1) + '" aria-label="Days late" /> days late, push and email ' +
         '<select class="small" id="aca-wsLateUser"><option value="">the full-access people</option>' + tpl.people.map((p) => '<option value="' + esc(p.user_id) + '"' + (p.user_id === s.late_user_id ? " selected" : "") + ">" + esc(T.shortName(p.name)) + "</option>").join("") + "</select></label>" +
-        '<label class="wf-rule"><input type="checkbox" id="aca-wsPartOn"' + (s.partner_email ? " checked" : "") + " /> Email the job&#39;s partner contact when it is checked off</label>" +
-        '<div id="aca-wsPartF" class="hidden"><div class="field"><label for="aca-wsPartSubj">Subject</label><input type="text" id="aca-wsPartSubj" maxlength="200" value="' + esc(s.partner_subject || "") + '" placeholder="{step}: {job}" /></div>' +
-        '<div class="field"><label for="aca-wsPartBody">Email</label><textarea id="aca-wsPartBody" maxlength="4000" style="height:96px" placeholder="Hi {first_name},&#10;&#10;Proofs for {league} are posted.">' + esc(s.partner_body || "") + "</textarea>" +
-        '<p class="muted" style="font-size:12px;margin:4px 0 0">Fill-ins: {first_name} {league} {job} {picture_day} {step}. Your booking email signature goes at the end. It follows the Booking emails settings (sending switch, quiet hours, test mode) and only goes for booked jobs, about 5 minutes after the check-off, so un-checking by mistake stops it.</p></div></div>' +
         "</fieldset>" +
         '<p class="wf-say" id="aca-wsSay"></p>' +
         '<div class="inline-error hidden" id="aca-wsErr"></div>' +
@@ -242,7 +237,7 @@
           remind_days: el("wsRemOn").checked ? Math.max(1, Math.min(30, Math.round(+el("wsRem").value || 2))) : null,
           late_days: el("wsLateOn").checked ? Math.max(1, Math.min(30, Math.round(+el("wsLate").value || 1))) : null,
           late_user_id: el("wsLateOn").checked ? el("wsLateUser").value || null : null, late_user_name: late ? late.name : null,
-          partner_email: el("wsPartOn").checked, partner_subject: el("wsPartSubj").value.trim(), partner_body: el("wsPartBody").value.trim() };
+          partner_email: false, partner_subject: "", partner_body: "" };
       };
       const sync = () => {
         const on = el("wsDir").value === "on", to = el("wsTo").value;
@@ -251,7 +246,6 @@
         el("wsUser").options[0].textContent = to === "person" ? "Pick someone…" : "Nobody (wait for crew)";
         el("wsUserF").classList.toggle("hidden", to === "group");
         el("wsGroupF").classList.toggle("hidden", to !== "group");
-        el("wsPartF").classList.toggle("hidden", !el("wsPartOn").checked);
         el("wsSay").textContent = sayStep(Object.assign(form(), { title: el("wsTitle").value.trim() || "this step" }));
       };
       sync();
