@@ -156,7 +156,6 @@
     // GotPhoto defaults (gp_type_defaults): what a job made by 207 Admin gets. Empty = copied from the newest job.
     const GP_JOB_TYPES = [["sport_other", "Sport (Other)"], ["school_k_12", "K-12 School"]];
     const GP_ARCHIVE = [["month_after", "One month after the shoot"], ["june_1", "June 1 after the shoot (school's out)"]];
-    const GP_REG = [["", "Copy from the newest job"], ["off", "Off"], ["optional", "Optional"], ["required", "Required"]];
     const GP_REVIEW = [["", "Copy from the newest job"], ["off", "Off"], ["on", "On"], ["auto", "Auto"]];
     const GP_FAV = [["", "Copy from the newest job"], ["off", "No selection box"], ["favorite", "Favorite photo"], ["yearbook", "Yearbook photo"], ["student_id", "ID card photo"]];
     const GP_PREPAY = [["", "Copy from the newest job"], ["true", "On"], ["false", "Off"]];
@@ -196,13 +195,12 @@
         GP_SEASONS.map(([k, lab]) => field(lab, profSel(k, "price_profiles", d[k]))).join("") +
         field("Communication profile", profSel("communication_profile_id", "communication_profiles", d.communication_profile_id)) +
         field("Photo access", sel("access", gpAccessList(gpAccessOf(d), true), gpAccessOf(d))) +
-        field("Registration after code login", sel("register_after_password_login", GP_REG, d.register_after_password_login)) +
         field("Prepay shop", sel("prepay", GP_PREPAY, d.prepay)) +
         field("Prepay deadline, days after the shoot", '<input type="number" id="aca-stGpprepay_deadline_days" min="-60" max="365" style="width:120px" value="' + esc(d.prepay_deadline_days == null ? "" : String(d.prepay_deadline_days)) + '"' + (can ? "" : " disabled") + " />", "Empty = same distance as on the newest job.") +
         field("Review photos before the lab", sel("review_orders_photos", GP_REVIEW, d.review_orders_photos)) +
         field("Customers pick a favorite photo", sel("customer_set_favorite_photo", GP_FAV, d.customer_set_favorite_photo)) +
         field("Photos per person goal", '<input type="number" id="aca-stGpphotographer_goal" min="0" max="99" style="width:120px" value="' + esc(d.photographer_goal == null ? "" : String(d.photographer_goal)) + '"' + (can ? "" : " disabled") + " />", "Empty = copy from the newest job.") +
-        '<p class="muted" style="font-size:12px">Not settable through GotPhoto\u2019s API: "Switch price list on", coupons, registration form fields and products. Set those in GotPhoto.</p>' +
+        '<p class="muted" style="font-size:12px">Registration after code login carries over from your last job in GotPhoto. Not settable through GotPhoto\u2019s API: "Switch price list on", coupons, registration form fields and products. Set those in GotPhoto.</p>' +
         '<div class="inline-error hidden" id="aca-stGpErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">' + (can ? "Cancel" : "Close") + "</button>" +
         (can ? '<button type="button" class="primary" data-m="save">Save</button>' : "") + "</div></div>";
       const m = openModal(body());
