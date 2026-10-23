@@ -138,7 +138,8 @@
     team_list: [{ user_id: "u1", email: "test@207photo.com", name: "Jeremiah Mutty", is_admin: true, is_me: true, active: true, must_change_password: false, weekly_hours: 40, employment_type: "salaried", job_title: "Owner", last_sign_in_at: iso(-0.01), modules: {} },
       { user_id: "u2", email: "sam@207photo.com", name: "Sam Helper", is_admin: false, is_me: false, active: true, must_change_password: true, last_sign_in_at: null, modules: { bookings: "edit", parents: "view" } },
       { user_id: "u3", email: "old@207photo.com", name: "Former Staff", is_admin: false, is_me: false, active: false, must_change_password: false, last_sign_in_at: iso(-90), modules: { partners: "view" } }],
-    team_audit_list: [{ at: iso(-1), action: "added", actor: "Jeremiah Mutty", target: "Sam Helper" }, { at: iso(-0.5), action: "updated", actor: "Jeremiah Mutty", target: "Sam Helper" }],
+    team_audit_list: [{ at: iso(-0.5), action: "updated", actor: "Jeremiah Mutty", target: "Sam Helper" }, { at: iso(-1), action: "roles_set", actor: "Jeremiah Mutty", target: "Sam Helper" },
+      { at: iso(-1), action: "welcome_sent", actor: "Jeremiah Mutty", target: "Sam Helper" }, { at: iso(-1), action: "added", actor: "Jeremiah Mutty", target: "Sam Helper" }],
     team_save: { ok: true }, me_password_changed: null,
     push_my_settings: { vapid_public: "BKz8kzZpH3b3FVt5JQq0C4f4vFq2l7yqzG0oQ6tVq2zrI8mN2l6Qy6X7cJq3yH4m1nV7pP3s2wT8kL5dR9e1aF0", devices: [{ id: "d1", label: "iPhone \u00b7 Safari", endpoint: "https://web.push.apple.com/abc", created_at: iso(-3), last_ok_at: iso(-1) }],
       topics: AS_STAFF ? [{ key: "help_request", label: "New help request", description: "A parent asked for help finding their access code.", enabled: true }]

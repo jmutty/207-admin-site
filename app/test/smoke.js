@@ -78,7 +78,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-nav button[data-tab="people"]');
     await page.waitForSelector("#aca-teamBody [data-edit]");
     check((await page.$$("#aca-teamBody tr")).length === 5, "team list shows 5 people");
-    check((await page.textContent("#aca-teamBody")).includes("Crew roles: Second shooter, Check-in"), "team list shows each person's crew roles");
+    check((await page.$$eval("#aca-teamBody .tm-role", (n) => n.map((x) => x.textContent))).join(",").includes("Second shooter,Check-in"), "team list shows each person's crew roles");
     await page.click("#aca-teamAdd");
     await page.fill("#aca-tmName", "New Person");
     await page.fill("#aca-tmEmail", "new@207photo.com");
@@ -104,6 +104,16 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.isChecked('input[name="tm-timeclock"][value="view"]') && await page.isChecked('input[name="tm-bookings"][value="none"]'), "Copy access from someone");
     await page.click('[data-preset="office"]');
     check(await page.isChecked('input[name="tm-bookings"][value="edit"]'), "Office preset");
+    await page.check('input[name="tm-parents"][value="edit"]', { force: true });
+    await page.click("#aca-tmCancel");
+    check(!(await page.$eval(".tm-logcard", (d) => d.open)), "Recent changes starts folded shut");
+    const logTxt = await page.textContent("#aca-teamLog");
+    check(logTxt.includes("added Sam Helper · welcome email sent, crew roles") && (await page.$$("#aca-teamLog li")).length === 2, "one save reads as one Recent changes entry");
+    check((await page.textContent("#aca-teamBody")).includes("Custom") && !(await page.isVisible(".tm-accsum > div")), "access is a summary; the full list folds open");
+    await page.click('[data-edit="u2"]');
+    await page.click("#aca-tmMore > summary");
+    await page.selectOption("#aca-tmCopyFrom", "u6");
+    await page.click('[data-preset="office"]');
     await page.check('input[name="tm-parents"][value="edit"]', { force: true });
     await page.fill("#aca-tmHome", "60 main");
     await page.waitForSelector("#aca-tmHome-places:not(.hidden) button[data-i]");
