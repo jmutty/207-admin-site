@@ -13,8 +13,10 @@
 // ?booking=<id> does one booking now, whatever gp_create_settings.auto_enabled says.
 // ?dry=1 builds the jobs it would make and returns them without claiming or creating anything.
 // ?lists=1 returns GotPhoto's price profiles and communication profiles (id + name) for Settings.
+// &code=<registration code> (with ?booking, schools): after making the job, PUT /v4/jobs/{id} registration_code
+// (Update only; Create has no such field), then gp_create_set_code saves it on the booking (hub + emails).
 // ?peek=<job id>[,<job id>] returns how those GotPhoto jobs are set up (access, dates, profiles), to check a
-// made job against GotPhoto's own screens.
+// made job against GotPhoto's own screens. &full=1 returns every field.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const GP_AUTH = "https://auth.getphoto.io/oauth/access_token";
@@ -133,6 +135,7 @@ Deno.serve(async (req) => {
         "prepay_deadline", "registration_deadline", "price_profile_id", "communication_profile_id"];
       const jobs = await Promise.all(ids.map(async (id) => {
         const j = await getJob(id, token).catch((e) => ({ error: String(e.message ?? e) } as Record<string, unknown>));
+        if (url.searchParams.get("full") === "1") return { id, ...j };   // every field GotPhoto returns (finding field names)
         return Object.fromEntries([["id", id], ...keys.filter((k) => k in j).map((k) => [k, j[k]]), ...("error" in j ? [["error", j.error]] : [])]);
       }));
       return Response.json({ ok: true, jobs });
@@ -140,6 +143,7 @@ Deno.serve(async (req) => {
   }
   const booking = url.searchParams.get("booking");
   const dry = url.searchParams.get("dry") === "1";
+  const code = booking ? (url.searchParams.get("code") ?? "").trim().toUpperCase() : "";
 
   const linked = dry ? 0 : await sb.rpc("gp_create_link").then(({ data, error }) => { if (error) console.error("link:", error.message); return data ?? 0; });
   const { data: queue, error: qErr } = await sb.rpc("gp_create_queue", { p_booking: booking, p_limit: booking ? 1 : 10, p_preview: dry });
@@ -201,7 +205,7 @@ Deno.serve(async (req) => {
         continue;
       }
       await done(item.booking_id, String(id), null, false);
-      made.push({ booking_id: item.booking_id, gotphoto_job_id: String(id), name: item.job_name });
+      made.push({ booking_id: item.booking_id, gotphoto_job_id: String(id), name: item.job_name, ...(code ? await setCode(String(id), item.booking_id, code, token) : {}) });
     } else {
       // 4xx = GotPhoto refused this body; say why (its message, not ours). 5xx = try again later.
       let why = text.slice(0, 300);
@@ -220,6 +224,23 @@ Deno.serve(async (req) => {
   }
   return Response.json({ ok: true, linked, dry, made });
 });
+
+// The school's registration code: GotPhoto first, then the booking (only once GotPhoto has it).
+async function setCode(jobId: string, bookingId: string, code: string, token: string): Promise<Record<string, unknown>> {
+  if (!/^[A-Z0-9-]{3,30}$/.test(code)) return { code_error: "Codes are 3 to 30 letters or numbers." };
+  try {
+    const resp = await fetch(`${GP_API}/jobs/${encodeURIComponent(jobId)}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ registration_code: code }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!resp.ok) return { code_error: `GotPhoto said ${resp.status}: ${(await resp.text()).slice(0, 200)}` };
+  } catch (e) { return { code_error: "GotPhoto did not answer: " + String((e as Error).message ?? e) }; }
+  const { data, error } = await sb.rpc("gp_create_set_code", { p_booking: bookingId, p_code: code });
+  if (error || !data?.ok) return { code_error: "GotPhoto has the code, but the booking didn't save it: " + (error?.message ?? data?.error), code_in_gotphoto: code };
+  return { code_set: code };
+}
 
 async function claim(item: any): Promise<boolean> {
   const { data, error } = await sb.rpc("gp_create_claim", { p_item: item });

@@ -14,7 +14,7 @@
 //                 first orders, to check how sales are read).
 //   POST /gpjob?booking=<id> -> the same, with edit access to Bookings (can('bookings','edit')): invoke
 //                 gotphoto-jobs for that booking ("Create it in GotPhoto" on a job). &dry=1 passes through: what the
-//                 job would get, nothing made (the check screen before creating).
+//                 job would get, nothing made (the check screen before creating). &code=<registration code> passes through (schools).
 //   POST /gplists -> the same check: GotPhoto's price and communication profiles for Settings > Job types.
 //   anything else -> 404.
 
@@ -46,7 +46,8 @@ Deno.serve(async (req) => {
         (url.searchParams.get("probe") ? "&probe=" + encodeURIComponent(url.searchParams.get("probe")!) : "") }
     : url.pathname.endsWith("/gpjob") && /^[0-9a-f-]{36}$/i.test(url.searchParams.get("booking") ?? "")
       ? { name: "gpjob", module: "bookings", target: "gotphoto-jobs?trigger=manual&booking=" + url.searchParams.get("booking") +
-        (url.searchParams.get("dry") === "1" ? "&dry=1" : "") }
+        (url.searchParams.get("dry") === "1" ? "&dry=1" : "") +
+        (/^[A-Za-z0-9-]{3,30}$/.test(url.searchParams.get("code") ?? "") ? "&code=" + url.searchParams.get("code") : "") }
     : url.pathname.endsWith("/gplists") ? { name: "gplists", module: "bookings", target: "gotphoto-jobs?lists=1" }
     : null;
   if (route) {
