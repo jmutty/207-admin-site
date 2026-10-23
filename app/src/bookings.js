@@ -267,7 +267,7 @@
   const gpJobName = (b) => {
     const y = (b.picture_day || "").slice(0, 4), m = +((b.picture_day || "").slice(5, 7));
     const season = b.type_key === "school" && y ? (m >= 7 ? y + "-" + (+y + 1) : (+y - 1) + "-" + y) : y;
-    return [b.org_name, b.title_label || b.type_label, season].filter(Boolean).join(" | ");
+    return [b.org_name, ovParts(b).text || b.title_label || b.type_label, season].filter(Boolean).join(" | ");   // custom title wins (gp_job_name)
   };
   // A saved custom title splits back into the typed part and whether the organization was kept with it.
   // Reads both orders: "Org \u2022 typed" (now) and "typed \u2022 Org" (titles saved before the organization moved to the front).

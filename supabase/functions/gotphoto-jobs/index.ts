@@ -205,7 +205,14 @@ Deno.serve(async (req) => {
     } else {
       // 4xx = GotPhoto refused this body; say why (its message, not ours). 5xx = try again later.
       let why = text.slice(0, 300);
-      try { const j = JSON.parse(text); why = j?.message ?? j?.detail ?? j?.title ?? (j?.violations ? j.violations.map((v: any) => `${v.propertyPath}: ${v.title ?? v.message}`).join("; ") : why); } catch (_) { /* keep text */ }
+      // GotPhoto's 422 says only "Validation failed" in message; the field that failed is in violations/errors.
+      try {
+        const j = JSON.parse(text), list = j?.violations ?? j?.errors;
+        const fields = Array.isArray(list) ? list.map((v: any) => `${v.propertyPath ?? v.field ?? v.property ?? ""}: ${v.title ?? v.message ?? JSON.stringify(v)}`).join("; ")
+          : list && typeof list === "object" ? Object.entries(list).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : JSON.stringify(v)}`).join("; ") : "";
+        const msg = j?.message ?? j?.detail ?? j?.title;
+        why = msg ? `${msg}: ${fields || text.slice(0, 300)}` : fields || why;
+      } catch (_) { /* keep text */ }
       await done(item.booking_id, null, `GotPhoto said ${resp.status}: ${why}`, resp.status >= 500 || resp.status === 429);
       made.push({ booking_id: item.booking_id, error: `${resp.status}` });
       if (resp.status === 401 || resp.status === 403) break;   // the login cannot create jobs: stop the run

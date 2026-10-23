@@ -112,5 +112,10 @@ select pg_temp.ok((select prepay = false and archive_rule = 'june_1' and labels-
 select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"access_type": "qr_tagging", "password_source": "qr_code_list"}'::jsonb)->>'password_source') = 'qr_code_list', 'save stores how the access codes are made');
 select pg_temp.ok((select price_profile_spring is null and access_type = 'qr_tagging' from public.gp_type_defaults where type_key = 'sports_nodata'), 'one price list: a save clears the season ones');
 select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"access_type": ""}'::jsonb)->>'password_source') is null, 'access back to copy clears how codes are made');
+-- A custom title (Edit booking) names the GotPhoto job, without the organization repeated.
+update public.bookings set title_override = 'Gpc Test Hockey A • Winter Sports 2' where id = '00000000-0000-0000-0000-0000000000b1';
+select pg_temp.ok(public.gp_job_name('00000000-0000-0000-0000-0000000000b1') like 'Gpc Test Hockey A | Winter Sports 2 | %', 'custom title "Org • typed" names the job');
+update public.bookings set title_override = 'Hockey Night • Gpc Test Hockey A' where id = '00000000-0000-0000-0000-0000000000b1';
+select pg_temp.ok(public.gp_job_name('00000000-0000-0000-0000-0000000000b1') like 'Gpc Test Hockey A | Hockey Night | %', 'custom title "typed • Org" names the job');
 select 'ALL GOTPHOTO JOB CREATE TESTS PASSED';
 rollback;
