@@ -305,7 +305,12 @@
       const r = route();
       token = r[1];
       load(r[2] || "");
+      // Signed in on this device (the home-screen app, which has no address bar): a way back to My jobs.
+      supabase.auth.getSession().then(({ data }) => { signedIn = !!(data && data.session); if (signedIn && D && !box.querySelector("#crp-home")) box.insertAdjacentHTML("beforeend", homeBtn()); }).catch(() => {});
+      box.addEventListener("click", (e) => { if (e.target.closest("#crp-home")) { location.hash = "#staff/crew"; location.reload(); } });
     }
+    let signedIn = false;
+    const homeBtn = () => (signedIn ? '<div class="crp-acts"><button type="button" class="small" id="crp-home">Open 207 Admin</button></div>' : "");
     const top = (title) => '<div class="crp-top"><img src="' + LOGO + '" alt="" /><div><b>207 Photo &#183; Your job</b><h1>' + esc(title) + "</h1></div></div>";
     async function load(intent) {
       const { data, error } = await supabase.rpc("crew_public", { p_token: token });
@@ -314,6 +319,11 @@
       render("", intent);
     }
     function render(msg, intent) {
+      const real = renderBody(msg, intent);
+      if (signedIn && !box.querySelector("#crp-home")) box.insertAdjacentHTML("beforeend", homeBtn());
+      return real;
+    }
+    function renderBody(msg, intent) {
       let h = top(D.title) + "<p>Hi " + esc(D.name) + ". " + (D.changed && D.status === "pending" ? "The time changed on this job. Can you still make it?" : "You&#8217;re on the schedule for this job.") + "</p>";
       h += D.days.map((d) => '<div class="crp-day"><div class="t">' + esc(fmtDay(d.starts_at)) + "<br>" + esc(fmtTime(d.starts_at)) + " – " + esc(fmtTime(d.ends_at)) + "</div>" +
         '<div class="s">' + [d.role ? "Your role: " + esc(d.role) : "", d.drive_before_min ? "Leave the studio by " + esc(fmtTime(new Date(new Date(d.starts_at) - d.drive_before_min * 6e4))) : "", d.note ? esc(d.note) : ""].filter(Boolean).join("<br>") + "</div></div>").join("");

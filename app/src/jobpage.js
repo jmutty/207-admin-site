@@ -214,7 +214,7 @@
       if (my !== seq) return;
       loadingId = null;
       if (error || !data) {
-        root().innerHTML = '<div class="inline-error">' + esc(error ? (error.code === "42501" ? "You don't have access to this job. Ask Jeremiah to add the area on the Team page." : cleanErr(error)) : "That job doesn't exist any more.") + "</div>";
+        root().innerHTML = '<div class="inline-error">' + esc(error ? (error.code === "42501" ? "You don't have access to this job. " + askWho("Ask", "to add the area on the Team page.") : cleanErr(error)) : "That job doesn't exist any more.") + "</div>";
         return;
       }
       J = data; people = null;

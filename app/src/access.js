@@ -29,19 +29,24 @@
     const name = ACCESS.name || (ACCESS.email || "").split("@")[0];
     el("whoami").innerHTML = (ACCESS.name ? "<b>" + esc(ACCESS.name) + "</b><br>" : "") + esc(ACCESS.email || "") +
       (ACCESS.is_admin ? "" : '<br><span class="muted">Limited access</span>');
-    el("whoBtn").textContent = name.split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "Me";
+    const words = name.split(/[\s._-]+/).filter(Boolean);
+    el("whoBtn").querySelector(".who-i").textContent = words.slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "Me";
+    el("whoBtn").querySelector(".who-f").textContent = words[0] ? words[0].charAt(0).toUpperCase() + words[0].slice(1) : "Me"; // phones show the first name
     el("bookBtn").classList.toggle("hidden", !canEdit("bookings"));
     el("syncNowBtn").classList.toggle("hidden", !canEdit("galleries"));
+    el("syncStatus").classList.toggle("hidden", !seesSync());
+    el("gsTop").placeholder = gsPlaceholder();
     el("todayUpBox").classList.toggle("hidden", !canSee("bookings"));
     el("todayOutBox").classList.toggle("hidden", !canSee("partners"));
     el("todayDigestBox").classList.toggle("hidden", !canSee("settings"));
   }
 
   // ---- Modal (shared by Change password, Team, and new modules) ----
-  // openModal(html, {onClose, locked}) -> the .modal element. locked = no click-outside / Escape close.
+  // openModal(html, {onClose, locked, sheet}) -> the .modal element. locked = no click-outside / Escape close;
+  // sheet = slides up from the bottom on a phone.
   function openModal(html, opts = {}) {
     const wrap = document.createElement("div");
-    wrap.className = "modal-wrap";
+    wrap.className = "modal-wrap" + (opts.sheet ? " sheet" : "");
     wrap.innerHTML = '<div class="modal" role="dialog" aria-modal="true">' + html + "</div>";
     document.querySelector(".aca").appendChild(wrap);
     const modal = wrap.firstChild;
@@ -56,10 +61,12 @@
   }
 
   // ---- Change password (account menu; forced after a temporary password) ----
-  function openPasswordDialog(forced) {
+  // recovery: back from a "Forgot password" email.
+  function openPasswordDialog(forced, recovery) {
     const m = openModal(
-      "<h2>" + (forced ? "Choose your own password" : "Change password") + "</h2>" +
-      (forced ? '<p class="muted">You signed in with a temporary password. Pick one only you know to continue.</p>' : "") +
+      "<h2>" + (recovery ? "Choose a new password" : forced ? "Choose your own password" : "Change password") + "</h2>" +
+      (recovery ? '<p class="muted">You opened a password reset link. Pick a new password to continue.</p>'
+        : forced ? '<p class="muted">You signed in with a temporary password. Pick one only you know to continue.</p>' : "") +
       '<form id="aca-pwForm" autocomplete="on">' +
       '<input type="text" name="username" autocomplete="username" value="' + esc(ACCESS.email || "") + '" class="hidden" readonly />' +
       '<div class="field"><label for="aca-pw1">New password</label><input type="password" id="aca-pw1" autocomplete="new-password" minlength="10" required /></div>' +
@@ -82,8 +89,12 @@
       if (error) return err(error.message || "Could not change the password.");
       await supabase.rpc("me_password_changed");
       ACCESS.must_change_password = false;
+      RECOVERY = false;
       m.close();
       toast("Password changed.");
+      // A new hire's next step: notifications on this phone (offers, schedule changes). Asked once, right here.
+      if (forced && !recovery) Push.ask("So you hear about jobs offered to you and changes to your schedule, turn on notifications on this phone.");
+      else NotifCard.load();
     });
   }
   el("pwBtn").addEventListener("click", () => { el("whoMenu").classList.add("hidden"); openPasswordDialog(false); });

@@ -625,11 +625,22 @@
       bounced: [{ email: "parent@example.com", n: 2, last: ago(3) }] };
   }
 
+  // ws/shell (2026-10-24): the account menu's Help line, "Morning email goes to you", and ?nodevice=1 for a person
+  // with no device that has notifications on (the Today card and the new-hire ask).
+  {
+    RPC.help_contacts = [{ name: "Jeremiah Mutty", email: "test@207photo.com", phone: "207-555-0142" }];
+    RPC.me_digest = { on: true, enabled: true, email: "test@207photo.com" };
+    RPC.me_digest_set = { ok: true };
+    if (/[?&]nodevice=1\b/.test(location.search)) RPC.push_my_settings.devices = [];
+  }
+
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
-    auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
+    auth: { getSession: async () => ({ data: { session: /[?&]signedout=1\b/.test(location.search) ? null : { user: { email: "test@207photo.com" }, access_token: "x" } } }), // ws/shell: ?signedout=1 shows sign-in
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
-            updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }) },
+            updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }),
+            // ws/shell (2026-10-24): Forgot password on the sign-in form
+            resetPasswordForEmail: async (email, o) => (window.__writes = (window.__writes || []).concat([["auth", "resetPasswordForEmail", email, o && o.redirectTo]]), { data: {}, error: null }) },
     from: q, storage, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: RPC[n] !== undefined ? RPC[n] : [], error: null }),
   }) };
   // Edge functions: the Team page's account actions.
