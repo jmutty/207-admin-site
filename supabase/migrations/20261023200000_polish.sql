@@ -436,9 +436,12 @@ create function public.digest_today_items(p_uid uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   v_prev text := current_setting('request.jwt.claims', true);
+  v_prev_sub text := current_setting('request.jwt.claim.sub', true);
   v_out jsonb := '[]'::jsonb; d jsonb; x record; n int;
 begin
-  perform set_config('request.jwt.claims', jsonb_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  -- aal2: can() goes through admin_session_ok(), which refuses anything less. auth.uid() reads claim.sub first.
+  perform set_config('request.jwt.claims', jsonb_build_object('sub', p_uid, 'role', 'authenticated', 'aal', 'aal2')::text, true);
+  perform set_config('request.jwt.claim.sub', p_uid::text, true);
   for x in select * from (values
       ('admin_deliverables_attention', 'overdue',      'bookings',     false, 'warn', 'A deliverable is past its due date.', '{n} deliverables are past their due date.', '#jobs/bookings'),
       ('crew_attention',               'mine',         null,           false, 'warn', 'You were put on a job. Confirm it or say you can''t make it.', 'You were put on {n} jobs. Confirm them or say you can''t make it.', '#staff/crew'),
@@ -479,10 +482,10 @@ begin
                                            't', case when n = 1 then x.one else replace(x.many, '{n}', n::text) end);
     end if;
   end loop;
-  perform set_config('request.jwt.claims', coalesce(v_prev, ''), true);
+  perform set_config('request.jwt.claims', coalesce(v_prev, ''), true); perform set_config('request.jwt.claim.sub', coalesce(v_prev_sub, ''), true);
   return v_out;
 exception when others then
-  perform set_config('request.jwt.claims', coalesce(v_prev, ''), true);
+  perform set_config('request.jwt.claims', coalesce(v_prev, ''), true); perform set_config('request.jwt.claim.sub', coalesce(v_prev_sub, ''), true);
   raise warning 'digest_today_items: %', sqlerrm;
   return v_out;
 end $$;
