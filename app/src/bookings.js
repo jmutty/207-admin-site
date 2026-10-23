@@ -12,18 +12,31 @@
   const css = `
   .aca .bk-banner { margin: 0 16px 10px; padding: 9px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-bg); color: var(--warn-fg); }
   .aca .bk-banner.test { background: var(--sel-bg); color: var(--accent); }
-  .aca .bk-table td, .aca .bk-table th { padding: 10px 12px; font-size: 13px; vertical-align: top; }
-  /* Fixed column widths: short columns sized to their content, Emails a share, Job takes the rest (2026-10-21) */
-  .aca .bk-table { table-layout: fixed; min-width: 1000px; }
-  .aca .bk-table th.bk-c-when { width: 140px; } .aca .bk-table th.bk-c-stage { width: 160px; } .aca .bk-table th.bk-c-who { width: 140px; }
-  .aca .bk-table th.bk-c-mail { width: 22%; } .aca .bk-table th.bk-c-cal { width: 150px; }
-  .aca .bk-table td.bk-c-when .bk-sub, .aca .bk-table td.bk-c-mail .bk-sub { white-space: nowrap; }
-  .aca .bk-table td.bk-c-job strong { line-height: 1.35; }
-  .aca .bk-table td.bk-c-who { overflow-wrap: anywhere; }
-  .aca .bk-table td.bk-c-mail { line-height: 1.6; } .aca .bk-table td.bk-c-mail .pill { margin: 0 6px 0 4px; }
-  .aca .bk-table td.bk-c-stage .pill + .bk-sub { margin-top: 2px; }
+  /* 2026-10-23: a calmer list. Each cell keeps to two short lines: no wrapped emails, one email status, calendar only when it needs you. */
+  .aca .bk-table td, .aca .bk-table th { padding: 12px; font-size: 13px; vertical-align: top; }
+  .aca .bk-table th { font-size: 12.5px; font-weight: 400; color: var(--faint); }
+  .aca .bk-table { table-layout: fixed; min-width: 960px; }
+  .aca .bk-table th.bk-c-when { width: 150px; } .aca .bk-table th.bk-c-stage { width: 170px; } .aca .bk-table th.bk-c-who { width: 170px; }
+  .aca .bk-table th.bk-c-mail { width: 210px; }
+  .aca .bk-table td > div, .aca .bk-table td .bk-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .aca .bk-table td > div.bk-date { white-space: normal; }
+  .aca .bk-table td.bk-c-job strong { font-size: 14px; line-height: 20px; }
+  .aca .bk-table td .bk-sub, .aca .bk-table td .bk-type, .aca .bk-table td .bk-chk { font-size: 12.5px; line-height: 19px; margin-top: 1px; }
+  .aca .bk-table td.bk-c-who .bk-who { font-size: 13.5px; line-height: 20px; }
+  .aca .bk-table td.bk-c-mail .bk-sent { font-size: 13.5px; line-height: 20px; display: flex; align-items: center; gap: 8px; }
+  .aca .bk-bar { flex: 0 0 44px; height: 4px; border-radius: 2px; background: var(--line2); overflow: hidden; }
+  .aca .bk-bar > i { display: block; height: 100%; background: var(--ok-fg); }
+  .aca .bk-table td .pill { white-space: nowrap; }
+  .aca .bk-table td.bk-c-when .pill { margin-top: 3px; }
   .aca .bk-table tr.bk-row { cursor: pointer; }
   .aca .bk-table tr.bk-row:hover td { background: var(--surface-2); }
+  /* One tidy filter bar: search, type and stage on the first line; the scope chips and saved views on the second. */
+  .aca #aca-panel-bookings .toolbar { row-gap: 10px; }
+  .aca #aca-panel-bookings .toolbar::before { content: ""; order: 4; flex-basis: 100%; height: 0; }
+  .aca #aca-panel-bookings .toolbar > #aca-bkSearch { flex: 1 1 260px; }
+  .aca #aca-panel-bookings .toolbar > #aca-bkType, .aca #aca-panel-bookings .toolbar > #aca-bkStage { flex: 0 0 200px; }
+  .aca #aca-panel-bookings .toolbar > .bk-chips { order: 5; }
+  .aca #aca-panel-bookings .toolbar > .lv-tools { order: 6; margin-left: auto; }
   .aca .bk-date { font-weight: 700; }
   .aca .bk-date > span { white-space: nowrap; } /* a multi-day range wraps between its two days, not into the job name */
   .aca .bk-sub { font-size: 12px; color: var(--muted); }
@@ -118,6 +131,7 @@
   .aca .bk-menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; font-weight: 400; }
   .aca .bk-menu button:hover { background: var(--surface-2); }
   .aca .bk-chk { font-size: 12px; color: var(--muted); margin-top: 2px; } .aca .bk-chk .late { color: var(--err-fg); font-weight: 600; }
+  .aca .bk-table .bk-sub .late { color: var(--err-fg); font-weight: 600; }
   /* Booking tab on the job page: the stage ladder folds to one line on phones */
   .aca .bk-stage1 { display: none; font-size: 13.5px; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 8px; }
   .aca .bk-tab .bk-sec { padding-left: 0; padding-right: 0; }
@@ -171,9 +185,14 @@
     .aca .bk-form .bk-dayhead { display: none; }
     .aca .bk-table thead { display: none; }
     .aca .bk-table, .aca .bk-table tbody { display: block; }
-    .aca .bk-table tr.bk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when cal" "job job" "stage stage" "who who" "mail mail"; gap: 3px 8px; padding: 12px; border-bottom: 1px solid var(--border); }
+    .aca #aca-panel-bookings .toolbar::before { display: none; }
+    .aca #aca-panel-bookings .toolbar > #aca-bkSearch { flex: 1 1 auto; }
+    .aca .bk-table tr.bk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when stage" "job job" "who mail"; gap: 4px 12px; padding: 14px 12px; border-bottom: 1px solid var(--border); }
+    .aca .bk-table td.bk-c-stage { text-align: right; } .aca .bk-table td.bk-c-stage .bk-chk, .aca .bk-table td.bk-c-stage .bk-sub { display: none; }
+    .aca .bk-table td.bk-c-mail { text-align: right; } .aca .bk-table td.bk-c-mail .bk-sent { justify-content: flex-end; }
+    .aca .bk-table td.bk-c-when > div { display: inline; } .aca .bk-table td.bk-c-when > .bk-sub::before { content: " · "; }
     .aca .bk-table tr.bk-row > td { display: block; padding: 0; border: none; }
-    .aca .bk-table td.bk-c-when { grid-area: when; } .aca .bk-table td.bk-c-cal { grid-area: cal; justify-self: end; }
+    .aca .bk-table td.bk-c-when { grid-area: when; }
     .aca .bk-table td.bk-c-job { grid-area: job; } .aca .bk-table td.bk-c-stage { grid-area: stage; } .aca .bk-table td.bk-c-who { grid-area: who; } .aca .bk-table td.bk-c-mail { grid-area: mail; }
     .aca .bk-stages { grid-auto-flow: row; grid-auto-columns: auto; margin: 6px 0 12px; }
     .aca .bk-stages li { justify-content: flex-start; }
@@ -210,8 +229,8 @@
         </div>
       </div>
       <div id="aca-bkErr" class="inline-error hidden"></div>
-      <div class="table-wrap"><table class="bk-table"><thead><tr><th class="bk-c-when">When</th><th class="bk-c-job">Job</th><th class="bk-c-stage">Stage</th><th class="bk-c-who">Contacts</th><th class="bk-c-mail">Emails</th><th class="bk-c-cal">Calendar</th></tr></thead>
-        <tbody id="aca-bkBody"><tr><td colspan="6" class="empty">Loading&#8230;</td></tr></tbody></table></div>
+      <div class="table-wrap"><table class="bk-table"><thead><tr><th class="bk-c-when">When</th><th class="bk-c-job">Job</th><th class="bk-c-stage">Stage</th><th class="bk-c-who">Contacts</th><th class="bk-c-mail">Emails</th></tr></thead>
+        <tbody id="aca-bkBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div>
     </div>
     <div class="og-panel hidden" id="aca-bkPanel" aria-label="Booking details"></div>`;
 
@@ -323,7 +342,7 @@
       // Old links (emails, notifications, bookmarks) to #jobs/bookings/<id> open the job page's Booking tab.
       const seg = location.hash.replace(/^#/, "").split("/");
       if (seg[0] === "jobs" && seg[1] === "bookings" && seg[2]) openJob(seg[2], "booking", true);
-    } catch (e) { showError("bkErr", cleanErr(e)); el("bkBody").innerHTML = '<tr><td colspan="6" class="empty">Could not load bookings.</td></tr>'; }
+    } catch (e) { showError("bkErr", cleanErr(e)); el("bkBody").innerHTML = '<tr><td colspan="5" class="empty">Could not load bookings.</td></tr>'; }
   }
   const currentTabIs = () => el("panel-bookings").classList.contains("active");
 
@@ -344,23 +363,36 @@
     if (ds.length < 2) return esc(fmtDay(b.picture_day, true)) + ", " + esc(b.time_set === false ? "time not set" : fmtTime(b.start_at) + (b.end_set === false ? "" : " to " + fmtTime(b.end_at)));
     return ds.map((x) => esc(fmtDay(x.day)) + " " + esc(dayTimes(b, x)) + (x.label ? " (" + esc(x.label) + ")" : "")).join("; ");
   }
+  // On the list only a calendar problem shows (under the date); "On calendar" and "writing" stay quiet.
+  function calNote(b) {
+    if (b.status === "tracked" || b.status === "cancelled" || ["synced", "pending", "deleted"].includes(b.calendar_status)) return "";
+    return "<div>" + calPill(b) + "</div>";
+  }
   function calPill(b) {
     if (b.status === "tracked") return '<span class="pill muted">No calendar event</span>';
     const m = { pending: ["muted", "Calendar: writing\u2026"], synced: ["ok", "On calendar"], error: ["err", "Calendar error"], moved: ["warn", "Moved in Google"], missing: ["err", "Missing in Google"], deleted: ["muted", "Removed"] };
     const [cls, txt] = m[b.calendar_status] || ["muted", b.calendar_status];
     return '<span class="pill ' + cls + '">' + esc(txt) + "</span>";
   }
+  // "2 of 12 sent" with a little bar, then the one thing that matters most: a problem, else the next send, else what it waits for.
+  // Every reason is in the tooltip.
   function mailSummary(b) {
     if (b.status === "cancelled") return '<span class="pill muted">Cancelled</span>';
     if (b.status === "tracked") return '<span class="pill muted">Tracking only, no emails</span>';
-    const parts = [num(b.emails_sent) + " of " + num(b.emails_total) + " sent"];
-    if (num(b.emails_failed)) parts.push('<span class="pill err">' + num(b.emails_failed) + " failed</span>");
-    if (num(b.emails_waiting_time)) parts.push('<span class="pill warn">waiting for the time</span>');
-    if (num(b.emails_waiting_coaches)) parts.push('<span class="pill muted">waiting for coaches</span>');
-    if (num(b.emails_waiting_gallery)) parts.push('<span class="pill muted">waiting for the gallery</span>');
-    if (num(b.emails_waiting) - num(b.emails_waiting_time) - num(b.emails_waiting_coaches) - num(b.emails_waiting_gallery) > 0) parts.push('<span class="pill warn">' + (b.audience === "school" ? "needs access code" : "needs GotPhoto job") + "</span>");
-    if (b.next_send_at) parts.push('<span class="bk-sub">next ' + esc(fmtWhen(b.next_send_at)) + "</span>");
-    return parts.join(" ");
+    const sent = num(b.emails_sent), total = num(b.emails_total);
+    const other = num(b.emails_waiting) - num(b.emails_waiting_time) - num(b.emails_waiting_coaches) - num(b.emails_waiting_gallery);
+    const why = [];
+    if (num(b.emails_failed)) why.push(["err", num(b.emails_failed) + " failed"]);
+    if (num(b.emails_waiting_time)) why.push(["warn", "waiting for the time"]);
+    if (other > 0) why.push(["warn", b.audience === "school" ? "needs access code" : "needs GotPhoto job"]);
+    if (num(b.emails_waiting_coaches)) why.push(["muted", "waiting for coaches"]);
+    if (num(b.emails_waiting_gallery)) why.push(["muted", "waiting for the gallery"]);
+    const next = b.next_send_at ? "next " + fmtWhen(b.next_send_at) : "";
+    const top = why[0] && why[0][0] !== "muted" ? '<span class="pill ' + why[0][0] + '">' + esc(why[0][1]) + "</span>"
+      : next ? '<span class="bk-sub">' + esc(next) + "</span>" : why[0] ? '<span class="bk-sub">' + esc(why[0][1]) + "</span>" : "";
+    const tip = why.map((w) => w[1]).concat(next ? [next] : []).join(", ");
+    return '<div class="bk-sent" title="' + esc(tip) + '">' + sent + " of " + total + " sent" +
+      (total ? '<span class="bk-bar"><i style="width:' + Math.round(100 * Math.min(sent, total) / total) + '%"></i></span>' : "") + "</div>" + (top ? "<div>" + top + "</div>" : "");
   }
   // Stage pill + "2 of 3 delivered" for the list.
   function stageCell(b) {
@@ -370,7 +402,7 @@
     const out = [s ? '<span class="pill ' + (last ? "ok" : "accent") + '">' + esc(s.label) + "</span>" : '<span class="pill muted">No stage</span>'];
     if (num(p.deliverables_total)) {
       const done = num(p.deliverables_total) - num(p.deliverables_open);
-      out.push('<div class="bk-sub">' + done + " of " + num(p.deliverables_total) + " delivered" + (num(p.overdue) ? ' <span class="pill err">' + num(p.overdue) + " overdue</span>" : num(p.deliverables_open) && p.next_due ? ", next due " + esc(fmtDay(p.next_due)) : "") + "</div>");
+      out.push('<div class="bk-sub">' + done + " of " + num(p.deliverables_total) + " delivered" + (num(p.overdue) ? ', <span class="late">' + num(p.overdue) + " overdue</span>" : num(p.deliverables_open) && p.next_due ? ", next due " + esc(fmtDay(p.next_due)) : "") + "</div>");
     }
     out.push(checklistChip(b));
     return out.join("");
@@ -379,7 +411,7 @@
   function checklistChip(b) {
     const c = checklist[b.id]; if (!c || !c.tasks || !c.tasks.length) return "";
     const open = num(c.open_count), late = num(c.overdue_count);
-    return '<div class="bk-chk">Checklist: ' + (open ? open + " to do" + (late ? ', <span class="late">' + late + " late</span>" : "") : "all done") + "</div>";
+    return '<div class="bk-chk" title="Checklist">Checklist: ' + (open ? open + " to do" + (late ? ', <span class="late">' + late + " late</span>" : "") : "all done") + "</div>";
   }
   function render() {
     filtersLabel();
@@ -395,14 +427,18 @@
     else if (sk) list = list.filter((b) => (stageOf(prog(b).stage_id) || {}).label === sk);
     if (q) list = list.filter((b) => (b.org_name + " " + b.title + " " + (b.org_town || "")).toLowerCase().includes(q));
     const body = el("bkBody");
-    if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty">' + (scope === "upcoming" && !sk ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : scope === "owed" ? "Nothing owed. Every deliverable is done or skipped." : "Nothing here.") + "</td></tr>"; return; }
+    if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty">' + (scope === "upcoming" && !sk ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : scope === "owed" ? "Nothing owed. Every deliverable is done or skipped." : "Nothing here.") + "</td></tr>"; return; }
+    const who = (b) => { const cs = b.contacts || [];
+      if (!cs.length) return b.status === "tracked" ? '<span class="bk-sub">&mdash;</span>' : '<span class="pill err">no contact</span>';
+      const all = cs.map((c) => (c.name && c.name !== c.email ? c.name + " <" + c.email + ">" : c.email)).join("\n");
+      return '<div class="bk-who" title="' + esc(all) + '">' + esc(cs[0].name || cs[0].email) + "</div>" +
+        (cs.length > 1 ? '<div class="bk-sub">+ ' + (cs.length - 1) + (cs.length === 2 ? " other" : " others") + "</div>" : cs[0].name && cs[0].name !== cs[0].email ? '<div class="bk-sub">' + esc(cs[0].email) + "</div>" : ""); };
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
-      '<td class="bk-c-when"><div class="bk-date">' + whenRange(b).split(" to ").map((x, i) => "<span>" + (i ? "to " : "") + esc(x) + "</span>").join(" ") + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div></td>" +
-      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
+      '<td class="bk-c-when"><div class="bk-date">' + whenRange(b).split(" to ").map((x, i) => "<span>" + (i ? "to " : "") + esc(x) + "</span>").join(" ") + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div>" + calNote(b) + "</td>" +
+      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
-      '<td class="bk-c-who">' + ((b.contacts || []).map((c) => esc(c.name || c.email)).join(", ") || (b.status === "tracked" ? '<span class="bk-sub">&mdash;</span>' : '<span class="pill err">no contact</span>')) + "</td>" +
-      '<td class="bk-c-mail">' + mailSummary(b) + "</td>" +
-      '<td class="bk-c-cal">' + calPill(b) + "</td></tr>").join("");
+      '<td class="bk-c-who">' + who(b) + "</td>" +
+      '<td class="bk-c-mail">' + mailSummary(b) + "</td></tr>").join("");
   }
   el("bkSearch").addEventListener("input", render);
   el("bkType").addEventListener("change", render);
