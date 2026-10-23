@@ -105,6 +105,9 @@
     const parseHash = () => { const m = /^#partners\/org\/([0-9a-f-]{36})(?:\/([a-z0-9_-]+))?/i.exec(location.hash); return m ? { id: m[1], tab: m[2] || "" } : null; };
     const ALIAS = { galleries: "sales", payouts: "sales" };
     const today = () => T.today();
+    // Every shoot date of a booking, ["Sun, Nov 16, 2026", "Mon, Nov 17, 2026"] (a multi-day job is never a range)
+    const jobDays = (b) => { const ds = (b.days || []).map((x) => x.day).filter(Boolean);
+      return (ds.length > 1 ? ds : [b.picture_day]).map((d) => day(d, { weekday: "short" })).filter(Boolean); };
     const day = (d, o) => (d ? T.fmtDay(String(d).slice(0, 10), Object.assign({ month: "short", day: "numeric", year: "numeric" }, o || {})) : "");
     const money = (v) => "$" + Math.round(num(v)).toLocaleString("en-US");
     const safe = (f) => { try { return f(); } catch (e) { return false; } };
@@ -353,7 +356,7 @@
         Orgs.spText(O) ? ["School photos", Orgs.spText(O).replace(/^School photos: /, "")] : null,
       ].filter(Boolean);
       const cName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "";
-      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(day(b.picture_day, { weekday: "short" })) +
+      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(jobDays(b).join(" \u00b7 ")) +
         (b.location ? " · " + esc(b.location) : "") + '</span></div><div class="s">' + esc([b.stage ? "Stage: " + b.stage : b.status === "tracked" ? "Tracking only" : "",
           b.status === "booked" ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" · ")) + "</div></a>";
       box.innerHTML = '<div class="op-grid"><div>' +
@@ -411,7 +414,7 @@
       const all = (bks || []), aj = allJobs(bks, res);
       const rows = all.map((b) => ({ d: String(b.picture_day || ""), html:
           '<tr><td data-l="Job"><a href="' + jobLink(b.id) + '"><b>' + esc(b.title || b.title_label || "Job") + "</b></a>" + (b.status !== "booked" ? ' <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>" : "") +
-          '<div class="muted" style="font-size:12.5px">' + esc(b.type_label || "") + '</div></td><td data-l="Picture day">' + esc(day(b.picture_day, { weekday: "short" })) + '</td><td data-l="Stage">' + esc(b.stage || "") +
+          '<div class="muted" style="font-size:12.5px">' + esc(b.type_label || "") + '</div></td><td data-l="Picture day">' + jobDays(b).map((x) => '<span style="white-space:nowrap">' + esc(x) + "</span>").join("<br>") + '</td><td data-l="Stage">' + esc(b.stage || "") +
           (num(b.progress && b.progress.overdue) ? ' <span class="pill err">' + num(b.progress.overdue) + " overdue</span>" : "") + '</td><td data-l="Booking emails">' +
           (b.status === "booked" ? esc(num(b.emails_sent) + " of " + num(b.emails_total) + " sent") + (num(b.emails_failed) ? ' <span class="pill err">' + num(b.emails_failed) + " failed</span>" : "") : '<span class="muted">none</span>') +
           '</td><td data-l="Where">' + esc(b.location || "") + "</td></tr>" }))

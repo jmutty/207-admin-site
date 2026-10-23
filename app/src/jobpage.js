@@ -243,7 +243,7 @@
     function dayLine(b) {
       const days = (J.days || []).length > 1 ? J.days : null;
       const t = b.time_set ? " \u00b7 " + timeOf(b.start_at) + (b.end_set ? "\u2013" + timeOf(b.end_at) : "") : " \u00b7 time not set";
-      return days ? days.map((d) => T.fmtDay(d.day) + (d.label ? " (" + d.label + ")" : "")).join(", ") : fmtDayIso(b.picture_day) + t;
+      return days ? days.map((d) => T.fmtDay(d.day) + (d.label ? " (" + d.label + ")" : "")).join(" \u00b7 ") : fmtDayIso(b.picture_day) + t;
     }
 
     function renderShell() {

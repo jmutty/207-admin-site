@@ -169,6 +169,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const row1 = await page.textContent('#aca-bkBody tr[data-id="bk1"] .bk-c-stage');
     check(row1.includes("In production") && row1.includes("1 of 3 delivered") && row1.includes("1 overdue"), "list shows the stage and deliverables: " + row1.trim());
     check((await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-c-stage')).includes("Booked"), "list shows Booked for a new job");
+    const bk2When = await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-date');
+    check((bk2When.match(/\u00b7/g) || []).length === 2 && !/ to /.test(bk2When), "a multi-day job lists each of its three dates, not a range: " + bk2When);
     await page.selectOption("#aca-bkStage", ":overdue");
     check((await page.$$("#aca-bkBody tr.bk-row")).length === 1, "Deliverables overdue filter");
     await page.selectOption("#aca-bkStage", "Booked");

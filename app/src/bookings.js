@@ -19,7 +19,7 @@
   .aca .bk-table th.bk-c-when { width: 150px; } .aca .bk-table th.bk-c-stage { width: 170px; } .aca .bk-table th.bk-c-who { width: 170px; }
   .aca .bk-table th.bk-c-mail { width: 210px; }
   .aca .bk-table td > div, .aca .bk-table td .bk-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .aca .bk-table td > div.bk-date { white-space: normal; }
+  .aca .bk-table td > div.bk-date, .aca .bk-table td.bk-c-when > .bk-sub { white-space: normal; }
   .aca .bk-table td.bk-c-job strong { font-size: 14px; line-height: 20px; }
   .aca .bk-table td .bk-sub, .aca .bk-table td .bk-type, .aca .bk-table td .bk-chk { font-size: 12.5px; line-height: 19px; margin-top: 1px; }
   .aca .bk-table td.bk-c-who .bk-who { font-size: 13.5px; line-height: 20px; }
@@ -38,7 +38,7 @@
   .aca #aca-panel-bookings .toolbar > .bk-chips { order: 5; }
   .aca #aca-panel-bookings .toolbar > .lv-tools { order: 6; margin-left: auto; }
   .aca .bk-date { font-weight: 700; }
-  .aca .bk-date > span { white-space: nowrap; } /* a multi-day range wraps between its two days, not into the job name */
+  .aca .bk-date > span { white-space: nowrap; } /* a multi-day job wraps between its days, not inside one */
   .aca .bk-sub { font-size: 12px; color: var(--muted); }
   .aca .bk-type { font-size: 12px; color: var(--muted); }
   .aca .bk-fold { padding: 8px 16px 14px; }
@@ -346,11 +346,19 @@
   }
   const currentTabIs = () => el("panel-bookings").classList.contains("active");
 
-  // "Mon, Oct 20" or "Mon, Oct 20 to Tue, Oct 21"
-  function whenRange(b) {
+  // Every shoot date, never a range: ["Sun, Nov 16", "Mon, Nov 17", "Wed, Nov 19"] (a range hid the skipped days)
+  function whenDays(b) {
     const ds = (b.days || []).map((x) => x.day).filter(Boolean);
-    if (ds.length < 2) return fmtDay(b.picture_day);
-    return fmtDay(ds[0]) + " to " + fmtDay(ds[ds.length - 1]);
+    return ds.length < 2 ? [fmtDay(b.picture_day)] : ds.map((d) => fmtDay(d));
+  }
+  // The list's time line: one day's time, or a multi-day job's shared time "each day" (otherwise "times vary by day")
+  function whenTimes(b) {
+    const ds = (b.days || []);
+    if (ds.length > 1) {
+      const ts = ds.map((x) => dayTimes(b, x));
+      return ts.every((t) => t === ts[0]) ? (ts[0] === "time not set" ? '<span class="pill warn">time not set</span>' : esc(ts[0]) + " each day") : "times vary by day";
+    }
+    return b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)));
   }
   function dayTimes(b, x) {
     const has = x.sort === 0 ? b.time_set !== false : !!x.start_at;
@@ -434,7 +442,7 @@
       return '<div class="bk-who" title="' + esc(all) + '">' + esc(cs[0].name || cs[0].email) + "</div>" +
         (cs.length > 1 ? '<div class="bk-sub">+ ' + (cs.length - 1) + (cs.length === 2 ? " other" : " others") + "</div>" : cs[0].name && cs[0].name !== cs[0].email ? '<div class="bk-sub">' + esc(cs[0].email) + "</div>" : ""); };
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
-      '<td class="bk-c-when"><div class="bk-date">' + whenRange(b).split(" to ").map((x, i) => "<span>" + (i ? "to " : "") + esc(x) + "</span>").join(" ") + '</div><div class="bk-sub">' + (b.time_set === false ? '<span class="pill warn">time not set</span>' : esc(fmtTime(b.start_at)) + (b.end_set === false ? "" : " to " + esc(fmtTime(b.end_at)))) + "</div>" + calNote(b) + "</td>" +
+      '<td class="bk-c-when"><div class="bk-date">' + whenDays(b).map((x) => "<span>" + esc(x) + "</span>").join(" \u00b7 ") + '</div><div class="bk-sub">' + whenTimes(b) + "</div>" + calNote(b) + "</td>" +
       '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-who">' + who(b) + "</td>" +

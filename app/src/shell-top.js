@@ -112,7 +112,12 @@
       const h = +m[1];
       return ((h + 11) % 12 + 1) + ":" + m[2] + (h < 12 ? "am" : "pm");
     }
-    return { day, time, hhmm, dayTime: (v) => [day(v), time(v)].filter(Boolean).join(", ") };
+    // A job's shoot dates, each one (a multi-day job is never shown as a range): from admin_bookings' days, else picture_day
+    function days(b) {
+      const ds = ((b && b.days) || []).map((x) => x.day).filter(Boolean);
+      return (ds.length > 1 ? ds : [b && b.picture_day].filter(Boolean)).map(day);
+    }
+    return { day, days, time, hhmm, dayTime: (v) => [day(v), time(v)].filter(Boolean).join(", ") };
   })();
 
   function showError(id, msg) {
@@ -807,9 +812,10 @@
       nextUp = (data || []).filter((b) => b.status === "booked").sort((a, b) => String(a.picture_day).localeCompare(String(b.picture_day))).slice(0, 4);
       el("todayUp").innerHTML = nextUp.length ? nextUp.map((b) => {
         const d = new Date(b.picture_day + "T12:00:00");
+        const more = Fmt.days(b).length > 1 ? '<div class="s">' + esc(Fmt.days(b).length + " days: " + Fmt.days(b).join(" \u00b7 ")) + "</div>" : "";
         const st = b.status_text ? '<div class="pill ' + esc(b.status_class || "muted") + '">' + esc(b.status_text) + "</div>" : "";
         return '<div class="today-up" data-booking="' + esc(b.id) + '"><div class="d">' + esc(d.toLocaleDateString("en-US", { weekday: "short" })) + '<small>' + esc(d.toLocaleDateString("en-US", { month: "short", day: "numeric" })) + '</small></div>' +
-          '<div>' + esc(b.org_name || b.title || "") + '<div class="s">' + esc([b.type_label, b.location].filter(Boolean).join(", ")) + "</div>" + st + "</div></div>";
+          '<div>' + esc(b.org_name || b.title || "") + '<div class="s">' + esc([b.type_label, b.location].filter(Boolean).join(", ")) + "</div>" + more + st + "</div></div>";
       }).join("") + '<p><a href="#jobs/bookings">All jobs</a></p>' : "<p>No picture days booked in the next 60 days. <a href=\"#jobs/bookings\">Book a job</a></p>";
     } catch (e) {
       el("todayUp").innerHTML = '<p class="muted">Could not load bookings.</p>';
@@ -992,7 +998,7 @@
           .sort((x, y) => { const a = String(x.picture_day || ""), b = String(y.picture_day || ""), fa = a >= today, fb = b >= today;
             return fa !== fb ? (fa ? -1 : 1) : fa ? a.localeCompare(b) : b.localeCompare(a); }) // upcoming first, then the most recent
           .slice(0, 6);
-        if (b2.length) groups.push(["Jobs", b2.map((b) => ({ tab: "job", id: b.id, k: b.title || b.org_name, m: Fmt.day(b.picture_day) + (String(b.picture_day) < today ? " (past)" : "") }))]);
+        if (b2.length) groups.push(["Jobs", b2.map((b) => ({ tab: "job", id: b.id, k: b.title || b.org_name, m: Fmt.days(b).join(" \u00b7 ") + (String(b.picture_day) < today ? " (past)" : "") }))]);
         const m2 = (Array.isArray(mine) ? mine : []).filter((j) => (j.title || "").toLowerCase().includes(ql)).slice(0, 6);
         if (m2.length) groups.push(["Your jobs", m2.map((j) => ({ tab: "job", id: j.booking_id, k: j.title, m: j.days && j.days[0] ? Fmt.dayTime(j.days[0].starts_at) : "" }))]);
       } catch (_e) { /* search is best effort */ }
