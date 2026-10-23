@@ -274,43 +274,109 @@
   // Hashes keep the old "#section/tab[/id]" shape so links in emails and the modules' own
   // replaceState calls (#jobs/bookings/<id>, #partners/orgs/<id>) keep working.
   // New modules add themselves from their own src file with registerPage({...}): see docs/ADDING-A-MODULE.md.
-  const RAIL_GROUPS = ["", "Jobs", "Parents", "Outreach", "Staff", "Operations", "System"];
   const RAIL = [
     { id: "today",     group: "",         section: "today",    module: null,           tabs: [["today", "Today"]] },
     { id: "bookings",  group: "Jobs",     section: "jobs",     module: "bookings",     tabs: [["bookings", "Bookings"]] },
     { id: "jobs",      group: "Jobs",     section: "jobs",     module: "galleries",    tabs: [["jobs", "Galleries"]] },
     { id: "hubact",    group: "Jobs",     section: "jobs",     module: "hub",          title: "Hub activity", tabs: [["hubact", "Activity"], ["schools", "Schools on the hub"]] },
-    { id: "calc",      group: "Jobs",     section: "jobs",     module: "bookings",     tabs: [["calc", "Job calculator"]] },
+    { id: "calc",      group: "System",   section: "system",    module: "bookings",     tabs: [["calc", "Job calculator"]] },
     { id: "requests",  group: "Parents",  section: "parents",  module: "parents",      tabs: [["requests", "Help requests"]] },
     { id: "makeups",   group: "Parents",  section: "parents",  module: "parents",      tabs: [["makeups", "Makeups"]] },
     { id: "retakes",   group: "Parents",  section: "parents",  module: "parents",      tabs: [["retakes", "Retakes"]] },
     { id: "searchlog", group: "Parents",  section: "parents",  module: "findmyphotos", title: "Find My Photos", tabs: [["searchlog", "Activity"], ["settings", "Search rules"], ["blocks", "Blocked names"]] },
-    { id: "orgs",      group: "Outreach", section: "partners", module: "partners",     tabs: [["orgs", "Organizations"]],
+    { id: "orgs",      group: "Partners", section: "partners", module: "partners",     tabs: [["orgs", "Organizations"]],
       search: [["Clients", "clients"], ["Active leads", "active"], ["Prospecting", "prospecting"], ["Cold leads", "cold"], ["Follow up later", "later"], ["Past clients", "past"]] },
-    { id: "outbox",    group: "Outreach", section: "partners", module: "partners",     title: "Outbox", tabs: [["outbox", "Everything"], ["ready", "Outreach to review"]] },
-    { id: "library",   group: "Outreach", section: "partners", module: "partners",     tabs: [["library", "Email library"]] },
+    { id: "outbox",    group: "Partners", section: "partners", module: "partners",     title: "Outbox", tabs: [["outbox", "Everything"], ["ready", "Outreach to review"]] },
+    { id: "library",   group: "Partners", section: "partners", module: "partners",     tabs: [["library", "Email library"]] },
     { id: "sending",   group: "System",   section: "system",   module: "settings",     title: "Settings", tabs: [["sending", "Sending"], ["health", "Sync"], ["signin", "Sign-in"]] },
+  ];
+  // MENU (polish pass, 2026-10-23) is the menu itself: groups, then entries, each a list of tabs from RAIL
+  // items (so one entry can hold tabs of several modules, each still checked against its own module).
+  // "tab=Label" renames a tab here; "tab@self" shows it only to people who can't edit its module (their own
+  // view), "tab@edit" only to people who can, "@admin" only to full-access people; "@self:timeoff" checks
+  // another module. A tab in no entry gets an entry of its own from its RAIL item (group = item.group).
+  const MENU = [
+    ["", [["today", "Today", ["today"]]]],
+    ["My work", [["myday", "My day", ["myday", "tasks@self=My tasks", "crew=My jobs", "openjobs@self=Open jobs", "timeoff@self:timeoff"]],
+                 ["mytime", "My time", ["clock@self", "timesheets@self", "mileage@self", "expenses@self"]],
+                 ["myrecords", "My records", ["clearances@self", "onboarding@self"]]]],
+    ["Jobs", [["bookings", "Bookings", ["bookings"]],
+              ["jobs", "Galleries", ["jobs=Galleries", "hubact=Hub activity", "schools=Schools on the hub"]],
+              ["seasons", "Season results", ["seasons", "payouts", "resjobs"]]]],
+    ["Parents", [["requests", "Help requests", ["requests"]], ["makeups", "Makeups", ["makeups"]], ["retakes", "Retakes", ["retakes"]],
+                 ["searchlog", "Find My Photos", ["searchlog", "settings", "blocks"]]]],
+    ["Partners", [["orgs", "Organizations", ["orgs"]],
+                  ["follow", "Follow-through", ["rebook", "reviews", "agreements"]],
+                  ["outbox", "Outbox", ["outbox=Everything", "ready=Outreach to review", "library=Email library", "delivery=Bounced"]]]],
+    ["Team", [["schedule", "Schedule", ["schedule", "openjobs@edit=Ask who's available", "timeoff@edit:timeoff=Time off"]],
+              ["tasks", "Tasks", ["tasks@edit", "checklists=Job checklists", "wfsteps=Checklist steps"]],
+              ["people", "People", ["team", "clearances@edit=Records", "onboarding@edit"]],
+              ["timepay", "Time & pay", ["clock@edit", "timesheets@edit", "mileage@edit", "expenses@edit"]]]],
+    ["Gear", [["inventory", "Inventory", ["inventory", "invbins", "invkits", "invout", "invgear"]]]],
+    ["System", [["sending", "Settings", ["sending", "health", "signin", "calc@admin=Job calculator"]]]],
   ];
   function registerPage(item) { RAIL.push(item); }
   const itemOf = (tab) => RAIL.find((it) => it.tabs.some((t) => t[0] === tab));
-  const railLabel = (it) => it.label || it.title || it.tabs[0][1];
   const sectionOf = (tab) => { const it = itemOf(tab); return it ? { id: it.section } : null; };
-  // the rail item a tab belongs to
-  function railItemOf(tab) { const it = itemOf(tab); return it ? it.id : tab; }
+  // "openjobs@self:timeoff=Open jobs" -> { tab, cond, module, label }
+  function parseSpec(s) {
+    const [head, label] = s.split("=");
+    const [tab, c] = head.split("@");
+    const [cond, module] = (c || "").split(":");
+    return { tab, cond: cond || "", module, label };
+  }
+  function specShows(sp) {
+    const it = itemOf(sp.tab);
+    if (!it || it.hidden || !canSee(it.module)) return false;
+    const m = sp.module || it.module;
+    if (sp.cond === "admin") return !!ACCESS.is_admin;
+    if (sp.cond === "edit") return !!m && canEdit(m);
+    if (sp.cond === "self") return !m || !canEdit(m);
+    return true;
+  }
+  // The menu as this person sees it: [{ group, id, title, tabs: [[tab, label], ...] }], empty entries left out.
+  function menuEntries() {
+    const out = [], listed = new Set();
+    const order = MENU.map((g) => g[0]);
+    MENU.forEach(([group, entries]) => entries.forEach(([id, title, specs]) => {
+      const tabs = [];
+      specs.map(parseSpec).forEach((sp) => {
+        listed.add(sp.tab);
+        const it = itemOf(sp.tab); if (!it || !specShows(sp)) return;
+        tabs.push([sp.tab, sp.label || it.tabs.find((t) => t[0] === sp.tab)[1]]);
+      });
+      if (tabs.length) out.push({ group, id, title, tabs });
+    }));
+    RAIL.forEach((it) => {
+      if (it.hidden || !canSee(it.module)) return;
+      const tabs = it.tabs.filter((t) => !listed.has(t[0]));
+      if (!tabs.length) return;
+      const group = (it.group || "").replace("Outreach", "Partners");
+      if (!order.includes(group)) order.splice(order.length - 1, 0, group);
+      out.push({ group, id: it.id, title: it.label || it.title || tabs[0][1], tabs });
+    });
+    return order.filter((g, i) => order.indexOf(g) === i).flatMap((g) => out.filter((e) => e.group === g));
+  }
+  let MENU_NOW = [];
+  const entryOf = (tab) => MENU_NOW.find((e) => e.tabs.some((t) => t[0] === tab));
+  const pageOf = (id) => { const e = MENU_NOW.find((x) => x.id === id); return e && e.tabs.length > 1 ? e : null; };
+  // the menu entry a tab belongs to
+  function railItemOf(tab) { const e = entryOf(tab); return e ? e.id : tab; }
   // a tab's name as Today and search show it ("Find My Photos", not "Activity")
   function tabName(tab) {
+    const e = entryOf(tab);
+    if (e) return e.tabs[0][0] === tab || e.tabs.length === 1 ? e.title : e.tabs.find((t) => t[0] === tab)[1];
     const it = itemOf(tab);
     if (!it) return "";
     return it.title && it.tabs[0][0] === tab ? it.title : it.tabs.find((t) => t[0] === tab)[1];
   }
-  const pageOf = (id) => { const it = RAIL.find((x) => x.id === id); return it && it.tabs.length > 1 ? it : null; };
   function renderRail() {
-    const groups = RAIL_GROUPS.concat(RAIL.map((it) => it.group || "").filter((g) => !RAIL_GROUPS.includes(g)));
-    el("nav").innerHTML = groups.filter((g, i) => groups.indexOf(g) === i).map((g) => {
-      const items = RAIL.filter((it) => (it.group || "") === g && !it.hidden && canSee(it.module));
-      if (!items.length) return "";
-      return (g === "System" ? '<h4 class="sp" aria-hidden="true"></h4>' : g ? "<h4>" + esc(g) + "</h4>" : "") +
-        items.map((it) => '<button type="button" data-tab="' + esc(it.id) + '" aria-selected="false">' + esc(railLabel(it)) + '<span class="n" id="aca-nav-' + esc(it.id) + '"></span></button>').join("");
+    MENU_NOW = menuEntries();
+    let last = null;
+    el("nav").innerHTML = MENU_NOW.map((e) => {
+      const head = e.group === last ? "" : e.group === "System" ? '<h4 class="sp" aria-hidden="true"></h4>' : e.group ? "<h4>" + esc(e.group) + "</h4>" : "";
+      last = e.group;
+      return head + '<button type="button" data-tab="' + esc(e.id) + '" aria-selected="false">' + esc(e.title) + '<span class="n" id="aca-nav-' + esc(e.id) + '"></span></button>';
     }).join("");
   }
   const lastTab = {}; // rail item -> last inner tab shown
@@ -321,7 +387,7 @@
     const sec = sectionOf(name);
     if (!sec) return;
     const it = itemOf(name);
-    if (!canSee(it.module)) { if (name !== "today") showTab("today"); return; }
+    if (!canSee(it.module) || (!it.hidden && MENU_NOW.length && !entryOf(name))) { if (name !== "today") showTab("today"); return; }
     currentTab = name;
     const item = railItemOf(name);
     lastTab[item] = name;
@@ -364,7 +430,7 @@
   }
   el("nav").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-tab]");
-    if (b) { const item = b.dataset.tab; showTab(lastTab[item] || item); }
+    if (b) { const e = MENU_NOW.find((x) => x.id === b.dataset.tab); if (e) showTab(lastTab[e.id] || e.tabs[0][0]); }
   });
   window.addEventListener("hashchange", () => { const t = tabFromHash(); if (t && t !== currentTab) showTab(t); });
 
@@ -585,9 +651,10 @@
   // Pages come from RAIL (only those this person can see); org sub-lists from the orgs item's `search`.
   function gsPages() {
     const out = [];
-    RAIL.filter((it) => !it.hidden && canSee(it.module)).forEach((it) => {
-      it.tabs.forEach((t) => out.push([t[0], tabName(t[0])]));
-      (it.search || []).forEach((x) => out.push([it.tabs[0][0], x[0], x[1]]));
+    MENU_NOW.forEach((e) => {
+      e.tabs.forEach((t) => { out.push([t[0], tabName(t[0])]); if (tabName(t[0]) !== t[1]) out.push([t[0], t[1]]); });
+      const it = itemOf(e.tabs[0][0]);
+      (it.search || []).forEach((x) => out.push([e.tabs[0][0], x[0], x[1]]));
     });
     return out;
   }

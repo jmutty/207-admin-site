@@ -11,25 +11,14 @@
 --               emails follow the Booking emails settings (switch, quiet hours, test mode, bcc). Email and
 --               push only, never SMS.
 --
--- Task board (module 'taskboard', page #staff/board): every one-time task as a board (Waiting / To do / Done),
--- a month calendar (drag to move the due day), a workload table per person, and bulk changes (done, due day,
--- owner, priority). View = your own and your groups' tasks; Edit = everyone's, and moving or reassigning them.
--- People who have Assignments get the same level here when this runs.
+-- Task RPCs (module 'assignments'; the Task board page was dropped in the 2026-10-23 polish pass, before this
+-- went live): every one-time task with bulk changes (done, due day, owner, priority), and a workload per person.
+-- View = your own and your groups' tasks; Edit = everyone's, and moving or reassigning them.
 --
 -- Saved views (saved_views): a named filter on a list page (task board, bookings, inventory), private or
 -- shared with the team. Organizations keeps its own (prospect_saved_views).
 
--- ---------------------------------------------------------------- module
-insert into public.app_modules (key, label, section, description, sort, status, admin_only)
-values ('taskboard', 'Task board', 'Staff',
-        'Every one-time task as a board, a calendar and a workload table per person, with bulk changes. View = your own and your groups'' tasks; Edit = everyone''s.',
-        205, 'live', false)
-on conflict (key) do update set status = 'live', label = excluded.label, section = excluded.section, description = excluded.description;
-
-insert into public.team_permissions (user_id, module_key, level)
-select p.user_id, 'taskboard', p.level from public.team_permissions p where p.module_key = 'assignments'
-on conflict do nothing;
-
+-- ---------------------------------------------------------------- push kinds
 insert into public.push_topics (key, label, description, module, sort) values
   ('checklist_due',  'Checklist step coming up', 'A job checklist step of yours is due soon.', 'assignments', 42),
   ('checklist_late', 'Checklist step is late',   'A job checklist step is past due by the number of days its checklist says.', 'workflows', 43)
@@ -58,9 +47,9 @@ alter table public.staff_group_members enable row level security;
 revoke all on public.staff_groups, public.staff_group_members from anon, authenticated;
 grant select on public.staff_groups, public.staff_group_members to authenticated;
 create policy staff_groups_read on public.staff_groups for select to authenticated
-  using ((select public.can_any(array['workflows', 'taskboard'], 'view')));
+  using ((select public.can_any(array['workflows', 'assignments'], 'view')));
 create policy staff_group_members_read on public.staff_group_members for select to authenticated
-  using ((select public.can_any(array['workflows', 'taskboard'], 'view')));
+  using ((select public.can_any(array['workflows', 'assignments'], 'view')));
 
 -- ---------------------------------------------------------------- steps: waits for, group, reminder rules
 alter table public.workflow_steps
@@ -119,11 +108,11 @@ create or replace function public.assignment_check(p_task uuid, p_on date, p_don
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare t public.staff_tasks;
 begin
-  if not public.can_any(array['assignments', 'taskboard'], 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
+  if not public.can('assignments', 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
   select * into t from public.staff_tasks where id = p_task;
   if not found then raise exception 'That task was removed.'; end if;
   if t.user_id <> (select auth.uid()) and not public.staff_in_group(t.group_id, (select auth.uid()))
-     and not public.can_any(array['assignments', 'taskboard'], 'edit') then
+     and not public.can('assignments', 'edit') then
     raise exception 'not allowed' using errcode = '42501';
   end if;
   if t.waiting then raise exception 'That task is waiting for an earlier step on the job.'; end if;
@@ -617,8 +606,12 @@ language plpgsql stable security definer set search_path = '' as $$
 begin
   if not public.can('workflows', 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
   return jsonb_build_object('booking_id', p_booking, 'status', (select status from public.bookings where id = p_booking),
-    'can_check', public.can_any(array['assignments', 'taskboard'], 'edit'), 'me', (select auth.uid()),
+    'can_check', public.can('assignments', 'edit'), 'me', (select auth.uid()),
     'tasks', public.workflow_job_tasks_json(p_booking),
+    -- who a step can be given to (polish pass: steps go to whoever shoots, and can be handed to someone else)
+    'people', case when public.can('assignments', 'edit') then (select coalesce(jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', public.staff_name(m.user_id))
+                                                         order by lower(public.staff_name(m.user_id))), '[]'::jsonb)
+                                                         from public.team_members m where m.active) else '[]'::jsonb end,
     'emails', (select coalesce(jsonb_agg(jsonb_build_object('kind', e.kind, 'to', e.to_email, 'subject', e.subject, 'status', e.status, 'error', e.error,
                                                          'test_mode', e.test_mode, 'at', coalesce(e.sent_at, e.created_at)) order by e.id desc), '[]'::jsonb)
                  from public.wf_emails e where e.booking_id = p_booking and e.kind = 'partner'));
@@ -683,17 +676,17 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- ---------------------------------------------------------------- task board RPCs (module 'taskboard')
+-- ---------------------------------------------------------------- task board RPCs (module 'assignments')
 -- One-time tasks due between p_from and p_to, plus older ones still open, and recurring tasks' days in the range
 -- (for the calendar). Edit: everyone's (or p_user's); View: your own and your groups'.
 create function public.task_board(p_from date, p_to date, p_user uuid default null) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare v_me uuid := (select auth.uid()); v_all boolean; v_today date := (now() at time zone 'America/New_York')::date;
 begin
-  if not public.can('taskboard', 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
+  if not public.can('assignments', 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
   if p_from is null or p_to is null or p_to < p_from then raise exception 'Pick the days.'; end if;
   if p_to - p_from > 62 then p_to := p_from + 62; end if;
-  v_all := public.can('taskboard', 'edit');
+  v_all := public.can('assignments', 'edit');
   return jsonb_build_object(
     'can_edit', v_all, 'me', v_me, 'today', v_today,
     'people', case when v_all then (select coalesce(jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', public.staff_name(m.user_id))
@@ -736,8 +729,8 @@ declare
   v_prio text := nullif(p ->> 'priority', '');
   t public.staff_tasks; v_changed int := 0; v_skipped int := 0; v_notes text[] := '{}';
 begin
-  if not public.can('taskboard', 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
-  v_edit := public.can('taskboard', 'edit');
+  if not public.can('assignments', 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
+  v_edit := public.can('assignments', 'edit');
   if (v_due is not null or v_user is not null or v_prio is not null) and not v_edit then raise exception 'not allowed' using errcode = '42501'; end if;
   if v_done is null and v_due is null and v_user is null and v_prio is null then raise exception 'Pick what to change.'; end if;
   if cardinality(coalesce(p_ids, '{}')) > 500 then raise exception 'Pick 500 tasks or fewer.'; end if;
@@ -775,7 +768,7 @@ create function public.task_workload(p_week date default null) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare v_me uuid := (select auth.uid()); v_today date := (now() at time zone 'America/New_York')::date; v_end date;
 begin
-  if not public.can('taskboard', 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
+  if not public.can('assignments', 'view') then raise exception 'not allowed' using errcode = '42501'; end if;
   p_week := coalesce(p_week, v_today - extract(dow from v_today)::int);
   v_end := p_week + 6;
   return jsonb_build_object('week', p_week, 'today', v_today, 'rows', (
@@ -792,7 +785,7 @@ begin
                          and not exists (select 1 from public.staff_task_done d where d.task_id = k.id)))
            order by lower(public.staff_name(m.user_id))), '[]'::jsonb)
       from public.team_members m
-     where m.active and (m.user_id = v_me or public.can('taskboard', 'edit'))
+     where m.active and (m.user_id = v_me or public.can('assignments', 'edit'))
        and public.team_user_can(m.user_id, 'assignments')));
 end $$;
 
@@ -819,7 +812,7 @@ create index saved_views_page_idx on public.saved_views (page);
 
 -- The module behind each page.
 create function public.saved_view_module(p_page text) returns text language sql immutable set search_path = '' as $$
-  select case p_page when 'taskboard' then 'taskboard' when 'bookings' then 'bookings' when 'inventory' then 'inventory' end $$;
+  select case p_page when 'taskboard' then 'assignments' when 'bookings' then 'bookings' when 'inventory' then 'inventory' end $$;
 
 alter table public.saved_views enable row level security;
 revoke all on public.saved_views from anon, authenticated;

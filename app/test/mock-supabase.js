@@ -466,7 +466,7 @@
       RPC.task_workload = { week: add(today, -new Date(today + "T12:00:00Z").getUTCDay()), today,
         rows: [{ user_id: "u1", name: "Jeremiah Mutty", groups: [], due_week: 4, done_week: 1, overdue: 0, waiting: 0, later: 2 },
                { user_id: "u2", name: "Sam Helper", groups: ["Editing team"], due_week: 9, done_week: 6, overdue: 2, waiting: 1, later: 3 }] };
-      RPC.workflow_job = { booking_id: "bk1", status: "booked", can_check: true, me: "u1", tasks: [
+      RPC.workflow_job = { booking_id: "bk1", status: "booked", can_check: true, me: "u1", people: [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }], tasks: [
           { task_id: "k1", title: "Cards uploaded", due_on: add(today, -1), user_id: "u2", user_name: "Sam Helper", done_at: null, priority: "normal", waiting: false },
           { task_id: "k2", title: "Edit the photos", due_on: add(today, 2), user_id: "u2", user_name: "Sam Helper", group_name: "Editing team", done_at: null, priority: "normal", waiting: true, waits_for: "Cards uploaded" }],
         emails: [{ kind: "partner", to: "pat@hampden.org", subject: "Proofs posted for Hampden Academy", status: "sent", test_mode: false, at: new Date().toISOString() }] };
@@ -526,7 +526,7 @@
     RPC.openjobs_answer = { ok: true, answer: "accepted", scheduled: 1, untimed: 0 };
     RPC.openjobs_attention = { waiting: 1, no_takers: AS_PART ? 0 : 1 };
     RPC.openjobs_list = [Object.assign(offer("of1"), { recipients: [
-      { user_id: "u6", name: "Pat Parttime", drive_min: 35, notified: true, seen_at: iso(-0.05), answer: null, answered_at: null, reason: "" },
+      { user_id: "u6", name: "Pat Parttime", drive_min: 35, notified: true, seen_at: iso(-0.05), answer: "accepted", answered_at: iso(-0.03), picked_at: null, reason: "" },
       { user_id: "u7", name: "Riley Second", drive_min: 52, notified: true, seen_at: iso(-0.05), answer: "declined", answered_at: iso(-0.02), reason: "Out of town" },
       { user_id: "u8", name: "Casey Third", drive_min: null, notified: false, seen_at: null, answer: null, answered_at: null, reason: "" }] })];
     RPC.openjobs_upcoming = [{ booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", first_day: add(today, 3), days: 1, location: "89 Western Ave, Hampden ME", crew: 1, open_offers: 1 },
@@ -538,6 +538,7 @@
         { user_id: "u9", name: "Dana Nohome", home_set: false, max_drive_min: 60, drive_min: null, meters: null, in_range: false, has_access: false, has_device: false, on_job: false, offered: false, busy: [] }] };
     RPC.openjobs_post = { ok: true, id: "of9", sent: 2, pushed: 1 };
     RPC.openjobs_close = { ok: true };
+    RPC.openjobs_pick = { ok: true, filled: true, scheduled: 1 };
     RPC.openjobs_people = { can_grant: true, people: [{ user_id: "u6", name: "Pat Parttime", part_time: true, employment_type: "part_time", job_title: "Photographer", home_address: "12 Elm St, Bangor ME", max_drive_min: 60, has_access: true, has_device: true },
       { user_id: "u2", name: "Sam Helper", part_time: false, employment_type: null, job_title: "", home_address: "", max_drive_min: 60, has_access: false, has_device: true }] };
     RPC.openjobs_person_save = { ok: true, granted: true }; RPC.team_set_profile = { ok: true, granted: true };

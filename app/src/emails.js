@@ -1,14 +1,13 @@
-  // ================================================================ SYSTEM: Email delivery (2026-10-23)
-  // Every email sent through Resend (recorded by the database as it goes out) and how it went: delivered, bounced,
-  // opened, clicked, failed. Sent: the list with filters, each email with what was sent, Resend (Edit) to the same
-  // or a corrected address, and Mark handled. Report: month by month, by kind of email, and addresses that bounced.
-  // RPCs: email_list / email_detail / email_resend / email_mark_handled / email_report / email_attention
+  // ================================================================ PARTNERS > Outbox: Bounced (2026-10-23)
+  // Emails sent through Resend (recorded by the database as it goes out) that bounced, were marked spam or failed.
+  // Polish pass 2026-10-23: only "did it bounce" (no opens, clicks or monthly report), as a Bounced tab on Outbox.
+  // Each email shows what was sent, Resend (Edit) to the same or a corrected address, and Mark handled.
+  // RPCs: email_list / email_detail / email_resend / email_mark_handled / email_attention
   // (migration 20261023141600). Booking and outreach emails go through Gmail and are on Outbox, not here.
-  registerPage({ id: "delivery", group: "System", section: "system", module: "emails", title: "Email delivery",
-                 tabs: [["delivery", "Sent"], ["emailreport", "Report"]],
-                 onShow: (tab) => (tab === "emailreport" ? Emails.loadReport() : Emails.load()) });
-  registerAttention("emailProblems", { module: "emails", level: "warn", name: "email delivery",
-    one: "An email bounced or could not be sent in the last two weeks.", many: "{n} emails bounced or could not be sent in the last two weeks." });
+  registerPage({ id: "delivery", group: "Partners", section: "partners", module: "emails", title: "Bounced",
+                 tabs: [["delivery", "Bounced"]], onShow: () => Emails.load() });
+  registerAttention("emailProblems", { module: "emails", level: "warn", name: "bounced emails",
+    one: "An email bounced in the last two weeks.", many: "{n} emails bounced in the last two weeks." });
   registerTodayLoader("emails", () => Emails.loadAttention());
 
   const Emails = (function () {
@@ -48,13 +47,13 @@
     const root = el("panel-delivery");
     root.innerHTML =
       '<div class="em-bar"><div class="seg" role="radiogroup" aria-label="Show">' +
-        [["all", "All"], ["problems", "Problems"], ["opened", "Opened"], ["waiting", "Waiting"]].map((f, i) => '<label><input type="radio" name="aca-emF" value="' + f[0] + '"' + (i ? "" : " checked") + " /><span>" + f[1] + "</span></label>").join("") + "</div>" +
+        [["problems", "Bounced"], ["all", "Everything sent"]].map((f, i) => '<label><input type="radio" name="aca-emF" value="' + f[0] + '"' + (i ? "" : " checked") + " /><span>" + f[1] + "</span></label>").join("") + "</div>" +
         '<select class="small" id="aca-emSrc"><option value="">Every kind</option>' + Object.keys(SRC).map((k) => '<option value="' + k + '">' + SRC[k] + "</option>").join("") + "</select>" +
         '<input type="search" id="aca-emQ" placeholder="Address or subject" /><span class="grow"></span>' +
-        '<button type="button" class="small hidden" id="aca-emHandled">Mark problems handled</button></div>' +
+        '<button type="button" class="small hidden" id="aca-emHandled">Mark all handled</button></div>' +
       '<div id="aca-emErr" class="inline-error hidden"></div><div id="aca-emBody"><p class="empty">Loading&#8230;</p></div>';
     let rows = [], data = null, more = false;
-    const filter = () => (root.querySelector('input[name="aca-emF"]:checked') || {}).value || "all";
+    const filter = () => (root.querySelector('input[name="aca-emF"]:checked') || {}).value || "problems";
 
     async function load(append) {
       clearError("emErr");
@@ -71,7 +70,7 @@
     }
     function statusHtml(r) {
       const s = ST[r.status] || ["muted", r.status];
-      return '<span class="pill ' + s[0] + '">' + s[1] + "</span>" + (r.clicked_at ? '<span class="em-tag">clicked</span>' : r.opened_at ? '<span class="em-tag">opened</span>' : "") +
+      return '<span class="pill ' + s[0] + '">' + s[1] + "</span>" +
         (r.resent ? '<span class="em-tag t">resent</span>' : "") + (PROBLEM[r.status] && r.handled_at && !r.resent ? '<span class="em-tag t">handled</span>' : "");
     }
     function render() {
@@ -83,8 +82,8 @@
             "<td>" + esc(r.subject) + (r.test_mode ? '<span class="em-tag t">test</span>' : "") + (r.error && PROBLEM[r.status] ? '<span class="em-err">' + esc(r.error) + "</span>" : "") + "</td>" +
             '<td class="em-hide-sm">' + esc(SRC[r.source] || r.source) + "</td><td>" + statusHtml(r) + "</td></tr>").join("") + "</tbody></table></div>" +
           (more ? '<p style="margin:12px 0"><button type="button" class="small" data-more>Show older</button></p>' : "")
-        : '<p class="empty">' + (filter() === "problems" ? "No problems. Everything sent was accepted." : "Nothing here yet. Emails show up as they are sent.") + "</p>") +
-        '<p class="muted" style="font-size:12.5px;margin-top:10px">Emails sent through Resend. Booking emails and outreach go through Gmail; see Outbox for those. Status is checked with Resend 10 minutes, 1 hour, 6 hours, 1 day and 3 days after sending. Opens and clicks show only when tracking is on for the domain in Resend.</p>';
+        : '<p class="empty">' + (filter() === "problems" ? "Nothing bounced. Everything sent was accepted." : "Nothing here yet. Emails show up as they are sent.") + "</p>") +
+        '<p class="muted" style="font-size:12.5px;margin-top:10px">Emails sent through Resend. Booking emails and outreach go through Gmail; see Outbox for those. Status is checked with Resend 10 minutes, 1 hour, 6 hours, 1 day and 3 days after sending.</p>';
     }
     root.addEventListener("change", (ev) => { if (ev.target.name === "aca-emF" || ev.target.id === "aca-emSrc") load(); });
     let qTimer = null;
@@ -113,7 +112,6 @@
           "<dt>From</dt><dd>" + esc(d.from) + (d.reply_to ? " (replies to " + esc(list(d.reply_to)) + ")" : "") + "</dd>" +
           "<dt>Sent</dt><dd>" + esc(when(d.sent_at)) + " · " + esc(SRC[d.source] || d.source) + (d.resent_by ? " · resent by " + esc(d.resent_by) : "") + "</dd>" +
           "<dt>Status</dt><dd>" + statusHtml(d) + (d.error ? '<span class="em-err">' + esc(d.error) + "</span>" : "") +
-            (d.opened_at ? '<span class="em-s">Opened ' + esc(when(d.opened_at)) + (d.clicked_at ? ", clicked " + esc(when(d.clicked_at)) : "") + "</span>" : "") +
             (d.handled_by ? '<span class="em-s">Handled by ' + esc(d.handled_by) + "</span>" : "") + "</dd></dl>" +
         (d.bounced_contact ? '<p class="em-warn">This address is marked bounced on its organization contact, so outreach skips it. Fix the address there if it was a typo.</p>' : "") +
         (d.resends && d.resends.length ? '<p class="em-s" style="margin:0 0 10px">Resent: ' + d.resends.map((r) => esc(when(r.sent_at)) + " to " + esc(list(r.to)) + " (" + esc((ST[r.status] || [0, r.status])[1]) + ")").join("; ") + "</p>" : "") +
@@ -144,34 +142,6 @@
       });
     }
 
-    // ---------------------------------------------------------------- Report
-    const rep = el("panel-emailreport");
-    rep.innerHTML = '<div class="em-bar"><select class="small" id="aca-emMonths"><option value="3">Last 3 months</option><option value="6">Last 6 months</option><option value="12" selected>Last 12 months</option></select></div>' +
-      '<div id="aca-erErr" class="inline-error hidden"></div><div id="aca-erBody"><p class="empty">Loading&#8230;</p></div>';
-    el("emMonths").addEventListener("change", () => loadReport());
-    async function loadReport() {
-      clearError("erErr");
-      try {
-        const { data: r, error } = await sb.rpc("email_report", { p_months: +el("emMonths").value });
-        if (error) throw error;
-        const months = r.months || [], src = r.sources || [];
-        const bar = (x) => { const t = num(x.sent) || 1; return '<div class="em-bars" title="Delivered, bounced or spam, failed">' +
-          '<span style="width:' + (100 * num(x.delivered)) / t + '%;background:var(--ok-fg)"></span><span style="width:' + (100 * (num(x.bounced) + num(x.complained || 0))) / t + '%;background:var(--err-fg)"></span>' +
-          '<span style="width:' + (100 * num(x.failed)) / t + '%;background:var(--accent)"></span></div>'; };
-        const mName = (ym) => new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long", year: "numeric" });
-        el("erBody").innerHTML = (!months.length ? '<p class="empty">No emails recorded yet' + (r.first_sent_at ? "" : ". Recording started with this feature") + ".</p>" :
-          '<h3 style="margin:0 0 8px;font-size:14px">By month</h3><div class="table-wrap"><table class="em-report"><thead><tr><th>Month</th><th class="em-num">Sent</th><th class="em-num">Delivered</th><th class="em-num">Bounced</th><th class="em-num em-hide-sm">Spam</th><th class="em-num">Failed</th><th class="em-num em-hide-sm">Opened</th><th class="em-num em-hide-sm">Clicked</th><th class="em-hide-sm"></th></tr></thead><tbody>' +
-            months.slice().reverse().map((x) => "<tr><td>" + esc(mName(x.month)) + '</td><td class="em-num">' + x.sent + '</td><td class="em-num">' + x.delivered + ' <span class="muted">' + pct(x.delivered, x.sent) + '</span></td><td class="em-num">' + (x.bounced ? "<b>" + x.bounced + "</b>" : 0) +
-              '</td><td class="em-num em-hide-sm">' + x.complained + '</td><td class="em-num">' + (x.failed ? "<b>" + x.failed + "</b>" : 0) + '</td><td class="em-num em-hide-sm">' + x.opened + ' <span class="muted">' + pct(x.opened, x.delivered) + '</span></td><td class="em-num em-hide-sm">' + x.clicked +
-              '</td><td class="em-hide-sm">' + bar(x) + "</td></tr>").join("") + "</tbody></table></div>" +
-          '<h3 style="margin:22px 0 8px;font-size:14px">By kind of email</h3><div class="table-wrap"><table class="em-report"><thead><tr><th>Kind</th><th class="em-num">Sent</th><th class="em-num">Delivered</th><th class="em-num">Bounced</th><th class="em-num">Failed</th><th class="em-num em-hide-sm">Opened</th></tr></thead><tbody>' +
-            src.sort((a, b) => b.sent - a.sent).map((x) => "<tr><td>" + esc(SRC[x.source] || x.source) + '</td><td class="em-num">' + x.sent + '</td><td class="em-num">' + x.delivered + '</td><td class="em-num">' + x.bounced + '</td><td class="em-num">' + x.failed + '</td><td class="em-num em-hide-sm">' + x.opened + "</td></tr>").join("") + "</tbody></table></div>") +
-          ((r.bounced || []).length ? '<h3 style="margin:22px 0 8px;font-size:14px">Addresses that bounced (90 days)</h3><div class="table-wrap"><table class="em-report"><thead><tr><th>Address</th><th class="em-num">Times</th><th>Last</th></tr></thead><tbody>' +
-            r.bounced.map((b) => "<tr><td>" + esc(b.email) + '</td><td class="em-num">' + b.n + "</td><td>" + esc(when(b.last)) + "</td></tr>").join("") + "</tbody></table></div>" : "") +
-          '<p class="muted" style="font-size:12.5px;margin-top:12px">Counts emails sent through Resend' + (r.first_sent_at ? " since " + esc(when(r.first_sent_at)) : "") + '. Delivered includes ones later marked as spam. Opened is a share of delivered.</p>';
-      } catch (e) { showError("erErr", "Could not load the report: " + cleanErr(e)); }
-    }
-
     async function loadAttention() {
       if (!canSee("emails")) return;
       try {
@@ -181,5 +151,5 @@
       } catch (e) { setAttention("emailProblems", 0); }
     }
 
-    return { load, loadReport, loadAttention };
+    return { load, loadAttention };
   })();

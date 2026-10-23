@@ -40,12 +40,12 @@ insert into public.team_members (user_id, display_name, active) values ('0000000
   ('00000000-0000-0000-0000-0000000000b1', 'Sam Shooter', true), ('00000000-0000-0000-0000-0000000000b2', 'Ari Editor', true),
   ('00000000-0000-0000-0000-0000000000b3', 'Bo Editor', true);
 insert into public.team_permissions (user_id, module_key, level) values
-  ('00000000-0000-0000-0000-0000000000e1', 'workflows', 'edit'), ('00000000-0000-0000-0000-0000000000e1', 'taskboard', 'edit'),
+  ('00000000-0000-0000-0000-0000000000e1', 'workflows', 'edit'),
   ('00000000-0000-0000-0000-0000000000e1', 'assignments', 'edit'),
-  ('00000000-0000-0000-0000-0000000000c1', 'taskboard', 'view'), ('00000000-0000-0000-0000-0000000000c1', 'assignments', 'view'),
-  ('00000000-0000-0000-0000-0000000000b1', 'assignments', 'view'), ('00000000-0000-0000-0000-0000000000b1', 'taskboard', 'view'),
-  ('00000000-0000-0000-0000-0000000000b2', 'assignments', 'view'), ('00000000-0000-0000-0000-0000000000b2', 'taskboard', 'view'),
-  ('00000000-0000-0000-0000-0000000000b3', 'assignments', 'view'), ('00000000-0000-0000-0000-0000000000b3', 'taskboard', 'view');
+  ('00000000-0000-0000-0000-0000000000c1', 'assignments', 'view'),
+  ('00000000-0000-0000-0000-0000000000b1', 'assignments', 'view'),
+  ('00000000-0000-0000-0000-0000000000b2', 'assignments', 'view'),
+  ('00000000-0000-0000-0000-0000000000b3', 'assignments', 'view');
 
 update public.workflow_steps set archived_at = now();
 insert into public.booking_types (key, label) values ('cf_test', 'Test league') on conflict do nothing;
@@ -54,7 +54,7 @@ insert into public.prospect_contacts (id, org_id, first_name, last_name, email, 
   ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000f1', 'Pat', 'Partner', 'pat@bangorrec.org', true);
 
 -- ---------------------------------------------------------------- module + access
-select pg_temp.ok(exists (select 1 from public.app_modules where key = 'taskboard' and status = 'live'), 'taskboard module is registered');
+select pg_temp.ok(not exists (select 1 from public.app_modules where key = 'taskboard'), 'no separate task board module (tasks use Assignments)');
 select pg_temp.act('00000000-0000-0000-0000-0000000000d1');
 select pg_temp.raises($$select public.task_board(current_date, current_date + 7)$$, 'no access: no task board');
 select pg_temp.raises($$select public.task_workload()$$, 'no access: no workload');
