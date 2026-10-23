@@ -212,8 +212,9 @@
 
     // ---------------------------------------------------------------- the document (buildDoc)
     const escH = (v) => String(v === null || v === undefined ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    // Escaped, with the script's double spaces kept ("Name,  Title").
-    const txt = (v) => escH(v).replace(/ {2}/g, " &nbsp;");
+    // Escaped, with the script's double spaces kept ("Name,  Title"). "=" and "javascript:" are written as
+    // entities so typed text can never look like markup to the server's check (agreement_html_ok).
+    const txt = (v) => escH(v).replace(/ {2}/g, " &nbsp;").replace(/=/g, "&#61;").replace(/(javascript):/gi, "$1&#58;");
 
     function line(n) { let s = ""; for (let i = 0; i < (n || 24); i++) s += "_"; return s; }
     function V(d, key, width) { return d.val[key] ? d.val[key] : line(width || 20); }
