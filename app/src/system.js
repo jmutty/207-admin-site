@@ -8,7 +8,12 @@
       .order("started_at", { ascending: false }).limit(1);
     const r = data && data[0];
     const node = el("syncStatus");
-    setAttention("syncFailed", r && r.ok === false ? 1 : 0, r ? "GotPhoto sync failed " + fmtAgo(r.started_at) + " (it retries every 5 min)" : "", "company", "err");
+    // Today only flags it after an hour with no good sync: single failed runs fix themselves on the next try (2026-10-24)
+    const { data: good } = r ? await supabase.from("sync_runs").select("started_at").eq("ok", true)
+      .order("started_at", { ascending: false }).limit(1) : { data: null };
+    const lastOk = good && good[0] ? good[0].started_at : null;
+    const down = !!r && !!lastOk && Date.now() - new Date(lastOk).getTime() > 60 * 60 * 1000;
+    setAttention("syncFailed", down ? 1 : 0, down ? "No good GotPhoto sync since " + fmtAgo(lastOk) : "", "company", "err");
     if (!r) { node.innerHTML = '<span class="dot"></span>No syncs yet'; return; }
     const cls = r.ok === true ? "ok" : (r.ok === false ? "err" : "");
     node.innerHTML = '<span class="dot ' + cls + '"></span>' +

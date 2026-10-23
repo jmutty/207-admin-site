@@ -655,7 +655,7 @@
   // Sentences. [one, many]; {n} = count. Plain words: a new hire reads these too (no "hub row", "AD", "reply all").
   const SENTENCES = {
     bookingFailed:    ["A booking email failed to send.", "{n} booking emails failed to send."],
-    syncFailed:       ["GotPhoto sync is failing. It retries every 5 minutes; codes on Find My Photos may be stale.", "GotPhoto sync is failing."],
+    syncFailed:       ["GotPhoto sync has been down for over an hour. Codes on Find My Photos may be out of date.", "GotPhoto sync has been down for over an hour."],
     bookingNoContact: ["A booking has nobody to email. Add a contact and the admin emails go out.", "{n} bookings have nobody to email."],
     bookingNeedsTime: ["A booking needs its start and end time. Emails that mention the time are waiting.", "{n} bookings need their start and end times."],
     bookingNeedsTimeLater: ["A booking has no time yet. No rush: it is more than three weeks out.", "{n} bookings have no time yet. No rush, they are more than three weeks out."],
