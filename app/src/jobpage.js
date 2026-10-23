@@ -185,7 +185,7 @@
       const builtIn = [
         { id: "overview", label: "Overview", order: 10, render: renderOverview },
         { id: "checklist", label: "Checklist", order: 30, show: (j) => !!j.tasks && (j.tasks.length || j.can.workflows), count: (j) => (j.tasks || []).filter((t) => !t.done).length, render: renderChecklist },
-        { id: "results", label: "Results", order: 60, module: "results", render: renderResults },
+        { id: "results", label: "Sales", order: 60, module: "results", render: renderResults }, // "Sales" = money (ws/partners 2026-10-24)
         { id: "notes", label: "Notes", order: 80, count: (j) => num(j.notes_count), render: renderNotes },
         { id: "history", label: "History", order: 90, render: renderHistory },
       ];
@@ -332,7 +332,7 @@
         "<dt>Partner share</dt><dd>" + (r.pct != null ? num(r.pct) + "% = " : "") + money(r.due) + "</dd>" +
         "<dt>Paid</dt><dd>" + money(r.paid) + "</dd><dt>Still owed</dt><dd>" + money(r.balance) + "</dd>" +
         (r.gallery_status ? "<dt>Gallery</dt><dd>" + esc(r.gallery_status) + "</dd>" : "") + "</dl>" +
-        '<div class="jp-links"><a class="small" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:4px" href="#jobs/resjobs">Season results</a></div></div>';
+        '<div class="jp-links"><a class="small" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:4px" href="#jobs/resjobs/job">All sales</a></div></div>';
     }
 
     // ---------------------------------------------------------------- notes
