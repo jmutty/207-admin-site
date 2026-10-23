@@ -324,10 +324,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "", "#ops/inventory");
     check(await page.$eval("#aca-panel-inventory", (n) => n.classList.contains("active")), "#ops/inventory opens Find");
-    await page.waitForSelector("#aca-invResults .empty");
+    await page.waitForSelector("#aca-invResults .inv-res");
     check(!(await page.textContent("#aca-invResults")).includes("Checked out to you"), "nothing checked out to the owner");
+    // ws/settings B30: before typing, what's out and what's late (late first)
+    check((await page.textContent("#aca-invResults .inv-h")).includes("Out now: 2, 1 late") && (await page.textContent("#aca-invResults .inv-res")).includes("Out with Gus Shooter"), "B30: Find shows what's out, late first, until you type");
     await page.fill("#aca-invQ", "canon");
-    await page.waitForSelector("#aca-invResults [data-item]");
+    await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "inventory_search"));
+    await page.waitForSelector("#aca-invResults .inv-h >> text=Items");
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_search" && c[1].p_q === "canon")), "typing searches");
     check((await page.textContent("#aca-invResults [data-item=\"ii2\"]")).includes("A-01"), "result shows the bin to look in");
     check((await page.textContent("#aca-invResults [data-item=\"ii2\"]")).includes("Out with Sam Helper"), "result shows who has it");
@@ -369,6 +372,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector("#aca-invOutBody [data-ret]");
     check((await page.$$("#aca-invOutBody [data-ret]")).length === 2, "owner can return everything");
     check((await page.textContent("#aca-invOutCount")).includes("1 late"), "counts late returns");
+    check((await page.$$('#aca-invOutBody td:nth-child(2) a[data-item], #aca-invOutBody td:nth-child(2) a[data-kit]')).length === 2, "ws/settings: who has it is a link to the item");
     await page.click('#aca-invOutBody [data-ret="2"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "inventory_return" && c[1].p_checkout === 2)), "Return");
@@ -380,13 +384,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.$$("#aca-invGearBody tr[data-item]")).length === 2, "gear: lists items with a value or serial");
     await page.click('#aca-invGearChips [data-f="due"]');
     check((await page.$$("#aca-invGearBody tr[data-item]")).length === 1, "gear: Service due filter");
+    check((await page.textContent("#aca-invGearBody")).includes("overdue since"), "B32: a past service date says overdue since");
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#aca-invGearExport")]);
     const csv = fs.readFileSync(await dl.path(), "utf8");
     check(dl.suggestedFilename().startsWith("207-photo-gear-insurance-") && csv.includes("Canon R6 body,SN-12345,1,1800,1800.00") && csv.includes("Total,,,,2100.00"), "gear: insurance CSV has items and total");
     await page.click('#aca-invGearBody tr[data-item="ii2"]');
     await page.waitForSelector("#aca-invISvc");
     const care = await page.textContent(".modal .inv-care");
-    check(care.includes("$2,499") && care.includes("$1,800") && care.includes("overdue"), "item shows bought, worth and overdue service: " + care);
+    check(care.includes("$2,499") && care.includes("$1,800") && care.includes("overdue since"), "item shows bought, worth and overdue service: " + care);
     await page.waitForFunction(() => document.querySelector("#aca-invSvc") && document.querySelector("#aca-invSvc").textContent.includes("Sensor clean"));
     check(true, "item shows its service log");
     await page.click("#aca-invISvc");

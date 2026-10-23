@@ -156,6 +156,8 @@
     const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
     const soonStr = () => { const t = new Date(todayStr() + "T12:00:00"); t.setDate(t.getDate() + 14); return t.toISOString().slice(0, 10); };
     const serviceDue = (r) => r.next_service_on && r.next_service_on <= soonStr();
+    // B32 (ws/settings 2026-10-24): a service date in the past reads "overdue since Oct 18"
+    const serviceTxt = (d) => d < todayStr() ? "overdue since " + new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : dueTxt(d);
     const KIND = { service: "Service", sensor: "Sensor clean", repair: "Repair", other: "Other" };
 
     // ---------------------------------------------------------------- Find
@@ -180,16 +182,22 @@
           (ks.length ? '<div class="inv-h">Kits</div>' + ks.map(kitRow).join("") : "") +
           (bs.length ? '<div class="inv-h">Bins</div>' + bs.map(binRow).join("") : "");
     }
-    // With nothing typed: what the signed-in person has checked out.
+    // With nothing typed (B30, ws/settings 2026-10-24): what the signed-in person has checked out, then everything
+    // else that is out, late first, so "who has what / what's late" is answered before typing.
     async function mine(seq) {
-      const { data, error } = await sb.from("inventory_out_v").select("*").eq("holder_user", me()).order("out_at", { ascending: false });
+      const { data, error } = await sb.from("inventory_out_v").select("*").order("out_at", { ascending: false });
       if (seq !== qSeq) return;
       if (error) { el("invResults").innerHTML = ""; return; }
-      el("invResults").innerHTML = data && data.length
-        ? '<div class="inv-h">Checked out to you</div>' + data.map((r) => '<button type="button" class="inv-res" data-' + (r.kit_id ? "kit" : "item") + '="' + esc(r.kit_id || r.item_id) + '">' +
-            binTag(r.bin_code) + '<span class="inv-thumb"></span><span><b>' + esc(r.what) + "</b>" + (r.serial ? ' <span class="muted">S/N ' + esc(r.serial) + "</span>" : "") +
-            '<br><span class="muted">Since ' + esc(fmtAgo(r.out_at)) + (r.due_on ? ", due " + esc(dueTxt(r.due_on)) : "") + "</span></span></button>").join("")
-        : '<p class="empty">Start typing to find something.</p>';
+      const rows = data || [], mineRows = rows.filter((r) => r.holder_user === me());
+      const others = rows.filter((r) => r.holder_user !== me()).sort((a, b) => (overdue(b.due_on) ? 1 : 0) - (overdue(a.due_on) ? 1 : 0) || String(a.due_on || "9").localeCompare(String(b.due_on || "9")));
+      const late = others.filter((r) => overdue(r.due_on)).length;
+      const row = (r, who) => '<button type="button" class="inv-res" data-' + (r.kit_id ? "kit" : "item") + '="' + esc(r.kit_id || r.item_id) + '">' +
+        binTag(r.bin_code) + '<span class="inv-thumb"></span><span><b>' + esc(r.what) + "</b>" + (r.kit_id ? ' <span class="muted">kit</span>' : "") + (r.serial ? ' <span class="muted">S/N ' + esc(r.serial) + "</span>" : "") +
+        "<br>" + (who ? '<span class="inv-out">Out with ' + esc(r.holder_name) + "</span> " : "") + '<span class="muted">since ' + esc(fmtAgo(r.out_at)) +
+        (r.due_on ? ", due " + esc(dueTxt(r.due_on)) + "</span>" + (overdue(r.due_on) ? ' <span class="inv-late">late</span>' : "") : "</span>") + "</span></button>";
+      el("invResults").innerHTML = (mineRows.length ? '<div class="inv-h">Checked out to you</div>' + mineRows.map((r) => row(r, false)).join("") : "") +
+        (others.length ? '<div class="inv-h">Out now: ' + others.length + (late ? ", " + late + " late" : "") + "</div>" + others.map((r) => row(r, true)).join("") : "") +
+        (!rows.length ? '<p class="empty">Everything is in. Type to find something.</p>' : '<p class="muted" style="font-size:12.5px;margin:8px 0 0">Type above to find anything else.</p>');
     }
     const COND = { broken: "Broken", repair: "At repair" };
     const condTag = (r) => (r.condition && r.condition !== "ok" ? ' <span class="inv-bad">' + COND[r.condition] + "</span>" : "");
@@ -256,7 +264,7 @@
       el("invOutBody").innerHTML = rows.length ? rows.map((r) => '<tr><td class="name"><a href="#" data-' + (r.kit_id ? "kit" : "item") + '="' + esc(r.kit_id || r.item_id) + '">' + esc(r.what) + "</a>" +
         (r.kit_id ? ' <span class="muted">kit</span>' : "") + (r.serial ? '<div class="muted" style="font-size:12.5px">S/N ' + esc(r.serial) + "</div>" : "") +
 "</td>" +
-        "<td>" + esc(r.holder_name) + "</td><td>" + esc(fmtAgo(r.out_at)) + "</td>" +
+        '<td><a href="#" data-' + (r.kit_id ? "kit" : "item") + '="' + esc(r.kit_id || r.item_id) + '">' + esc(r.holder_name) + "</a></td><td>" + esc(fmtAgo(r.out_at)) + "</td>" +
         "<td>" + (r.due_on ? (overdue(r.due_on) ? '<span class="pill err">' + esc(dueTxt(r.due_on)) + "</span>" : esc(dueTxt(r.due_on))) : '<span class="muted">&mdash;</span>') + "</td>" +
         "<td>" + binTag(r.bin_code) + "</td>" +
         "<td>" + (edit() || r.holder_user === me() ? '<button type="button" class="small" data-ret="' + num(r.id) + '">Return</button>' : "") + "</td></tr>").join("")
@@ -439,7 +447,7 @@
       if (r.purchased_on || r.purchase_price != null) bits.push("Bought" + (r.purchased_on ? " " + esc(monthTxt(r.purchased_on)) : "") + (r.purchase_price != null ? " for " + esc(money(r.purchase_price)) : ""));
       if (r.value != null) bits.push("Worth " + esc(money(r.value)) + (num(r.qty) > 1 ? " each (" + esc(money(Number(r.value) * num(r.qty))) + " for " + num(r.qty) + ")" : ""));
       if (r.service_every_months) bits.push("Service every " + num(r.service_every_months) + (num(r.service_every_months) === 1 ? " month" : " months") +
-        (r.next_service_on ? ', next <span class="' + (serviceDue(r) ? "inv-late" : "") + '">' + esc(dueTxt(r.next_service_on)) + (r.next_service_on < todayStr() ? ", overdue" : "") + "</span>" : ""));
+        (r.next_service_on ? ', next <span class="' + (serviceDue(r) ? "inv-late" : "") + '">' + esc(serviceTxt(r.next_service_on)) + "</span>" : ""));
       else if (r.last_service_on) bits.push("Last serviced " + esc(dueTxt(r.last_service_on)));
       return bits.length ? '<p class="inv-care">' + bits.join("<br>") + "</p>" : "";
     }
@@ -672,7 +680,7 @@
         (num(r.qty) !== 1 ? ' <span class="muted">&times; ' + num(r.qty) + "</span>" : "") + (r.serial ? '<div class="muted" style="font-size:12.5px">S/N ' + esc(r.serial) + "</div>" : "") + "</td>" +
         '<td class="inv-sm-hide">' + esc(monthTxt(r.purchased_on)) + '</td><td class="money inv-sm-hide">' + esc(money(r.purchase_price)) + '</td><td class="money">' + esc(money(r.value)) +
         (r.value != null && num(r.qty) > 1 ? '<div class="muted" style="font-size:12px">' + esc(money(Number(r.value) * num(r.qty))) + " total</div>" : "") + "</td>" +
-        "<td>" + (r.next_service_on ? (serviceDue(r) ? '<span class="pill err">' + esc(dueTxt(r.next_service_on)) + "</span>" : esc(dueTxt(r.next_service_on))) : '<span class="muted">&mdash;</span>') + "</td>" +
+        "<td>" + (r.next_service_on ? (serviceDue(r) ? '<span class="pill err">' + esc(serviceTxt(r.next_service_on)) + "</span>" : esc(dueTxt(r.next_service_on))) : '<span class="muted">&mdash;</span>') + "</td>" +
         "<td>" + binTag(r.bin_code) + "</td></tr>").join("")
         : '<tr><td colspan="6" class="empty">' + (gearFilter === "due" ? "Nothing is due for service." : gear.length ? "Nothing matches." : "No items yet.") + "</td></tr>";
     }
