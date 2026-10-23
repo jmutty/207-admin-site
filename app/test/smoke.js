@@ -90,10 +90,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!(await visible(page, "#aca-tmGrid")), "full access hides the module grid");
     await page.uncheck("#aca-tmAdmin");
     await page.check('input[name="tm-parents"][value="edit"]', { force: true });
+    await page.fill("#aca-tmHome", "Bangor");
     await page.click("#aca-tmSave");
     await page.waitForTimeout(200);
     const save = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "team_save").pop());
     check(save && save[1].p_permissions.parents === "edit" && save[1].p_permissions.bookings === "edit" && save[1].p_is_admin === false, "edit saves through team_save");
+    const home = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "team_set_home").pop());
+    check(home && home[1].p_home === "Bangor" && home[1].p_user_id === "u2", "a home address (or just the town) saves from the Team page");
     // Remove: only offered for deactivated people
     await page.click('[data-edit="u2"]');
     check(!(await page.$("#aca-tmRemove")), "no Remove button for an active person");

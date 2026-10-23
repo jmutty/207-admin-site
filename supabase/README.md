@@ -56,6 +56,7 @@ psql -d shadow -v ON_ERROR_STOP=1    -f tests/timeclock_round_two_test.sql   # l
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141600_email_delivery.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/email_delivery_test.sql       # Resend sends recorded by the pg_net trigger, answers + look-ups, bounces, resend, report, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023200000_polish.sql
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023210000_team_home.sql   # home address on the Team page
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/polish_test.sql       # picture day off, ask who's available + pick, no partner emails on checklists, payout kinds + season end, notification modes + morning digest; rolls back
 ```
 

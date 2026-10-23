@@ -90,6 +90,8 @@
         '<div class="tm-two"><div class="field"><label for="aca-tmTitle">Job title</label><input type="text" id="aca-tmTitle" maxlength="80" value="' + esc(p.job_title || "") + '" placeholder="e.g. Lead photographer" /></div>' +
         '<div class="field"><label for="aca-tmType">Employment type</label><select id="aca-tmType"><option value="">Not set</option>' + TYPES.map((t) => '<option value="' + t[0] + '"' + (p.employment_type === t[0] ? " selected" : "") + ">" + t[1] + "</option>").join("") + "</select></div></div>" +
         '<p class="muted" id="aca-tmTypeNote" style="font-size:12.5px;margin:-6px 0 12px"></p>' +
+        '<div class="field"><label for="aca-tmHome">Home address</label><input type="text" id="aca-tmHome" maxlength="300" value="' + esc(p.home_address || "") + '" placeholder="Street and town, or just the town" />' +
+        '<span class="muted" style="font-size:12.5px">Drive times for Part time and 1099 people are measured from here (Open jobs, the Schedule, mileage). The town alone is enough.</span></div>' +
         '<div class="field"><label for="aca-tmHours">Default hours per week</label><input type="number" id="aca-tmHours" min="0" max="80" step="0.5" style="width:110px" value="' + esc(p.weekly_hours == null ? "" : String(Number(p.weekly_hours))) + '" placeholder="e.g. 32" />' +
         '<span class="muted" style="font-size:12.5px">The Schedule shows how many hours they are scheduled against this each week. Leave empty if it doesn&#39;t apply.</span></div>' +
         ((crewRoles.roles || []).length ? '<div class="field"><label>Crew roles</label><div id="aca-tmRoles" style="display:flex;flex-wrap:wrap;gap:4px 16px">' + crewRoles.roles.map((r) =>
@@ -122,6 +124,8 @@
         const setHours = async (uid) => { if (!hoursChanged) return; const { error } = await supabase.rpc("team_set_hours", { p_user_id: uid, p_hours: hours }); if (error) throw error; };
         const type = el("tmType").value || null, title = el("tmTitle").value.trim();
         const setProfile = async (uid) => { if (type === (p.employment_type || null) && title === (p.job_title || "")) return; const { error } = await supabase.rpc("team_set_profile", { p_user_id: uid, p_type: type || "", p_title: title }); if (error) throw error; };
+        const home = el("tmHome").value.trim();
+        const setHome = async (uid) => { if (home === (p.home_address || "")) return; const { error } = await supabase.rpc("team_set_home", { p_user_id: uid, p_home: home }); if (error) throw error; };
         const roleIds = el("tmRoles") ? [...el("tmRoles").querySelectorAll("input:checked")].map((x) => x.value) : null;
         const roles0 = ((crewRoles.members || {})[p.user_id] || []).slice().sort().join();
         const setRoles = async (uid) => { if (!roleIds || roleIds.slice().sort().join() === roles0) return; const { error } = await supabase.rpc("team_set_roles", { p_user_id: uid, p_roles: roleIds }); if (error) throw error; };
@@ -129,7 +133,7 @@
         try {
           if (isNew) {
             const r = await teamFn({ action: "create", email, name, is_admin: isAdmin, permissions: isAdmin ? {} : picked(), send_welcome: el("tmWelcome").checked });
-            try { await setHours(r.user_id); await setProfile(r.user_id); await setRoles(r.user_id); } catch (_e) { toast("Added, but the hours, job title, type or roles did not save. Edit them on the Team page.", true); }
+            try { await setHours(r.user_id); await setProfile(r.user_id); await setHome(r.user_id); await setRoles(r.user_id); } catch (_e) { toast("Added, but the hours, job title, type, home address or roles did not save. Edit them on the Team page.", true); }
             m.close();
             showPassword({ user_id: r.user_id, name, email }, r.temp_password, true, r);
           } else {
@@ -137,6 +141,7 @@
             if (error) throw error;
             await setHours(p.user_id);
             await setProfile(p.user_id);
+            await setHome(p.user_id);
             await setRoles(p.user_id);
             m.close();
             toast("Saved. " + (name || email) + " sees the change the next time they load the page.");
