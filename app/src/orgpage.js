@@ -14,6 +14,30 @@
   // A link to a partner's page, for other modules: '<a href="' + orgLink(id) + '">'.
   function orgLink(id, tab) { return "#partners/org/" + encodeURIComponent(id) + (tab ? "/" + tab : ""); }
 
+  // GotPhoto job id -> its booking (not cancelled), loaded once. Help requests and the Galleries drawer use it to
+  // link the job page and the partner (2026-10-24). Function declarations, so earlier files can call them.
+  function bookingsByGotphoto(force) {
+    if (!canSee("bookings")) return Promise.resolve({});
+    if (!bookingsByGotphoto.p || force) {
+      bookingsByGotphoto.p = supabase.rpc("admin_bookings", { p_from: "2000-01-01", p_to: null }).then(({ data }) => {
+        const m = {};
+        (data || []).forEach((b) => { if (b.gotphoto_job_id && b.status !== "cancelled") m[String(b.gotphoto_job_id)] = b; });
+        return m;
+      }, () => ({}));
+    }
+    return bookingsByGotphoto.p;
+  }
+  // Fills every [data-gplinks="<gotphoto job id>"] under root with "Job page · <partner>" links when a booking matches.
+  function fillJobLinks(root) {
+    const nodes = [...(root || document).querySelectorAll("[data-gplinks]")];
+    if (!nodes.length) return;
+    bookingsByGotphoto().then((m) => nodes.forEach((n) => {
+      const b = m[n.dataset.gplinks]; if (!b || !n.isConnected) return;
+      n.innerHTML = '<a href="' + esc(jobLink(b.id)) + '">Job page</a>' + (b.org_id ? ' &middot; <a href="' + esc(orgLink(b.org_id)) + '">' + esc(b.org_name || "Partner") + "</a>" : "");
+      n.classList.remove("hidden");
+    }));
+  }
+
   registerPage({ id: "org", group: "Work", section: "partners", module: "partners", hidden: true, navAs: "orgs",
                  tabs: [["org", "Partner"]], onShow: () => OrgPage.show() });
 

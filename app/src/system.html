@@ -3,7 +3,7 @@
       <section class="panel" id="aca-panel-searchlog" role="tabpanel">
         <div class="card">
           <div class="card-head">
-            <div><h2>Search log</h2><p>Every search a parent runs on /find-my-photos, whether or not they found their code. Use it to see if the feature is being used and where parents get stuck.</p></div>
+            <div><h2>Find My Photos activity</h2><p>Every search a parent runs on /find-my-photos, whether or not they found their code. Use it to see if the feature is being used and where parents get stuck. Blocked and trusted addresses are on the Blocked tab.</p></div>
             <div class="chips" id="aca-slRange" role="group" aria-label="Date range">
               <button data-days="7" aria-pressed="false">7 days</button>
               <button data-days="30" aria-pressed="true">30 days</button>
@@ -14,16 +14,6 @@
           <div class="tiles" id="aca-slTiles"></div>
           <div class="bars" id="aca-slBars"></div>
           <div class="barlbl" id="aca-slBarLbl"></div>
-        </div>
-        <div class="card sl-fold" data-fold="ip">
-          <div class="card-head"><div><h2><button type="button" class="sl-foldbtn" aria-expanded="true"><span class="sl-chev"></span>Look up an IP address</button></h2>
-            <p>Every search from one address, all time. Phone carriers share addresses between many people, so the pattern of searches tells you more than the address.</p></div></div>
-          <div class="table-wrap sl-ipbox">
-            <form id="aca-slIpForm" class="sl-ipform"><input type="text" id="aca-slIp" placeholder="e.g. 172.56.114.232" aria-label="IP address" autocomplete="off" spellcheck="false" /><button type="submit" class="small primary">Look up</button></form>
-            <div id="aca-slIpOut"></div>
-            <div class="sl-blocks"><h3>Blocked addresses</h3><div id="aca-slBlocks"><div class="empty">Loading&#8230;</div></div></div>
-            <div class="sl-blocks"><h3>Trusted addresses <span class="muted" style="font-weight:400">(no 3-children limit)</span></h3><div id="aca-slTrusted"></div></div>
-          </div>
         </div>
         <div class="card sl-fold" data-fold="byjob">
           <div class="card-head"><div><h2><button type="button" class="sl-foldbtn" aria-expanded="true"><span class="sl-chev"></span>By job</button></h2><p>Which galleries parents are searching, and how often they succeed. Click a job to see every search on it and why each miss didn't match.</p></div></div>
