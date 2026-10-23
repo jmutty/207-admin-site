@@ -105,6 +105,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('[data-preset="office"]');
     check(await page.isChecked('input[name="tm-bookings"][value="edit"]'), "Office preset");
     await page.check('input[name="tm-parents"][value="edit"]', { force: true });
+    await page.fill("#aca-tmHome", "60 main");
+    await page.waitForSelector("#aca-tmHome-places:not(.hidden) button[data-i]");
+    await page.click("#aca-tmHome-places button[data-i]");
+    await page.waitForFunction(() => document.querySelector("#aca-tmHome").value === "60 Main Rd N, Hampden, ME 04444");
+    check(true, "Home address suggests Google Maps addresses and a pick fills the full address");
     await page.fill("#aca-tmHome", "Bangor");
     await page.click("#aca-tmSave");
     await page.waitForTimeout(200);

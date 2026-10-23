@@ -127,7 +127,7 @@
         '<div class="field"><label for="aca-tmType">Employment type</label><select id="aca-tmType"><option value="">Not set</option>' + TYPES.map((t) => '<option value="' + t[0] + '"' + (p.employment_type === t[0] ? " selected" : "") + ">" + t[1] + "</option>").join("") + "</select></div></div>" +
         '<p class="muted" id="aca-tmTypeNote" style="font-size:12.5px;margin:-6px 0 12px"></p>' +
         '<div class="field"><label for="aca-tmHome">Home address</label><input type="text" id="aca-tmHome" maxlength="300" value="' + esc(p.home_address || "") + '" placeholder="Street and town, or just the town" />' +
-        '<span class="muted" style="font-size:12.5px">Drive times for Part time and 1099 people are measured from here (Open jobs, the Schedule, mileage). The town alone is enough.</span></div>' +
+        '<span class="muted" style="font-size:12.5px" id="aca-tmHomeNote"></span></div>' +
         '<div class="tm-two"><div class="field"><label for="aca-tmDrive">Longest drive (minutes, one way)</label><input type="number" id="aca-tmDrive" min="5" max="300" step="5" value="' + esc(p.max_drive_min == null ? 60 : p.max_drive_min) + '" />' +
         '<span class="muted" style="font-size:12.5px">Open jobs offers only go to jobs within this drive.</span></div>' +
         '<div class="field"><label for="aca-tmRate">Pay</label><div style="display:flex;gap:6px;align-items:center">$<input type="number" id="aca-tmRate" min="0" max="10000" step="0.5" style="width:96px" placeholder="from defaults" />' +
@@ -156,6 +156,7 @@
       el("tmAdmin").addEventListener("change", () => el("tmAccess").classList.toggle("hidden", el("tmAdmin").checked));
       const typeNote = () => { el("tmTypeNote").textContent = ({ full_time: "Hourly, with overtime on the time clock.", salaried: "Hours are tracked, but no overtime on the time clock.",
         part_time: "Gets Open jobs offers near them, plus My day, Time clock, My records and Open jobs. Overtime applies.", contractor: "Gets Open jobs offers near them, plus My day, Time clock, My records and Open jobs. No overtime; kept out of the payroll CSV and listed separately." })[el("tmType").value] || ""; };
+      Places.attach(el("tmHome"), { note: el("tmHomeNote"), hint: "Drive times for Part time and 1099 people are measured from here (Open jobs, the Schedule, mileage). The town alone is enough." });
       el("tmCancel").addEventListener("click", () => m.close());
       // Modules not in the grid (no page) keep whatever level the person already has.
       const picked = () => { const o = {}; modules.forEach((x) => { const r = m.querySelector('input[name="tm-' + x.key + '"]'); if (!r) { if (p.modules[x.key]) o[x.key] = p.modules[x.key]; return; }
