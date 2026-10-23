@@ -894,10 +894,13 @@
 
   // ---- Stages & deliverables per job type (2026-10-21). Edits go straight to booking_stages / deliverable_templates
   // (bookings edit). Removing archives: past bookings keep their history and their copies of deliverables.
-  async function openJobTypes() {
+  // Stages & deliverables: one dialog, opened from All jobs and from Settings > Job types (k = the job type to
+  // start on; opts.onSaved runs after a save).
+  async function openJobTypes(k, opts) {
+    opts = opts || {};
     try { await ensureMeta(); await loadTracking(); } catch (e) { toast(cleanErr(e), true); return; }
     const can = canEdit("bookings");
-    let tk = (types[0] || {}).key || "";
+    let tk = typeof k === "string" && (k === "" || types.some((t) => t.key === k)) ? k : (types[0] || {}).key || "";
     let st = [], tp = [];  // working copies for the chosen type: { id?, label, sort, auto?, due_days?, auto_add?, gone? }
     const box = dialog(`<div class="bk-fhead"><h2>Stages &amp; deliverables</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">\u2715</button></div>
       <div class="bk-sub" style="margin-bottom:10px">Each job type has its own stages and its own saved deliverables. Changes apply from now on: past bookings keep their history and their own copies.</div>
@@ -963,7 +966,7 @@
       if (v === "close") { if (dirty && can && !confirm("Close without saving your changes?")) return; return box.close(); }
       if (v === "save") {
         clearError("bkJtErr"); b.disabled = true;
-        try { await save(); await loadTracking(); toast("Saved."); pick(tk); render(); if (host && host.isConnected) refreshDetail(); }
+        try { await save(); await loadTracking(); toast("Saved."); pick(tk); render(); if (host && host.isConnected) refreshDetail(); if (opts.onSaved) opts.onSaved(); }
         catch (e2) { showError("bkJtErr", /duplicate key|unique/i.test(cleanErr(e2)) ? "Two saved deliverables have the same name." : cleanErr(e2)); }
         b.disabled = false; return;
       }
@@ -978,7 +981,7 @@
     });
     pick(tk);
   }
-  el("bkJobTypes").addEventListener("click", openJobTypes);
+  el("bkJobTypes").addEventListener("click", () => openJobTypes());
   el("bkTrack").addEventListener("click", () => { menu(false); openTrack(); });
   const menu = (on) => { el("bkMenu").classList.toggle("hidden", !on); el("bkMore").setAttribute("aria-expanded", String(on)); };
   el("bkMore").addEventListener("click", (e) => { e.stopPropagation(); menu(el("bkMenu").classList.contains("hidden")); });
@@ -1408,5 +1411,7 @@
 
   // open / openId: a job opens on its page (2026-10-24; tab optional, e.g. "booking" for its emails). preview: All jobs' short drawer.
   return { load: () => load(false), reload: () => load(true), loadAttention, open: (id, tab) => openJob(id, tab), openId: (id, tab) => openJob(id, tab), preview: (id) => openDetail(id),
-           edit: editId, openNew: (org) => openForm(null, org || null), hide: () => { if (openId) closeDetail(); }, addSection: (x) => { if (x && x.id && x.html) extraSections.push(x); }, mdToHtml, fill };
+           edit: editId, openNew: (org) => openForm(null, org || null), hide: () => { if (openId) closeDetail(); }, addSection: (x) => { if (x && x.id && x.html) extraSections.push(x); }, mdToHtml, fill,
+    // Settings > Job types (ws/settings): the same dialog; forget cached job types after one is added.
+    openJobTypes, resetTypes: () => { types = []; } };
   })();

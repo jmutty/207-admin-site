@@ -47,6 +47,8 @@
     jobRoot.innerHTML = '<div id="aca-crErr" class="inline-error hidden"></div><div class="cr-sec"><h3>Your jobs</h3><div id="aca-crMine"><p class="empty">Loading&#8230;</p></div></div>';
     offRoot.innerHTML = '<div id="aca-toErr" class="inline-error hidden"></div>' +
       '<div class="cr-sec hidden" id="aca-toWaitSec"><h3>Waiting for you</h3><div id="aca-toWait"></div></div>' +
+      '<div class="cr-sec hidden" id="aca-toTeamSec"><h3>The team</h3><div id="aca-toTeam"></div></div>' +
+      '<div id="aca-toOwn"><button type="button" class="small hidden" id="aca-toOwnBtn" aria-expanded="false" style="margin:0 0 14px">Your own time off</button><div id="aca-toOwnBody">' +
       '<div class="cr-sec"><h3>Ask for time off</h3><div class="cr-form">' +
         '<div class="field"><label for="aca-toA">First day</label><input type="date" id="aca-toA" /></div>' +
         '<div class="field cr-thru"><label for="aca-toZ">Through</label><input type="date" id="aca-toZ" /></div>' +
@@ -55,8 +57,18 @@
         '<div class="field cr-hrs hidden"><label for="aca-toE">Until</label><input type="time" id="aca-toE" step="300" value="12:00" /></div>' +
         '<div class="field wide"><label for="aca-toNote">Note (optional)</label><textarea id="aca-toNote" maxlength="500" placeholder="Doctor, vacation, kid&#39;s game&#8230;"></textarea></div>' +
         '<div class="wide"><button type="button" class="primary" id="aca-toSend">Send request</button></div></div></div>' +
-      '<div class="cr-sec"><h3>Your requests</h3><div id="aca-toMine"><p class="empty">Loading&#8230;</p></div></div>' +
-      '<div class="cr-sec hidden" id="aca-toTeamSec"><h3>The team</h3><div id="aca-toTeam"></div></div>';
+      '<div class="cr-sec"><h3>Your requests</h3><div id="aca-toMine"><p class="empty">Loading&#8230;</p></div></div></div></div>';
+    // B6 (ws/settings 2026-10-24): someone who approves time off sees Waiting for you and The team first; their own
+    // requests and the form fold behind "Your own time off" (open when they have one waiting).
+    let ownOpen = null;
+    el("toOwnBtn").addEventListener("click", () => { ownOpen = !ownOpen; showOwn(); });
+    function showOwn() {
+      const fold = !!(TO && TO.can_edit);
+      el("toOwnBtn").classList.toggle("hidden", !fold);
+      el("toOwnBtn").setAttribute("aria-expanded", String(!fold || !!ownOpen));
+      el("toOwnBtn").textContent = (ownOpen ? "Hide your own time off" : "Your own time off") + ((n) => n ? " (" + n + " waiting)" : "")(TO ? TO.mine.filter((r) => r.status === "pending").length : 0);
+      el("toOwnBody").classList.toggle("hidden", fold && !ownOpen);
+    }
 
     // "Sat Oct 25, 9am-12pm (Lead) · leave 8:15am" (· "from home" for people who start at home, 2026-10-24)
     const dayLine = (d, home) => T.fmtDay(T.local(d.starts_at).day) + ", " + T.fmtTs(d.starts_at) + "–" + T.fmtTs(d.ends_at) + (d.role ? " (" + d.role + ")" : "") +
@@ -113,8 +125,17 @@
       (r.start_time ? ", " + T.fmtMin(+r.start_time.slice(0, 2) * 60 + +r.start_time.slice(3, 5)) + "–" + T.fmtMin(+r.end_time.slice(0, 2) * 60 + +r.end_time.slice(3, 5)) : "");
     const TO_STATUS = { pending: ["Waiting", "warn"], approved: ["Approved", "ok"], declined: ["Declined", "err"], cancelled: ["Cancelled", ""] };
     const toChip = (s) => '<span class="pill ' + TO_STATUS[s][1] + '">' + TO_STATUS[s][0] + "</span>";
+    // B7: each job links to it on the Schedule (its week, with its crew dialog open when the booking is known)
+    const jobLinkOf = (j) => canSee("scheduling") ? '<a href="#staff/schedule" data-tojob="' + esc(j.booking_id || "") + '" data-day="' + esc(T.local(j.starts_at).day) + '">' + esc(T.fmtDay(T.local(j.starts_at).day) + " " + String(j.title).split(" • ")[0]) + "</a>"
+      : esc(T.fmtDay(T.local(j.starts_at).day) + " " + String(j.title).split(" • ")[0]);
     const jobsWarn = (r) => r.jobs && r.jobs.length ? '<div class="cr-warn">On ' + (r.jobs.length === 1 ? "a job" : r.jobs.length + " jobs") + " then: " +
-      r.jobs.map((j) => esc(T.fmtDay(T.local(j.starts_at).day) + " " + String(j.title).split(" • ")[0])).join(", ") + "</div>" : "";
+      r.jobs.map(jobLinkOf).join(", ") + "</div>" : "";
+    document.addEventListener("click", (ev) => {
+      const a = ev.target.closest && ev.target.closest(".aca [data-tojob]"); if (!a) return;
+      ev.preventDefault();
+      const mod = a.closest(".modal"); if (mod && mod.close) mod.close();
+      Schedule.showJob(a.dataset.tojob || null, a.dataset.day);
+    });
     let TO = null;
     async function loadTimeOff() {
       clearError("toErr");
@@ -123,6 +144,8 @@
         const { data, error } = await sb.rpc("time_off_list");
         if (error) throw error;
         TO = data;
+        if (ownOpen === null) ownOpen = !TO.can_edit || TO.mine.some((r) => r.status === "pending");
+        showOwn();
         renderTimeOff();
       } catch (e) { showError("toErr", "Could not load time off: " + cleanErr(e)); }
       loadAttention();
@@ -173,7 +196,8 @@
     function decide(id, approve) {
       const r = (TO.team || []).find((x) => x.id === id); if (!r) return;
       const m = openModal("<div><h2>" + (approve ? "Approve" : "Decline") + " time off</h2><p><b>" + esc(T.shortName(r.name)) + "</b>: " + esc(whenText(r)) + "</p>" + jobsWarn(r) +
-        (approve && r.jobs && r.jobs.length ? '<p class="muted" style="font-size:13px">Approving doesn&#39;t take them off those jobs. Change the crew on the Schedule.</p>' : "") +
+        (approve && r.jobs && r.jobs.length ? '<p class="muted" style="font-size:13px">Approving doesn&#39;t take them off ' + (r.jobs.length === 1 ? "that job" : "those jobs") + ". " +
+          (canSee("scheduling") ? "Click " + (r.jobs.length === 1 ? "it" : "one") + " above to change the crew on the Schedule." : "Change the crew on the Schedule.") + "</p>" : "") +
         '<div class="field"><label for="aca-toDec">Note to them (optional)</label><input type="text" id="aca-toDec" maxlength="500" style="width:100%" placeholder="' + (approve ? "Enjoy!" : "We&#39;re short that weekend") + '" /></div>' +
         '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="go">' + (approve ? "Approve" : "Decline") + "</button></div></div>");
       m.addEventListener("click", async (ev) => {

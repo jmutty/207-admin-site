@@ -624,6 +624,26 @@
       sources: [{ source: "pictureday", sent: 300, delivered: 292, bounced: 5, failed: 3, opened: 210 }, { source: "day_email", sent: 200, delivered: 200, bounced: 0, failed: 0, opened: 120 }, { source: "makeup", sent: 142, delivered: 133, bounced: 4, failed: 4, opened: 43 }],
       bounced: [{ email: "parent@example.com", n: 2, last: ago(3) }] };
   }
+  // ws/settings (2026-10-24): Settings tabs (Team emails, Job types, Team & pay, Company), one person record,
+  // the job calculator's shared assumptions, and the app_modules rows the real database has.
+  {
+    T.admin_settings = { id: true, digest_enabled: true, digest_time: "07:00:00", digest_recipients: ["test@207photo.com"], calc_assumptions: null };
+    [["inventory", "Gear inventory", "Ops", "Gear, bins, kits and check-outs.", 300], ["openjobs", "Open jobs", "Staff", "Offer jobs to part-timers and 1099.", 207],
+     ["workflows", "Job checklists", "Jobs", "Checklist steps per job type.", 25]].forEach(([key, label, section, description, sort]) => {
+      if (!T.app_modules.some((m) => m.key === key)) T.app_modules.push({ key, label, section, description, sort, status: "live", admin_only: false });
+    });
+    RPC.settings_team_emails = { day_plan_on: true, day_plan_hour: 20, day_email_on: true, day_email_hour: 7, crew_confirm_on: true, week_email_auto: true, week_email_dow: 5, week_email_hour: 15,
+      clock: { mileage_rate: 0.7, overtime_after: 40, remind_before_min: 15, remind_out_after_min: 30, ot_warn_hours: 4 },
+      topics: [{ key: "help_request", label: "New help request", description: "A parent asked for help finding their access code.", module: "parents", default_mode: "push" },
+               { key: "crew_ask", label: "Put on a job", description: "You were put on a booked job. Confirm or say you can't make it.", module: "scheduling", default_mode: "push" },
+               { key: "expense_update", label: "Expense update", description: "An expense was approved or sent back.", module: "timeclock", default_mode: "email" },
+               { key: "checklist_late", label: "Checklist task late", description: "A job checklist task is past due.", module: "workflows", default_mode: "off" }] };
+    RPC.push_topic_set_default = { ok: true }; RPC.team_set_max_drive = null; RPC.booking_type_add = { ok: true, key: "dance_recital" }; RPC.booking_set_auto_track = { ok: true };
+    RPC.team_list.push({ user_id: "u6", email: "pat@207photo.com", name: "Pat Parttime", is_admin: false, is_me: false, active: true, must_change_password: false, employment_type: "part_time", job_title: "Photographer",
+                         home_address: "12 Elm St, Bangor ME", max_drive_min: 60, last_sign_in_at: iso(-2), modules: { openjobs: "view", assignments: "view", timeclock: "view", staffrecords: "view" } },
+                       { user_id: "u8", email: "casey@example.com", name: "Casey Third", is_admin: false, is_me: false, active: true, must_change_password: false, employment_type: "contractor", job_title: "",
+                         home_address: "Orono", max_drive_min: 30, last_sign_in_at: null, modules: { openjobs: "view" } });
+  }
 
   // ws/shell (2026-10-24): the account menu's Help line, "Morning email goes to you", and ?nodevice=1 for a person
   // with no device that has notifications on (the Today card and the new-hire ask).
@@ -717,6 +737,7 @@
       .forEach((o) => Object.assign(o, { stage: "client", client_since: "2024-09-01", last_job_at: "2026-09-19", next_job_at: iso(12).slice(0, 10) }));
   }
 
+  if (RPC.time_off_list && RPC.time_off_list.team[0]) RPC.time_off_list.team[0].jobs.forEach((j) => { j.booking_id = "bk5"; }); // B7: jobs carry booking_id
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: /[?&]signedout=1\b/.test(location.search) ? null : { user: { email: "test@207photo.com" }, access_token: "x" } } }), // ws/shell: ?signedout=1 shows sign-in

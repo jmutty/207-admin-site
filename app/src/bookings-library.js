@@ -1,6 +1,8 @@
   // ================================================================ PARTNERS > Library: Booking emails (2026-10-11)
   // The ex-17hats admin email series, editable: one sequence per job type, steps with "days before picture day".
-  // Edits apply to every email not yet sent (rows render at send time). Also holds the sending settings.
+  // Edits apply to every email not yet sent (rows render at send time). Sending settings live only in
+  // Settings > Sending (ws/settings 2026-10-24: the duplicate dialog here is gone; the button is a link).
+  // Also lists the partner emails (rebook, review request, agreement), which open the Partners dialogs.
   const BookingLibrary = (function () {
   const sb = supabase;
   const cleanErr = (e) => String((e && (e.message || e.details)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
@@ -40,12 +42,19 @@
       <div class="card-head">
         <div><h2>Booking emails</h2>
           <p>The emails an admin gets after you book a job (these used to live in 17hats), the hub send-day reminders, and for sports the coach emails (sent to the coaches the AD CC'd on their reply, or pasted on the booking). One sequence per job type; each step is sent a number of days before picture day at the given time, or right after booking for day 0. Changes apply to every email that has not gone out yet.</p></div>
-        <div class="og-actions"><button type="button" class="small" id="aca-bkLibSettings">Sending settings</button></div>
+        <div class="og-actions"><button type="button" class="small" id="aca-bkLibSettings" title="Opens Settings, Sending">Sending settings</button></div>
       </div>
       <div id="aca-bkLibErr" class="inline-error hidden" style="margin-top:12px"></div>
       <div id="aca-bkLibBody" class="lb-help"></div>`;
     el("panel-library").appendChild(card);
-    el("bkLibSettings").addEventListener("click", openSettings);
+    el("bkLibSettings").addEventListener("click", (e) => { e.stopPropagation(); location.hash = "#system/sending"; }); // a link, not a fold click
+    // Partner emails: the templates behind Due to rebook, Reviews and Agreements (their buttons there stay as shortcuts).
+    const pcard = document.createElement("div");
+    pcard.className = "card"; pcard.id = "aca-bkLibPartner";
+    pcard.innerHTML = '<div class="card-head"><div><h2>Partner emails</h2><p>The emails to leagues and schools after picture day: the rebook email, the review request, and the agreement email with its default terms.</p></div></div>' +
+      '<div id="aca-bkLibPBody" class="lb-help"></div>';
+    el("panel-library").appendChild(pcard);
+    pcard.addEventListener("click", (e) => { const b = e.target.closest("button[data-ptpl]"); if (b) Follow.editTemplates(b.dataset.ptpl); });
     card.addEventListener("click", (e) => {
       const b = e.target.closest("button[data-step]"); if (b) return openStep(steps.find((s) => s.id === b.dataset.step));
       const a = e.target.closest("button[data-addstep]"); if (a) return openStep(null, a.dataset.addstep);
@@ -87,6 +96,7 @@
       if (t.error) throw t.error; if (q.error) throw q.error; if (s.error) throw s.error;
       types = t.data || []; seqs = q.data || []; steps = s.data || []; settings = st.data || null;
       render();
+      renderPartner();
     } catch (e) { showError("bkLibErr", cleanErr(e)); }
   }
   // Timeline order for a step: booking day first, then days before picture day, then after the gallery goes live,
@@ -96,7 +106,7 @@
   function render() {
     const body = el("bkLibBody");
     const st = settings ? (settings.sending_enabled ? (settings.test_mode ? '<span class="pill accent">Test mode: everything goes to ' + esc(settings.test_recipient || "?") + "</span>" : '<span class="pill ok">Sending on</span>') : '<span class="pill warn">Sending off</span>') : "";
-    body.innerHTML = '<div style="margin-bottom:12px">' + st + (settings ? ' <span class="lb-sub">From ' + esc(settings.from_name + " <" + settings.from_email + ">") + ", day-0 emails " + esc(settings.day0_delay_min) + " min after booking, quiet " + esc(hhmm(settings.quiet_start)) + "–" + esc(hhmm(settings.quiet_end)) + "</span>" : "") + "</div>" +
+    body.innerHTML = '<div style="margin-bottom:12px">' + st + (settings ? ' <span class="lb-sub">From ' + esc(settings.from_name + " <" + settings.from_email + ">") + ", day-0 emails " + esc(settings.day0_delay_min) + " min after booking, sent between " + esc(hhmm(settings.quiet_end)) + " and " + esc(hhmm(settings.quiet_start)) + "</span>" : "") + "</div>" +
       types.map((t) => {
         const list = seqs.filter((q) => q.type_key === t.key);
         return '<div class="lb-step"><div class="lb-step-h"><span>' + esc(t.label) + '</span><span class="lb-sub">' + esc(t.description) + "</span></div>" +
@@ -109,6 +119,19 @@
             '</tbody></table><div style="margin-top:6px"><button type="button" class="link" data-addstep="' + esc(q.id) + '">+ Add a step</button></div></div>').join("") +
           (list.length ? "" : '<div class="lb-sub" style="margin-top:6px">No sequence yet for this type.</div>') + "</div>";
       }).join("");
+  }
+  async function renderPartner() {
+    const box = el("bkLibPBody"); if (!box) return;
+    const show = canSee("partners") || canSee("agreements");
+    el("bkLibPartner").classList.toggle("hidden", !show);
+    if (!show) return;
+    const { data: p } = await sb.from("partner_followup_settings").select("*").maybeSingle();
+    const f = p || {};
+    const row = (kind, name, subj, when, mod) => canSee(mod) ? '<tr class="lb-row"><td class="lb-main"><strong>' + esc(name) + '</strong><div class="lb-body">' + esc(subj || "(no subject yet)") + '</div></td><td class="lb-n">' + esc(when) + '</td><td class="lb-act"><button type="button" class="small" data-ptpl="' + kind + '">' + (canEdit(mod) ? "Edit" : "View") + "</button></td></tr>" : "";
+    box.innerHTML = '<table class="lb-table"><tbody>' +
+      row("rebook", "Rebook email", f.rebook_subject, "a client shows up " + num(f.rebook_lead_days || 75) + " days before last year\u2019s date", "partners") +
+      row("review", "Review request", f.review_subject, f.review_auto ? "drafted when a job reaches Deliverables sent" : "when you ask for one", "partners") +
+      row("agreement", "Agreement email and default terms", f.agreement_subject, "when you send an agreement", "agreements") + "</tbody></table>";
   }
   async function toggleSeq(id) {
     const q = seqs.find((x) => x.id === id);
@@ -143,7 +166,7 @@
         <label for="aca-bsOn">Turned on</label><span><input type="checkbox" id="aca-bsOn" ${s.is_active ? "checked" : ""} /></span>
       </div>
       <textarea id="aca-bsBody" class="og-edbody">${esc(s.body_md)}</textarea>
-      <div class="lb-help" style="padding:8px 0 0">Tokens: ${TOKENS.map((t) => "<code>" + esc(t[0]) + "</code> " + esc(t[1])).join(" · ")}. Formatting: <code>**bold**</code>, <code>[text](https://link)</code>, lines starting with <code>- </code> make a list, lines starting with <code>&gt; </code> become a quoted block (the paste-ready line in the coach emails). The signature from Sending settings is added at the end.</div>
+      <div class="lb-help" style="padding:8px 0 0">Tokens: ${TOKENS.map((t) => "<code>" + esc(t[0]) + "</code> " + esc(t[1])).join(" · ")}. Formatting: <code>**bold**</code>, <code>[text](https://link)</code>, lines starting with <code>- </code> make a list, lines starting with <code>&gt; </code> become a quoted block (the paste-ready line in the coach emails). The signature from Settings, Sending is added at the end.</div>
       <div id="aca-bsErr" class="inline-error hidden" style="margin:10px 0"></div>
       <div class="og-actions" style="margin-top:10px"><button type="button" class="primary" data-v="save">Save</button><button type="button" data-v="preview">Preview with sample data</button><button type="button" data-v="close">Cancel</button>${isNew ? "" : '<button type="button" data-v="delete" style="margin-left:auto">Delete</button>'}</div>
       <div id="aca-bsPrev" class="bk-mail hidden" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px"></div>`);
@@ -177,36 +200,6 @@
       const { error } = isNew ? await sb.from("booking_steps").insert(row) : await sb.from("booking_steps").update(row).eq("id", s.id);
       if (error) { b.disabled = false; return err(cleanErr(error)); }
       box.close(); toast("Saved. Unsent emails use the new text and timing."); load();
-    });
-  }
-  function openSettings() {
-    const s = settings || {};
-    const box = dialog(`
-      <h2>Sending settings</h2>
-      <div class="og-grid">
-        <label for="aca-bsEnabled">Sending</label><span><input type="checkbox" id="aca-bsEnabled" ${s.sending_enabled ? "checked" : ""} /> on (nothing is emailed while this is off)</span>
-        <label for="aca-bsTest">Test mode</label><span><input type="checkbox" id="aca-bsTest" ${s.test_mode ? "checked" : ""} /> send everything to <input type="email" id="aca-bsTestTo" value="${esc(s.test_recipient || "")}" placeholder="you@207photo.com" style="width:220px" /> with a [TEST] subject</span>
-        <label for="aca-bsFromName">From</label><span><input type="text" id="aca-bsFromName" value="${esc(s.from_name || "")}" style="width:160px" /> &lt;${esc(s.from_email || "")}&gt; <span class="lb-sub">(the Gmail account the prospect emails use)</span></span>
-        <label for="aca-bsReply">Reply-to</label><span><input type="text" id="aca-bsReply" value="${esc(s.reply_to || "")}" placeholder="jmutty@207photo.com, info@207photo.com" style="width:320px" /> <span class="lb-sub">replies (rosters!) go here; separate addresses with commas</span></span>
-        <label for="aca-bsBcc">Bcc</label><span><input type="email" id="aca-bsBcc" value="${esc(s.bcc || "")}" placeholder="info@207photo.com (optional)" style="width:240px" /></span>
-        <label for="aca-bsDelay">Day-0 delay</label><span><input type="number" id="aca-bsDelay" value="${esc(s.day0_delay_min ?? 10)}" min="1" max="120" /> minutes after booking (your undo window)</span>
-        <label>Quiet hours</label><span>no sending from <input type="time" id="aca-bsQ1" value="${esc(String(s.quiet_start || "21:00").slice(0, 5))}" /> to <input type="time" id="aca-bsQ2" value="${esc(String(s.quiet_end || "07:00").slice(0, 5))}" /> Eastern</span>
-        <label for="aca-bsSig">Signature</label><textarea id="aca-bsSig" rows="3" style="width:100%">${esc(s.signature || "")}</textarea>
-        <label for="aca-bsLegacy">Old hub reminders</label><span><input type="checkbox" id="aca-bsLegacy" ${s.legacy_hub_reminders !== false ? "checked" : ""} /> keep sending the old alerts@207photo.com hub reminders for jobs that have no booking (turn off after 17hats is gone)</span>
-      </div>
-      <div id="aca-bsSErr" class="inline-error hidden" style="margin:10px 0"></div>
-      <div class="og-actions" style="margin-top:12px"><button type="button" class="primary" data-v="save">Save</button><button type="button" data-v="close">Cancel</button></div>`);
-    box.addEventListener("click", async (e) => {
-      const b = e.target.closest("button[data-v]"); if (!b) return;
-      if (b.dataset.v === "close") return box.close();
-      const row = { sending_enabled: el("bsEnabled").checked, test_mode: el("bsTest").checked, test_recipient: el("bsTestTo").value.trim() || null, from_name: el("bsFromName").value.trim() || "207 Photo",
-        legacy_hub_reminders: el("bsLegacy").checked, bcc: el("bsBcc").value.trim() || null, reply_to: el("bsReply").value.split(",").map((x) => x.trim()).filter(Boolean).join(", ") || null, day0_delay_min: Math.max(1, Number(el("bsDelay").value) || 10), quiet_start: el("bsQ1").value || "21:00", quiet_end: el("bsQ2").value || "07:00", signature: el("bsSig").value.trim() };
-      if (row.test_mode && !row.test_recipient) { el("bsSErr").textContent = "Test mode needs a test address."; el("bsSErr").classList.remove("hidden"); return; }
-      if (row.sending_enabled && !s.sending_enabled && !row.test_mode && !confirm("Turn on real sending? Every scheduled booking email will go to the actual admins from now on.")) return;
-      b.disabled = true;
-      const { error } = await sb.from("booking_settings").update(row).eq("id", true);
-      if (error) { b.disabled = false; el("bsSErr").textContent = cleanErr(error); el("bsSErr").classList.remove("hidden"); return; }
-      box.close(); toast("Settings saved"); load(); Bookings.loadAttention();
     });
   }
   return { load };

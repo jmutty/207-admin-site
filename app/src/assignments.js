@@ -47,6 +47,7 @@
     .aca .as-mail { display: flex; gap: 8px; align-items: center; margin-top: 18px; font-size: 13.5px; color: var(--muted); }
     .aca .as-mail input { width: 16px; height: 16px; margin: 0; }
     .aca .as-settings { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13.5px; padding: 12px 0; }
+    .aca .as-sub { margin: 14px 0 4px; font-size: 14px; } .aca .as-setlink { margin: 0 0 16px; font-size: 13px; color: var(--muted); }
     @media (max-width: 700px) { .aca .as-plan li { grid-template-columns: 1fr; gap: 2px; } .aca .as-modal .row2 { grid-template-columns: 1fr; } .aca .as-hide-sm { display: none; } }`;
     const styleTag = document.createElement("style"); styleTag.textContent = css; document.head.appendChild(styleTag);
 
@@ -186,13 +187,43 @@
       '<select class="small hidden" id="aca-asFilter" aria-label="Person"></select><button type="button" class="primary hidden" id="aca-asAdd">Add task</button></div>' +
       '<div id="aca-asTErr" class="inline-error hidden"></div>' +
       '<div class="table-wrap"><table class="as-table"><thead><tr><th style="width:28px"></th><th>Task</th><th>Who</th><th>Repeats</th><th class="as-hide-sm">Last done</th></tr></thead><tbody id="aca-asTBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div></div>' +
-      '<div class="card hidden" id="aca-asSetCard"><div class="card-head"><div><h2>Evening notification</h2><p>Each person with Assignments gets a notification with the next day&#39;s jobs (and when to leave), other scheduled time and tasks. Nothing is sent when there is nothing on. Set it before noon and it is about the same day instead. Everyone can switch it off for themselves under Notifications.</p></div></div>' +
-      '<div class="as-settings"><label><input type="checkbox" id="aca-asPlanOn" /> Send it</label> at <select class="small" id="aca-asPlanHour"></select> <button type="button" class="small" id="aca-asPlanSave">Save</button></div>' +
-      '<div class="card-head"><div><h2>Morning email</h2><p>Each person with Assignments also gets an email in the morning with that day&#39;s schedule (with when to leave for on site jobs, hours and a lunch reminder at 6 hours) and their tasks, urgent first. Nothing is sent on a day with nothing on. Everyone can switch it off for themselves on My day.</p></div></div>' +
-      '<div class="as-settings"><label><input type="checkbox" id="aca-asMailOn" /> Send it</label> at <select class="small" id="aca-asMailHour"></select> <button type="button" class="small" id="aca-asMailSave">Save</button></div></div>';
-    el("asPlanHour").innerHTML = Array.from({ length: 18 }, (_, i) => i + 4).map((h) => '<option value="' + h + '">' + T.fmtMin(h * 60) + "</option>").join("");
-    el("asMailHour").innerHTML = Array.from({ length: 8 }, (_, i) => i + 4).map((h) => '<option value="' + h + '">' + T.fmtMin(h * 60) + "</option>").join("");
+      // The evening notification and the morning email live in Settings > Team emails (one home); this is the shortcut.
+      '<p class="as-setlink hidden" id="aca-asSetCard"><span id="aca-asSetTxt"></span> <button type="button" class="link" id="aca-asSetBtn">Change</button></p>';
     let list = null, filter = "";
+
+    // "Your day" evening notification and morning email: one dialog, opened from Tasks and from Settings > Team emails.
+    // opts.values = {day_plan_on, day_plan_hour, day_email_on, day_email_hour} when the caller has them; opts.onSaved.
+    async function dailyValues() {
+      const [a, b] = await Promise.all([sb.rpc("assignments_list"), sb.rpc("day_email_status")]);
+      if (a.error) throw a.error;
+      const st = (a.data && a.data.settings) || {}, m = b.data || {};
+      return { day_plan_on: !!st.day_plan_on, day_plan_hour: st.day_plan_hour, day_email_on: !!m.on, day_email_hour: m.hour };
+    }
+    const dailyText = (v) => "Your-day notification: " + (v.day_plan_on ? T.fmtMin(num(v.day_plan_hour) * 60) : "off") + ". Morning email: " + (v.day_email_on ? T.fmtMin(num(v.day_email_hour) * 60) : "off") + ".";
+    async function openDaily(opts) {
+      opts = opts || {};
+      let v = opts.values;
+      if (!v) { try { v = await dailyValues(); } catch (e) { toast(cleanErr(e), true); return; } }
+      const hours = (from, n, cur) => Array.from({ length: n }, (_, i) => i + from).map((h) => '<option value="' + h + '"' + (h === num(cur) ? " selected" : "") + ">" + T.fmtMin(h * 60) + "</option>").join("");
+      const m = openModal('<div class="as-modal"><h2>Your-day notification and morning email</h2>' +
+        '<h3 class="as-sub">Evening notification</h3><p class="muted" style="font-size:13px;margin:0 0 8px">Each person with My day gets a notification with the next day&#39;s jobs (and when to leave), other scheduled time and tasks. Nothing is sent when there is nothing on. Set it before noon and it is about the same day instead. Everyone can switch it off for themselves under Notifications.</p>' +
+        '<div class="as-settings"><label><input type="checkbox" id="aca-asPlanOn"' + (v.day_plan_on ? " checked" : "") + ' /> Send it</label> at <select class="small" id="aca-asPlanHour">' + hours(4, 18, v.day_plan_hour == null ? 19 : v.day_plan_hour) + "</select></div>" +
+        '<h3 class="as-sub">Morning email</h3><p class="muted" style="font-size:13px;margin:0 0 8px">Each person with My day also gets an email in the morning with that day&#39;s schedule (with when to leave for on site jobs, hours and a lunch reminder at 6 hours) and their tasks, urgent first. Nothing is sent on a day with nothing on. Everyone can switch it off for themselves on My day.</p>' +
+        '<div class="as-settings"><label><input type="checkbox" id="aca-asMailOn"' + (v.day_email_on ? " checked" : "") + ' /> Send it</label> at <select class="small" id="aca-asMailHour">' + hours(4, 8, v.day_email_hour == null ? 6 : v.day_email_hour) + "</select></div>" +
+        '<div class="inline-error hidden" id="aca-asDErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Save</button></div></div>');
+      m.addEventListener("click", async (ev) => {
+        const t = ev.target.closest("[data-m]"); if (!t) return;
+        if (t.dataset.m === "cancel") return m.close();
+        t.disabled = true;
+        try {
+          let r = await sb.rpc("staff_settings_save", { p_on: el("asPlanOn").checked, p_hour: +el("asPlanHour").value }); if (r.error) throw r.error;
+          r = await sb.rpc("day_email_settings_save", { p_on: el("asMailOn").checked, p_hour: +el("asMailHour").value }); if (r.error) throw r.error;
+          m.close(); toast("Saved.");
+          if (list) loadTasks();
+          if (opts.onSaved) opts.onSaved();
+        } catch (e) { const n = el("asDErr"); n.textContent = cleanErr(e); n.classList.remove("hidden"); t.disabled = false; }
+      });
+    }
 
     function repeatText(t) {
       if (t.repeat === "once") return "Once, " + T.fmtDay(t.due_on);
@@ -217,10 +248,11 @@
         el("asSetCard").classList.toggle("hidden", !ed);
         el("asFilter").innerHTML = '<option value="">Everyone</option>' + people.map((p) => '<option value="' + esc(p.user_id) + '">' + esc(p.name) + "</option>").join("");
         el("asFilter").value = filter;
-        if (data.settings) { el("asPlanOn").checked = !!data.settings.day_plan_on; el("asPlanHour").value = String(data.settings.day_plan_hour); }
         if (ed) {
           const { data: m } = await sb.rpc("day_email_status");
-          if (m) { el("asMailOn").checked = !!m.on; el("asMailHour").value = String(m.hour); }
+          const st = data.settings || {};
+          el("asSetTxt").textContent = dailyText({ day_plan_on: !!st.day_plan_on, day_plan_hour: st.day_plan_hour, day_email_on: !!(m && m.on), day_email_hour: m && m.hour }) +
+            (ACCESS.is_admin ? " Set in Settings, Team emails." : "");
         }
         renderList();
       } catch (e) { showError("asTErr", "Could not load tasks: " + cleanErr(e)); }
@@ -252,28 +284,14 @@
     el("asFilter").addEventListener("change", () => { filter = el("asFilter").value; renderList(); });
     el("asAdd").addEventListener("click", () => openTask(null));
     el("asTBody").addEventListener("click", (e) => { if (e.target.closest("input[data-check]")) return; const r = e.target.closest("tr.as-row"); if (r) openTask(list.tasks.find((t) => t.id === r.dataset.id)); });
-    el("asPlanSave").addEventListener("click", async () => {
-      try {
-        const { error } = await sb.rpc("staff_settings_save", { p_on: el("asPlanOn").checked, p_hour: +el("asPlanHour").value });
-        if (error) throw error;
-        toast(el("asPlanOn").checked ? "Saved. It goes out at " + T.fmtMin(+el("asPlanHour").value * 60) + "." : "Saved. The notification is off.");
-      } catch (e) { toast(cleanErr(e), true); }
-    });
-
-    el("asMailSave").addEventListener("click", async () => {
-      try {
-        const { error } = await sb.rpc("day_email_settings_save", { p_on: el("asMailOn").checked, p_hour: +el("asMailHour").value });
-        if (error) throw error;
-        toast(el("asMailOn").checked ? "Saved. The morning email goes out at " + T.fmtMin(+el("asMailHour").value * 60) + "." : "Saved. The morning email is off.");
-      } catch (e) { toast(cleanErr(e), true); }
-    });
+    el("asSetBtn").addEventListener("click", () => openDaily());
 
     function openTask(t) {
       const isNew = !t;
       t = t || { user_id: filter || "", title: "", notes: "", repeat: "once", weekdays: [1, 2, 3, 4, 5], month_day: 1, due_on: T.today(), starts_on: T.today(), priority: "normal", est_minutes: null };
       const wd = t.repeat === "daily" && !(t.weekdays || []).length ? [0, 1, 2, 3, 4, 5, 6] : t.weekdays || [];
       const m = openModal('<div class="as-modal"><h2>' + (isNew ? "Add a task" : "Change task") + "</h2>" +
-        '<div class="row2"><div class="field"><label for="aca-atWho">For</label><select id="aca-atWho">' + (t.user_id ? "" : '<option value="">Pick someone\u2026</option>') + people.map((p) => '<option value="' + esc(p.user_id) + '"' + (p.user_id === t.user_id ? " selected" : "") + ">" + esc(p.name) + (p.gets_day_plan ? "" : " (no Assignments access)") + "</option>").join("") + "</select></div>" +
+        '<div class="row2"><div class="field"><label for="aca-atWho">For</label><select id="aca-atWho">' + (t.user_id ? "" : '<option value="">Pick someone\u2026</option>') + people.map((p) => '<option value="' + esc(p.user_id) + '"' + (p.user_id === t.user_id ? " selected" : !p.gets_day_plan ? " disabled" : "") + ">" + esc(p.name) + (p.gets_day_plan ? "" : " (can\u2019t see tasks: give them My day on the Team page)") + "</option>").join("") + "</select></div>" +
         '<div class="field"><label>Priority</label><div class="seg" role="radiogroup" aria-label="Priority"><label><input type="radio" name="aca-atPri" value="normal"' + (t.priority !== "urgent" ? " checked" : "") + ' /><span>Normal</span></label><label><input type="radio" name="aca-atPri" value="urgent"' + (t.priority === "urgent" ? " checked" : "") + " /><span>Urgent</span></label></div></div></div>" +
         '<div class="field"><label for="aca-atTitle">Task</label><input type="text" id="aca-atTitle" maxlength="160" value="' + esc(t.title) + '" placeholder="Back up memory cards" /></div>' +
         '<div class="field"><label>Repeats</label><div class="seg" role="radiogroup" aria-label="Repeats">' + ["once", "daily", "weekly", "monthly"].map((r) => '<label><input type="radio" name="aca-atRep" value="' + r + '"' + (r === t.repeat ? " checked" : "") + " /><span>" + REPEAT[r] + "</span></label>").join("") + "</div></div>" +
@@ -355,5 +373,5 @@
       } catch (err) { cb.checked = !cb.checked; cb.disabled = false; toast(cleanErr(err), true); }
     });
 
-    return { loadDay, loadTasks, loadToday };
+    return { loadDay, loadTasks, loadToday, openDaily, dailyText };
   })();

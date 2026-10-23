@@ -49,6 +49,7 @@
     .aca .sr-list { margin: 6px 0 12px; border-top: 1px solid var(--line2); }
     .aca .sr-list > div { display: flex; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line2); font-size: 13.5px; }
     .aca .sr-list > div .grow { flex: 1; min-width: 0; }
+    .aca .sr-listh { margin-bottom: -12px; border-top: 0; } .aca .sr-listh > div { color: var(--muted); font-weight: 600; padding: 2px 0; }
     @media (max-width: 700px) {
       .aca .sr-modal .row2 { grid-template-columns: 1fr; } .aca .sr-bar { flex-basis: 70px; }
       .aca .sr-grid thead { display: none; }
@@ -74,7 +75,7 @@
       '<div id="aca-srErr" class="inline-error hidden"></div><div class="table-wrap"><table class="sr-grid"><thead id="aca-srHead"></thead><tbody id="aca-srBody"><tr><td class="empty">Loading&#8230;</td></tr></tbody></table></div></div>';
     el("panel-onboarding").innerHTML =
       '<div class="card"><div class="card-head"><div><h2>Onboarding</h2><p id="aca-srObIntro">The checklist each new person works through. Everyone you add on the Team page starts on it. Steps tied to a clearance tick themselves when it is on file.</p></div>' +
-      '<span class="sr-edit" style="display:flex;gap:8px"><button type="button" class="small" id="aca-srSteps">Edit steps</button><button type="button" class="primary" id="aca-srStart">Start someone</button></span></div>' +
+      '<span class="sr-edit" style="display:flex;gap:8px"><button type="button" class="small" id="aca-srSteps">Edit steps</button><button type="button" class="primary" id="aca-srStart">Start someone who&#39;s already on the team</button></span></div>' +
       '<div id="aca-srObErr" class="inline-error hidden"></div><div id="aca-srOb"><p class="empty">Loading&#8230;</p></div></div>';
 
     async function load() {
@@ -161,11 +162,26 @@
       });
     }
 
+    // Kinds of clearance and Onboarding steps: one dialog each, opened from Records / Onboarding and from
+    // Settings > Team & pay (openKinds / openSteps make sure the records are loaded and say when something changed).
+    let afterChange = null;
+    const changed = () => { if (afterChange) afterChange(); };
+    async function openKinds(opts) {
+      afterChange = (opts && opts.onSaved) || null;
+      try { await load(); } catch (e) { toast(cleanErr(e), true); return; }
+      editTypes();
+    }
+    async function openSteps(opts) {
+      afterChange = (opts && opts.onSaved) || null;
+      try { await load(); } catch (e) { toast(cleanErr(e), true); return; }
+      editSteps();
+    }
     function editTypes() {
       const m = openModal('<div class="sr-modal"><h2>Kinds of clearance</h2><p class="muted">Tick <b>For schools</b> when every person on a school job needs it. "Warn" is how many days ahead it shows as running out.</p>' +
+        ((data.types || []).length ? '<div class="sr-list sr-listh" aria-hidden="true"><div><span class="grow">Kind</span><span style="font-size:12px">For schools</span><span style="font-size:12px;width:96px">Warn (days)</span><span style="width:70px"></span></div></div>' : "") +
         '<div class="sr-list" id="aca-srTypeList">' + (data.types || []).map((t) => '<div data-k="' + esc(t.key) + '"><input type="text" class="grow" maxlength="80" value="' + esc(t.label) + '" aria-label="Name" />' +
           '<label style="white-space:nowrap;font-size:13px"><input type="checkbox" data-school' + (t.school_required ? " checked" : "") + " /> For schools</label>" +
-          '<label style="white-space:nowrap;font-size:13px">Warn <input type="number" min="0" max="365" style="width:64px" data-warn value="' + num(t.warn_days) + '" /></label>' +
+          '<label style="white-space:nowrap;font-size:13px">Warn <input type="number" min="0" max="365" style="width:64px" data-warn value="' + num(t.warn_days) + '" aria-label="Warn days ahead" /></label>' +
           '<button type="button" class="small quiet" data-rm aria-label="Remove">Remove</button></div>').join("") + "</div>" +
         '<div class="field"><label for="aca-srNewType">Add a kind</label><input type="text" id="aca-srNewType" maxlength="80" placeholder="Mandated reporter training" /></div>' +
         '<div class="inline-error hidden" id="aca-srTErr"></div>' +
@@ -198,7 +214,7 @@
           }
           const add = el("srNewType").value.trim();
           if (add) { const { error } = await sb.rpc("staff_clearance_type_save", { p: { label: add } }); if (error) throw error; }
-          m.close(); toast("Saved."); refresh();
+          m.close(); toast("Saved."); refresh(); changed();
         } catch (e) { err(cleanErr(e)); } finally { if (el("srTSave")) el("srTSave").disabled = false; }
       });
     }
@@ -276,7 +292,7 @@
           '<button type="button" class="small quiet" data-up' + (i ? "" : " disabled") + ' aria-label="Move up">&uarr;</button><button type="button" class="small quiet" data-down' + (i < steps.length - 1 ? "" : " disabled") + ' aria-label="Move down">&darr;</button>' +
           '<button type="button" class="small" data-edit>Edit</button></div>').join("") + "</div>" +
         '<div class="modal-actions"><button type="button" class="small" id="aca-srStepAdd">Add step</button><span class="grow"></span><button type="button" class="primary" id="aca-srStepDone">Done</button></div></div>');
-      el("srStepDone").addEventListener("click", () => m.close());
+      el("srStepDone").addEventListener("click", () => { m.close(); changed(); });
       el("srStepAdd").addEventListener("click", () => { m.close(); editStep(null); });
       el("srStepList").addEventListener("click", async (e) => {
         const row = e.target.closest("[data-id]"); if (!row) return;
@@ -344,5 +360,5 @@
       } catch (_e) { /* Today reports it as unchecked */ }
     }
 
-    return { show, loadAttention };
+    return { show, loadAttention, openKinds, openSteps };
   })();
