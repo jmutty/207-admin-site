@@ -625,6 +625,15 @@
       bounced: [{ email: "parent@example.com", n: 2, last: ago(3) }] };
   }
 
+  // ws/partners (2026-10-24): booking "Don't send", the Brewer booking carries GotPhoto job "1" (help request links),
+  // ?clients=1 makes Brewer a client (the Partners list opens on Clients).
+  {
+    RPC.booking_email_skip = { ok: true, status: "skipped" };
+    RPC.admin_bookings[0].gotphoto_job_id = "1";
+    if (/[?&]clients=1\b/.test(location.search)) T.prospect_orgs.filter((o) => o.id === "11111111-1111-1111-1111-111111111111")
+      .forEach((o) => Object.assign(o, { stage: "client", client_since: "2024-09-01", last_job_at: "2026-09-19", next_job_at: iso(12).slice(0, 10) }));
+  }
+
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),

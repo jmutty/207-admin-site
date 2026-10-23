@@ -216,7 +216,7 @@
       const h = parseHash();
       if (!h) { root().innerHTML = '<div class="empty">Open a partner from <a href="#partners/orgs">Partners</a> or search.</div>'; return; }
       const tab = ALIAS[h.tab] || h.tab || "overview";
-      if (O && O.id === h.id) { if (tab !== curTab) pick(tab); return; }
+      if (O && O.id === h.id) { if (tab !== curTab) pick(tab); else if (ALIAS[h.tab]) history.replaceState(null, "", orgLink(O.id, tab)); return; }
       if (loadingId === h.id) return;
       load(h.id, tab);
     }

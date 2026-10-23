@@ -490,8 +490,9 @@
         if (initialOpen && !openId && byId.has(initialOpen) && !load.didInitial) { load.didInitial = true; openOrg(initialOpen); }
         if (!load.didGroup) {
           load.didGroup = true; const g = groupInHash();
-          // Admins open on the Clients view (2026-10-24); a group in the address still wins
-          if (g) setGroup(g, true); else if (ACCESS.is_admin && !/orgs\/everyone/i.test(location.hash)) setGroup("clients", true);
+          // Admins open on the Clients view once there are clients (2026-10-24); a group in the address still wins
+          if (g) setGroup(g, true);
+          else if (ACCESS.is_admin && !/orgs\/everyone/i.test(location.hash) && orgs.some((o) => GROUP_OF.clients[2].includes(o.stage))) setGroup("clients", true);
         }
       } catch (e) {
         el("ogErr").textContent = "Could not load partners: " + cleanErr(e);
