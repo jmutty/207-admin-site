@@ -10,6 +10,13 @@
     ["qr_tagging|qr_code", "Each person: QR-Tagging"], ["qr_tagging|registration", "Each person: QR-Tagging \u2013 Registration for picture day"],
     ["qr_tagging|manual", "Each person: Manual tagging"], ["single_password|manual", "One access code"]];
   const gpAccessOf = (d) => d && d.access_type ? d.access_type + "|" + (d.password_source || "manual") : "";
+  // The options with a job's own value always among them, in words: one access code is one option whatever its
+  // method (Center Drive is single_password + qr_code_list), anything else unknown reads as "another method".
+  const gpAccessList = (cur, withCopy) => {
+    const list = GP_ACCESS.slice(withCopy ? 0 : 1).map((o) => cur && o[0].startsWith("single_password|") && cur.startsWith("single_password|") ? [cur, o[1]] : o);
+    if (cur && !list.some((o) => o[0] === cur)) list.push([cur, cur.startsWith("public|") ? "Public (no code)" : "Each person: another method (as set in GotPhoto)"]);
+    return list;
+  };
   const Bookings = (function () {
   const sb = supabase;
   const cleanErr = (e) => String((e && (e.message || e.details)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
@@ -559,7 +566,7 @@
       const opts = (kind, cur, curLabel) => { const list = (lists.ok && lists.j[kind]) || [];
         return (cur && !list.some((o) => o.id === cur) ? [{ id: cur, name: curLabel || cur }] : []).concat(list)
           .map((o) => '<option value="' + esc(o.id) + '"' + (o.id === cur ? " selected" : "") + ">" + esc(o.name) + "</option>").join(""); };
-      const acc0 = gpAccessOf(job), accList = GP_ACCESS.slice(1).concat(acc0 && !GP_ACCESS.some((o) => o[0] === acc0) ? [[acc0, job.access_type === "public" ? "Public" : acc0]] : []);
+      const acc0 = gpAccessOf(job), accList = gpAccessList(acc0, false);
       const row = (k, v) => '<div class="bk-sub" style="margin:2px 0"><strong>' + k + ":</strong> " + v + "</div>";
       const sel = (id, html) => '<select id="aca-gpc' + id + '" style="width:100%">' + html + "</select>";
       const field = (label, html) => '<div class="field" style="margin-top:10px"><label>' + label + "</label>" + html + "</div>";

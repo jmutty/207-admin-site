@@ -172,7 +172,7 @@
       parts.push(pick(GP_JOB_TYPES, d.gp_job_type) || d.gp_job_type, "archive " + pick(GP_ARCHIVE, d.archive_rule).toLowerCase());
       GP_SEASONS.forEach(([k, lab]) => { if (d[k]) parts.push(lab + ": " + (L[k] || d[k])); });
       if (d.communication_profile_id) parts.push("emails: " + (L.communication_profile_id || d.communication_profile_id));
-      if (d.access_type) parts.push(pick(GP_ACCESS, gpAccessOf(d)));
+      if (d.access_type) parts.push(pick(gpAccessList(gpAccessOf(d), true), gpAccessOf(d)));
       if (d.prepay != null) parts.push("prepay " + (d.prepay ? "on" : "off") + (d.prepay_deadline_days != null ? ", deadline " + d.prepay_deadline_days + " days after" : ""));
       return '<div class="st-chips">' + parts.map((t) => "<span>" + esc(t) + "</span>").join("") + "</div>" +
         '<p class="st-sum">Anything not set is copied from your newest ' + esc(pick(GP_JOB_TYPES, d.gp_job_type) || "") + " job.</p>";
@@ -195,7 +195,7 @@
         field("Archive date", sel("archive_rule", GP_ARCHIVE, d.archive_rule)) +
         GP_SEASONS.map(([k, lab]) => field(lab, profSel(k, "price_profiles", d[k]))).join("") +
         field("Communication profile", profSel("communication_profile_id", "communication_profiles", d.communication_profile_id)) +
-        field("Photo access", sel("access", GP_ACCESS, gpAccessOf(d))) +
+        field("Photo access", sel("access", gpAccessList(gpAccessOf(d), true), gpAccessOf(d))) +
         field("Registration after code login", sel("register_after_password_login", GP_REG, d.register_after_password_login)) +
         field("Prepay shop", sel("prepay", GP_PREPAY, d.prepay)) +
         field("Prepay deadline, days after the shoot", '<input type="number" id="aca-stGpprepay_deadline_days" min="-60" max="365" style="width:120px" value="' + esc(d.prepay_deadline_days == null ? "" : String(d.prepay_deadline_days)) + '"' + (can ? "" : " disabled") + " />", "Empty = same distance as on the newest job.") +
