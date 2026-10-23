@@ -34,9 +34,11 @@ insert into booking_steps (sequence_id, step_no, kind, hub_key, trigger, offset_
   ('00000000-0000-0000-0000-00000000005e', 1,  'admin', null,    'picture_day', 0,  '07:30', false, 'Start here', 'x'),
   ('00000000-0000-0000-0000-00000000005e', 2,  'admin', null,    'picture_day', 14, '07:30', false, 'Picture day plan', 'starts {{start_time}}'),
   ('00000000-0000-0000-0000-00000000005e', 10, 'hub',   'heads', 'picture_day', 8,  '18:00', false, 'One week', 'x'),
+  ('00000000-0000-0000-0000-00000000005e', 14, 'admin', null,    'picture_day', 5,  '07:30', false, 'Families haven''t heard yet', 'x'),
   ('00000000-0000-0000-0000-00000000005e', 11, 'hub',   'day',   'picture_day', 2,  '18:00', true,  'Day before', 'x'),
   ('00000000-0000-0000-0000-00000000005e', 12, 'hub',   'live',  'gallery_live', 0, '07:30', false, 'Gallery live', 'x'),
   ('00000000-0000-0000-0000-00000000005e', 20, 'coach', null,    'picture_day', 2,  '07:30', false, 'Coach checklist', 'x');
+update booking_steps set send_if = '{hub_not_sent}' where sequence_id = '00000000-0000-0000-0000-00000000005e' and step_no = 14;
 insert into prospect_orgs (id, name) values ('00000000-0000-0000-0000-0000000000f1', 'Zz Pioneers Hockey'), ('00000000-0000-0000-0000-0000000000f2', 'Zz Midcoast Rec');
 insert into prospect_contacts (id, org_id, first_name, email, is_primary, bounced_at) values
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000f1', 'Jen', 'jen@zz.test', true, null),
@@ -61,7 +63,7 @@ select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
 create temp table sg as select public.booking_make_real_suggest('00000000-0000-0000-0000-0000000000d1') j;
 select pg_temp.ok((select jsonb_array_length(j->'contacts') = 2 and (j->'contacts'->0->>'email') = 'jen@zz.test' and (j->'contacts'->1->>'usable')::boolean = false from sg), 'suggest: contacts, primary first, bounced one marked unusable');
 select pg_temp.ok((select (j->'events'->0->>'id') = 'zzev1' and (j->'events'->0->>'start_time') = '15:00' and (j->'events'->0->>'matches')::boolean from sg), 'suggest: the calendar event naming the organization comes first, bare id, local time');
-select pg_temp.ok((select jsonb_array_length(j->'steps') = 2 and (j->'steps'->1->>'step_no') = '1' and not (j->'steps'->0->>'passed')::boolean from sg), 'suggest: the director steps on the picture-day clock, with send day');
+select pg_temp.ok((select jsonb_array_length(j->'steps') = 2 and (j->'steps'->1->>'step_no') = '1' and not (j->'steps'->0->>'passed')::boolean from sg), 'suggest: the director steps 17hats could have sent (not the adaptive ones), with send day');
 
 -- ---------------------------------------------------------------- dry run changes nothing
 create temp table dr as select public.booking_make_real('00000000-0000-0000-0000-0000000000d1',

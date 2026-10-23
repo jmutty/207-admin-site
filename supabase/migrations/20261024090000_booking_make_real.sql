@@ -46,12 +46,14 @@ begin
                   from calendar_events e
                  where not coalesce(e.all_day, false) and (e.start_at at time zone 'America/New_York')::date = b.picture_day
                    and split_part(e.google_event_id, '@', 1) not in (select x.google_event_id from bookings x where x.google_event_id is not null and x.status in ('booked', 'done'))), '[]'),
-    -- the director emails a 17hats series could have sent (admin steps on the picture-day clock)
+    -- the director emails a 17hats series could have sent: admin steps on the picture-day clock, not the adaptive
+    -- ones (send_if) that only Admin has
     'steps', coalesce((select jsonb_agg(jsonb_build_object('step_no', st.step_no, 'subject', st.subject, 'offset_days', st.offset_days,
                     'send_day', b.picture_day - st.offset_days, 'passed', b.picture_day - st.offset_days <= v_today)
                     order by st.offset_days desc, st.step_no)
                   from booking_steps st
-                 where st.sequence_id = v_seq and st.is_active and st.kind = 'admin' and st.trigger = 'picture_day'), '[]'));
+                 where st.sequence_id = v_seq and st.is_active and st.kind = 'admin' and st.trigger = 'picture_day'
+                   and coalesce(cardinality(st.send_if), 0) = 0), '[]'));
 end $$;
 
 -- p: {contact_ids: [uuid], start_time: 'HH:MI', end_time: 'HH:MI'?, google_event_id?, sent_steps: [step_no]}
