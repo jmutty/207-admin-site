@@ -1113,6 +1113,56 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
+  console.log("Main contact per service (owner)");
+  {
+    const HG = "22222222-2222-2222-2222-222222222222";
+    const { page, errors } = await open(browser, port, "", "#partners/org/" + HG + "/contacts");
+    await page.waitForSelector("#aca-opBody .og-svcs");
+    const head = await page.textContent("#aca-opBody .og-svcs");
+    check(head.includes("Team & individual") && head.includes("School photos") && !!(await page.$('#aca-opBody select[data-svcadd]')), "the partner shows a status per service, plus + Service");
+    const rowText = async (cid) => page.textContent(`#aca-opBody tr[data-cid="${cid}"] .og-cview`);
+    check((await rowText("c6")).includes("Team & individual main") && (await rowText("c7")).includes("School photos pitch to") && (await rowText("c8")).includes("Team & individual copy in"),
+      "contacts say who's main for which service (pitch to while it's a prospect)");
+    check(await page.$eval('#aca-opBody tr[data-cid="c6"] select[data-role="school_photos"]', (x) => x.value) === "", "the AD is Not involved in school photos");
+    await page.selectOption('#aca-opBody tr[data-cid="c8"] select[data-role="school_photos"]', "main");
+    await page.waitForTimeout(200);
+    const w = await page.evaluate(() => (window.__writes || []).filter((x) => x[0] === "prospect_contacts" && x[1] === "update").pop());
+    check(w && w[2].service_roles && w[2].service_roles.school_photos === "main" && w[2].service_roles.portraits === "copy", "changing a dropdown saves that service only: " + JSON.stringify(w && w[2]));
+    await page.click('#aca-opBody [data-act="email"]');
+    await page.waitForSelector("#aca-ogOoTo");
+    const ticked = () => page.$$eval("#aca-ogOoTo input:checked", (xs) => xs.map((x) => x.value).join(","));
+    check(!!(await page.$('#aca-ogOoSvc button[data-svc="school_photos"]')) && (await ticked()) === "c6", "Email someone starts on the service we're a client for: the AD is ticked: " + (await ticked()));
+    await page.click('#aca-ogOoSvc button[data-svc="school_photos"]');
+    check((await ticked()) === "c7", "About school photos ticks the principal instead");
+    await page.evaluate(() => document.querySelectorAll(".modal-wrap, .og-modal-wrap").forEach((n) => n.remove()));
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/bookings");
+    await page.waitForSelector("#aca-bkBody tr.bk-row");
+    await page.click("#aca-bkNew");
+    await page.waitForSelector("#aca-bkOrgQ");
+    await page.click('#aca-bkTypes input[value="sports_data"]', { force: true });
+    await page.fill("#aca-bkOrgQ", "Hancock Grammar");
+    await page.waitForSelector("#aca-bkOrgList button:not([data-addorg])");
+    await page.click("#aca-bkOrgList button:not([data-addorg])");
+    await page.waitForSelector('#aca-bkContacts input[data-cid="c6"]');
+    const on = () => page.$$eval("#aca-bkContacts input[data-cid]:checked", (xs) => xs.map((x) => x.dataset.cid).sort().join(","));
+    check((await on()) === "c6,c8", "a sports job ticks the Team & individual main and copy-ins: " + (await on()));
+    await page.click('#aca-bkTypes input[value="school"]', { force: true });
+    await page.waitForTimeout(150);
+    check((await on()) === "c7", "School Photos ticks the person we pitched: " + (await on()));
+    check(!!(await page.$('#aca-bkContacts input[name="bkRuns"]')) && (await page.textContent("#aca-bkContacts")).includes("Who runs school picture day"), "first school photos booking asks who runs picture day");
+    await page.check('#aca-bkContacts input[name="bkRuns"][value="c8"]');
+    await page.waitForTimeout(100);
+    check((await page.$$eval("#aca-bkContacts input[data-cid]:checked", (xs) => xs.map((x) => x.dataset.cid).join(","))) === "c7,c8", "the secretary is ticked and the principal stays copied in");
+    await page.uncheck("#aca-bkKeepPitched");
+    await page.waitForTimeout(100);
+    check((await on()) === "c8", "unticking Keep takes the principal off");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
   console.log("Partner page (owner)");
   {
     const BR = "11111111-1111-1111-1111-111111111111";
