@@ -246,8 +246,10 @@
   const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
   const addDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
   const fmtDay = (ymd, long) => { if (!ymd) return ""; const d = new Date(ymd + "T12:00:00Z"); return d.toLocaleDateString("en-US", { timeZone: "UTC", weekday: long ? "long" : "short", month: long ? "long" : "short", day: "numeric" }); };
-  // GotPhoto "Create new job" screen, with the shoot date pre-filled (GotPhoto's own calendar passes shot_at the same way).
-  const gpCreateUrl = (b) => "https://app.gotphoto.com/config_jobs/create?shot_at=" + encodeURIComponent(b.picture_day || "");
+  // GotPhoto's jobs list. Its old create page (/config_jobs/create?shot_at=) now just bounces to this list, and
+  // "Create new job" here opens a pop-up that no link can open or fill (checked 2026-10-23). So the link copies
+  // the job name on the way, and the steps say what to click and which date to pick.
+  const GP_JOBS_URL = "https://app.gotphoto.com/config_jobs/index";
   // The job name the sync will match: it looks for the organization's name at the front, the rest is your usual pattern.
   const gpJobName = (b) => {
     const y = (b.picture_day || "").slice(0, 4), m = +((b.picture_day || "").slice(5, 7));
@@ -260,8 +262,25 @@
     if (ov && org && ov.startsWith(head)) return { text: ov.slice(head.length), keep: true };
     if (ov && org && ov.endsWith(tail)) return { text: ov.slice(0, -tail.length), keep: true };
     return { text: ov, keep: !ov }; };
-  const gpCreateBlock = (b) => '<div class="bk-gp"><a class="btn small" href="' + esc(gpCreateUrl(b)) + '" target="_blank" rel="noopener">Create the job in GotPhoto</a>' +
-    '<span class="bk-sub">Name it <code>' + esc(gpJobName(b)) + '</code> <button type="button" class="link" data-v="copyname" data-name="' + esc(gpJobName(b)) + '">copy</button></span></div>';
+  const gpCreateBlock = (b) => '<div class="bk-gp"><a class="btn small" href="' + GP_JOBS_URL + '" target="_blank" rel="noopener" data-gpname="' + esc(gpJobName(b)) + '">Create the job in GotPhoto</a>' +
+    '<span class="bk-sub">Name it <code>' + esc(gpJobName(b)) + '</code> <button type="button" class="link" data-v="copyname" data-name="' + esc(gpJobName(b)) + '">copy</button></span>' +
+    '<div class="bk-sub" style="flex-basis:100%">Opens your GotPhoto jobs and copies the name. There, click <strong>Create new job</strong>, paste the name' + (b.picture_day ? ', pick <strong>' + esc(fmtDay(b.picture_day, true)) + '</strong> as the date of shoot' : "") + ' and save.</div></div>';
+  const gpJobUrl = (id) => "https://app.gotphoto.com/config_jobs_settings/index/" + encodeURIComponent(id || "");
+  // A sports booking with no job yet: what 207 Admin did or will do in GotPhoto (gotphoto-jobs function), the
+  // "Create it in GotPhoto now" button, and the make-it-yourself link underneath.
+  const gpMakeBlock = (b, can) => {
+    const g = b.gp_create, auto = b.gp_auto && b.gp_auto.auto_enabled;
+    const btn = (label) => can ? '<button type="button" class="small primary" data-v="gpmake">' + label + "</button>" : "";
+    if (g && (g.status === "created" || g.status === "linked")) return '<div class="bk-gp-made bk-sub" style="margin:8px 0">Made in GotPhoto as <strong>' + esc(g.job_name || "") + "</strong>" + (g.internal_name ? " (" + esc(g.internal_name) + ")" : "") +
+      (g.template_name ? ", settings copied from " + esc(g.template_name) : "") + (b.audience === "school" ? ". Type its access code below once GotPhoto shows it." : ". It links here within 5 minutes, then email 0 is scheduled.") + ' <a href="' + esc(gpJobUrl(g.gotphoto_job_id)) + '" target="_blank" rel="noopener">Open in GotPhoto</a> to check it.</div>';
+    if (g && g.status === "working") return '<div class="bk-sub" style="margin:8px 0">Making it in GotPhoto now\u2026</div>';
+    const failed = g && g.status === "failed" ? '<div class="bk-sub" style="margin:8px 0;color:var(--err-fg)">Couldn\u2019t make it in GotPhoto: ' + esc(g.error || "unknown error") + "</div>" : "";
+    const note = !g && auto ? '<div class="bk-sub" style="margin:8px 0">207 Admin makes this job in GotPhoto by itself about ' + esc(String((b.gp_auto.grace_minutes || 15) + 5)) + " minutes after booking, with your GotPhoto settings for " + esc(b.type_label || "this job type") + ". Or do it now:</div>" : "";
+    return failed + note + (can ? '<div style="margin:8px 0">' + btn(failed ? "Try again in GotPhoto" : "Create it in GotPhoto now") + "</div>" : "") +
+      '<div class="bk-sub" style="margin-top:10px">Or make it yourself:</div>' + gpCreateBlock(b);
+  };
+  // The create link copies the job name as it opens GotPhoto, so it is ready to paste (works in Edit booking and on the job).
+  document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest("a[data-gpname]"); if (a && navigator.clipboard) navigator.clipboard.writeText(a.dataset.gpname).catch(() => {}); });
   const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" }) : "";
   const fmtWhen = (iso) => iso ? new Date(iso).toLocaleString("en-US", { timeZone: TZ, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
   const hhmmToLabel = (t) => { if (!t) return ""; const [h, m] = t.split(":").map(Number); const ap = h >= 12 ? "PM" : "AM"; return ((h % 12) || 12) + ":" + String(m).padStart(2, "0") + " " + ap; };
@@ -1068,11 +1087,12 @@
   }
   async function refreshDetail() {
     const me = host, id = tabId; if (!me) return;
-    const [{ data, error }, tr] = await Promise.all([sb.rpc("admin_booking_detail", { p_id: id }), sb.rpc("admin_booking_tracking", { p_id: id })]);
+    const [{ data, error }, tr, gc, gs] = await Promise.all([sb.rpc("admin_booking_detail", { p_id: id }), sb.rpc("admin_booking_tracking", { p_id: id }),
+      sb.from("gp_job_creates").select("*").eq("booking_id", id).maybeSingle(), sb.from("gp_create_settings").select("auto_enabled, grace_minutes").maybeSingle()]);
     if (host !== me) return;
     tracking = tr.error ? null : tr.data;
     if (error || !data) { me.innerHTML = '<div class="inline-error" style="margin:16px 0">' + esc(error ? cleanErr(error) : "Booking not found.") + "</div>"; return; }
-    detail = data; renderDetail();
+    detail = Object.assign(data, { gp_create: gc.error ? null : gc.data, gp_auto: gs.error || !gs.data ? null : gs.data }); renderDetail();
   }
   // Stage moves and cancelling change the job page's header too, so the whole page reloads.
   const reloadJob = () => { if (typeof JobPage !== "undefined" && currentTab === "job") return JobPage.reload(); return refreshDetail(); };
@@ -1103,12 +1123,12 @@
         ${b.calendar_status === "pending" && !b.google_event_id ? '<div class="bk-sub" style="margin-top:6px">The event is written by the calendar function within a minute. If this never changes, the Google service account is not set up yet (see the to-do list).</div>' : ""}
       </div>`]);
       // One GotPhoto block: the sports job link, or the school's hub row (each holds the one "Create the job in GotPhoto" link).
-      parts.push(["gotphoto", !isSchool ? '<div class="bk-sec"><h3>GotPhoto job (sports hub)</h3>' + (b.gotphoto_job ? '<div class="bk-sub">Linked to <strong>' + esc(b.gotphoto_job.name) + '</strong> (' + esc(b.gotphoto_job.status || "") + '). The team shows on 207photo.com/sportsadmin.' + (live && can ? ' <button type="button" class="link" data-v="unlinkjob">unlink</button>' : "") + "</div>" :
-        (live ? '<div class="bk-sub">Not linked yet, so email 0 waits (the hub lists teams from GotPhoto jobs). Once the job exists in GotPhoto it links itself within 5 minutes' + (can ? ", or pick it here." : ".") + "</div>" + gpCreateBlock(b) +
+      parts.push(["gotphoto", !isSchool ? '<div class="bk-sec"><h3>GotPhoto job (sports hub)</h3>' + (b.gotphoto_job ? '<div class="bk-sub">Linked to <strong>' + esc(b.gotphoto_job.name) + '</strong> (' + esc(b.gotphoto_job.status || "") + '). The team shows on 207photo.com/sportsadmin. <a href="' + esc(gpJobUrl(b.gotphoto_job.gotphoto_job_id || b.gotphoto_job_id)) + '" target="_blank" rel="noopener">Open in GotPhoto</a>' + (b.gp_create && b.gp_create.status === "linked" ? " (made by 207 Admin)" : "") + "." + (live && can ? ' <button type="button" class="link" data-v="unlinkjob">unlink</button>' : "") + "</div>" :
+        (live ? '<div class="bk-sub">Not linked yet, so email 0 waits (the hub lists teams from GotPhoto jobs). Once the job exists in GotPhoto it links itself within 5 minutes' + (can ? ", or pick it here." : ".") + "</div>" + gpMakeBlock(b, can) +
           (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><select id="aca-bkDJob" class="small" style="max-width:360px"><option value="">' + ((b.job_candidates || []).length ? "Pick the GotPhoto job…" : "No matching job in the sync yet") + '</option>' +
           (b.job_candidates || []).map((j) => '<option value="' + esc(j.gotphoto_job_id) + '">' + esc(j.name) + (j.picture_day ? " (" + esc(fmtDay(j.picture_day)) + ")" : "") + "</option>").join("") + '</select><button type="button" class="small primary" data-v="linkjob">Link</button></div>' : "") : '<div class="bk-sub">No GotPhoto job linked.</div>')) + "</div>"
         : '<div class="bk-sec"><h3>School hub</h3>' + (b.hub_school ? '<div class="bk-sub">On 207photo.com/schooladmin as <strong>' + esc(b.hub_school.name) + "</strong>, code <strong>" + esc(b.hub_school.access_code) + "</strong>" + (b.hub_school.retake_day ? ", retake " + esc(fmtDay(b.hub_school.retake_day)) : "") + ". Reminder signups were added for the contacts.</div>" + (can ? hubRowTools(b.hub_school) : "") :
-        (live ? '<div class="bk-sub">Not on the hub yet. Email 0 waits until the school exists there. Create the job in GotPhoto first, then enter its access code here.</div>' + gpCreateBlock(b) + (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkDCode" placeholder="GotPhoto access code" style="width:170px" /><input type="date" id="aca-bkDRetake" title="Retake day (optional)" /><button type="button" class="small primary" data-v="setcode">Create on the hub</button></div>' : "") : '<div class="bk-sub">Not on the hub.</div>')) + "</div>"]);
+        (live ? '<div class="bk-sub">Not on the hub yet. Email 0 waits until the school exists there. Create the job in GotPhoto first, then enter its access code here.</div>' + gpMakeBlock(b, can) + (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkDCode" placeholder="GotPhoto access code" style="width:170px" /><input type="date" id="aca-bkDRetake" title="Retake day (optional)" /><button type="button" class="small primary" data-v="setcode">Create on the hub</button></div>' : "") : '<div class="bk-sub">Not on the hub.</div>')) + "</div>"]);
       if (!isSchool) parts.push(["coaches", '<div class="bk-sec"><h3>Coaches</h3>' + coachesBlock(b, live && can) + "</div>"]);
       // Remove takes someone off this job's emails (2026-10-23); Edit booking adds people.
       const usable = new Set((b.org_contacts || []).filter((c) => c.emailable).map((c) => c.id));
@@ -1382,6 +1402,17 @@
       if (v === "sendnow") { if (!confirm("Send this email now?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_send_now", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Sending\u2026" : "Queued. Sending is turned off, so it waits."); }
       if (v === "resend") { if (!confirm("Send this email again to the same person?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_resend", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Resending\u2026" : "Queued. Sending is turned off, so it waits."); }
       if (v === "setcode") { const code = el("bkDCode").value.trim(); if (!code) return toast("Type the access code first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_set_access_code", { p_id: detail.id, p_code: code, p_retake: el("bkDRetake").value || null }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("School created on the hub."); }
+      if (v === "gpmake") {
+        if (!confirm("Create \u201c" + gpJobName(detail) + "\u201d in GotPhoto now?")) return;
+        b.disabled = true; b.textContent = "Creating in GotPhoto\u2026";
+        const { data: { session } } = await sb.auth.getSession();
+        const resp = await fetch(ADMIN_FN_URL + "/gpjob?booking=" + encodeURIComponent(detail.id), { method: "POST", headers: { Authorization: "Bearer " + session.access_token } });
+        let body = {}; try { body = await resp.json(); } catch (_) {}
+        const one = (body.made || [])[0] || {};
+        if (!resp.ok || body.ok === false || body.error || one.error) toast(one.error && !body.error ? "GotPhoto didn't make it. The reason is on the job." : (body.error || "Couldn't reach GotPhoto (" + resp.status + ")."), true);
+        else toast("Made in GotPhoto. It links here within 5 minutes.");
+        await refreshDetail(); return;
+      }
       if (v === "linkjob") { const job = el("bkDJob").value; if (!job) return toast("Pick the job first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: job }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Linked. Email 0 goes out in about 10 minutes."); }
       if (v === "unlinkjob") { if (!confirm("Unlink the GotPhoto job? Email 0 waits again if it has not gone out.")) return; const { error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: null }); if (error) throw error; toast("Unlinked."); }
       if (v === "adopt") { b.disabled = true; const { data, error } = await sb.rpc("booking_adopt_calendar_date", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Picture day is now " + fmtDay(data.picture_day) + ". Emails rescheduled."); }
