@@ -15,6 +15,8 @@
 // ?lists=1 returns GotPhoto's price profiles and communication profiles (id + name) for Settings.
 // &code=<registration code> (with ?booking, schools): after making the job, PUT /v4/jobs/{id} registration_code
 // (Update only; Create has no such field), then gp_create_set_code saves it on the booking (hub + emails).
+// Each cron run (no ?booking) also renames jobs 207 Admin made whose booking title changed since (gp_rename_queue,
+// PUT /v4/jobs/{id} name, gp_rename_done).
 // ?peek=<job id>[,<job id>] returns how those GotPhoto jobs are set up (access, dates, profiles), to check a
 // made job against GotPhoto's own screens. &full=1 returns every field.
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -146,11 +148,12 @@ Deno.serve(async (req) => {
   const code = booking ? (url.searchParams.get("code") ?? "").trim().toUpperCase() : "";
 
   const linked = dry ? 0 : await sb.rpc("gp_create_link").then(({ data, error }) => { if (error) console.error("link:", error.message); return data ?? 0; });
+  const renamed = booking || dry ? [] : await renameJobs();
   const { data: queue, error: qErr } = await sb.rpc("gp_create_queue", { p_booking: booking, p_limit: booking ? 1 : 10, p_preview: dry });
   if (qErr) return Response.json({ ok: false, error: `queue: ${qErr.message}` }, { status: 500 });
   const items = (queue ?? []) as any[];
   if (!items.length) {
-    return Response.json({ ok: true, linked, made: [], ...(booking ? { error: "This booking already has a GotPhoto job, or one is being made." } : {}) });
+    return Response.json({ ok: true, linked, renamed, made: [], ...(booking ? { error: "This booking already has a GotPhoto job, or one is being made." } : {}) });
   }
 
   let token: string;
@@ -222,8 +225,33 @@ Deno.serve(async (req) => {
       if (resp.status === 401 || resp.status === 403) break;   // the login cannot create jobs: stop the run
     }
   }
-  return Response.json({ ok: true, linked, dry, made });
+  return Response.json({ ok: true, linked, renamed, dry, made });
 });
+
+// A booking's title changed after its job was made: the GotPhoto job takes the new name.
+async function renameJobs(): Promise<unknown[]> {
+  const { data, error } = await sb.rpc("gp_rename_queue", { p_limit: 10 });
+  if (error) { console.error("rename queue:", error.message); return []; }
+  const items = (data ?? []) as any[];
+  if (!items.length) return [];
+  let token: string;
+  try { token = await login(); } catch (e) { console.error("rename login:", String(e)); return []; }
+  const out: unknown[] = [];
+  for (const it of items) {
+    try {
+      const resp = await fetch(`${GP_API}/jobs/${encodeURIComponent(it.gotphoto_job_id)}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ name: it.name }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!resp.ok) { out.push({ booking_id: it.booking_id, error: `${resp.status}: ${(await resp.text()).slice(0, 200)}` }); continue; }
+      await sb.rpc("gp_rename_done", { p_booking: it.booking_id, p_name: it.name });
+      out.push({ booking_id: it.booking_id, from: it.was, to: it.name });
+    } catch (e) { out.push({ booking_id: it.booking_id, error: String((e as Error).message ?? e) }); }
+  }
+  return out;
+}
 
 // The school's registration code: GotPhoto first, then the booking (only once GotPhoto has it).
 async function setCode(jobId: string, bookingId: string, code: string, token: string): Promise<Record<string, unknown>> {
