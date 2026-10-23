@@ -199,7 +199,8 @@
       el("opTabs").addEventListener("click", (e) => { const t = e.target.closest("button[data-t]"); if (t) pick(t.dataset.t); });
     }
     function current() { return O ? { id: O.id, name: O.name, town: O.town } : null; }
-    function bookHere() { const o = current(); showTab("bookings"); Bookings.openNew(o); }
+    // Book a job opens over this page; saving opens the new job's page, whose trail leads back here (2026-10-24).
+    function bookHere() { const o = current(); Bookings.openNew(o); }
 
     function pick(id) {
       const list = tabs();

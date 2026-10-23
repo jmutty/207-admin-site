@@ -108,12 +108,36 @@
   .aca .bk-jt-row input[type=text] { flex: 1 1 200px; min-width: 0; }
   .aca .bk-jt-row input[type=number] { width: 70px; }
   .aca .bk-jt h3 { margin: 14px 0 2px; font-size: 13px; }
+  /* All jobs toolbar (2026-10-24): Book a job first, then "..." (Track a job), then a small Job types link */
+  .aca .bk-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .aca .bk-more { position: relative; display: inline-block; }
+  .aca .bk-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px; min-width: 180px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+  .aca .bk-menu.hidden { display: none; }
+  .aca .bk-menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; font-weight: 400; }
+  .aca .bk-menu button:hover { background: var(--surface-2); }
+  .aca .bk-chk { font-size: 12px; color: var(--muted); margin-top: 2px; } .aca .bk-chk .late { color: var(--err-fg); font-weight: 600; }
+  /* Short preview on All jobs; everything else is on the job page */
+  .aca .bk-pv .bk-facts { margin-top: 4px; }
+  .aca .bk-pv-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .aca .bk-pv-acts a.primary { text-decoration: none; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 4px; background: var(--accent); color: #fff; font-weight: 600; }
+  /* Booking tab on the job page: the stage ladder folds to one line on phones */
+  .aca .bk-stage1 { display: none; font-size: 13.5px; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 8px; }
+  .aca .bk-tab .bk-sec { padding-left: 0; padding-right: 0; }
+  .aca .bk-tab .bk-sec:last-child { border-bottom: none; }
+  .aca .bk-tab .og-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .aca .bk-move-note { margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: var(--sel-bg); font-size: 12.5px; line-height: 1.5; }
+  .aca .bk-move-note.hidden { display: none; }
+  /* Book a job form: labels sit at the top of their row; the picture day row keeps date and times together */
+  .aca .bk-form .og-grid { align-items: start; }
+  .aca .bk-form .og-grid > label { padding-top: 8px; }
+  .aca .bk-form .og-grid > label.bk-card { padding-top: 10px; }
+  .aca .bk-form .bk-dayhead { display: flex; gap: 6px; font-size: 11.5px; color: var(--muted); margin: 0 0 2px; }
+  .aca .bk-form .bk-dayhead span:first-child { width: 150px; } .aca .bk-form .bk-dayhead span.t { width: 108px; } .aca .bk-form .bk-dayhead span.to { width: 14px; }
   @media (max-width: 900px) {
     .aca #aca-bkPanel { position: fixed; top: var(--og-top, 0px); left: 0; right: 0; bottom: 0; width: 100vw; max-width: none; overflow: auto; -webkit-overflow-scrolling: touch; z-index: 60; background: var(--surface); }
     .aca #aca-bkPanel.hidden { display: none; }
     .aca #aca-bkPanel > :first-child { position: sticky; top: 0; z-index: 2; background: var(--surface); }
-    .aca #aca-bkPanel > .bk-sec.og-actions { position: sticky; bottom: 0; z-index: 2; background: var(--surface); border-top: 1px solid var(--border); border-bottom: none; }
-    .aca #aca-bkPanel > .bk-sec.og-actions button { min-height: 40px; }
+    .aca #aca-bkPanel .bk-pv-acts a, .aca #aca-bkPanel .bk-pv-acts button { min-height: 40px; }
   }
   @media (max-width: 760px) {
     .aca .og-modal-wrap:has(.bk-form) { padding: 0; align-items: stretch; }
@@ -131,7 +155,12 @@
     .aca .bk-form .bk-dayrow .bk-d-label { flex: 1 1 100% !important; min-width: 0 !important; }
     .aca .bk-form #aca-bkCode { width: 100% !important; }
     .aca #aca-panel-bookings .card-head { flex-direction: column; align-items: stretch; gap: 10px; }
-    .aca #aca-panel-bookings .card-head .og-actions button { min-height: 44px; width: 100%; }
+    .aca #aca-panel-bookings .card-head .bk-tools > button.primary { min-height: 44px; flex: 1 1 auto; }
+    .aca #aca-panel-bookings .card-head .bk-tools #aca-bkMore { min-height: 44px; min-width: 48px; }
+    .aca .bk-tab .bk-stages { display: none; } .aca .bk-tab .bk-stages.open { display: grid; }
+    .aca .bk-tab .bk-stage1 { display: flex; }
+    .aca .bk-tab .bk-stage-next { display: none; } .aca .bk-tab .bk-stages.open ~ .bk-stage-next { display: inline-flex; }
+    .aca .bk-form .bk-dayhead { display: none; }
     .aca .bk-table thead { display: none; }
     .aca .bk-table, .aca .bk-table tbody { display: block; }
     .aca .bk-table tr.bk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when cal" "job job" "stage stage" "who who" "mail mail"; gap: 3px 8px; padding: 12px; border-bottom: 1px solid var(--border); }
@@ -154,9 +183,12 @@
   root.innerHTML = `
     <div class="card">
       <div class="card-head">
-        <div><h2>Bookings</h2>
-          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a booking to see its emails, its stage and what you still owe the client.</p></div>
-        <div class="og-actions"><button type="button" class="small" id="aca-bkJobTypes">Stages &amp; deliverables</button><button type="button" class="small" id="aca-bkTrack">Track a job</button><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button></div>
+        <div><h2>All jobs</h2>
+          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job for a quick look, then Open for its page: stage, deliverables, emails, crew and checklist.</p></div>
+        <div class="og-actions bk-tools"><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button>
+          <span class="bk-more" id="aca-bkMoreWrap"><button type="button" class="small" id="aca-bkMore" aria-haspopup="true" aria-expanded="false" aria-label="More">&#8230;</button>
+            <span class="bk-menu hidden" id="aca-bkMenu" role="menu"><button type="button" role="menuitem" id="aca-bkTrack">Track a job</button></span></span>
+          <button type="button" class="link small" id="aca-bkJobTypes">Job types</button></div>
       </div>
       <div id="aca-bkBanner" class="bk-banner hidden"></div>
       <div class="toolbar">
@@ -176,7 +208,7 @@
     </div>
     <div class="og-panel hidden" id="aca-bkPanel" aria-label="Booking details"></div>`;
 
-  let types = [], steps = [], rows = [], loaded = false, scope = "upcoming", openId = null, pollTimer = null;
+  let types = [], steps = [], rows = [], loaded = false, scope = "upcoming", openId = null, pollTimer = null, checklist = {};
   // Stages per job type and saved deliverables (2026-10-21; see supabase/migrations/20261021200000_booking_stages_deliverables.sql)
   let stagesAll = [], templates = [];
   const typeStages = (k) => stagesAll.filter((s) => s.type_key === k && !s.archived_at).sort((a, b) => a.sort - b.sort);
@@ -254,14 +286,15 @@
     const sel = el("bkStage"), cur = sel.value, seen = new Set();
     const labels = stagesAll.filter((x) => !x.archived_at).sort((a, b) => a.sort - b.sort).map((x) => x.label).filter((l) => !seen.has(l) && seen.add(l));
     sel.innerHTML = '<option value="">Any stage</option>' + labels.map((l) => '<option value="' + esc(l) + '">' + esc(l) + "</option>").join("") +
-      '<option value=":owed">Owes deliverables</option><option value=":overdue">Deliverables overdue</option>';
+      '<option value=":owed">Owes deliverables</option><option value=":overdue">Deliverables overdue</option>' +
+      (canSee("workflows") ? '<option value=":checklist">Checklist steps to do</option><option value=":checklate">Checklist steps late</option>' : "");
     sel.value = cur;
   }
   let seqType = {}; // sequence id -> type key
   const seqOf = (id) => seqType[id];
 
   async function load(force) {
-    el("bkTrack").classList.toggle("hidden", !canEdit("bookings"));
+    el("bkMoreWrap").classList.toggle("hidden", !canEdit("bookings"));
     if (loaded && !force && currentTabIs()) { render(); return; }
     clearError("bkErr");
     try {
@@ -271,14 +304,19 @@
       const today = todayStr();
       const from = scope === "upcoming" ? today : addDays(today, scope === "owed" ? -400 : -60);
       const to = scope === "upcoming" ? null : (scope === "past" ? addDays(today, -1) : null);
-      const [{ data, error }, prog] = await Promise.all([sb.rpc("admin_bookings", { p_from: from, p_to: to }), sb.rpc("admin_booking_progress", { p_from: from, p_to: to })]);
+      // Checklist steps per job (Job checklists, 2026-10-24): "2 to do, 1 late" under the stage.
+      const none = Promise.resolve({ data: [] });
+      const [{ data, error }, prog, wf] = await Promise.all([sb.rpc("admin_bookings", { p_from: from, p_to: to }), sb.rpc("admin_booking_progress", { p_from: from, p_to: to }),
+        canSee("workflows") ? sb.rpc("workflow_jobs", { p_from: from }).then((r) => r, () => ({ data: [] })) : none]);
       if (error) throw error;
       const pm = {}; (prog.data || []).forEach((x) => { pm[x.booking_id] = x; });
+      checklist = {}; (Array.isArray(wf.data) ? wf.data : []).forEach((x) => { checklist[x.booking_id] = x; });
       rows = (data || []).map((b) => Object.assign(b, { progress: pm[b.id] || null }));
       loaded = true;
       render();
+      // Old links (emails, notifications, bookmarks) to #jobs/bookings/<id> open the job page's Booking tab.
       const seg = location.hash.replace(/^#/, "").split("/");
-      if (seg[0] === "jobs" && seg[1] === "bookings" && seg[2] && seg[2] !== openId) openDetail(seg[2]);
+      if (seg[0] === "jobs" && seg[1] === "bookings" && seg[2]) openJob(seg[2], "booking", true);
     } catch (e) { showError("bkErr", cleanErr(e)); el("bkBody").innerHTML = '<tr><td colspan="6" class="empty">Could not load bookings.</td></tr>'; }
   }
   const currentTabIs = () => el("panel-bookings").classList.contains("active");
@@ -328,7 +366,14 @@
       const done = num(p.deliverables_total) - num(p.deliverables_open);
       out.push('<div class="bk-sub">' + done + " of " + num(p.deliverables_total) + " delivered" + (num(p.overdue) ? ' <span class="pill err">' + num(p.overdue) + " overdue</span>" : num(p.deliverables_open) && p.next_due ? ", next due " + esc(fmtDay(p.next_due)) : "") + "</div>");
     }
+    out.push(checklistChip(b));
     return out.join("");
+  }
+  // "Checklist: 2 to do, 1 late" (Job checklists live here now, 2026-10-24).
+  function checklistChip(b) {
+    const c = checklist[b.id]; if (!c || !c.tasks || !c.tasks.length) return "";
+    const open = num(c.open_count), late = num(c.overdue_count);
+    return '<div class="bk-chk">Checklist: ' + (open ? open + " to do" + (late ? ', <span class="late">' + late + " late</span>" : "") : "all done") + "</div>";
   }
   function render() {
     const q = el("bkSearch").value.trim().toLowerCase(), tk = el("bkType").value;
@@ -338,6 +383,8 @@
     if (scope === "owed") list = list.filter((b) => num(prog(b).deliverables_open) > 0);
     if (sk === ":owed") list = list.filter((b) => num(prog(b).deliverables_open) > 0);
     else if (sk === ":overdue") list = list.filter((b) => num(prog(b).overdue) > 0);
+    else if (sk === ":checklist") list = list.filter((b) => checklist[b.id] && num(checklist[b.id].open_count) > 0);
+    else if (sk === ":checklate") list = list.filter((b) => checklist[b.id] && num(checklist[b.id].overdue_count) > 0);
     else if (sk) list = list.filter((b) => (stageOf(prog(b).stage_id) || {}).label === sk);
     if (q) list = list.filter((b) => (b.org_name + " " + b.title + " " + (b.org_town || "")).toLowerCase().includes(q));
     const body = el("bkBody");
@@ -382,7 +429,7 @@
       setAttention("bookingNeedsTime", num(a.needs_time), "booking(s) need their start and end time", "bookings", "warn", () => { scope = "upcoming"; load(true); });
       setAttention("bookingNeedsTimeLater", num(a.needs_time_later), "booking(s) without a time yet", "bookings", "soon", () => { scope = "upcoming"; load(true); });
       const ban = el("bkBanner");
-      if (a.sending_enabled === false) { ban.className = "bk-banner"; ban.innerHTML = "<strong>Sending is off.</strong> Emails are scheduled but nothing goes out until sending is turned on (Library &rsaquo; Booking emails &rsaquo; Settings)."; }
+      if (a.sending_enabled === false) { ban.className = "bk-banner"; ban.innerHTML = '<strong>Booking emails are off.</strong> They are scheduled and waiting: nothing goes out until you switch Booking emails on in <a href="#system/sending">Settings &rsaquo; Sending</a>.'; }
       else if (a.test_mode) { ban.className = "bk-banner test"; ban.innerHTML = "<strong>Test mode.</strong> Every booking email goes to the test address with a [TEST] subject."; }
       else ban.className = "bk-banner hidden";
     } catch (_e) { /* badge stays unknown; the tab shows its own error */ }
@@ -403,6 +450,21 @@
     return box;
   }
 
+  // "2026-11-05 09:00-11:00|..." to compare picture days before and after an edit (days only with onlyDays).
+  const dayKey = (ds, onlyDays) => (ds || []).map((x) => x.day + (onlyDays ? "" : " " + (x.start_time || "") + "-" + (x.end_time || ""))).sort().join("|");
+  const shortNm = (n) => { const w = String(n || "").trim().split(/\s+/); return w.length > 1 ? w[0] + " " + w[w.length - 1][0] + "." : w[0] || ""; };
+  // Take people off a job: their bars for it on the Schedule (around the old and the new days) come off.
+  async function takeOff(id, uids, days, oldDays) {
+    const all = days.concat(oldDays || []).map((x) => x.day).filter(Boolean).sort();
+    const from = all[0], to = all[all.length - 1];
+    const span = Math.min(42, Math.round((new Date(to + "T12:00:00Z") - new Date(from + "T12:00:00Z")) / 864e5) + 1);
+    const { data: w, error } = await sb.rpc("schedule_week", { p_start: from, p_days: span });
+    if (error) throw error;
+    const ids = ((w && w.entries) || []).filter((e) => e.booking_id === id && e.kind === "job" && uids.includes(e.user_id)).map((e) => e.id);
+    for (const eid of ids) { const { error: e2 } = await sb.rpc("schedule_remove", { p_id: eid }); if (e2) throw e2; }
+    return ids.length;
+  }
+
   // ---- Book a job / Edit booking
   // presetOrg ({ id, name, town }): Book a job from an organization's page starts with it picked (2026-10-23).
   async function openForm(existing, presetOrg) {
@@ -411,22 +473,26 @@
     const d = existing || {};
     let org = isNew ? null : { id: d.org_id, name: d.org_name, town: d.org_town };
     let contacts = isNew ? [] : (d.org_contacts || []);
-    let typeKey = d.type_key || (types[0] && types[0].key) || "";
+    let typeKey = d.type_key || (types[0] && types[0].key) || "", typeTouched = !isNew;
     const chosen = new Set(isNew ? [] : (d.contact_ids || []));
+    // The organization link opens its page in this tab; the form closes (it can be reopened there).
+    const orgLinkHtml = (o) => '<a href="#partners/org/' + esc(o.id) + '" class="bk-sub" data-v="orglink">open organization</a>';
+    const canCrew = canEdit("scheduling") && typeof Schedule !== "undefined";
     const box = dialog(`
       <div class="bk-fhead"><h2>${isNew ? "Book a job" : "Edit booking"}</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">\u2715</button></div>
       <div class="og-grid">
         <label>Organization</label>
         <div>
-          <div class="bk-orgpick" id="aca-bkOrgPick">${org ? '<strong>' + esc(org.name) + '</strong> <a href="#partners/org/' + esc(org.id) + '" class="bk-sub" target="_blank" rel="noopener">open organization</a>' + (isNew ? ' <button type="button" class="link" data-v="changeorg">change</button>' : "") : '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'}</div>
+          <div class="bk-orgpick" id="aca-bkOrgPick">${org ? '<strong>' + esc(org.name) + '</strong> ' + orgLinkHtml(org) + (isNew ? ' <button type="button" class="link" data-v="changeorg">change</button>' : "") : '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'}</div>
           <div class="bk-orgs hidden" id="aca-bkOrgList"></div>
         </div>
         <label>Job type${isNew ? "" : ' <span class="bk-sub">(fixed once booked)</span>'}</label>
         <div class="bk-cards" id="aca-bkTypes">${types.map((t) => '<label class="bk-card' + (t.key === typeKey ? " sel" : "") + (isNew || t.key === typeKey ? "" : " hidden") + '"><input type="radio" name="bkType" value="' + esc(t.key) + '"' + (t.key === typeKey ? " checked" : "") + (isNew ? "" : " disabled") + ' /><strong>' + esc(t.label) + "</strong><span>" + esc(t.description) + "</span></label>").join("")}</div>
         <label>Picture day${(d.days || []).length > 1 ? "s" : ""}</label>
-        <div><div id="aca-bkDays"></div>
+        <div><div class="bk-dayhead" aria-hidden="true"><span>Day</span><span class="t">Start</span><span class="to"></span><span class="t">End</span><span>Label</span></div><div id="aca-bkDays"></div>
           <button type="button" class="link" data-v="addday" style="margin-top:6px">+ Add another day</button>
-          <div class="bk-sub" style="margin-top:4px">Times can wait: emails that mention one hold until it is set. Label a day only when each day is a different group.</div></div>
+          <div class="bk-sub" style="margin-top:4px">Times can wait: emails that mention one hold until it is set. Label a day only when each day is a different group.</div>
+          <div class="bk-move-note hidden" id="aca-bkMoveNote" role="status"></div></div>
         <label>Calendar title</label>
         <div><div class="bk-chips" id="aca-bkLabels"></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px"><input type="text" id="aca-bkTitle" placeholder="Or type your own, e.g. Football" value="${esc(ovParts(d).text)}" style="flex:1;min-width:200px" />
@@ -436,9 +502,9 @@
         <label for="aca-bkLoc">Location</label>
         <div class="bk-loc"><input type="text" id="aca-bkLoc" value="${esc(d.location || "")}" placeholder="Search Google Maps or type where we set up" style="width:100%" />
           <div class="bk-sub" id="aca-bkLocNote" style="margin-top:4px"></div></div>
-        ${isNew && canEdit("scheduling") ? `<label>Who's shooting</label>
+        ${canCrew && d.status !== "tracked" ? `<label>Who's shooting</label>
         <div><details class="bk-crew-dd" id="aca-bkCrewDd"><summary id="aca-bkCrewSum">Nobody yet</summary><div class="bk-contacts" id="aca-bkCrew"><span class="bk-sub">Loading the team&#8230;</span></div></details>
-          <div class="bk-sub">Optional. They go on the Schedule for each day with a time (with drive time when it can be looked up).</div></div>` : ""}
+          <div class="bk-sub">${isNew ? "Optional. They go on the Schedule for each day with a time (with drive time when it can be looked up)." : "Tick to add someone to every day with a time; untick to take them off this job. Change one person's times on the Schedule."}</div></div>` : ""}
         <label>Who gets the emails</label>
         <div><div class="bk-contacts" id="aca-bkContacts"><span class="bk-sub">Pick an organization first.</span></div>
           <div class="bk-addc hidden" id="aca-bkAddC"><input type="text" id="aca-bkCFirst" placeholder="First" /><input type="text" id="aca-bkCLast" placeholder="Last" /><input type="email" id="aca-bkCEmail" placeholder="email@school.org" /><input type="text" id="aca-bkCRole" placeholder="Role (AD, secretary)" /><button type="button" class="small" data-v="addc">Add</button></div>
@@ -502,6 +568,7 @@
       const t = ov ? (el("bkKeepOrg").checked ? (org ? org.name : "(organization)") + " \u2022 " + ov : ov) : [org ? org.name : "(organization)", pickedLabel() || byType(typeKey).label].join(" \u2022 ");
       box2.innerHTML = "On the calendar: <strong>" + esc(t) + "</strong>" + (dayRows.length > 1 ? ' <span class="muted">(each extra day adds its own label after it)</span>' : "");
       const gp = el("bkGp"), day = firstDay();
+      if (gp && !isNew) { gp.innerHTML = ""; return; }
       if (gp) gp.innerHTML = org && day ? gpCreateBlock({ org_name: org.name, title_label: pickedLabel(), type_key: typeKey, type_label: byType(typeKey).label, picture_day: day })
         : '<div class="bk-sub" style="margin-top:6px">Pick the organization and the day to get the GotPhoto link.</div>';
     }
@@ -555,9 +622,28 @@
       el("bkPrev").innerHTML = '<button type="button" class="bk-mailtog" data-v="prevfold" aria-expanded="' + !folded + '"><span class="sl-chev"></span> ' + items.length + " email" + (items.length === 1 ? "" : "s") + "</button> to " + (n || "no") + " contact" + (n === 1 ? "" : "s") + (n > 1 ? " (first one To, the rest Cc)" : "") + '<div class="bk-prevbody"><ul>' + items.map((x) => x.h).join("") + "</ul>" +
         (isSchool() ? '<div style="margin-top:6px"><strong>Hub:</strong> ' + (el("bkCode").value.trim() ? "school row + reminder signups are created now." : "school row is created when you add the access code.") + "</div>" : "") + "</div>";
     }
+    // Pick a job type as if it was clicked.
+    function setType(k) {
+      if (!k || k === typeKey) return;
+      typeKey = k;
+      box.querySelectorAll('#aca-bkTypes input[name="bkType"]').forEach((x) => { x.checked = x.value === k; });
+      box.querySelectorAll(".bk-card").forEach((c) => c.classList.toggle("sel", c.querySelector("input").checked));
+      renderLabels(); renderPreview(); renderFormDlv();
+    }
+    // A league gets the first sports type, a school the school type, unless a type was already clicked (2026-10-24).
+    async function typeForOrg(o) {
+      if (!isNew || typeTouched) return;
+      let aud = o.audience;
+      if (aud === undefined) { try { const { data } = await sb.from("prospect_orgs").select("audience").eq("id", o.id).maybeSingle(); aud = data && data.audience; } catch (_e) { aud = null; } }
+      if (typeTouched || org !== o || !aud) return;
+      const want = aud === "school" ? "school" : "sports";
+      const hit = types.find((t) => t.audience === want);
+      if (hit) setType(hit.key);
+    }
     async function pickOrg(o) {
       org = o; chosen.clear();
-      el("bkOrgPick").innerHTML = "<strong>" + esc(o.name) + '</strong> <a href="#partners/org/' + esc(o.id) + '" class="bk-sub" target="_blank" rel="noopener">open organization</a> <button type="button" class="link" data-v="changeorg">change</button>';
+      typeForOrg(o);
+      el("bkOrgPick").innerHTML = "<strong>" + esc(o.name) + "</strong> " + orgLinkHtml(o) + ' <button type="button" class="link" data-v="changeorg">change</button>';
       el("bkOrgList").classList.add("hidden");
       if (!el("bkLoc").value) { el("bkLoc").value = o.town || ""; el("bkLoc").dataset.auto = "1"; }
       // Last time's place, when we have been there before.
@@ -571,6 +657,33 @@
       contacts.forEach((c) => { if (c.is_primary && c.emailable) chosen.add(c.id); });
       if (!chosen.size) contacts.filter((c) => c.emailable).forEach((c) => chosen.add(c.id));
       renderContacts(); renderPreview();
+      if (!contacts.length && o.added) { el("bkAddC").classList.remove("hidden"); el("bkAddCBtn").classList.add("hidden"); }
+    }
+    // "Add 'Lincoln Lacrosse' as a new league" right in the picker (2026-10-24): the partner is created and picked.
+    // Uses Orgs.quickAdd when the Partners page offers it; otherwise the same insert as its Add dialog.
+    const newKind = () => (byType(typeKey).audience === "school" ? "school" : "league");
+    const townOf = (loc) => { const p = String(loc || "").split(",").map((x) => x.trim()).filter(Boolean); return p.length >= 3 ? p[p.length - 2] : p[0] || ""; };
+    async function addOrg(name, btn) {
+      name = String(name || "").trim(); if (!name) return;
+      const aud = newKind(), town = townOf(el("bkLoc").value) || null;
+      btn.disabled = true;
+      try {
+        let o = null;
+        if (typeof Orgs !== "undefined" && typeof Orgs.quickAdd === "function") {
+          const res = await Orgs.quickAdd({ name, audience: aud, town, source: "Book a job" });
+          const row = res && (res.data || res);
+          if (res && res.error) throw res.error;
+          if (row && row.id) o = { id: row.id, name: row.name || name, town: row.town === undefined ? town : row.town, audience: row.audience || aud };
+        }
+        if (!o) {
+          const { data, error } = await sb.from("prospect_orgs").insert({ name, audience: aud, sports: [], town, source: "Book a job" }).select("id, name, town, audience").single();
+          if (error) throw error;
+          o = { id: data.id, name: data.name || name, town: data.town === undefined ? town : data.town, audience: data.audience || aud };
+        }
+        o.added = true;
+        toast("Added " + o.name + " as a new " + aud + ".");
+        await pickOrg(o);
+      } catch (e2) { btn.disabled = false; err(/duplicate|unique/i.test(cleanErr(e2)) ? "There is already a partner with that name. Pick it from the list." : cleanErr(e2)); }
     }
     Places.attach(el("bkLoc"), { note: el("bkLocNote"), hint: "Goes on the calendar event and is used for drive times." });
     let searchTimer = null;
@@ -581,26 +694,32 @@
         if (q.length < 2) { el("bkOrgList").classList.add("hidden"); return; }
         searchTimer = setTimeout(async () => {
           const { data } = await sb.from("prospect_orgs").select("id, name, town, stage, audience").ilike("search_text", "%" + q.replace(/[%_]/g, "") + "%").order("name").limit(12);
-          const list = el("bkOrgList"); list.classList.remove("hidden");
-          list.innerHTML = (data || []).map((o) => '<button type="button" data-org="' + esc(o.id) + '"><strong>' + esc(o.name) + "</strong>" + (o.town ? ' <span class="bk-sub">' + esc(o.town) + "</span>" : "") + (o.stage === "client" ? ' <span class="pill ok">Client</span>' : "") + "</button>").join("") ||
-            '<div class="empty">No match. Add the organization on the Organizations page first.</div>';
+          const list = el("bkOrgList"); if (!el("bkOrgQ") || el("bkOrgQ").value.trim() !== q) return; // typed on since
+          list.classList.remove("hidden");
+          const exact = (data || []).some((o) => o.name.trim().toLowerCase() === q.toLowerCase());
+          list.innerHTML = (data || []).map((o) => '<button type="button" data-org="' + esc(o.id) + '"><strong>' + esc(o.name) + "</strong>" + (o.town ? ' <span class="bk-sub">' + esc(o.town) + "</span>" : "") + (o.stage === "client" ? ' <span class="pill ok">Client</span>' : "") + "</button>").join("") +
+            (exact ? "" : '<button type="button" class="bk-addorg" data-addorg="' + esc(q) + '">' + ((data || []).length ? "" : '<span class="bk-sub">No match. </span>') + "+ Add <strong>&lsquo;" + esc(q) + "&rsquo;</strong> as a new " + newKind() + "</button>");
           list.querySelectorAll("button[data-org]").forEach((b) => b.addEventListener("click", () => pickOrg((data || []).find((o) => o.id === b.dataset.org))));
+          const add = list.querySelector("button[data-addorg]"); if (add) add.addEventListener("click", () => addOrg(add.dataset.addorg, add));
         }, 220);
       }
       if (["aca-bkCode", "aca-bkRetake"].includes(e.target.id) || e.target.classList.contains("bk-d-day") || e.target.classList.contains("bk-d-label")) renderPreview();
+      if (e.target.closest && e.target.closest("#aca-bkDays")) renderMoveNote();
       if (e.target.id === "aca-bkTitle" || e.target.id === "aca-bkKeepOrg") renderTitle();
     });
     box.addEventListener("change", (e) => {
       if (e.target.name === "bkType") {
-        typeKey = e.target.value;
+        typeKey = e.target.value; typeTouched = true;
         box.querySelectorAll(".bk-card").forEach((c) => c.classList.toggle("sel", c.querySelector("input").checked));
         renderLabels(); renderPreview(); renderFormDlv();
       }
       if (e.target.dataset && e.target.dataset.fdt) { if (e.target.checked) fdPicked.add(e.target.dataset.fdt); else fdPicked.delete(e.target.dataset.fdt); }
       if (e.target.dataset && e.target.dataset.fdn) { if (!e.target.checked) { fdNew.splice(Number(e.target.dataset.fdn), 1); renderFormDlv(); } }
       if (e.target.dataset && e.target.dataset.cid) { if (e.target.checked) chosen.add(e.target.dataset.cid); else chosen.delete(e.target.dataset.cid); renderPreview(); }
+      if (e.target.closest && e.target.closest("#aca-bkDays")) renderMoveNote();
     });
     box.addEventListener("click", async (e) => {
+      if (e.target.closest('a[data-v="orglink"]')) { box.close(); return; }
       const lb = e.target.closest("button[data-label]");
       if (lb) { el("bkLabels").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === lb ? "true" : "false")); renderTitle(); return; }
       const b = e.target.closest("button[data-v]"); if (!b) return;
@@ -609,7 +728,7 @@
       if (v === "prevfold") { const open = el("bkPrev").classList.toggle("folded") === false; b.setAttribute("aria-expanded", String(open)); try { localStorage.setItem("aca-bkformmail", open ? "open" : "closed"); } catch (e2) {} return; }
       if (v === "copyname") { try { await navigator.clipboard.writeText(b.dataset.name); b.textContent = "copied"; setTimeout(() => { b.textContent = "copy"; }, 1500); } catch (er) { toast("Couldn't copy: " + b.dataset.name, true); } return; }
       if (v === "addday") { readDays(); dayRows.push({ day: "", start_time: "", end_time: "", label: "" }); renderDays(); return; }
-      if (v === "rmday") { const i = Number(b.dataset.i); if (dayRows.length > 1) { readDays(); dayRows.splice(i, 1); renderDays(); renderPreview(); } return; }
+      if (v === "rmday") { const i = Number(b.dataset.i); if (dayRows.length > 1) { readDays(); dayRows.splice(i, 1); renderDays(); renderPreview(); renderMoveNote(); } return; }
       if (v === "changeorg") { org = null; contacts = []; chosen.clear(); el("bkOrgPick").innerHTML = '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'; renderContacts(); el("bkOrgQ").focus(); return; }
       if (v === "fdlvadd") {
         const l = el("bkFDlvNew").value.trim(); if (!l) return;
@@ -650,28 +769,66 @@
           const { data, error } = isNew ? await sb.rpc("booking_create", { p }) : await sb.rpc("booking_update", { p_id: d.id, p });
           if (error) throw error;
           const typed = isNew ? el("bkFDlvNew").value.trim() : "";
-          const crew = el("bkCrew") ? [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.value) : [];
+          const ticked = el("bkCrew") && crewReady ? [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.value) : [];
+          // New: everyone ticked goes on. Edit: the ticked people who weren't on it go on, the unticked come off.
+          const crew = isNew || !crewNow ? (isNew ? ticked : []) : ticked.filter((u) => !crewNow.some((c) => c.user_id === u));
+          const crewOff = !isNew && crewNow && crewReady ? crewNow.filter((c) => !ticked.includes(c.user_id)).map((c) => c.user_id) : [];
+          const moved = !isNew && dayKey(days) !== dayKey(origDays);
           const items = isNew ? [...fdPicked].map((id) => ({ template_id: id })).concat(fdNew.concat(typed ? [typed] : []).map((label) => ({ label, save: el("bkFDlvSave").checked }))) : [];
           box.close();
           let dlvErr = "";
           if (items.length) { try { await addDeliverables(data.id, items); } catch (e3) { dlvErr = cleanErr(e3); } }
           let crewMsg = "";
+          if (crewOff.length) {
+            try { const n = await takeOff(d.id, crewOff, days, origDays); crewMsg += n ? " Took " + crewOff.length + (crewOff.length === 1 ? " person" : " people") + " off the job." : ""; }
+            catch (e5) { crewMsg += " The crew was not changed: " + cleanErr(e5) + "."; }
+          }
           if (crew.length) {
             try {
               const sr = await Schedule.staffBooking(data.id, days[0].day, days[days.length - 1].day, crew);
               crewMsg = sr.untimed.length ? " " + (sr.added ? "On the schedule for the days with a time; " : "") + "add the crew on the Schedule once " + sr.untimed.map(fmtDay).join(", ") + (sr.untimed.length > 1 ? " have times." : " has a time.") : " Crew is on the schedule.";
             } catch (e4) { crewMsg = " The crew was not put on the schedule: " + cleanErr(e4) + "."; }
           }
-          toast((dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event\u2026" : "Saved.") + crewMsg, !!dlvErr || /not put/.test(crewMsg));
-          await load(true);
-          openDetail(isNew ? data.id : d.id, true);
+          toast((dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event\u2026" :
+            "Saved." + (moved ? " The Schedule, the calendar event and the unsent emails move with it." : "")) + crewMsg, !!dlvErr || /not put|not changed/.test(crewMsg));
+          // After booking, the new job's page (its trail leads back to the partner); after an edit, the page you were on.
+          if (isNew) { pollNew = data.id; await load(true); openJob(data.id, "booking"); }
+          else { load(true); if (typeof JobPage !== "undefined" && currentTab === "job") JobPage.reload(); }
         } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
       }
     });
     box.addEventListener("click", (e) => { const dd = el("bkCrewDd"); if (dd && dd.open && !dd.contains(e.target)) dd.open = false; });
     renderLabels(); renderDays(); renderFormDlv();
-    if (el("bkCrew")) Schedule.team().then((ppl) => {
-      el("bkCrew").innerHTML = ppl.length ? ppl.map((x) => '<label class="bk-contact"><input type="checkbox" class="bk-crew" value="' + esc(x.user_id) + '" data-name="' + esc(x.name) + '" /> ' + esc(x.name) + "</label>").join("") : '<span class="bk-sub">Nobody on the team yet.</span>';
+    // Edit: the crew as it is now (the job page's data) and the days as they were, for the "what moves" note.
+    let crewNow = null, crewReady = false;
+    const origDays = isNew ? [] : readDays();
+    const crewLoad = isNew ? Promise.resolve() : sb.rpc("job_get", { p_booking: d.id }).then(({ data }) => {
+      const seen = new Set();
+      crewNow = ((data && data.crew) || []).filter((c) => c.user_id && !seen.has(c.user_id) && seen.add(c.user_id)).map((c) => ({ user_id: c.user_id, name: c.name }));
+      renderMoveNote();
+    }, () => {});
+    function renderMoveNote() {
+      const note = el("bkMoveNote"); if (!note || isNew) return;
+      const now = readDays(), dayMoved = dayKey(now, true) !== dayKey(origDays, true), timeMoved = !dayMoved && dayKey(now) !== dayKey(origDays);
+      if (!now.length || (!dayMoved && !timeMoved)) { note.classList.add("hidden"); return; }
+      const unsent = (d.emails || []).filter((e) => ["scheduled", "waiting", "failed"].includes(e.status)).length;
+      const sent = (d.emails || []).filter((e) => e.status === "sent").length;
+      const names = (crewNow || []).map((c) => shortNm(c.name));
+      const bits = dayMoved ? [
+        names.length ? "the crew on the Schedule (" + esc(names.join(", ")) + ") moves to the new day with the same times, and they're asked to confirm again" : "nobody is on the Schedule for it yet",
+        "the Google Calendar event moves",
+        unsent ? unsent + " email" + (unsent === 1 ? " that hasn't" : "s that haven't") + " gone out yet " + (unsent === 1 ? "is" : "are") + " rescheduled from the new day" : "no emails are waiting to go out",
+        "checklist steps keep their spacing from picture day"] : [
+        "the Google Calendar event and emails that mention the time follow",
+        names.length ? "the crew's times on the Schedule stay as they are, so check them there" : "nobody is on the Schedule for it yet"];
+      note.innerHTML = "<strong>" + (dayMoved ? "Moving the day:" : "Changing the time:") + "</strong> " + bits.join("; ") + "." + (dayMoved && sent ? " Emails already sent stay sent." : "");
+      note.classList.remove("hidden");
+    } Promise.all([Schedule.team(), crewLoad]).then(([ppl]) => {
+      const on = (uid) => !!(crewNow && crewNow.some((c) => c.user_id === uid));
+      // Someone on the job who isn't on the team list any more still shows, so unticking them works.
+      (crewNow || []).forEach((c) => { if (!ppl.some((x) => x.user_id === c.user_id)) ppl = ppl.concat([{ user_id: c.user_id, name: c.name }]); });
+      el("bkCrew").innerHTML = ppl.length ? ppl.map((x) => '<label class="bk-contact"><input type="checkbox" class="bk-crew" value="' + esc(x.user_id) + '" data-name="' + esc(x.name) + '"' + (on(x.user_id) ? " checked" : "") + " /> " + esc(x.name) + "</label>").join("") : '<span class="bk-sub">Nobody on the team yet.</span>';
+      crewReady = true;
       const sync = () => {
         const names = [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.dataset.name);
         el("bkCrewSum").textContent = names.length ? names.join(", ") : "Nobody yet";
@@ -697,7 +854,7 @@
           });
         } catch (_e) { noted = ""; }
       });
-    }).catch(() => { el("bkCrew").innerHTML = '<span class="bk-sub">Could not load the team. Add people on the Schedule after booking.</span>'; });
+    }).catch(() => { el("bkCrew").innerHTML = '<span class="bk-sub">Could not load the team. ' + (isNew ? "Add people on the Schedule after booking." : "Change the crew on the Schedule.") + "</span>"; });
     if (!isNew) { renderContacts(); renderPreview(); }
     else if (presetOrg) { renderPreview(); pickOrg(presetOrg); }
     else { renderPreview(); setTimeout(() => { const q = el("bkOrgQ"); if (q) q.focus(); }, 50); }
@@ -775,7 +932,7 @@
       if (v === "close") { if (dirty && can && !confirm("Close without saving your changes?")) return; return box.close(); }
       if (v === "save") {
         clearError("bkJtErr"); b.disabled = true;
-        try { await save(); await loadTracking(); toast("Saved."); pick(tk); render(); if (openId) refreshDetail(); }
+        try { await save(); await loadTracking(); toast("Saved."); pick(tk); render(); if (host && host.isConnected) refreshDetail(); }
         catch (e2) { showError("bkJtErr", /duplicate key|unique/i.test(cleanErr(e2)) ? "Two saved deliverables have the same name." : cleanErr(e2)); }
         b.disabled = false; return;
       }
@@ -791,42 +948,83 @@
     pick(tk);
   }
   el("bkJobTypes").addEventListener("click", openJobTypes);
-  el("bkTrack").addEventListener("click", () => openTrack());
+  el("bkTrack").addEventListener("click", () => { menu(false); openTrack(); });
+  const menu = (on) => { el("bkMenu").classList.toggle("hidden", !on); el("bkMore").setAttribute("aria-expanded", String(on)); };
+  el("bkMore").addEventListener("click", (e) => { e.stopPropagation(); menu(el("bkMenu").classList.contains("hidden")); });
+  document.addEventListener("click", (e) => { if (!e.target.closest("#aca-bkMoreWrap")) menu(false); });
 
-  // ---- detail panel
-  let detail = null;
-  async function openDetail(id, poll) {
+  // ---- one job screen (2026-10-24). Every way into a job opens its page (jobpage.js). What used to be this
+  // page's side panel is the job page's Booking tab (mountTab below); All jobs keeps a short preview with Open.
+  function openJob(id, tab, replace) {
+    if (openId) closeDetail();
+    const h = jobLink(id, tab);
+    if (replace) history.replaceState(null, "", h); else history.pushState(null, "", h);
+    showTab("job");
+  }
+  // The short preview on All jobs: what the row says, bigger, and Open.
+  function openDetail(id) {
+    const b = rows.find((r) => r.id === id);
+    if (!b) { openJob(id); return; }
     openId = id;
     const panel = el("bkPanel");
     panel.classList.remove("hidden");
     if (window.innerWidth <= 900) { document.documentElement.classList.add("aca-sheet-open"); document.body.classList.add("aca-sheet-open"); }
     Orgs.measureTop();
-    panel.innerHTML = '<div class="empty"><span class="spin"></span>Loading\u2026</div>';
-    const hash = "#jobs/bookings/" + id;
-    if (location.hash !== hash) history.replaceState(null, "", hash);
-    await refreshDetail();
-    clearTimeout(pollTimer);
-    if (poll || (detail && detail.calendar_status === "pending")) {
-      let n = 0;
-      const tick = async () => { if (openId !== id) return; await refreshDetail(); if (detail && detail.calendar_status !== "pending" || ++n > 12) { load(true); return; } pollTimer = setTimeout(tick, 2500); };
-      pollTimer = setTimeout(tick, 2500);
-    }
+    const who = (b.contacts || []).map((c) => esc(c.name || c.email)).join(", ");
+    panel.innerHTML = '<div class="bk-sec bk-pv" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">' +
+        '<div><h3 style="font-size:15px">' + esc(b.title) + '</h3><div class="bk-sub">' + daysLine(b) + " · " + esc(b.type_label || "") + (b.status !== "booked" ? ' · <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>" : "") + "</div>" +
+        '<div class="bk-sub"><a href="#partners/org/' + esc(b.org_id) + '">' + esc(b.org_name || "") + "</a>" + (b.location ? " · " + esc(b.location) : "") + "</div></div>" +
+        '<button type="button" data-v="close" aria-label="Close">✕</button></div>' +
+      '<div class="bk-sec"><div class="bk-facts">' +
+        (b.status === "cancelled" ? "" : "<span>Stage</span><span>" + stageCell(b) + "</span>") +
+        "<span>Emails</span><span>" + mailSummary(b) + "</span>" +
+        "<span>Calendar</span><span>" + calPill(b) + "</span>" +
+        "<span>Contacts</span><span>" + (who || (b.status === "tracked" ? "&mdash;" : '<span class="pill err">no contact</span>')) + "</span></div></div>" +
+      '<div class="bk-sec bk-pv-acts"><a class="primary" href="' + esc(jobLink(id)) + '" data-v="open">Open</a><button type="button" data-v="close">Close</button></div>';
   }
+  el("bkPanel").addEventListener("click", (e) => {
+    if (e.target.closest('[data-v="close"]')) { closeDetail(); return; }
+    if (e.target.closest('a[data-v="open"]')) { e.preventDefault(); openJob(openId); }
+  });
   function closeDetail() {
     document.documentElement.classList.remove("aca-sheet-open"); document.body.classList.remove("aca-sheet-open");
-    openId = null; clearTimeout(pollTimer);
+    openId = null;
     el("bkPanel").classList.add("hidden");
     if (/^#jobs\/bookings\//.test(location.hash)) history.replaceState(null, "", "#jobs/bookings");
   }
-  let tracking = null;
+
+  // ---- the job page's Booking tab: stage, deliverables, calendar, GotPhoto / hub, coaches, contacts, emails.
+  // Other modules add a section with Bookings.addSection({ id, after: "contacts", html: (b, ctx) => "...", wire: (box, b, ctx) => {} })
+  // (b = admin_booking_detail, ctx = { live, refresh }); `after` names a built-in section: stage, deliverables, calendar,
+  // gotphoto, coaches, contacts, emails (default contacts).
+  const extraSections = [];
+  let host = null, tabId = null, detail = null, tracking = null, pollNew = null;
+  async function mountTab(box, id) {
+    box.innerHTML = '<div class="bk-tab" id="aca-bkDetail"><div class="empty"><span class="spin"></span>Loading…</div></div>';
+    const me = box.firstElementChild;
+    host = me; tabId = id; detail = null;
+    wireHost(me);
+    await refreshDetail();
+    clearTimeout(pollTimer);
+    const poll = pollNew === id; pollNew = null;
+    if (poll || (detail && detail.calendar_status === "pending")) {
+      let n = 0;
+      const tick = async () => { if (host !== me || !me.isConnected) return; await refreshDetail(); if ((detail && detail.calendar_status !== "pending") || ++n > 12) { load(true); return; } pollTimer = setTimeout(tick, 2500); };
+      pollTimer = setTimeout(tick, 2500);
+    }
+  }
   async function refreshDetail() {
-    const [{ data, error }, tr] = await Promise.all([sb.rpc("admin_booking_detail", { p_id: openId }), sb.rpc("admin_booking_tracking", { p_id: openId })]);
+    const me = host, id = tabId; if (!me) return;
+    const [{ data, error }, tr] = await Promise.all([sb.rpc("admin_booking_detail", { p_id: id }), sb.rpc("admin_booking_tracking", { p_id: id })]);
+    if (host !== me) return;
     tracking = tr.error ? null : tr.data;
-    if (error || !data) { el("bkPanel").innerHTML = '<div class="inline-error" style="margin:16px">' + esc(error ? cleanErr(error) : "Booking not found.") + '</div><div style="padding:0 16px"><button type="button" data-v="close">Close</button></div>'; return; }
+    if (error || !data) { me.innerHTML = '<div class="inline-error" style="margin:16px 0">' + esc(error ? cleanErr(error) : "Booking not found.") + "</div>"; return; }
     detail = data; renderDetail();
   }
+  // Stage moves and cancelling change the job page's header too, so the whole page reloads.
+  const reloadJob = () => { if (typeof JobPage !== "undefined" && currentTab === "job") return JobPage.reload(); return refreshDetail(); };
   const statusPill = (e) => {
-    const m = { scheduled: ["muted", "Scheduled"], waiting: ["warn", "Waiting"], sending: ["accent", "Sending\u2026"], sent: ["ok", "Sent"], skipped: ["muted", "Skipped"], failed: ["err", "Failed"], cancelled: ["muted", "Cancelled"] };
+    const m = { scheduled: ["muted", "Scheduled"], waiting: ["warn", "Waiting"], sending: ["accent", "Sending…"], sent: ["ok", "Sent"], skipped: ["muted", "Skipped"], failed: ["err", "Failed"], cancelled: ["muted", "Cancelled"] };
     const [c, t] = m[e.status] || ["muted", e.status]; return '<span class="pill ' + c + '">' + t + "</span>";
   };
   function renderDetail() {
@@ -840,42 +1038,49 @@
     const when = (e) => e.sent_at || e.send_at || null;
     // one timeline: admin emails and hub reminders together, in the order the client receives them
     const emails = (b.emails || []).slice().sort((x, y) => (when(x) && when(y) ? String(when(x)).localeCompare(String(when(y))) : 0) || rank(x) - rank(y) || (x.step_no || 0) - (y.step_no || 0));
-    el("bkPanel").innerHTML = `
-      <div class="bk-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-        <div><h3 style="font-size:15px">${esc(b.title)}</h3>
-          <div class="bk-sub">${daysLine(b)} \u00b7 ${esc(b.type_label)}${b.status !== "booked" ? ' \u00b7 <span class="pill muted">' + esc(tracked ? "tracking only" : b.status) + "</span>" : ""}</div>
-          ${b.time_set === false && live ? '<div class="bk-sub" style="margin-top:6px"><span class="pill warn">time not set</span> Emails that mention the time are waiting. <button type="button" class="small" data-v="edit">Set the times</button></div>' : ""}
-          <div class="bk-sub"><a href="#partners/org/${esc(b.org_id)}">${esc(b.org_name)}</a>${b.location ? " \u00b7 " + esc(b.location) : ""}</div></div>
-        <div style="display:flex;gap:6px;flex:0 0 auto"><a class="small" href="${jobLink(b.id)}" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:4px">Job page</a>${live ? '<button type="button" class="small" data-v="edit">Edit</button>' : ""}<button type="button" data-v="close" aria-label="Close">\u2715</button></div>
-      </div>
-      ${stageBlock(b)}
-      ${dlvBlock(b)}
-      ${tracked ? trackedBlock(b) : `
-      <div class="bk-sec"><h3>Calendar</h3>
+    const can = canEdit("bookings");
+    const parts = [];
+    if (b.time_set === false && live) parts.push(["time", '<div class="bk-sec"><span class="pill warn">time not set</span> <span class="bk-sub">Emails that mention the time are waiting. Set the times with Edit booking at the top.</span></div>']);
+    parts.push(["stage", stageBlock(b)], ["deliverables", dlvBlock(b)]);
+    if (tracked) parts.push(["tracked", trackedBlock(b)]);
+    else {
+      parts.push(["calendar", `<div class="bk-sec"><h3>Calendar</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${calPill(b)}${calBtns.join("")}</div>
         ${b.calendar_error ? '<div class="bk-sub" style="margin-top:6px;color:var(--err-fg)">' + esc(b.calendar_error) + "</div>" : ""}
         ${b.calendar_status === "pending" && !b.google_event_id ? '<div class="bk-sub" style="margin-top:6px">The event is written by the calendar function within a minute. If this never changes, the Google service account is not set up yet (see the to-do list).</div>' : ""}
-      </div>
-      ${!isSchool ? '<div class="bk-sec"><h3>GotPhoto job (sports hub)</h3>' + (b.gotphoto_job ? '<div class="bk-sub">Linked to <strong>' + esc(b.gotphoto_job.name) + '</strong> (' + esc(b.gotphoto_job.status || "") + '). The team shows on 207photo.com/sportsadmin.' + (live ? ' <button type="button" class="link" data-v="unlinkjob">unlink</button>' : "") + "</div>" :
-        (live ? '<div class="bk-sub">Not linked yet, so email 0 waits (the hub lists teams from GotPhoto jobs). Once the job exists in GotPhoto it links itself within 5 minutes, or pick it here.</div>' + gpCreateBlock(b) +
-          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><select id="aca-bkDJob" class="small" style="max-width:360px"><option value="">' + ((b.job_candidates || []).length ? "Pick the GotPhoto job\u2026" : "No matching job in the sync yet") + '</option>' +
-          (b.job_candidates || []).map((j) => '<option value="' + esc(j.gotphoto_job_id) + '">' + esc(j.name) + (j.picture_day ? " (" + esc(fmtDay(j.picture_day)) + ")" : "") + "</option>").join("") + '</select><button type="button" class="small primary" data-v="linkjob">Link</button></div>' : '<div class="bk-sub">No GotPhoto job linked.</div>')) + "</div>" : ""}
-      ${isSchool ? '<div class="bk-sec"><h3>School hub</h3>' + (b.hub_school ? '<div class="bk-sub">On 207photo.com/schooladmin as <strong>' + esc(b.hub_school.name) + "</strong>, code <strong>" + esc(b.hub_school.access_code) + "</strong>" + (b.hub_school.retake_day ? ", retake " + esc(fmtDay(b.hub_school.retake_day)) : "") + ". Reminder signups were added for the contacts.</div>" + hubRowTools(b.hub_school) :
-        (live ? '<div class="bk-sub">Not on the hub yet. Email 0 waits until the school exists there. Create the job in GotPhoto first, then enter its access code here.</div>' + gpCreateBlock(b) + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkDCode" placeholder="GotPhoto access code" style="width:170px" /><input type="date" id="aca-bkDRetake" title="Retake day (optional)" /><button type="button" class="small primary" data-v="setcode">Create on the hub</button></div>' : '<div class="bk-sub">Not on the hub.</div>')) + "</div>" : ""}
-      ${!isSchool ? '<div class="bk-sec"><h3>Coaches</h3>' + coachesBlock(b, live) + "</div>" : ""}
-      <div class="bk-sec"><h3>Contacts</h3>${(b.contacts || []).map((c) => "<div>" + esc(c.name || "") + ' <span class="bk-sub">' + esc(c.email || "") + "</span></div>").join("") || '<span class="pill err">Nobody to email</span>'}</div>
-      <div class="bk-sec bk-mailsec${mailFolded ? " folded" : ""}"><h3><button type="button" class="bk-mailtog" data-v="mailfold" aria-expanded="${!mailFolded}"><span class="sl-chev"></span> Emails</button> <span class="bk-sub">${mailSummary(b)}</span></h3>
+      </div>`]);
+      // One GotPhoto block: the sports job link, or the school's hub row (each holds the one "Create the job in GotPhoto" link).
+      parts.push(["gotphoto", !isSchool ? '<div class="bk-sec"><h3>GotPhoto job (sports hub)</h3>' + (b.gotphoto_job ? '<div class="bk-sub">Linked to <strong>' + esc(b.gotphoto_job.name) + '</strong> (' + esc(b.gotphoto_job.status || "") + '). The team shows on 207photo.com/sportsadmin.' + (live && can ? ' <button type="button" class="link" data-v="unlinkjob">unlink</button>' : "") + "</div>" :
+        (live ? '<div class="bk-sub">Not linked yet, so email 0 waits (the hub lists teams from GotPhoto jobs). Once the job exists in GotPhoto it links itself within 5 minutes' + (can ? ", or pick it here." : ".") + "</div>" + gpCreateBlock(b) +
+          (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><select id="aca-bkDJob" class="small" style="max-width:360px"><option value="">' + ((b.job_candidates || []).length ? "Pick the GotPhoto job…" : "No matching job in the sync yet") + '</option>' +
+          (b.job_candidates || []).map((j) => '<option value="' + esc(j.gotphoto_job_id) + '">' + esc(j.name) + (j.picture_day ? " (" + esc(fmtDay(j.picture_day)) + ")" : "") + "</option>").join("") + '</select><button type="button" class="small primary" data-v="linkjob">Link</button></div>' : "") : '<div class="bk-sub">No GotPhoto job linked.</div>')) + "</div>"
+        : '<div class="bk-sec"><h3>School hub</h3>' + (b.hub_school ? '<div class="bk-sub">On 207photo.com/schooladmin as <strong>' + esc(b.hub_school.name) + "</strong>, code <strong>" + esc(b.hub_school.access_code) + "</strong>" + (b.hub_school.retake_day ? ", retake " + esc(fmtDay(b.hub_school.retake_day)) : "") + ". Reminder signups were added for the contacts.</div>" + (can ? hubRowTools(b.hub_school) : "") :
+        (live ? '<div class="bk-sub">Not on the hub yet. Email 0 waits until the school exists there. Create the job in GotPhoto first, then enter its access code here.</div>' + gpCreateBlock(b) + (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkDCode" placeholder="GotPhoto access code" style="width:170px" /><input type="date" id="aca-bkDRetake" title="Retake day (optional)" /><button type="button" class="small primary" data-v="setcode">Create on the hub</button></div>' : "") : '<div class="bk-sub">Not on the hub.</div>')) + "</div>"]);
+      if (!isSchool) parts.push(["coaches", '<div class="bk-sec"><h3>Coaches</h3>' + coachesBlock(b, live && can) + "</div>"]);
+      parts.push(["contacts", '<div class="bk-sec"><h3>Who gets the emails</h3>' + ((b.contacts || []).map((c) => "<div>" + esc(c.name || "") + ' <span class="bk-sub">' + esc(c.email || "") + "</span></div>").join("") || '<span class="pill err">Nobody to email</span>') + "</div>"]);
+      parts.push(["emails", `<div class="bk-sec bk-mailsec${mailFolded ? " folded" : ""}"><h3><button type="button" class="bk-mailtog" data-v="mailfold" aria-expanded="${!mailFolded}"><span class="sl-chev"></span> Emails</button> <span class="bk-sub">${mailSummary(b)}</span></h3>
         <div class="table-wrap bk-mailbody"><table class="bk-emails"><tbody>${emails.map((e, i) => '<tr><td><strong>' + esc((i + 1) + ". " + (e.label || "")) + ((b.days || []).length > 1 && e.day_index != null && b.days[e.day_index] ? " (" + esc(fmtDay(b.days[e.day_index].day)) + (b.days[e.day_index].label ? ", " + esc(b.days[e.day_index].label) : "") + ")" : "") + '</strong>' + (e.kind === "hub" ? ' <span class="pill accent">Hub</span>' : e.kind === "coach" ? ' <span class="pill accent">Coach</span>' : "") + (e.is_resend ? ' <span class="pill muted">resend</span>' : "") +
           '<div class="bk-sub">to ' + (e.kind === "coach" ? esc((e.to_emails || []).join(", ") || "the coaches on file (none yet)") : esc(e.to_name || "") + " " + esc(e.to_email || "")) + ((e.cc_emails || []).length ? ' <span class="muted">cc ' + esc((e.cc_emails || []).join(", ")) + "</span>" : "") + "</div>" +
           (e.status === "sent" ? '<div class="bk-sub">sent ' + esc(fmtWhen(e.sent_at)) + "</div>" : e.send_at && e.status === "scheduled" ? '<div class="bk-sub">' + esc(fmtWhen(e.send_at)) + "</div>" : "") +
           (e.reason && e.status !== "sent" ? '<div class="bk-sub">' + esc(e.reason) + "</div>" : "") + (e.error ? '<div class="bk-sub" style="color:var(--err-fg)">' + esc(e.error) + "</div>" : "") + "</td>" +
           "<td>" + statusPill(e) + "</td>" +
           '<td class="bk-act"><button type="button" class="small" data-em="' + esc(e.id) + '" data-v="preview">Preview</button>' +
-          (live && ["scheduled", "waiting", "failed", "skipped"].includes(e.status) ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="sendnow">Send now</button>' : "") +
-          (live && e.status === "sent" ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="resend">Resend</button>' : "") + "</td></tr>").join("") || '<tr><td class="empty">No emails.</td></tr>'}</tbody></table></div>
-      </div>`}
-      ${b.notes ? '<div class="bk-sec"><h3>Notes</h3><div style="white-space:pre-line;font-size:13px">' + esc(b.notes) + "</div></div>" : ""}
-      <div class="bk-sec og-actions">${live ? '<button type="button" class="primary" data-v="edit">Edit booking</button><button type="button" data-v="cancel" style="margin-left:auto">Cancel booking</button>' : ""}</div>`;
+          (live && can && ["scheduled", "waiting", "failed", "skipped"].includes(e.status) ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="sendnow">Send now</button>' : "") +
+          (live && can && e.status === "sent" ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="resend">Resend</button>' : "") + "</td></tr>").join("") || '<tr><td class="empty">No emails.</td></tr>'}</tbody></table></div>
+      </div>`]);
+    }
+    // Sections other modules add (team times and the like), each after the one it names.
+    const ctx = { live, refresh: () => refreshDetail() };
+    extraSections.forEach((x) => {
+      let html = ""; try { html = x.html(b, ctx) || ""; } catch (e2) { html = ""; }
+      if (!html) return;
+      const at = parts.findIndex((p) => p[0] === (x.after || "contacts"));
+      parts.splice(at < 0 ? parts.length : at + 1, 0, ["x:" + x.id, '<div data-xsec="' + esc(x.id) + '">' + html + "</div>"]);
+    });
+    // The one action that isn't Edit booking sits at the end of the tab (not floating over it).
+    if (live && can) parts.push(["actions", '<div class="bk-sec og-actions"><button type="button" data-v="cancel">Cancel booking</button></div>']);
+    host.innerHTML = parts.map((p) => p[1]).join("");
+    extraSections.forEach((x) => { const box = host.querySelector('[data-xsec="' + CSS.escape(x.id) + '"]'); if (box && x.wire) { try { x.wire(box, b, ctx); } catch (e3) { /* that module's problem, not this tab's */ } } });
   }
   // Track-only jobs (2026-10-21): on the screen for stages and deliverables, with no emails, calendar event or hub row.
   function trackedBlock(b) {
@@ -980,11 +1185,14 @@
     const cur = list.find((s) => s.id === t.stage_id), curSort = cur ? cur.sort : -Infinity;
     const next = list.find((s) => !s.archived && s.sort > curSort);
     const ev = t.events || [];
+    const live1 = list.filter((s) => !s.archived), pos = cur ? live1.findIndex((s) => s.id === cur.id) + 1 : 0;
     return '<div class="bk-sec"><h3>Stage' + (cur ? ' <span class="bk-sub">' + esc(cur.label) + (t.stage_at ? " since " + esc(fmtDay(new Date(t.stage_at).toLocaleDateString("en-CA", { timeZone: TZ }))) : "") + "</span>" : "") + "</h3>" +
       (b.status === "cancelled" ? '<div class="bk-sub">Cancelled bookings are not tracked.</div>' : "") +
+      '<div class="bk-stage1"><span>' + (cur ? esc(cur.label) + (pos ? ", " + pos + " of " + live1.length : "") : "No stage yet") + "</span>" +
+        (can ? '<button type="button" class="small" data-v="stagemove" aria-expanded="false">Move</button>' : "") + "</div>" +
       '<ol class="bk-stages">' + list.map((s) => '<li class="' + (s.id === t.stage_id ? "cur" : s.sort < curSort ? "done" : "") + '"><button type="button" data-v="stage" data-stage="' + esc(s.id) + '"' +
         (STAGE_AUTO[s.auto] ? ' title="' + esc(STAGE_AUTO[s.auto]) + '"' : "") + (can && s.id !== t.stage_id ? "" : " disabled") + ">" + esc(s.label) + "</button></li>").join("") + "</ol>" +
-      (can && next ? '<button type="button" class="small primary" data-v="stage" data-stage="' + esc(next.id) + '" data-next="1">Move to ' + esc(next.label) + "</button>" : "") +
+      (can && next ? '<button type="button" class="small primary bk-stage-next" data-v="stage" data-stage="' + esc(next.id) + '" data-next="1">Move to ' + esc(next.label) + "</button>" : "") +
       (ev.length ? '<details class="bk-hist"><summary>History (' + ev.length + ")</summary><ul>" + ev.map((e) => "<li><strong>" + esc(e.label) + "</strong> " + esc(fmtWhen(e.at)) +
         " &middot; " + (e.auto ? "automatic" : esc(e.by || "someone")) + (e.note ? ' <span class="bk-sub">' + esc(e.note) + "</span>" : "") + "</li>").join("") + "</ul></details>" : "") + "</div>";
   }
@@ -1070,27 +1278,29 @@
       '<div class="hidden" id="aca-bkHubEdit" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkHCode" value="' + esc(h.access_code || "") + '" placeholder="Access code" style="width:150px" />' +
       '<input type="date" id="aca-bkHRetake" value="' + esc(h.retake_day || "") + '" title="Retake day (optional)" /><button type="button" class="small primary" data-v="hubsave">Save</button><button type="button" class="small" data-v="hubcancel">Cancel</button></div>';
   }
-  el("bkPanel").addEventListener("click", async (e) => {
+  // The Booking tab's controls; listeners go on each new tab element (the job page rebuilds it per visit).
+  function wireHost(h) {
+  h.addEventListener("click", async (e) => {
     const sw = e.target.closest('[data-v="hubvis"]'); if (!sw || !detail || !detail.hub_school) return;
     const on = sw.getAttribute("aria-checked") !== "true";
     sw.classList.add("busy");
     const { error } = await sb.from("comm_hub_schools").update({ active: on }).eq("id", detail.hub_school.id);
     sw.classList.remove("busy");
     if (error) return toast(cleanErr(error), true);
-    toast(on ? "Shown on the hub." : "Hidden from the hub."); openDetail(detail.id);
+    toast(on ? "Shown on the hub." : "Hidden from the hub."); refreshDetail();
   });
-  el("bkPanel").addEventListener("change", async (e) => {
+  h.addEventListener("change", async (e) => {
     const cb = e.target.closest("input[data-dlv]"); if (!cb || !detail) return;
     cb.disabled = true;
     const { data, error } = await sb.rpc("booking_deliverable_update", { p_id: cb.dataset.dlv, p: { status: cb.checked ? "done" : "todo" } });
     if (error || !data.ok) { cb.disabled = false; cb.checked = !cb.checked; return toast(error ? cleanErr(error) : data.error, true); }
     await refreshDetail(); load(true); loadAttention();
   });
-  el("bkPanel").addEventListener("click", async (e) => {
+  h.addEventListener("click", async (e) => {
     const b = e.target.closest("button[data-v]"); if (!b) return;
     const v = b.dataset.v, em = b.dataset.em;
     try {
-      if (v === "close") return closeDetail();
+      if (v === "stagemove") { const ol = h.querySelector(".bk-stages"); if (ol) b.setAttribute("aria-expanded", String(ol.classList.toggle("open"))); return; }
       if (v === "mailfold") { const sec = b.closest(".bk-mailsec"); const open = sec.classList.toggle("folded") === false; b.setAttribute("aria-expanded", String(open)); try { localStorage.setItem("aca-bkmailfold", open ? "open" : "closed"); } catch (e2) {} return; }
       if (v === "copyname") { try { await navigator.clipboard.writeText(b.dataset.name); b.textContent = "copied"; setTimeout(() => { b.textContent = "copy"; }, 1500); } catch (er) { toast("Couldn't copy: " + b.dataset.name, true); } return; }
       if (v === "hubedit") { el("bkHubEdit").classList.remove("hidden"); el("bkHubEdit").style.display = "flex"; return; }
@@ -1100,19 +1310,18 @@
         b.disabled = true;
         const { error } = await sb.from("comm_hub_schools").update({ access_code: code, retake_day: el("bkHRetake").value || null }).eq("id", detail.hub_school.id);
         if (error) throw error;
-        toast("Hub row updated."); await openDetail(detail.id); return;
+        toast("Hub row updated."); await refreshDetail(); return;
       }
-      if (v === "edit") return openForm(detail);
       if (v === "stage") {
         const s = ((tracking || {}).stages || []).find((x) => x.id === b.dataset.stage); if (!s) return;
         if (!b.dataset.next && !confirm("Move this job to " + s.label + "?")) return;
         b.disabled = true; const { data, error } = await sb.rpc("booking_set_stage", { p_booking: detail.id, p_stage: s.id }); if (error) throw error; if (!data.ok) throw new Error(data.error);
-        toast("Moved to " + s.label + "."); await refreshDetail(); load(true); return;
+        toast("Moved to " + s.label + "."); load(true); await reloadJob(); return;
       }
       if (v === "untrack") {
-        if (!confirm("Stop tracking this job? It leaves the Bookings screen (its stage history and deliverables are kept).")) return;
+        if (!confirm("Stop tracking this job? It leaves All jobs (its stage history and deliverables are kept).")) return;
         b.disabled = true; const { data, error } = await sb.rpc("booking_untrack", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error("This job is not track-only.");
-        toast("No longer tracked."); closeDetail(); load(true); loadAttention(); return;
+        toast("No longer tracked."); load(true); loadAttention(); if (currentTab === "job") showTab("bookings"); return;
       }
       if (v === "dlvedit") { const d = ((tracking || {}).deliverables || []).find((x) => x.id === b.dataset.dlv); if (d) openDlvEdit(d); return; }
       if (v === "dlvpick") {
@@ -1145,15 +1354,28 @@
       if (v === "linkjob") { const job = el("bkDJob").value; if (!job) return toast("Pick the job first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: job }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Linked. Email 0 goes out in about 10 minutes."); }
       if (v === "unlinkjob") { if (!confirm("Unlink the GotPhoto job? Email 0 waits again if it has not gone out.")) return; const { error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: null }); if (error) throw error; toast("Unlinked."); }
       if (v === "adopt") { b.disabled = true; const { data, error } = await sb.rpc("booking_adopt_calendar_date", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Picture day is now " + fmtDay(data.picture_day) + ". Emails rescheduled."); }
-      if (v === "rewrite") { b.disabled = true; const { error } = await sb.rpc("booking_rewrite_calendar", { p_id: detail.id }); if (error) throw error; toast("Rewriting the event\u2026"); await refreshDetail(); openDetail(detail.id, true); return; }
+      if (v === "rewrite") { b.disabled = true; const { error } = await sb.rpc("booking_rewrite_calendar", { p_id: detail.id }); if (error) throw error; toast("Rewriting the event\u2026"); pollNew = detail.id; mountTab(h.parentNode, detail.id); return; }
       if (v === "cancel") {
         if (!confirm("Cancel this booking? Unsent emails stop and the calendar event is removed.")) return;
         b.disabled = true; const { data, error } = await sb.rpc("booking_cancel", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error(data.error);
-        toast("Booking cancelled.");
+        toast("Booking cancelled."); load(true); loadAttention(); await reloadJob(); return;
       }
       await refreshDetail(); load(true); loadAttention();
     } catch (e2) { toast(cleanErr(e2), true); b.disabled = false; }
   });
+  }
 
-  return { load: () => load(false), reload: () => load(true), loadAttention, open: (id) => openDetail(id), openId: (id) => openDetail(id), openNew: (org) => openForm(null, org || null), hide: () => { if (openId) closeDetail(); }, mdToHtml, fill };
+  // Edit booking (the job page's header button): the full booking, then the same form as Book a job.
+  async function editId(id) {
+    const { data, error } = await sb.rpc("admin_booking_detail", { p_id: id });
+    if (error || !data) { toast(error ? cleanErr(error) : "Booking not found.", true); return; }
+    openForm(data);
+  }
+  // The job page's Booking tab (order 12: after Overview, before Crew). Registered once every file has run.
+  const addJobTab = () => registerJobTab({ id: "booking", label: "Booking", order: 12, module: "bookings", render: (bk, box) => mountTab(box, bk.id) });
+  if (typeof registerJobTab === "function") addJobTab(); else setTimeout(() => { if (typeof registerJobTab === "function") addJobTab(); }, 0);
+
+  // open / openId: a job opens on its page (2026-10-24; tab optional, e.g. "booking" for its emails). preview: All jobs' short drawer.
+  return { load: () => load(false), reload: () => load(true), loadAttention, open: (id, tab) => openJob(id, tab), openId: (id, tab) => openJob(id, tab), preview: (id) => openDetail(id),
+           edit: editId, openNew: (org) => openForm(null, org || null), hide: () => { if (openId) closeDetail(); }, addSection: (x) => { if (x && x.id && x.html) extraSections.push(x); }, mdToHtml, fill };
   })();

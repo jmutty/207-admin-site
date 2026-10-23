@@ -648,7 +648,7 @@
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
         (data.people.some((p) => p.from_home) ? '<p class="sc-note">Part time and 1099 people drive from home: theirs is looked up for each of them when you add them.</p>' : "") +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
-        '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Job page</a><a href="#jobs/bookings" data-m="open" class="small">Open the booking</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
+        '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
       // Who is free, their roles and the drive from home (sorted: free first, then nearest).
       const pick = m.querySelector("#aca-scPick");
@@ -677,7 +677,6 @@
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") m.close();
-        if (t.dataset.m === "open") { ev.preventDefault(); m.close(); showTab("bookings"); Bookings.openId(b.booking_id); }
         if (t.dataset.m === "job") m.close();
         if (t.dataset.m === "edit") { m.close(); openEntry(data.entries.find((x) => x.id === t.dataset.id)); }
         if (t.dataset.m === "ask") {

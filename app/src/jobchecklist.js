@@ -58,7 +58,9 @@
     }
     // Register now if the job page is already defined, otherwise once every file has run (whatever the build order).
     let tabAdded = false;
-    const addTab = () => { if (!tabAdded && jobPage()) { tabAdded = true; registerJobTab({ id: "checklist", label: "Checklist", module: "workflows", order: 30, render: jobTab,
+    const addTab = () => { if (!tabAdded && jobPage()) { tabAdded = true; registerJobTab({ id: "checklist", label: "Checklist", order: 30, render: jobTab,
+      // Shown to anyone with steps on this job (the person shooting it too), and to Job checklists people on every job (2026-10-24).
+      show: (j) => !!(j && j.tasks && (j.tasks.length || canSee("workflows"))),
       count: (j) => (j && j.tasks ? j.tasks.filter((t) => !t.done).length : 0) }); } };
     addTab(); if (!tabAdded) setTimeout(addTab, 0);
 
