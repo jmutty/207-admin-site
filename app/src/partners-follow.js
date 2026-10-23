@@ -371,7 +371,7 @@
       if (!agWired) {
         agWired = true;
         el("pfAgTpl").addEventListener("click", () => editTemplates("agreement"));
-        el("pfAgNew").addEventListener("click", newAgreement);
+        el("pfAgNew").addEventListener("click", () => newAgreement());
         el("pfAgBody").addEventListener("click", (e) => {
           const b = e.target.closest("[data-do=org]"), tr = e.target.closest("tr[data-id]");
           if (b && tr) return;
@@ -413,7 +413,14 @@
         '<td data-l="Renews">' + (a.renewal_date ? '<span class="' + (a.renewal_date <= soon && a.status === "accepted" ? "pf-due" : "") + '">' + esc(day(a.renewal_date)) + "</span>" : '<span class="muted">&#8212;</span>') + "</td></tr>").join("")
         : '<tr><td colspan="6" class="empty">' + (agFilter === "open" ? "No agreements in progress." + (canEdit("agreements") ? " Start one with New agreement." : "") : "None yet.") + "</td></tr>";
     }
-    function newAgreement() {
+    // With an org id (the partner page) it starts the agreement for that partner without asking (2026-10-24).
+    async function newAgreement(orgId) {
+      if (typeof orgId === "string" && orgId) {
+        const { data, error } = await sb.rpc("agreement_save", { p_id: null, p: { org_id: orgId } });
+        if (error) return toast(cleanErr(error), true);
+        if (el("pfAgBody")) loadAgreements();
+        return openAgreement(data && data.id);
+      }
       const m = openModal('<h2>New agreement</h2><div class="field"><label for="aca-pfAgQ">Partner</label><input type="text" id="aca-pfAgQ" placeholder="Type a name or town&#8230;" autocomplete="off" /></div>' +
         '<div class="pf-orgpick" id="aca-pfAgPick"></div><div class="inline-error hidden" id="aca-pfAgNErr"></div>' +
         '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" id="aca-pfAgNCancel">Cancel</button></div>');
@@ -575,7 +582,7 @@
       } catch (_e) { /* Today reports it as unchecked */ }
     }
 
-    return { showRebook, showReviews, showAgreements, loadRebookAttention, loadAgreementAttention };
+    return { showRebook, showReviews, showAgreements, loadRebookAttention, loadAgreementAttention, compose, newAgreement, openAgreement };
   })();
 
   // ---------------------------------------------------------------- the public agreement page

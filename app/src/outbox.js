@@ -235,8 +235,7 @@
     openId = id; if (!keep) render();
     const p = el("obPanel"); p.classList.remove("hidden"); Orgs.measureTop();
     const s = STATUS[r.status] || ["muted", r.status];
-    const ed = canEdit(r.src === "booking" ? "bookings" : "partners");
-    const acts = [];
+    const acts = verbs(r);
     if (ed && isOutreach(r) && r.status === "needs_review") acts.push('<button type="button" class="primary" data-v="approve">Approve and send</button>');
     if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) acts.push('<button type="button" data-v="edit">Edit</button><button type="button" data-v="skip">Don’t send</button>');
     if (ed && r.src === "booking" && ["scheduled", "waiting", "failed", "skipped"].includes(r.status)) acts.push('<button type="button" class="primary" data-v="sendnow">Send now</button>');
@@ -246,7 +245,6 @@
     if (r.src === "makeup") acts.push('<button type="button" class="primary" data-v="makeups">Open in Makeups</button>');
     if (r.src === "hub") acts.push('<button type="button" data-v="hub">Open Hub activity</button>');
     if (r.src === "digest") acts.push('<button type="button" data-v="settings">Morning email settings</button>');
-    if (r.org_id) acts.push('<button type="button" data-v="org">Open ' + esc(r.org) + "</button>");
     p.innerHTML = `
       <div class="og-phead"><div class="og-ptop"><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600;line-height:22px">${esc(r.subject || "")}</div>
         <div class="muted" style="font-size:13px">To ${esc(r.to_name || "")}${r.to_email ? " &lt;" + esc(r.to_email) + "&gt;" : ""}${r.org ? " at " + esc(r.org) : ""}. ${esc(r.detail || "")}.</div></div>
@@ -254,11 +252,49 @@
         <div class="og-pmeta"><span class="pill ${s[0]}">${esc(s[1])}</span>${r.at ? '<span class="muted">' + esc(fmtWhen(r.at)) + "</span>" : ""}${r.error ? '<span class="muted" style="color:var(--err-fg)">' + esc(r.error) + "</span>" : ""}</div>
         <div class="og-actions">${acts.join("")}</div></div>
       <div class="og-pbody"><div class="ob-h4">The email</div><div class="ob-mail" id="aca-obPreview"><span class="spin"></span>Loading&#8230;</div></div>`;
-    loadPreview(r);
+    loadPreview(r, el("obPreview"));
+  }
+  // The verbs one email offers, as buttons (data-v). The partner page's Emails & hub tab shows the same ones (2026-10-24).
+  function verbs(r, opt) {
+    opt = opt || {};
+    const ed = canEdit(r.src === "booking" ? "bookings" : "partners");
+    const acts = [];
+    if (ed && isOutreach(r) && r.status === "needs_review") acts.push('<button type="button" class="primary small" data-v="approve">Approve and send</button>');
+    if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) acts.push('<button type="button" class="small" data-v="edit">Edit</button><button type="button" class="small" data-v="skip">Don’t send</button>');
+    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed", "skipped"].includes(r.status)) acts.push('<button type="button" class="primary small" data-v="sendnow">Send now</button>');
+    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed"].includes(r.status)) acts.push('<button type="button" class="small" data-v="bskip">Don’t send</button>');
+    if (ed && r.src === "booking" && r.status === "sent") acts.push('<button type="button" class="small" data-v="resend">Resend</button>');
+    if (opt.inPartner) return acts;
+    if (r.src === "booking" && r.booking_id) acts.push('<button type="button" class="small" data-v="booking">Open the job</button>');
+    if (r.src === "makeup") acts.push('<button type="button" class="primary small" data-v="makeups">Open in Makeups</button>');
+    if (r.src === "hub") acts.push('<button type="button" class="small" data-v="hub">Open Hub activity</button>');
+    if (r.src === "digest") acts.push('<button type="button" class="small" data-v="settings">Morning email settings</button>');
+    if (r.org_id) acts.push('<button type="button" class="small" data-v="org">Open ' + esc(r.org) + "</button>");
+    return acts;
+  }
+  // Runs one verb on one email. Resolves true when something changed (the caller reloads), false when cancelled.
+  async function act(r, v, onEdited) {
+    if (v === "edit") { Orgs.editEmail(r.id, onEdited); return false; }
+    if (v === "approve") {
+      const { error } = r.enrollment_id ? await sb.rpc("prospect_approve", { p_enrollment: r.enrollment_id }) : await sb.rpc("prospect_approve_quick", { p_ids: [r.id] });
+      if (error) throw error; toast("Approved. It goes out in the next send window.");
+    } else if (v === "skip") {
+      if (!confirm("Don't send this email? The rest of the sequence carries on without it.")) return false;
+      const { error } = await sb.from("prospect_scheduled_emails").update({ status: "skipped" }).eq("id", r.id); if (error) throw error; toast("It won't be sent.");
+    } else if (v === "bskip") {
+      if (!confirm("Don't send this booking email? You can still send it later with Send now.")) return false;
+      const { data, error } = await sb.rpc("booking_email_skip", { p_email: r.id }); if (error) throw error; if (data && data.ok === false) throw new Error(data.error || "Could not skip it."); toast("It won't be sent.");
+    } else if (v === "sendnow") {
+      const { data, error } = await sb.rpc("booking_send_now", { p_email: r.id }); if (error) throw error; if (data && data.ok === false) throw new Error(data.error || "Could not send."); toast("Sending now.");
+    } else if (v === "resend") {
+      const { data, error } = await sb.rpc("booking_resend", { p_email: r.id }); if (error) throw error; if (data && data.ok === false) throw new Error(data.error || "Could not resend."); toast("Resend queued.");
+    } else return false;
+    Orgs.loadAttention(); Bookings.loadAttention();
+    return true;
   }
   // The body comes with the row when admin_outbox has it; otherwise from the pipeline's own table or preview RPC.
-  async function loadPreview(r) {
-    const box = el("obPreview"); if (!box) return;
+  async function loadPreview(r, box) {
+    if (!box) return;
     const text = (t) => { box.classList.remove("md"); box.textContent = t; };
     const md = (t) => { box.classList.add("md"); box.innerHTML = typeof Bookings !== "undefined" && Bookings.mdToHtml ? Bookings.mdToHtml(t) : esc(t); };
     try {
@@ -295,23 +331,8 @@
       if (v === "makeups") return showTab("makeups");
       if (v === "hub") return showTab("hubact");
       if (v === "settings") return showTab("sending");
-      if (v === "edit") return Orgs.editEmail(r.id, () => load());
       b.disabled = true;
-      if (v === "approve") {
-        const { error } = r.enrollment_id ? await sb.rpc("prospect_approve", { p_enrollment: r.enrollment_id }) : await sb.rpc("prospect_approve_quick", { p_ids: [r.id] });
-        if (error) throw error; toast("Approved. It goes out in the next send window.");
-      } else if (v === "skip") {
-        if (!confirm("Don't send this email? The rest of the sequence carries on without it.")) { b.disabled = false; return; }
-        const { error } = await sb.from("prospect_scheduled_emails").update({ status: "skipped" }).eq("id", r.id); if (error) throw error; toast("It won't be sent.");
-      } else if (v === "bskip") {
-        if (!confirm("Don't send this booking email? You can still send it later with Send now.")) { b.disabled = false; return; }
-        const { data, error } = await sb.rpc("booking_email_skip", { p_email: r.id }); if (error) throw error; if (data && data.ok === false) throw new Error(data.error || "Could not skip it."); toast("It won't be sent.");
-      } else if (v === "sendnow") {
-        const { data, error } = await sb.rpc("booking_send_now", { p_email: r.id }); if (error) throw error; if (data && data.ok === false) throw new Error(data.error || "Could not send."); toast("Sending now.");
-      } else if (v === "resend") {
-        const { data, error } = await sb.rpc("booking_resend", { p_email: r.id }); if (error) throw error; if (data && data.ok === false) throw new Error(data.error || "Could not resend."); toast("Resend queued.");
-      }
-      await load(); Orgs.loadAttention(); Bookings.loadAttention();
+      if (await act(r, v, () => load())) await load(); else b.disabled = false;
     } catch (err) { toast(cleanErr(err), true); b.disabled = false; }
   }
   // Open the Outbox on one email (a held card or a row), narrowed to its partner when one is given.
@@ -323,7 +344,7 @@
     history.pushState(null, "", hash);
     if (currentTab === "outbox") load(); else showTab("outbox");
   }
-  return { load, loadToday, focus, refresh: () => { if (currentTab === "outbox") load(); }, hide: () => { if (openId) closePanel(); } };
+  return { load, loadToday, focus, verbs, act, preview: loadPreview, refresh: () => { if (currentTab === "outbox") load(); }, hide: () => { if (openId) closePanel(); } };
   })();
 
   // Today's "This page, by email" line.

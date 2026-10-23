@@ -1158,7 +1158,7 @@
     const i = visible.findIndex((x) => x.id === o.id);
     const cById = new Map(d.contacts.map((c) => [c.id, c]));
     // On the partner page (inline) the name is the page heading, so the panel drops its own name field and arrows;
-    // Contacts come first and the details sit behind "Edit details" (2026-10-24).
+    // Contacts come first and the details sit behind "Edit details"; the timeline lives on Notes & history there (2026-10-24).
     const top = `
         <div class="og-ptop">
           <input class="og-title" data-f="name" value="${esc(o.name)}" aria-label="Partner name" />
@@ -1216,7 +1216,7 @@
           <div class="og-note"><textarea id="aca-ogNoteText" placeholder="Add a note&hellip;"></textarea><button type="button" class="small" data-act="savenote">Save</button></div>
           ${timelineHtml(d, cById)}
         </div>` };
-    const order = inline ? ["contacts", "details", "fus", "emails", "tl"] : ["details", "contacts", "emails", "fus", "tl"];
+    const order = inline ? ["contacts", "details", "fus", "emails"] : ["details", "contacts", "emails", "fus", "tl"];
     panel.innerHTML = `
       <div class="og-phead">
         ${inline ? "" : top}
