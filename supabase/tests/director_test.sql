@@ -55,7 +55,9 @@ insert into public.bookings (id, org_id, type_key, title_label, picture_day, sta
   ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-00000000000b', 'dir_school', 'School Photos', (now() at time zone 'America/New_York')::date + 30,
    (((now() at time zone 'America/New_York')::date + 30)::text || ' 08:00 America/New_York')::timestamptz, (((now() at time zone 'America/New_York')::date + 30)::text || ' 09:00 America/New_York')::timestamptz,
    false, false, '', 'booked', array['00000000-0000-0000-0000-0000000000cc']::uuid[]),
-  ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-00000000000a', 'sports_data', 'Old', (now() at time zone 'America/New_York')::date - 10, null, null, true, true, '', 'tracked', '{}'),
+  ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-00000000000a', 'sports_data', 'Old', (now() at time zone 'America/New_York')::date - 10,
+   (((now() at time zone 'America/New_York')::date - 10)::text || ' 09:00 America/New_York')::timestamptz, (((now() at time zone 'America/New_York')::date - 10)::text || ' 10:00 America/New_York')::timestamptz,
+   true, true, '', 'tracked', '{}'),
   ('00000000-0000-0000-0000-0000000000b4', '00000000-0000-0000-0000-00000000000a', 'sports_data', 'Fall Soccer', (now() at time zone 'America/New_York')::date - 40,
    (((now() at time zone 'America/New_York')::date - 40)::text || ' 09:00 America/New_York')::timestamptz, (((now() at time zone 'America/New_York')::date - 40)::text || ' 10:00 America/New_York')::timestamptz,
    true, true, 'Doyle Field', 'booked', array['00000000-0000-0000-0000-0000000000ca']::uuid[]);
@@ -127,7 +129,7 @@ insert into t select 'ics1', public.booking_ics((select v from t where k = 'tok1
 insert into t select 'ics2', public.booking_ics((select v from t where k = 'tok2'));
 select pg_temp.ok((select v from t where k = 'ics1') like E'BEGIN:VCALENDAR\r\n%END:VCALENDAR\r\n' and (select v from t where k = 'ics1') like '%BEGIN:VEVENT%DTSTART:________T130000Z%' or (select v from t where k = 'ics1') like '%DTSTART:________T140000Z%',
                   'calendar file: one timed event in UTC');
-select pg_temp.ok((select v from t where k = 'ics1') like E'%LOCATION:Doyle Field\\, Hampden ME\r\n%' and (select v from t where k = 'ics1') like '%STATUS:CONFIRMED%', 'commas escaped, confirmed');
+select pg_temp.ok((select v from t where k = 'ics1') like E'%LOCATION:Doyle Field\\\\, Hampden ME\r\n%' and (select v from t where k = 'ics1') like '%STATUS:CONFIRMED%', 'commas escaped, confirmed');
 select pg_temp.ok((select v from t where k = 'ics2') like '%DTSTART;VALUE=DATE:%' , 'no time yet: an all-day event');
 select pg_temp.ok((select bool_and(octet_length(l) <= 75) from regexp_split_to_table((select v from t where k = 'ics1'), E'\r\n') l), 'every line folded to 75 octets');
 select pg_temp.ok(public.booking_ics('0000000000000000000000000000000000ff') is null, 'unknown token: no file');

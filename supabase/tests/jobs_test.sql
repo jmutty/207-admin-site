@@ -39,9 +39,10 @@ update public.team_members set home_address = '5 Elm St, Bangor ME', employment_
 insert into public.team_permissions values ('00000000-0000-0000-0000-0000000000c1', 'assignments', 'view');
 
 -- b1: Sat Oct 31 (still daylight time) 9-12; b2 cancelled, same day.
-insert into public.bookings (id, picture_day, status, location) values
-  ('00000000-0000-0000-0000-0000000000b1', '2026-10-31', 'booked', '12 Gym Rd, Hampden ME'),
-  ('00000000-0000-0000-0000-0000000000b2', '2026-10-31', 'cancelled', '');
+insert into public.prospect_orgs (id, name, town) values ('00000000-0000-0000-0000-00000000aaa1', 'Test Academy', 'Hampden');
+insert into public.bookings (id, org_id, type_key, picture_day, start_at, end_at, status, location) values
+  ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-00000000aaa1', 'school', '2026-10-31', '2026-10-31 09:00 America/New_York', '2026-10-31 12:00 America/New_York', 'booked', '12 Gym Rd, Hampden ME'),
+  ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-00000000aaa1', 'school', '2026-10-31', '2026-10-31 13:00 America/New_York', '2026-10-31 14:00 America/New_York', 'cancelled', '');
 insert into public.booking_days (booking_id, day) values ('00000000-0000-0000-0000-0000000000b1', '2026-10-31'), ('00000000-0000-0000-0000-0000000000b2', '2026-10-31');
 insert into public.schedule_entries (id, user_id, booking_id, kind, starts_at, ends_at) values
   ('00000000-0000-0000-0000-0000000005e1', '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b1', 'job', '2026-10-31 09:00 America/New_York', '2026-10-31 12:00 America/New_York'),
@@ -58,6 +59,11 @@ insert into public.staff_tasks (id, user_id, title, repeat, due_on, booking_id) 
   ('00000000-0000-0000-0000-00000000aa03', '00000000-0000-0000-0000-0000000000c1', 'Charge batteries', 'once', current_date - 1, '00000000-0000-0000-0000-0000000000b1'),
   ('00000000-0000-0000-0000-00000000aa04', '00000000-0000-0000-0000-0000000000c1', 'Clean the van', 'once', current_date, null);
 insert into public.staff_task_done (task_id, on_date, done_by) values ('00000000-0000-0000-0000-00000000aa03', current_date - 1, '00000000-0000-0000-0000-0000000000c1');
+-- the job's checklist steps that the workflow makes on its own for c1 (from the live checklist templates) are switched
+-- off here so the counts below see only the three steps above (rolled back with the rest)
+update public.staff_tasks set active = false
+ where booking_id = '00000000-0000-0000-0000-0000000000b1'
+   and id not in ('00000000-0000-0000-0000-00000000aa01', '00000000-0000-0000-0000-00000000aa02', '00000000-0000-0000-0000-00000000aa03');
 
 -- ---------------------------------------------------------------- who may open the job
 select pg_temp.act('00000000-0000-0000-0000-0000000000c1');

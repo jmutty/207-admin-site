@@ -45,12 +45,12 @@ insert into public.prospect_orgs (id, name, stage, audience, town) values
 insert into public.prospect_contacts (id, org_id, first_name, last_name, email, phone, role, is_primary, created_at) values
   ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-00000000005e', 'Marisa', 'LeBlanc', 'marisa.leblanc@sau31.org', '207-555-0101', 'Admin. Asst.', true, now() - interval '2 days'),
   ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-00000000005e', 'Tom', 'Reed', 'treed@sau31.org', null, 'Principal', false, now() - interval '1 day');
-insert into public.bookings (id, org_id, type_key, picture_day, retake_day, status) values
-  ('00000000-0000-0000-0000-000000000b01', '00000000-0000-0000-0000-00000000005e', 'school', '2026-09-18', '2026-10-14', 'booked'),
-  ('00000000-0000-0000-0000-000000000b02', '00000000-0000-0000-0000-00000000005e', 'school', '2027-03-10', null, 'tracked'),
-  ('00000000-0000-0000-0000-000000000b03', '00000000-0000-0000-0000-00000000005e', 'school', '2026-10-01', null, 'cancelled'),
-  ('00000000-0000-0000-0000-000000000b04', '00000000-0000-0000-0000-00000000005e', 'league', '2026-10-05', null, 'booked'),
-  ('00000000-0000-0000-0000-000000000b05', '00000000-0000-0000-0000-00000000005e', 'school', '2027-09-20', null, 'booked');
+insert into public.bookings (id, org_id, type_key, picture_day, retake_day, status, start_at, end_at) values
+  ('00000000-0000-0000-0000-000000000b01', '00000000-0000-0000-0000-00000000005e', 'school', '2026-09-18', '2026-10-14', 'booked', '2026-09-18 09:00 America/New_York', '2026-09-18 12:00 America/New_York'),
+  ('00000000-0000-0000-0000-000000000b02', '00000000-0000-0000-0000-00000000005e', 'school', '2027-03-10', null, 'tracked', '2027-03-10 09:00 America/New_York', '2027-03-10 12:00 America/New_York'),
+  ('00000000-0000-0000-0000-000000000b03', '00000000-0000-0000-0000-00000000005e', 'school', '2026-10-01', null, 'cancelled', '2026-10-01 09:00 America/New_York', '2026-10-01 12:00 America/New_York'),
+  ('00000000-0000-0000-0000-000000000b04', '00000000-0000-0000-0000-00000000005e', 'sports_data', '2026-10-05', null, 'booked', '2026-10-05 09:00 America/New_York', '2026-10-05 12:00 America/New_York'),
+  ('00000000-0000-0000-0000-000000000b05', '00000000-0000-0000-0000-00000000005e', 'school', '2027-09-20', null, 'booked', '2027-09-20 09:00 America/New_York', '2027-09-20 12:00 America/New_York');
 insert into public.deliverable_templates (type_key, label, due_days) values ('school', 'Yearbook files', 30);
 insert into public.booking_deliverables (booking_id, label, status) values
   ('00000000-0000-0000-0000-000000000b01', 'SIS import file', 'done'), ('00000000-0000-0000-0000-000000000b01', 'Thank-you card', 'todo');
@@ -121,7 +121,8 @@ select pg_temp.ok(((select v from t where k = 'ap2')::jsonb ->> 'jobs')::int = 2
 select pg_temp.ok((select count(*) from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-000000000b01') = 3
                   and (select count(*) from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-000000000b01' and label = 'SIS import file') = 1
                   and exists (select 1 from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-000000000b01' and label = 'Thank-you card'), 'fall job: yearbook added, SIS not doubled, nothing removed');
-select pg_temp.ok((select due_date = '2026-10-18' and template_id is not null from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-000000000b01' and label = 'Yearbook files'),
+-- (the due date itself counts from the gallery launch, booking_launch_date(), which this job doesn't have yet)
+select pg_temp.ok((select due_days = 30 and template_id is not null from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-000000000b01' and label = 'Yearbook files'),
                   'the saved Yearbook files deliverable brings its 30 days');
 select pg_temp.ok((select count(*) from public.booking_deliverables where booking_id = '00000000-0000-0000-0000-000000000b02') = 2, 'spring track-only job gets both');
 select pg_temp.ok(not exists (select 1 from public.booking_deliverables where booking_id in ('00000000-0000-0000-0000-000000000b03', '00000000-0000-0000-0000-000000000b04', '00000000-0000-0000-0000-000000000b05')),

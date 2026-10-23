@@ -32,7 +32,7 @@ insert into public.team_members (user_id, display_name, active, created_at) valu
   ('00000000-0000-0000-0000-0000000000e1', 'Vanessa Office', true, now() + interval '1 day'),
   ('00000000-0000-0000-0000-0000000000e2', 'S1', true, now()), ('00000000-0000-0000-0000-0000000000e3', 'D1', false, now());
 insert into public.team_members (user_id, display_name, created_at) values ('ccbe859a-d295-4df0-94bc-6f423db4d806', 'Owner', now() - interval '1 year')
-  on conflict (user_id) do update set created_at = excluded.created_at;
+  on conflict (user_id) do update set display_name = excluded.display_name, active = true, created_at = excluded.created_at;
 update public.admin_settings set digest_recipients = array['info@207photo.com'], digest_enabled = true where id;
 
 -- ---------------------------------------------------------------- Help line

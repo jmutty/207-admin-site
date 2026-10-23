@@ -24,7 +24,7 @@ begin
   raise exception 'FAILED: % (was allowed)', p_what;
 end $$;
 grant execute on all functions in schema pg_temp to anon, authenticated;
-create function pg_temp.mods(p_uid uuid) returns jsonb language sql as $$
+create function pg_temp.mods(p_uid uuid) returns jsonb language sql security definer as $$
   select coalesce(jsonb_object_agg(module_key, level), '{}'::jsonb) from public.team_permissions where user_id = p_uid
 $$;
 
@@ -53,8 +53,10 @@ select pg_temp.raises($$select public.booking_type_add('Dance recital', 'school'
 select pg_temp.raises($$select public.team_grant_defaults('00000000-0000-0000-0000-0000000000e1', array['openjobs'], 'x')$$, 'm1: cannot call the grant helper');
 
 -- ---------------------------------------------------------------- Team emails
+reset role;
+select count(*) as n_topics from public.push_topics \gset
 select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
-select pg_temp.ok((select jsonb_array_length(public.settings_team_emails() -> 'topics')) = (select count(*) from public.push_topics), 'every notification kind is listed');
+select pg_temp.ok((select jsonb_array_length(public.settings_team_emails() -> 'topics')) = :n_topics, 'every notification kind is listed');
 select pg_temp.ok(public.settings_team_emails() ? 'week_email_hour' and public.settings_team_emails() -> 'clock' ? 'remind_before_min', 'team emails carry week email and clock reminders');
 select pg_temp.raises($$select public.push_topic_set_default('crew_ask', 'loud')$$, 'unknown mode refused');
 select pg_temp.raises($$select public.push_topic_set_default('nope', 'off')$$, 'unknown kind refused');
