@@ -13,7 +13,8 @@
 //                 gotphoto-sales. ?probe=<job id> passes through (field names and numbers of that job's
 //                 first orders, to check how sales are read).
 //   POST /gpjob?booking=<id> -> the same, with edit access to Bookings (can('bookings','edit')): invoke
-//                 gotphoto-jobs for that booking ("Create it in GotPhoto" on a job).
+//                 gotphoto-jobs for that booking ("Create it in GotPhoto" on a job). &dry=1 passes through: what the
+//                 job would get, nothing made (the check screen before creating).
 //   POST /gplists -> the same check: GotPhoto's price and communication profiles for Settings > Job types.
 //   anything else -> 404.
 
@@ -44,7 +45,8 @@ Deno.serve(async (req) => {
     : url.pathname.endsWith("/sales") ? { name: "sales", module: "results", target: "gotphoto-sales?trigger=manual" +
         (url.searchParams.get("probe") ? "&probe=" + encodeURIComponent(url.searchParams.get("probe")!) : "") }
     : url.pathname.endsWith("/gpjob") && /^[0-9a-f-]{36}$/i.test(url.searchParams.get("booking") ?? "")
-      ? { name: "gpjob", module: "bookings", target: "gotphoto-jobs?trigger=manual&booking=" + url.searchParams.get("booking") }
+      ? { name: "gpjob", module: "bookings", target: "gotphoto-jobs?trigger=manual&booking=" + url.searchParams.get("booking") +
+        (url.searchParams.get("dry") === "1" ? "&dry=1" : "") }
     : url.pathname.endsWith("/gplists") ? { name: "gplists", module: "bookings", target: "gotphoto-jobs?lists=1" }
     : null;
   if (route) {
