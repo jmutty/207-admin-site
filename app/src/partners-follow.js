@@ -556,7 +556,8 @@
       } catch (_e) { /* Today reports it as unchecked */ }
     }
 
-    return { showRebook, showReviews, showAgreements, loadRebookAttention, loadAgreementAttention };
+    // editTemplates: also opened from Settings > Email library > Partner emails (ws/settings).
+    return { showRebook, showReviews, showAgreements, loadRebookAttention, loadAgreementAttention, editTemplates };
   })();
 
   // ---------------------------------------------------------------- the public agreement page
