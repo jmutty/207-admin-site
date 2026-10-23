@@ -833,7 +833,7 @@
   .aca .ab-doc .ab-ul { margin: 2px 0 6px; padding-left: 22px; }
   .aca .ab-doc .ab-ul li { margin: 2px 0; }
   .aca .ab-doc .ab-table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; table-layout: fixed; }
-  .aca .ab-doc .ab-table td { border: 1px solid ${BRAND.rule}; padding: 4px 7px; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+  .aca .ab-doc .ab-table td, .aca .ab-doc .ab-table tr:hover td, .aca .ab-doc .ab-table tr:last-child td { border: 1px solid ${BRAND.rule}; padding: 4px 7px; text-align: center; vertical-align: middle; overflow-wrap: anywhere; background: #fff; color: ${BRAND.charcoal}; height: auto; }
   .aca .ab-doc .ab-w190 td:first-child { width: 36%; }
   .aca .ab-doc .ab-w330 td:first-child { width: 64%; }
   .aca .ab-doc .ab-ws td:first-child { width: 57%; }

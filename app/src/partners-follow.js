@@ -356,6 +356,8 @@
         el("pfAgBody").addEventListener("click", (e) => {
           const b = e.target.closest("[data-do=org]"), tr = e.target.closest("tr[data-id]");
           if (b && tr) return goOrg(tr.dataset.org);
+          // ws/agreement (2026-10-24): builder agreements open in the builder
+          if (e.target.closest("[data-do=builder]") && tr && hasBuilder()) return AgreementBuilder.open(tr.dataset.org, { id: tr.dataset.id, onDone: loadAgreements });
           if (tr) openAgreement(tr.dataset.id);
         });
       }
@@ -387,15 +389,19 @@
       const soon = new Date(Date.now() + 30 * 864e5).toLocaleDateString("en-CA", { timeZone: TZ });
       el("pfAgBody").innerHTML = rows.length ? rows.map((a) => '<tr class="pf-click" data-id="' + esc(a.id) + '" data-org="' + esc(a.org_id) + '">' +
         "<td>" + (canSee("partners") ? '<button type="button" class="link" data-do="org">' + esc(a.org) + "</button>" : esc(a.org)) + "</td>" +
-        "<td>" + esc(a.title) + '<br><span class="muted">' + esc(a.picture_day ? "Picture day " + day(a.picture_day) : (a.booking_label || "")) + "</span></td>" +
+        "<td>" + esc(a.title) + '<br><span class="muted">' + esc(a.picture_day ? "Picture day " + day(a.picture_day) : (a.booking_label || "")) + "</span>" +
+          (a.has_builder && hasBuilder() && canEdit("agreements") && (a.status === "draft" || a.status === "sent") ? '<br><button type="button" class="link" data-do="builder">Edit in builder</button>' : "") + "</td>" +
         "<td>" + agStatus(a) + "</td>" +
         "<td>" + docCell(a.w9_status) + "</td>" +
         "<td>" + docCell(a.coi_status, a.coi_expires ? '<br><span class="muted' + (a.coi_expires <= soon ? " pf-due" : "") + '">Expires ' + esc(day(a.coi_expires, true)) + "</span>" : "") + "</td>" +
         "<td>" + (a.renewal_date ? '<span class="' + (a.renewal_date <= soon && a.status === "accepted" ? "pf-due" : "") + '">' + esc(day(a.renewal_date)) + "</span>" : '<span class="muted">&#8212;</span>') + "</td></tr>").join("")
         : '<tr><td colspan="6" class="empty">' + (agFilter === "open" ? "No agreements in progress." + (canEdit("agreements") ? " Start one with New agreement." : "") : "None yet.") + "</td></tr>";
     }
+    // ws/agreement (2026-10-24): the school agreement builder (agreement-builder.js), when it's in the bundle.
+    const hasBuilder = () => typeof AgreementBuilder !== "undefined" && typeof AgreementDoc !== "undefined";
     function newAgreement() {
-      const m = openModal('<h2>New agreement</h2><div class="field"><label for="aca-pfAgQ">Organization</label><input type="text" id="aca-pfAgQ" placeholder="Type a name or town&#8230;" autocomplete="off" /></div>' +
+      const m = openModal('<h2>New agreement</h2><div class="field"><label for="aca-pfAgQ">Partner</label><input type="text" id="aca-pfAgQ" placeholder="Type a name or town&#8230;" autocomplete="off" /></div>' +
+        (hasBuilder() ? '<p class="pf-help">Schools open the agreement builder. Leagues get the plain agreement for now.</p>' : "") +
         '<div class="pf-orgpick" id="aca-pfAgPick"></div><div class="inline-error hidden" id="aca-pfAgNErr"></div>' +
         '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" id="aca-pfAgNCancel">Cancel</button></div>');
       let timer = null, seq = 0;
@@ -404,13 +410,15 @@
         const { data, error } = await sb.rpc("agreement_orgs", { p_q: el("pfAgQ").value.trim() });
         if (my !== seq) return;
         if (error) { el("pfAgPick").innerHTML = '<p class="inline-error">' + esc(cleanErr(error)) + "</p>"; return; }
-        el("pfAgPick").innerHTML = (data || []).map((o) => '<button type="button" data-org="' + esc(o.id) + '"><b>' + esc(o.name) + "</b>" + (o.town ? ' <span class="muted">' + esc(o.town) + "</span>" : "") + "</button>").join("") || '<p class="muted">No matches.</p>';
+        el("pfAgPick").innerHTML = (data || []).map((o) => '<button type="button" data-org="' + esc(o.id) + '" data-aud="' + esc(o.audience || "") + '"><b>' + esc(o.name) + "</b>" + (o.town ? ' <span class="muted">' + esc(o.town) + "</span>" : "") +
+          (o.audience === "school" && hasBuilder() ? ' <span class="pill accent">School</span>' : "") + "</button>").join("") || '<p class="muted">No matches.</p>';
       };
       el("pfAgQ").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(search, 200); });
       el("pfAgNCancel").addEventListener("click", () => m.close());
       el("pfAgPick").addEventListener("click", async (e) => {
         const b = e.target.closest("button[data-org]");
         if (!b) return;
+        if (b.dataset.aud === "school" && hasBuilder()) { m.close(); return AgreementBuilder.open(b.dataset.org, { onDone: loadAgreements }); }
         b.disabled = true;
         const { data, error } = await sb.rpc("agreement_save", { p_id: null, p: { org_id: b.dataset.org } });
         if (error) { b.disabled = false; const n = el("pfAgNErr"); n.textContent = cleanErr(error); n.classList.remove("hidden"); return; }
@@ -440,6 +448,8 @@
       const { data: a, error } = await sb.rpc("agreement_get", { p_id: id });
       if (error || !a) return toast(cleanErr(error || "Not found."), true);
       const ed = canEdit("agreements"), locked = a.status === "accepted" || a.status === "void";
+      const built = !!a.builder && hasBuilder();   // ws/agreement: made in the agreement builder
+      if (built) AgreementDoc.ensureCss();
       const dis = (cond) => (cond ? " disabled" : "");
       const docSel = (id2, v) => '<select id="aca-' + id2 + '"' + dis(!ed) + ">" + DOC.map((d) => '<option value="' + d[0] + '"' + (d[0] === v ? " selected" : "") + ">" + d[1] + "</option>").join("") + "</select>";
       const fileRow = (what, path) => '<div class="pf-file" data-what="' + what + '">' + (path ? '<button type="button" class="small" data-open="' + esc(path) + '">Open file</button>' : '<span class="muted">No file</span>') +
@@ -455,7 +465,13 @@
         '<div class="field"><label for="aca-pfAgJob">What we provide</label><input type="text" id="aca-pfAgJob" maxlength="200" value="' + esc(a.job) + '" placeholder="Team and individual photos"' + dis(!ed || locked) + " /></div></div>" +
         '<div class="field"><label for="aca-pfAgPrice">Pricing</label><textarea id="aca-pfAgPrice" class="pf-short"' + dis(!ed || locked) + ' placeholder="Families order online. Packages from $25.">' + esc(a.pricing) + "</textarea></div>" +
         '<div class="field"><label for="aca-pfAgPay">Payout or donation</label><textarea id="aca-pfAgPay" class="pf-short"' + dis(!ed || locked) + ' placeholder="15% of online sales, paid to the league within 30 days of the order deadline.">' + esc(a.payout) + "</textarea></div>" +
-        (locked
+        (built
+          ? (locked ? '<div class="pf-sec">What they accepted</div>' : '<div class="pf-sec">Agreement</div>') +
+            '<div class="pf-doc ab-doc">' + AgreementDoc.sanitize((locked && a.accepted_html) || a.doc_html || "") + "</div>" +
+            '<p class="pf-help">' + (ed && !locked ? '<button type="button" class="link" id="aca-pfAgBuild">Edit in builder</button>' : "") +
+              (ed && a.status === "accepted" ? '<button type="button" class="link" id="aca-pfAgNext">Start next year&#8217;s from this one</button>' : "") +
+              (a.copy_note ? " " + esc(a.copy_note) : "") + "</p>"
+          : locked
           ? '<div class="pf-sec">What they accepted</div><div class="pf-doc">' + esc(a.rendered) + "</div>"
           : '<div class="field"><label for="aca-pfAgTerms">Wording</label><textarea id="aca-pfAgTerms" class="pf-terms"' + dis(!ed) + ">" + esc(a.terms) + "</textarea></div>" +
             '<p class="pf-help">Fill-ins: ' + HELP.terms + '. <button type="button" class="link" id="aca-pfAgPrev">Preview what they&#8217;ll see</button></p>') +
@@ -506,7 +522,7 @@
         const p = { renewal_date: el("pfAgRenew").value, note: el("pfAgNote").value, w9_status: el("pfAgW9").value, w9_at: el("pfAgW9At").value, w9_path: paths.w9,
           coi_status: el("pfAgCoi").value, coi_at: el("pfAgCoiAt").value, coi_expires: el("pfAgCoiExp").value, coi_path: paths.coi };
         if (!locked) Object.assign(p, { title: el("pfAgTitle").value, booking_id: el("pfAgBk").value, picture_day: el("pfAgDay").value, job: el("pfAgJob").value,
-          pricing: el("pfAgPrice").value, payout: el("pfAgPay").value, terms: el("pfAgTerms").value });
+          pricing: el("pfAgPrice").value, payout: el("pfAgPay").value }, el("pfAgTerms") ? { terms: el("pfAgTerms").value } : {});
         return p;
       };
       const save = async () => {
@@ -538,6 +554,8 @@
         loadAgreements();
       });
       if (el("pfAgView")) el("pfAgView").addEventListener("click", () => window.open(agLink(a.token), "_blank", "noopener"));
+      if (el("pfAgBuild")) el("pfAgBuild").addEventListener("click", async () => { if (!(await save())) return; m.close(); AgreementBuilder.open(a.org_id, { id: a.id, onDone: loadAgreements }); });
+      if (el("pfAgNext")) el("pfAgNext").addEventListener("click", () => { m.close(); AgreementBuilder.open(a.org_id, { copyFrom: a.id, onDone: loadAgreements }); });
       const setStatus = async (s, q) => {
         if (q && !confirm(q)) return;
         const { error: e4 } = await sb.rpc("agreement_set_status", { p_id: a.id, p_status: s });
@@ -556,7 +574,7 @@
       } catch (_e) { /* Today reports it as unchecked */ }
     }
 
-    return { showRebook, showReviews, showAgreements, loadRebookAttention, loadAgreementAttention };
+    return { showRebook, showReviews, showAgreements, loadRebookAttention, loadAgreementAttention, compose };
   })();
 
   // ---------------------------------------------------------------- the public agreement page
@@ -589,12 +607,13 @@
     function render(d) {
       const done = d.status === "accepted";
       el("agBody").innerHTML = (done ? '<div class="ag-done"><b>Accepted</b> by ' + esc(d.accepted_name) + (d.accepted_title ? ", " + esc(d.accepted_title) : "") +
-          " on " + esc(longDay(d.accepted_at)) + ". Thank you! Keep a copy with the Print button.</div>" : "") +
-        '<div class="ag-text">' + esc(d.text) + "</div>" +
+          " on " + esc(longDay(d.accepted_at)) + ". Thank you! " + (d.copy_now === "scheduled" || d.copy_now === "review" ? "We&#8217;ll email you a copy, and you can print one now." : "Keep a copy with the Print button.") + "</div>" : "") +
+        (d.html && typeof AgreementDoc !== "undefined" ? (AgreementDoc.ensureCss(), '<div class="ag-text ab-doc">' + AgreementDoc.sanitize(d.html) + "</div>") : '<div class="ag-text">' + esc(d.text) + "</div>") +
         (done ? '<div class="modal-actions ag-print-hide"><button type="button" class="small" id="aca-agPrint">Print or save a copy</button></div>'
           : '<form id="aca-agForm" class="ag-print-hide" autocomplete="on">' +
             '<div class="field"><label for="aca-agName">Your full name</label><input type="text" id="aca-agName" autocomplete="name" maxlength="120" required /></div>' +
             '<div class="field"><label for="aca-agRole">Your role <span class="muted">(optional)</span></label><input type="text" id="aca-agRole" autocomplete="organization-title" maxlength="120" placeholder="President, athletic director&#8230;" /></div>' +
+            '<div class="field"><label for="aca-agEmail">Your email, for your copy <span class="muted">(optional)</span></label><input type="email" id="aca-agEmail" autocomplete="email" maxlength="200" placeholder="We&#8217;ll email you a copy" /></div>' +
             '<label class="ag-check"><input type="checkbox" id="aca-agOk" /> <span>I have read this agreement and accept it for ' + esc(d.org || "our organization") + ". Typing my name counts as my signature.</span></label>" +
             '<button type="submit" class="primary" id="aca-agGo">Accept agreement</button>' +
             '<div class="login-error hidden" id="aca-agErr" role="alert"></div>' +
@@ -608,11 +627,13 @@
         const name = el("agName").value.trim();
         if (name.length < 3) return fail("Type your full name.");
         if (!el("agOk").checked) return fail("Tick the box to accept.");
+        const email = el("agEmail").value.trim();
+        if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail("That email doesn't look right. Fix it, or leave it blank.");
         el("agGo").disabled = true;
-        const { data, error } = await supabase.rpc("agreement_accept", { p_token: token(), p_name: name, p_title: el("agRole").value.trim() });
+        const { data, error } = await supabase.rpc("agreement_accept", Object.assign({ p_token: token(), p_name: name, p_title: el("agRole").value.trim() }, email ? { p_email: email } : {}));
         el("agGo").disabled = false;
         if (error || !data || !data.ok) return fail((data && data.error) || "Something went wrong. Please try again, or reply to our email.");
-        d.status = "accepted"; d.accepted_name = data.accepted_name; d.accepted_title = el("agRole").value.trim(); d.accepted_at = data.accepted_at;
+        d.status = "accepted"; d.accepted_name = data.accepted_name; d.accepted_title = el("agRole").value.trim(); d.accepted_at = data.accepted_at; d.copy_now = data.copy;
         render(d);
         window.scrollTo(0, 0);
       });
