@@ -56,6 +56,7 @@
   .aca .jc table td:last-child { text-align: right; font-weight: 600; white-space: nowrap; }
   .aca .jc tr.sub td { color: var(--muted); font-size: 12.5px; padding-top: 2px; border-bottom-color: transparent; }
   .aca .jc tr.sub td:last-child { font-weight: 400; }
+  .aca .jc tr.sub td[colspan] { white-space: normal; text-align: left; }
   .aca .jc tr.total td { border-top: 2px solid var(--text); border-bottom: 0; font-weight: 700; font-size: 15px; }
   .aca .jc .be { color: var(--muted); font-size: 13px; max-width: 60ch; margin-top: 16px; }
   .aca .jc details { margin-top: 8px; }
