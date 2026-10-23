@@ -1,8 +1,8 @@
   // ================================================================ JOBS: Job page (2026-10-23)
-  // Everything about one booking on one screen, at #jobs/job/<booking id>[/<tab>]: Overview, Picture day, Checklist,
+  // Everything about one booking on one screen, at #jobs/job/<booking id>[/<tab>]: Overview, Checklist,
   // Results, Notes (with @mentions that push to the person) and History. It is not in the menu; it opens from the
   // booking panel, a schedule bar, Cmd-K and links in notifications. Anyone with a job area (Bookings, Scheduling,
-  // Picture days, Job checklists, Season results) can open it, and so can anyone on the job's crew; each tab shows
+  // Job checklists, Season results) can open it, and so can anyone on the job's crew; each tab shows
   // only what that person may see. RPCs: job_get, job_people, job_notes_list, job_note_add / _edit / _remove,
   // history_get, signins_get (migration 20261023010000_job_page.sql).
   //
@@ -10,7 +10,7 @@
   //   if (typeof registerJobTab === "function") registerJobTab({ id: "gear", label: "Gear", order: 40, module: "inventory",
   //     show: (job) => true, render: (booking, el, job) => { el.innerHTML = "..."; } });
   // `module` (optional) hides the tab from people who can't see that area; `show(job)` (optional) can hide it per job.
-  // `job` is the job_get() result; render may be async. Built-in orders: overview 10, picture day 20, checklist 30,
+  // `job` is the job_get() result; render may be async. Built-in orders: overview 10, checklist 30,
   // results 60, notes 80, history 90.
   function registerJobTab(t) { (registerJobTab.list || (registerJobTab.list = [])).push(t); }
   // A link to a job page, for other modules: '<a href="' + jobLink(id) + '">'.
@@ -183,7 +183,6 @@
     function tabs() {
       const builtIn = [
         { id: "overview", label: "Overview", order: 10, render: renderOverview },
-        { id: "pictureday", label: "Picture day", order: 20, module: "pictureday", show: (j) => j.booking.status === "booked", render: renderPictureDay },
         { id: "checklist", label: "Checklist", order: 30, show: (j) => !!j.tasks && (j.tasks.length || j.can.workflows), count: (j) => (j.tasks || []).filter((t) => !t.done).length, render: renderChecklist },
         { id: "results", label: "Results", order: 60, module: "results", render: renderResults },
         { id: "notes", label: "Notes", order: 80, count: (j) => num(j.notes_count), render: renderNotes },
@@ -290,7 +289,6 @@
         J.stage ? ["Stage", J.stage.label + " (" + fmtAgo(J.stage.at) + ")"] : null,
       ].filter(Boolean);
       const contacts = J.contacts || [];
-      const pd = J.picture_day;
       box.innerHTML = '<div class="jp-grid"><div>' +
         '<div class="jp-sec"><h3>The job</h3><dl class="jp-dl">' + facts.map((f) => "<dt>" + esc(f[0]) + "</dt><dd>" + esc(f[1] || "\u2014") + "</dd>").join("") +
         "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="#partners/orgs/' + esc(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + "</dd></dl></div>" +
@@ -302,31 +300,14 @@
           '</span><span class="r">' + esc(T.fmtDay(T.local(p.starts_at).day, { weekday: "short" }) + ", " + timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at)) +
           (p.drive_before_min ? " \u00b7 " + num(p.drive_before_min) + " min drive" : "") + "</span></li>").join("") + "</ul>"
           : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>.' : "") + "</div>") + "</div>" +
-        (pd ? '<div class="jp-sec"><h3>Picture day</h3><div style="font-size:13.5px">' + pdLine(pd) + "</div></div>" : "") +
         (J.deliverables && J.deliverables.length ? '<div class="jp-sec"><h3>Deliverables</h3><ul class="jp-rows">' + J.deliverables.map((d) => '<li class="' + (d.status === "done" ? "done" : "") +
           '"><span class="t">' + esc(d.label) + '</span><span class="r">' + (d.status === "done" ? "done" : d.due_date ? dueTxt(d.due_date) : "due after launch") + "</span></li>").join("") + "</ul></div>" : "") +
         "</div></div>";
-    }
-    function pdLine(pd) {
-      const form = pd.submitted_at ? "Form filled in" : pd.intake_sent_at ? "Form sent " + fmtAgo(pd.intake_sent_at) + ", not back yet" : "Form not sent";
-      const n = num(pd.teams);
-      return esc(form) + (n ? " \u00b7 " + n + " teams, " + num(pd.timed) + " with a time, " + num(pd.confirmed) + " confirmed" + (num(pd.move) ? ", " + num(pd.move) + " want to move" : "") : "") +
-        (pd.roster_name ? " \u00b7 roster in" : "");
     }
     function dueTxt(day) {
       const d = T.daysBetween(T.today(), day);
       const s = T.fmtDay(day);
       return d < 0 ? '<span class="late">' + esc(s) + " (" + -d + " days late)</span>" : esc(s);
-    }
-
-    // ---------------------------------------------------------------- picture day
-    function renderPictureDay(b, box) {
-      const pd = J.picture_day;
-      box.innerHTML = '<div class="jp-sec"><h3>Picture day plan</h3>' +
-        (pd ? '<p style="margin:0 0 8px;font-size:13.5px">' + pdLine(pd) + "</p>" +
-          (pd.onsite_name ? '<p class="muted" style="margin:0 0 8px;font-size:13.5px">On site: ' + esc(pd.onsite_name) + (pd.onsite_phone ? ", " + esc(pd.onsite_phone) : "") + "</p>" : "")
-          : '<p class="muted" style="margin:0 0 8px;font-size:13.5px">No plan started for this picture day.</p>') +
-        '<div class="jp-links"><a class="small" style="display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:4px" href="#jobs/pictureday/' + esc(b.id) + '">Open the planner</a></div></div>';
     }
 
     // ---------------------------------------------------------------- checklist
@@ -515,7 +496,6 @@
         row("Retake day", b.retake_day ? fmtDayIso(b.retake_day) : "") + row("Access code", J.can.bookings ? b.access_code : "") + row("Stage", J.stage ? J.stage.label : "") + row("Notes", b.notes) + "</table>" +
         ((J.contacts || []).length ? "<h2>Contacts</h2><table>" + J.contacts.map((p) => "<tr><th>" + esc(p.name || "") + "</th><td>" + esc([p.role, p.email, p.phone].filter(Boolean).join(" \u00b7 ")) + "</td></tr>").join("") + "</table>" : "") +
         "<h2>Crew</h2><table>" + ((J.crew || []).map((p) => "<tr><th>" + esc(p.name) + "</th><td>" + esc(timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at) + (p.note ? " \u00b7 " + p.note : "")) + "</td></tr>").join("") || "<tr><td>Nobody yet</td></tr>") + "</table>" +
-        (J.picture_day ? "<h2>Picture day</h2><p>" + pdLine(J.picture_day) + "</p>" : "") +
         ((J.tasks || []).length ? "<h2>Checklist</h2><table>" + J.tasks.map((t) => "<tr><th>" + (t.done ? "&#9745;" : "&#9744;") + " " + esc(t.due_on ? T.fmtDay(t.due_on) : "") + "</th><td>" + esc(t.title) + ' <span class="s">' + esc(t.who || "") + "</span></td></tr>").join("") + "</table>" : "") +
         "<script>window.onload=function(){window.print()}<\/script></body></html>";
       const w = window.open("", "_blank");

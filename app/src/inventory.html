@@ -6,7 +6,6 @@
               <h2>Find something</h2>
               <p>Type what you're looking for: an item, a serial number, a kit or a bin. Each result shows the bin to look in, and who has it if it's checked out.</p>
             </div>
-            <div class="inv-headbtns"><button type="button" class="primary" id="aca-invScan">Scan a label</button><button type="button" class="small inv-edit" id="aca-invLabels">Print labels</button></div>
           </div>
           <div class="toolbar">
             <input type="text" id="aca-invQ" class="inv-q" placeholder="Tripod, AA batteries, SN-1234, A-03&#8230;" aria-label="Search inventory" autocomplete="off" />
@@ -61,7 +60,7 @@
               <h2>Checked out</h2>
               <p>Who has what right now, and the bin it goes back to.</p>
             </div>
-            <div class="inv-headbtns"><span class="muted" id="aca-invOutCount"></span><button type="button" class="small" id="aca-invScanBack">Scan returns</button></div>
+            <span class="muted" id="aca-invOutCount"></span>
           </div>
           <div id="aca-invOutErr" class="inline-error hidden"></div>
           <div class="table-wrap">
@@ -93,32 +92,5 @@
               <tbody id="aca-invGearBody"><tr><td colspan="6" class="empty">Loading&#8230;</td></tr></tbody>
             </table>
           </div>
-        </div>
-      </section>
-      <section class="panel" id="aca-panel-invjobs" role="tabpanel">
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <h2>Gear for jobs</h2>
-              <p>Booked jobs in the next 30 days and how much of their gear is checked out or packed. A job in the next two days with gear missing shows red, here and on Today. Open a job to check gear out for it, or scan labels as you pack.</p>
-            </div>
-          </div>
-          <div id="aca-jgErr" class="inline-error hidden"></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Picture day</th><th>Job</th><th>Gear</th><th>Out</th></tr></thead>
-              <tbody id="aca-jgJobsBody"><tr><td colspan="4" class="empty">Loading&#8230;</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <h2>Gear lists by job type</h2>
-              <p>What every job of a type takes. Each booked job gets its own copy when it's booked, and changes here reach booked jobs from today on (lines already checked out or packed stay as they are).</p>
-            </div>
-            <button type="button" class="primary hidden" id="aca-jgListAdd">Add to a list</button>
-          </div>
-          <div id="aca-jgLists"></div>
         </div>
       </section>
