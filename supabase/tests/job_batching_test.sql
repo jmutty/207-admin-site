@@ -129,6 +129,29 @@ select public.schedule_save(jsonb_build_object('user_id', '00000000-0000-0000-00
   'starts_at', '2026-11-04 09:00 America/New_York', 'ends_at', '2026-11-04 11:00 America/New_York'));
 select pg_temp.ok((select setup_min = 20 from public.schedule_entries where id = pg_temp.bar('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000a1')), 'a new bar gets the new default');
 
+-- ---------------------------------------------------------------- Part time / 1099 people start at home
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f1', 'p1@example.com');
+insert into public.team_members (user_id, display_name, active, employment_type, home_address) values
+  ('00000000-0000-0000-0000-0000000000f1', 'Part Timer', true, 'part_time', '5 Elm St, Bangor ME')
+  on conflict (user_id) do update set employment_type = excluded.employment_type, home_address = excluded.home_address;
+insert into public.offer_drive_cache (origin, destination, minutes, meters) values ('5 elm st, bangor me', 'test academy, hampden, maine', 40, 50000);
+select pg_temp.act('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.ok((public.drive_from_target('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000f1') ->> 'from') = 'home'
+  and (public.drive_from_target('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000f1') ->> 'minutes')::int = 40, 'part-timer: the drive is from home (Open jobs cache)');
+select pg_temp.ok((public.drive_from_target('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000f1') -> 'minutes') = 'null'::jsonb, 'part-timer: a job not looked up yet');
+select pg_temp.ok((public.drive_from_target('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000e1') ->> 'from') = 'studio', 'full time: the drive is from the studio');
+select pg_temp.ok((select (p ->> 'from_home')::boolean from jsonb_array_elements(public.schedule_week('2026-11-01') -> 'people') p where p ->> 'user_id' = '00000000-0000-0000-0000-0000000000f1'), 'schedule_week: who starts at home');
+select public.schedule_save(jsonb_build_object('user_id', '00000000-0000-0000-0000-0000000000f1', 'kind', 'job', 'booking_id', '00000000-0000-0000-0000-0000000000b1',
+  'starts_at', '2026-11-03 09:00 America/New_York', 'ends_at', '2026-11-03 12:00 America/New_York', 'drive_before_min', 40, 'drive_after_min', 40));
+reset role;
+select pg_temp.ok(public.mileage_estimate_for('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000b1', '2026-11-03') = 62.1, 'part-timer mileage: the round trip from home');
+select pg_temp.ok(strpos(public.day_email_content('00000000-0000-0000-0000-0000000000f1', '2026-11-03') ->> 'text', 'leave home') > 0, 'part-timer morning email: leave home');
+update public.team_members set employment_type = 'full_time' where user_id = '00000000-0000-0000-0000-0000000000f1';
+select pg_temp.ok(not public.schedule_from_home('00000000-0000-0000-0000-0000000000f1'), 'full time with a home address: still the studio');
+select pg_temp.act('00000000-0000-0000-0000-0000000000c1');
+select pg_temp.raises($$select public.drive_from_target('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000f1')$$, 'v1: no home drive lookups');
+
 -- ---------------------------------------------------------------- access
 select pg_temp.act('00000000-0000-0000-0000-0000000000c1');
 select pg_temp.raises($$select public.schedule_batch_save(jsonb_build_object('entries', jsonb_build_array(jsonb_build_object('id', pg_temp.bar('00000000-0000-0000-0000-0000000000b1'), 'batch_id', null))))$$, 'v1: no batching');

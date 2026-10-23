@@ -11,6 +11,10 @@
 --    the legs out (drive-time edge function, which now also does job -> job, cached in drive_leg_cache)
 --    and saves them with schedule_batch_save. Mileage for a batched job is its share of the trip.
 --
+-- 3. Part time and 1099 people with a home address on the Team page (the Open jobs people) start and end at
+--    home, not the studio: their drive there / back, the first and last legs of their trips, and their mileage
+--    are measured from home. Everyone else is measured from the studio as before.
+--
 -- Existing bars that haven't ended get 30/30; past bars keep 0 so old weeks read as they did.
 -- Functions from earlier migrations are patched in place (same approach as 20261023090000), so the
 -- patterns here leave the text that 20261023101500 (crew, not live yet) patches untouched.
@@ -113,6 +117,37 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- ---------------------------------------------------------------- home-based people
+-- Part time and 1099 (gets_open_jobs) with a home address start and end at home.
+create function public.schedule_from_home(p_user uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.team_members m where m.user_id = p_user and btrim(m.home_address) <> '' and public.gets_open_jobs(m.user_id))
+$$;
+
+-- A cached drive from one address to another: Open jobs' home -> job cache or the job -> job cache.
+create function public.drive_cached(p_origin text, p_destination text) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select (select jsonb_build_object('minutes', x.minutes, 'meters', x.meters) from (
+            select c.minutes, c.meters, c.fetched_at from public.offer_drive_cache c where c.origin = lower(btrim(p_origin)) and c.destination = lower(btrim(p_destination))
+            union all
+            select c.minutes, c.meters, c.fetched_at from public.drive_leg_cache c where c.origin = lower(btrim(p_origin)) and c.destination = lower(btrim(p_destination))
+          ) x where x.fetched_at > now() - interval '180 days' order by x.fetched_at desc limit 1)
+$$;
+
+-- Called by drive-time with {booking_id, user_id}: the drive from where this person starts (home or the studio).
+-- From home it is cached in drive_leg_cache (drive_leg_store); from the studio it is drive_time_target as before.
+create function public.drive_from_target(p_booking uuid, p_user uuid)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare v_home text; v_dest text := public.schedule_destination(p_booking); c jsonb;
+begin
+  if not public.can('scheduling', 'edit') then raise exception 'not allowed' using errcode = '42501'; end if;
+  if not public.schedule_from_home(p_user) then return public.drive_time_target(p_booking) || jsonb_build_object('from', 'studio'); end if;
+  if v_dest is null then return jsonb_build_object('ok', false, 'error', 'This job has no address. Add a location on the booking.'); end if;
+  select btrim(home_address) into v_home from public.team_members where user_id = p_user;
+  c := public.drive_cached(v_home, v_dest);
+  return jsonb_build_object('ok', true, 'from', 'home', 'origin', v_home, 'destination', v_dest, 'minutes', c -> 'minutes', 'meters', c -> 'meters');
+end $$;
+
 -- ---------------------------------------------------------------- trips
 -- Is this bar a later stop of a trip (so it leaves from the job before it, not the studio)?
 create function public.schedule_batched_later(p_batch uuid, p_start timestamptz) returns boolean
@@ -120,7 +155,8 @@ language sql stable security definer set search_path = '' as $$
   select p_batch is not null and exists (select 1 from public.schedule_entries x where x.batch_id = p_batch and x.starts_at < p_start)
 $$;
 
--- Miles for one person's job on one day: their share of a batched trip, else the round trip from the studio.
+-- Miles for one person's job on one day: their share of a batched trip, else the round trip from home (Part
+-- time / 1099 with a home address) or from the studio.
 create function public.mileage_estimate_for(p_user uuid, p_booking uuid, p_day date) returns numeric
 language sql stable security definer set search_path = '' as $$
   select coalesce(
@@ -129,7 +165,10 @@ language sql stable security definer set search_path = '' as $$
         and e.drive_before_m is not null and e.drive_after_m is not null
         and (e.starts_at at time zone 'America/New_York')::date = p_day
       order by e.starts_at limit 1),
-    public.mileage_estimate(p_booking))
+    case when public.schedule_from_home(p_user)
+         then (select round(2 * (public.drive_cached(m.home_address, public.schedule_destination(p_booking)) ->> 'meters')::numeric / 1609.344, 1)
+                 from public.team_members m where m.user_id = p_user)
+         else public.mileage_estimate(p_booking) end)
 $$;
 
 -- Join bars into trips, or take them out. p = {entries: [{id, batch_id (null = not batched), drive_before_min,
@@ -243,7 +282,7 @@ select pg_temp.patch_function('public.schedule_save(jsonb)'::regprocedure,
   '> v_start - make_interval\(mins => v_db\)',
   '> v_start - make_interval(mins => v_db + (select n.setup_min from public.schedule_entries n where n.id = v_id))', 1);
 
--- schedule_week: setup, teardown, trip and leg miles on each bar; the setup / teardown defaults.
+-- schedule_week: setup, teardown, trip and leg miles on each bar; the setup / teardown defaults; who starts at home.
 select pg_temp.patch_function('public.schedule_week(date, integer)'::regprocedure,
   '''drive_after_min'', e\.drive_after_min,',
   '''drive_after_min'', e.drive_after_min, ''setup_min'', e.setup_min, ''teardown_min'', e.teardown_min,
@@ -254,12 +293,15 @@ select pg_temp.patch_function('public.schedule_week(date, integer)'::regprocedur
     ''setup_default'', (select setup_min from public.staff_settings where id),
     ''teardown_default'', (select teardown_min from public.staff_settings where id),', 1);
 select pg_temp.patch_extents('public.schedule_week(date, integer)'::regprocedure, 'e', 1, 1);
+select pg_temp.patch_function('public.schedule_week(date, integer)'::regprocedure,
+  '''name'', public\.staff_name\(m\.user_id\),',
+  '''name'', public.staff_name(m.user_id), ''from_home'', public.schedule_from_home(m.user_id),', 1);
 
 -- my_day: the same on my bars, and whether a bar leaves from the job before it.
 select pg_temp.patch_function('public.my_day(date)'::regprocedure,
   '''drive_after_min'', e\.drive_after_min,',
   '''drive_after_min'', e.drive_after_min, ''setup_min'', e.setup_min, ''teardown_min'', e.teardown_min, ''batch_id'', e.batch_id,
-                                  ''from_last_job'', public.schedule_batched_later(e.batch_id, e.starts_at),', 1);
+                                  ''from_last_job'', public.schedule_batched_later(e.batch_id, e.starts_at), ''from_home'', public.schedule_from_home(e.user_id),', 1);
 select pg_temp.patch_extents('public.my_day(date)'::regprocedure, 'e', 1, 1);
 
 -- Evening notification and morning email: leave earlier for setup, and a later stop leaves from the last job.
@@ -270,7 +312,8 @@ select pg_temp.patch_function('public.day_plan_text(uuid, date, boolean)'::regpr
 select pg_temp.patch_extents('public.day_email_content(uuid, date)'::regprocedure, 'r', 2, 1);
 select pg_temp.patch_function('public.day_email_content(uuid, date)'::regprocedure,
   '''leave the studio '' \|\|',
-  'case when public.schedule_batched_later(r.batch_id, r.starts_at) then ''leave the last job '' else ''leave the studio '' end ||', 1);
+  'case when public.schedule_batched_later(r.batch_id, r.starts_at) then ''leave the last job ''
+        when public.schedule_from_home(r.user_id) then ''leave home '' else ''leave the studio '' end ||', 1);
 
 -- Time clock scheduled hours and Open jobs "busy" count setup and teardown.
 select pg_temp.patch_extents('public.tc_scheduled(uuid[], date, date)'::regprocedure, 'e', 2, 2);
@@ -286,8 +329,8 @@ select pg_temp.patch_function('public.mileage_list(date, boolean)'::regprocedure
 
 -- ---------------------------------------------------------------- grants
 revoke all on function public.schedule_entries_setup(), public.schedule_entries_unbatch(), public.schedule_batched_later(uuid, timestamptz),
-  public.mileage_estimate_for(uuid, uuid, date) from public, anon, authenticated;
-revoke all on function public.drive_leg_target(uuid, uuid), public.drive_leg_store(text, text, int, int),
+  public.mileage_estimate_for(uuid, uuid, date), public.schedule_from_home(uuid), public.drive_cached(text, text) from public, anon, authenticated;
+revoke all on function public.drive_leg_target(uuid, uuid), public.drive_leg_store(text, text, int, int), public.drive_from_target(uuid, uuid),
   public.schedule_batch_save(jsonb), public.schedule_setup_save(int, int, boolean) from public, anon;
-grant execute on function public.drive_leg_target(uuid, uuid), public.drive_leg_store(text, text, int, int),
+grant execute on function public.drive_leg_target(uuid, uuid), public.drive_leg_store(text, text, int, int), public.drive_from_target(uuid, uuid),
   public.schedule_batch_save(jsonb), public.schedule_setup_save(int, int, boolean) to authenticated;

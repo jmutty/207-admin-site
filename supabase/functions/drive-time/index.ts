@@ -5,7 +5,9 @@
 // and returns a cached answer when there is one. Otherwise Google Maps (Routes API, computeRoutes, driving,
 // no traffic) is asked once and the answer is cached with drive_time_store(). Returns {ok, minutes, ...}.
 // With {from_booking_id, booking_id} it is the drive from one job to the next (batched jobs): asked through
-// drive_leg_target() / drive_leg_store() instead (Scheduling edit only).
+// drive_leg_target() / drive_leg_store() instead (Scheduling edit only). With {booking_id, user_id} it is the
+// drive from where that person starts: home for Part time / 1099 people with a home address (drive_from_target(),
+// cached through drive_leg_store()), else the studio. Returns from: "home" | "studio".
 //
 // Needs the secret GOOGLE_MAPS_API_KEY (a Google Cloud key with the Routes API enabled; restrict it to
 // that API). Without it the Schedule page says so and the minutes are typed in by hand.
@@ -55,13 +57,16 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ ok: false, error: "Bad request." }, 400); }
   const booking = String(body.booking_id ?? "");
   const from = body.from_booking_id == null ? "" : String(body.from_booking_id);
-  if (!UUID.test(booking) || (from && !UUID.test(from))) return json({ ok: false, error: "Bad request." }, 400);
+  const user = body.user_id == null ? "" : String(body.user_id);
+  if (!UUID.test(booking) || (from && !UUID.test(from)) || (user && !UUID.test(user))) return json({ ok: false, error: "Bad request." }, 400);
 
   try {
     const t = from ? await asCaller(jwt, "drive_leg_target", { p_from: from, p_to: booking })
+            : user ? await asCaller(jwt, "drive_from_target", { p_booking: booking, p_user: user })
                    : await asCaller(jwt, "drive_time_target", { p_booking: booking });
+    const leg = !!from || t.from === "home";
     if (t.ok !== true) return json({ ok: false, error: t.error ?? "No address." });
-    if (typeof t.minutes === "number") return json({ ok: true, minutes: t.minutes, meters: t.meters, origin: t.origin, destination: t.destination, cached: true });
+    if (typeof t.minutes === "number") return json({ ok: true, minutes: t.minutes, meters: t.meters, origin: t.origin, destination: t.destination, from: t.from, cached: true });
     if (!MAPS_KEY) return json({ ok: false, error: "Drive times need a Google Maps key (GOOGLE_MAPS_API_KEY). Type the minutes for now." });
 
     const r = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
@@ -77,8 +82,8 @@ Deno.serve(async (req) => {
     }
     const minutes = Math.round(parseInt(String(route.duration), 10) / 60);
     const meters = typeof route.distanceMeters === "number" ? route.distanceMeters : null;
-    await asCaller(jwt, from ? "drive_leg_store" : "drive_time_store", { p_origin: t.origin, p_destination: t.destination, p_minutes: minutes, p_meters: meters });
-    return json({ ok: true, minutes, meters, origin: t.origin, destination: t.destination, cached: false });
+    await asCaller(jwt, leg ? "drive_leg_store" : "drive_time_store", { p_origin: t.origin, p_destination: t.destination, p_minutes: minutes, p_meters: meters });
+    return json({ ok: true, minutes, meters, origin: t.origin, destination: t.destination, from: t.from, cached: false });
   } catch (e) {
     if (e instanceof Refused) return json({ ok: false, error: e.message }, 403);
     console.error("drive-time:", e);

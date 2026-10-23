@@ -619,6 +619,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     const saved = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
     check(saved.length === 1 && saved[0].kind === "job" && saved[0].drive_before_min === 25 && /T\d\d:00:00.000Z$/.test(saved[0].starts_at), "saves a job bar with drive time");
+    // a Part time / 1099 person drives from home
+    await page.evaluate(() => { window.__rpcCalls.length = 0; window.__driveCalls = []; });
+    await page.click('#aca-scGrid .sc-chip.none[data-booking="bk2"]');
+    await page.waitForSelector(".sc-modal .sc-people input");
+    await page.check('.sc-modal .sc-people input[value="u5"]');
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__driveCalls.some((b) => b.booking_id === "bk2" && b.user_id === "u5")), "a Part time / 1099 person's drive is looked up from their home");
     // batch a job with another one that day (right-click the bar)
     await page.evaluate(() => { window.__rpcCalls.length = 0; window.__driveCalls = []; });
     await page.click('#aca-scGrid .sc-b.sc-k-job[data-entry="se1"]', { button: "right" });

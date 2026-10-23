@@ -356,7 +356,7 @@
     RPC.schedule_week = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", studio_address: AS_STAFF ? "1 Main St, Bangor ME" : "", setup_default: 30, teardown_default: 30,
       calendar: [{ event_id: "ev1@google.com", summary: "Studio makeup session", start_date: add(sun, 3), end_date: add(sun, 3), all_day: false, start_at: at(add(sun, 3), "10:00"), end_at: at(add(sun, 3), "12:00"), off_user: null },
         { event_id: "ev2@google.com", summary: "Alex Off", start_date: add(sun, 6), end_date: add(sun, 6), all_day: true, start_at: null, end_at: null, off_user: "u5" }],
-      people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40 }, { user_id: "u2", name: "Sam Helper", weekly_hours: 24 }, { user_id: "u5", name: "Alex Assistant", weekly_hours: null }],
+      people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40 }, { user_id: "u2", name: "Sam Helper", weekly_hours: 24 }, { user_id: "u5", name: "Alex Assistant", weekly_hours: null, from_home: true }],
       bookings: [{ booking_id: "bk1", day: add(sun, 2), start_at: at(add(sun, 2), "09:00"), end_at: at(add(sun, 2), "12:00"), title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", location: "89 Western Ave, Hampden ME", status: "booked", day_label: "" },
         { booking_id: "bk2", day: add(sun, 4), start_at: at(add(sun, 4), "16:00"), end_at: at(add(sun, 4), "19:00"), title: "Brewer Travel Basketball Club \u2022 Winter Sports", type_label: "Sports", location: "", status: "booked", day_label: "" },
         { booking_id: "bk4", day: add(sun, 2), start_at: at(add(sun, 2), "14:00"), end_at: at(add(sun, 2), "15:30"), title: "Hampden Rec \u2022 Fall Soccer", type_label: "Sports", location: "Dorothea Dix Park, Hampden ME", status: "booked", day_label: "" },

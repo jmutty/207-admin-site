@@ -197,7 +197,7 @@
       '<div id="aca-scWarn" class="sc-warn hidden"></div>' +
       '<div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
-      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and home from the last one. A dashed line joins the jobs of a trip.</span> Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
+      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. Part time and 1099 people with a home address on the Team page start and end at home instead of the studio.</span> Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     let view = narrow() ? "day" : "week";
@@ -461,26 +461,29 @@
     }
 
     // ---------------------------------------------------------------- drive time
-    async function lookupDrive(bookingId) {
+    // With a person, the drive is from where they start: home for Part time / 1099 people with a home address.
+    const fromHome = (uid) => !!(data && data.people.some((p) => p.user_id === uid && p.from_home));
+    async function lookupDrive(bookingId, userId) {
       const { data: { session } } = await sb.auth.getSession();
       if (!session) throw new Error("Signed out.");
-      const r = await fetch(DRIVE_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: bookingId }) });
+      const r = await fetch(DRIVE_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" }, body: JSON.stringify(userId ? { booking_id: bookingId, user_id: userId } : { booking_id: bookingId }) });
       const j = await r.json().catch(() => ({}));
       if (!j.ok) throw new Error(j.error || "HTTP " + r.status);
       return j;
     }
-    // Wires the drive inputs + "Look up" button inside a modal. getBooking() returns the picked booking id.
-    function driveControls(m, getBooking, auto) {
+    // Wires the drive inputs + "Look up" button inside a modal. getBooking() returns the picked booking id,
+    // getUser() (optional) the person, so a Part time / 1099 person's drive is from their home.
+    function driveControls(m, getBooking, auto, getUser) {
       const msg = m.querySelector(".sc-drivemsg"), btn = m.querySelector('[data-m="drive"]');
       async function go() {
         const id = getBooking();
         if (!id) { msg.textContent = "Pick the job first."; return; }
         btn.disabled = true; msg.textContent = "Asking Google Maps\u2026";
         try {
-          const r = await lookupDrive(id);
+          const r = await lookupDrive(id, getUser && getUser());
           const mins = Math.ceil(r.minutes / 5) * 5;
           m.querySelector(".sc-db").value = mins; m.querySelector(".sc-da").value = mins;
-          msg.textContent = r.minutes + " min from the studio to " + r.destination + (r.meters ? " (" + (r.meters / 1609.34).toFixed(1) + " mi)" : "") + ". Rounded up to " + mins + ".";
+          msg.textContent = r.minutes + " min from " + (r.from === "home" ? "home" : "the studio") + " to " + r.destination + (r.meters ? " (" + (r.meters / 1609.34).toFixed(1) + " mi)" : "") + ". Rounded up to " + mins + ".";
         } catch (e) { msg.textContent = cleanErr(e); }
         finally { btn.disabled = false; }
       }
@@ -514,6 +517,7 @@
         '<div class="row2"><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(en) + '" /></div></div>' +
         driveHtml(already[0] && !already[0].batch_id ? already[0].drive_before_min : 30, already[0] && !already[0].batch_id ? already[0].drive_after_min : 30,
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
+        (data.people.some((p) => p.from_home) ? '<p class="sc-note">Part time and 1099 people drive from home: theirs is looked up for each of them when you add them.</p>' : "") +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="#jobs/bookings" data-m="open" class="small">Open the booking</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
@@ -532,7 +536,9 @@
           try {
             let clashes = 0;
             for (const u of who) {
-              const { data: r, error } = await sb.rpc("schedule_save", { p: Object.assign({ user_id: u, kind: "job", booking_id: b.booking_id, starts_at: T.toIso(b.day, st), ends_at: T.toIso(endDay, et) }, driveVals(m)) });
+              const v = driveVals(m);
+              if (fromHome(u)) { try { v.drive_before_min = v.drive_after_min = round5((await lookupDrive(b.booking_id, u)).minutes); } catch (_e) { /* keep the typed minutes */ } }
+              const { data: r, error } = await sb.rpc("schedule_save", { p: Object.assign({ user_id: u, kind: "job", booking_id: b.booking_id, starts_at: T.toIso(b.day, st), ends_at: T.toIso(endDay, et) }, v) });
               if (error) throw error;
               clashes += num(r && r.overlaps);
             }
@@ -589,7 +595,7 @@
         if (b.start_at) { el("scS").value = T.hhmm(T.local(b.start_at).min); el("scE").value = T.hhmm(T.local(b.end_at).min); }
         if (data.studio_address && !(e && e.batch_id)) lookup();
       });
-      const lookup = driveControls(m, () => el("scB").value, false);
+      const lookup = driveControls(m, () => el("scB").value, false, () => el("scP").value);
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") m.close();
@@ -663,7 +669,7 @@
         const from = i ? stops[i - 1] : null;
         const fallback = !from ? to.drive_before_min : !to ? from.drive_after_min || from.drive_before_min : to.drive_before_min;
         try {
-          const r = !from ? await lookupDrive(to.booking_id) : !to ? await lookupDrive(from.booking_id) : await lookupLeg(from.booking_id, to.booking_id);
+          const r = !from ? await lookupDrive(to.booking_id, to.user_id) : !to ? await lookupDrive(from.booking_id, from.user_id) : await lookupLeg(from.booking_id, to.booking_id);
           return { minutes: round5(r.minutes), meters: r.meters != null ? r.meters : null, err: "" };
         } catch (e) { return { minutes: num(fallback), meters: null, err: cleanErr(e) }; }
       }));
@@ -673,7 +679,7 @@
       drive_after_min: i === stops.length - 1 ? legs[i + 1].minutes : 0, drive_after_m: i === stops.length - 1 ? legs[i + 1].meters : 0 }));
     async function soloRow(e) {
       let m = e.batch_id && e.drive_after_min ? e.drive_after_min : e.drive_before_min;
-      try { m = round5((await lookupDrive(e.booking_id)).minutes); } catch (_e) { /* keep what it has */ }
+      try { m = round5((await lookupDrive(e.booking_id, e.user_id)).minutes); } catch (_e) { /* keep what it has */ }
       return { id: e.id, batch_id: null, drive_before_min: m, drive_after_min: m };
     }
     async function saveTripRows(rows) { const { error } = await sb.rpc("schedule_batch_save", { p: { entries: rows } }); if (error) throw error; }
@@ -695,9 +701,10 @@
       const legIn = (i, txt) => '<li class="leg">' + '<span class="t"></span><span>' + (editableLegs ? '<input type="number" min="0" max="600" step="5" data-leg="' + i + '" value="' + num(legs[i].minutes) + '" aria-label="Minutes" />' : num(legs[i].minutes)) +
         " min " + txt + (legs[i].meters ? " (" + (legs[i].meters / 1609.34).toFixed(1) + " mi)" : "") + (legs[i].err ? ' <span class="bad">' + esc(legs[i].err) + "</span>" : "") + "</span></li>";
       let h = "", done = 0, late = 0;
+      const base = fromHome(stops[0].user_id) ? "home" : "the studio";
       stops.forEach((e, i) => {
         const s = new Date(e.starts_at).getTime(), en = new Date(e.ends_at).getTime(), su = num(e.setup_min) * 6e4, td = num(e.teardown_min) * 6e4, go = s - su - legs[i].minutes * 6e4;
-        if (!i) h += "<li>" + at(go) + "<span>Leave the studio</span></li>";
+        if (!i) h += "<li>" + at(go) + "<span>Leave " + base + "</span></li>";
         else if (go > done) h += "<li>" + at(done) + "<span>Wait " + Math.round((go - done) / 6e4) + " min, then leave</span></li>";
         h += legIn(i, "drive to " + esc(shortTitle(e.booking_title)));
         if (i && go < done) { late += Math.round((done - go) / 6e4); h += '<li><span class="t"></span><span class="bad">' + Math.round((done - go) / 6e4) + " min late for setup</span></li>"; }
@@ -706,8 +713,8 @@
         if (td) h += "<li>" + at(en) + "<span>Tear down (" + num(e.teardown_min) + " min)</span></li>";
         done = en + td;
       });
-      h += legIn(stops.length, "drive back to the studio");
-      h += "<li>" + at(done + legs[stops.length].minutes * 6e4) + "<span>Back at the studio</span></li>";
+      h += legIn(stops.length, "drive back " + (base === "home" ? "home" : "to the studio"));
+      h += "<li>" + at(done + legs[stops.length].minutes * 6e4) + "<span>Back " + (base === "home" ? "home" : "at the studio") + "</span></li>";
       return { html: '<ul class="sc-trip">' + h + "</ul>", late };
     }
     function openTrip(e) {
@@ -895,7 +902,7 @@
     }
 
     function openStudio() {
-      const m = openModal('<div class="sc-modal"><h2>Drive &amp; setup</h2><p>Drive times are measured from the studio to each job&#39;s location (or the organization and town when a booking has no location), using Google Maps. Batched jobs drive job to job.</p>' +
+      const m = openModal('<div class="sc-modal"><h2>Drive &amp; setup</h2><p>Drive times are measured from the studio to each job&#39;s location (or the organization and town when a booking has no location), using Google Maps. Batched jobs drive job to job. Part time and 1099 people with a home address on the Team page are measured from home.</p>' +
         '<div class="field"><label for="aca-scAddr">Studio address</label><input type="text" id="aca-scAddr" maxlength="300" value="' + esc(data.studio_address || "") + '" placeholder="Search Google Maps or type street, town, state" /><div id="aca-scAddrNote" style="margin-top:4px;font-size:12px;color:var(--muted)"></div></div>' +
         '<div class="row2"><div class="field"><label for="aca-scSuD">Setup before each job (min)</label><input type="number" id="aca-scSuD" min="0" max="240" step="5" value="' + num(setupDefault()) + '" /></div>' +
         '<div class="field"><label for="aca-scTdD">Teardown after each job (min)</label><input type="number" id="aca-scTdD" min="0" max="240" step="5" value="' + num(teardownDefault()) + '" /></div></div>' +
@@ -930,11 +937,19 @@
       const { data: d, error } = await sb.rpc("schedule_week", { p_start: fromDay, p_days: Math.min(42, T.daysBetween(fromDay, toDay) + 1) });
       if (error) throw error;
       const days = (d.bookings || []).filter((b) => b.booking_id === bookingId);
-      let drive = 0;
-      if (d.studio_address && days.some((b) => b.start_at)) { try { drive = Math.ceil((await lookupDrive(bookingId)).minutes / 5) * 5; } catch (e) { drive = 0; } }
+      // the drive from the studio, or from home for Part time / 1099 people with a home address
+      const driveFor = {};
+      for (const uid of days.some((b) => b.start_at) ? userIds : []) {
+        const home = (d.people || []).some((p) => p.user_id === uid && p.from_home);
+        if (!home && !d.studio_address) { driveFor[uid] = 0; continue; }
+        if (!home && "studio" in driveFor) { driveFor[uid] = driveFor.studio; continue; }
+        try { driveFor[uid] = Math.ceil((await lookupDrive(bookingId, home ? uid : null)).minutes / 5) * 5; } catch (e) { driveFor[uid] = 0; }
+        if (!home) driveFor.studio = driveFor[uid];
+      }
       let added = 0;
       for (const b of days.filter((x) => x.start_at)) {
         for (const uid of userIds) {
+          const drive = driveFor[uid] || 0;
           const { error: e2 } = await sb.rpc("schedule_save", { p: { user_id: uid, kind: "job", booking_id: bookingId, starts_at: b.start_at, ends_at: b.end_at, drive_before_min: drive, drive_after_min: drive, title: "", note: "" } });
           if (e2) throw e2;
           added++;
