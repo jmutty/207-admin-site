@@ -95,7 +95,8 @@
     body.innerHTML = openRequests.map((r) => {
       const name = r.gotphoto_job_id ? jobName(r.gotphoto_job_id) : null;
       const jobCell = r.gotphoto_job_id
-        ? '<span class="lnk js-open-job" data-job="' + esc(r.gotphoto_job_id) + '">' + esc(name || r.gotphoto_job_id) + '</span>'
+        ? '<span class="lnk js-open-job" data-job="' + esc(r.gotphoto_job_id) + '">' + esc(name || r.gotphoto_job_id) + '</span>' +
+          '<div class="req-who hidden" data-gplinks="' + esc(r.gotphoto_job_id) + '"></div>'
         : '<span class="muted">—</span>';
       // who asked: name/phone from the school form (search_data.searcher_*), plus the IP (2026-10-05)
       const sd = r.search_data || {};
@@ -107,12 +108,13 @@
         '<td class="rq-job">' + jobCell + '</td>' +
         '<td class="rq-typed muted mono">' + blockedFlag(r) + esc(summarizeSearch(studentOnly(r.search_data)) || "—") + '</td>' +
         '<td class="rq-when"><span class="rq-pre">Waiting since </span>' + fmtDate(r.created_at) + '</td>' +
-        '<td class="rq-act"><button class="small js-resolve" data-id="' + esc(r.id) + '">Mark resolved</button> <span class="row-msg js-req-msg"></span></td>' +
+        '<td class="rq-act"><button class="small js-resolve" data-id="' + esc(r.id) + '">Mark handled</button> <span class="row-msg js-req-msg"></span></td>' +
         '</tr>' +
         // roster matches + reply + searches open on load (2026-10-13)
         '<tr class="req-searches" data-id="' + esc(r.id) + '"><td colspan="5"><div class="empty">Loading&#8230;</div></td></tr>';
     }).join("");
     openRequests.forEach((r) => loadReqDetails(r));
+    fillJobLinks(body); // the job page and partner, when a booking has this GotPhoto job (2026-10-24)
   }
 
   // the typed student fields only (the searcher's own details show under the email; affirm is just the checkbox)
@@ -194,7 +196,7 @@
           '<label>Subject <input type="text" class="js-rq-f" data-f="subject" data-id="' + esc(r.id) + '" value="' + esc(d.subject) + '" maxlength="200" /></label>' +
           '<label>Message <textarea class="js-rq-f" data-f="body" data-id="' + esc(r.id) + '" rows="12">' + esc(d.body) + '</textarea></label>' +
           '<div class="rq-reply-acts"><button class="small primary js-rq-send" data-id="' + esc(r.id) + '">Send reply</button>' +
-          '<span class="muted" style="font-size:12.5px">From info@207photo.com. Sending marks the request resolved.</span> <span class="row-msg js-rq-sendmsg"></span></div>' +
+          '<span class="muted" style="font-size:12.5px">From info@207photo.com. Sending marks the request handled.</span> <span class="row-msg js-rq-sendmsg"></span></div>' +
         '</div>';
     const histHtml = rows.length ? '<div class="req-sh">Last 7 days from this email or IP: ' + rows.length + ' search' + (rows.length === 1 ? '' : 'es') + '</div>' +
       '<table class="sl-dtable rq-dt"><thead><tr><th>When</th><th>Job</th><th>What they typed</th><th>Searcher</th><th>IP</th><th>Result</th></tr></thead><tbody>' +
@@ -222,7 +224,7 @@
     const { error } = await supabase.from("lookup_requests")
       .update({ status: "resolved", resolved_at: new Date().toISOString() }).eq("id", id);
     if (error) { if (btn) btn.disabled = false; toast("Could not resolve: " + error.message, true); return; }
-    toast("Request marked resolved.");
+    toast("Marked handled.");
     reqRemoveRows(id);
   }
 
@@ -242,7 +244,7 @@
       msg.className = "row-msg err js-rq-sendmsg"; msg.textContent = "Not sent: " + (words[why] || why);
       return;
     }
-    toast("Reply sent to " + data.to + ". Request resolved.");
+    toast("Reply sent to " + data.to + ". Marked handled.");
     reqRemoveRows(id);
   }
 
@@ -291,7 +293,7 @@
     needs_job: ["err", "Needs job"],
     upcoming: ["muted", "Upcoming"],
     sent: ["ok", "Sent"],
-    dismissed: ["muted", "Dismissed"],
+    dismissed: ["muted", "Handled"],
   };
 
   function mkWhen(iso) {
@@ -411,8 +413,8 @@
     else if (m.status === "needs_job") a = '<button class="small" disabled title="Confirm the job first">Send ready email</button>';
     else if (m.status === "upcoming") a = '<button class="small" disabled title="Unlocks after the makeup">Send ready email</button>';
     a += m.status === "dismissed"
-      ? ' <button class="link js-mk-undismiss">Undo dismiss</button>'
-      : (m.status === "sent" ? "" : ' <button class="link js-mk-dismiss" title="No-show or cancelled">Dismiss</button>');
+      ? ' <button class="link js-mk-undismiss">Undo</button>'
+      : (m.status === "sent" ? "" : ' <button class="link js-mk-dismiss" title="No-show or cancelled: nothing to send">Mark handled</button>');
     return a;
   }
 
@@ -432,7 +434,7 @@
     const body = el("mkBody");
     if (!rows.length) {
       body.innerHTML = '<tr><td colspan="7" class="empty">' +
-        (mkList.length ? (mkFilter === "todo" ? "Nothing to do. Every past makeup has been emailed or dismissed." : "Nothing here for this filter.")
+        (mkList.length ? (mkFilter === "todo" ? "Nothing to do. Every past makeup has been emailed or marked handled." : "Nothing here for this filter.")
                        : "No makeup bookings yet. They appear here a minute after a parent books.") + '</td></tr>';
       return;
     }
@@ -544,7 +546,7 @@
     if (error || !data || data.ok !== true) {
       panel.querySelectorAll("button").forEach((b) => { b.disabled = false; });
       const why = error ? error.message : (data && data.error) || "unknown";
-      const words = { upcoming: "the makeup hasn't happened yet", needs_job: "confirm the job first", already_sent: "it was already sent", dismissed: "this booking is dismissed", bad_email: "that email address looks wrong", no_resend_key: "the email service key is missing" };
+      const words = { upcoming: "the makeup hasn't happened yet", needs_job: "confirm the job first", already_sent: "it was already sent", dismissed: "this booking is marked handled", bad_email: "that email address looks wrong", no_resend_key: "the email service key is missing" };
       msg.className = "row-msg err js-mk-panelmsg";
       msg.textContent = "Not sent: " + (words[why] || why);
       toast("Email not sent.", true);
@@ -611,7 +613,7 @@
       await mkSet(m.id, { p_job_id: m.suggested_job_id }, "Job confirmed.");
       return;
     }
-    if (e.target.closest(".js-mk-dismiss")) { await mkSet(m.id, { p_dismiss: true }, "Dismissed. Find it under Dismissed to undo."); return; }
+    if (e.target.closest(".js-mk-dismiss")) { await mkSet(m.id, { p_dismiss: true }, "Marked handled. Find it under Handled to undo."); return; }
     if (e.target.closest(".js-mk-undismiss")) { await mkSet(m.id, { p_dismiss: false }, "Back on the list."); return; }
   });
 

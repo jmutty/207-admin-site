@@ -523,7 +523,8 @@
     drawer.innerHTML =
       '<div class="dhead"><div><div class="t">' + esc(job.name) + '</div>' +
         '<div class="mono muted">' + esc(job.job_type) + ' · ' + (job.status === "published" && job.gp_activated_at ? 'published ' + esc(fmtShort(job.gp_activated_at)) : (job.status === "created" ? "planning" : esc(job.status))) + ' · ' + esc(job.code_count == null ? 0 : job.code_count) + ' codes' +
-        (job.shoot_at ? ' · shot ' + esc(new Date(job.shoot_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })) : '') + '</div></div>' +
+        (job.shoot_at ? ' · shot ' + esc(new Date(job.shoot_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })) : '') + '</div>' +
+        '<div class="muted hidden" style="font-size:12.5px;margin-top:2px" data-gplinks="' + esc(job.gotphoto_job_id) + '"></div></div>' +
         '<button class="small js-dclose" aria-label="Close"><span class="x" aria-hidden="true">&#10005;</span><span class="w">Close</span></button></div>' +
 
       '<div class="panelbox ' + boxCls + '">' +
@@ -602,6 +603,7 @@
     // client sees on /sportsadmin/ is decided here, never by the client.
     const datesBox = drawer.querySelector(".js-hub-dates");
     if (datesBox) fillHubDates(datesBox, job);
+    fillJobLinks(drawer); // job page + partner when a booking has this GotPhoto job (ws/partners 2026-10-24)
 
     // Async fills: roster coverage + last searches.
     const healthBox = drawer.querySelector(".js-health");

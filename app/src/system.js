@@ -211,7 +211,7 @@
     if (open) showJobsFor({}, { select: open.dataset.job });
   });
   // By job / Recent searches fold open and closed; each remembers its state (2026-09-30)
-  el("panel-searchlog").querySelectorAll(".sl-fold").forEach((card) => {
+  [...el("panel-searchlog").querySelectorAll(".sl-fold"), el("slIpCard")].forEach((card) => {
     const key = "aca-slFold-" + card.dataset.fold, btn = card.querySelector(".sl-foldbtn");
     const set = (open) => { card.classList.toggle("sl-closed", !open); btn.setAttribute("aria-expanded", String(open)); };
     try { set(localStorage.getItem(key) !== "0"); } catch (e) {}
@@ -281,7 +281,15 @@
     el("slIp").value = ip; el("slIpForm").requestSubmit();
     card.scrollIntoView({ behavior: "smooth", block: "start" });
   }
-  el("panel-searchlog").addEventListener("click", async (e) => {
+  // The address card sits on the Blocked tab (2026-10-24): it loads when that tab shows, and a job in a lookup
+  // opens it on Find My Photos activity.
+  new MutationObserver(() => { if (el("panel-blocks").classList.contains("active")) loadIpBlocks(); })
+    .observe(el("panel-blocks"), { attributes: true, attributeFilter: ["class"] });
+  el("slIpCard").addEventListener("click", (e) => {
+    const drill = e.target.closest(".js-sl-job"); if (!drill) return;
+    showTab("searchlog"); toggleJob(drill.dataset.job, true);
+  });
+  el("slIpCard").addEventListener("click", async (e) => {
     const blk = e.target.closest("[data-block]"), unb = e.target.closest("[data-unblock]"), ipl = e.target.closest(".js-ip");
     const tr = e.target.closest("[data-trust]"), untr = e.target.closest("[data-untrust]");
     if (tr || untr) {

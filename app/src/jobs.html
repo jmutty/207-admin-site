@@ -82,4 +82,16 @@
             </table>
           </div>
         </div>
+        <!-- Blocked and trusted addresses: moved here from the Find My Photos activity tab (ws/partners 2026-10-24); system.js wires it -->
+        <div class="card sl-fold" data-fold="ip" id="aca-slIpCard">
+          <div class="card-head"><div><h2><button type="button" class="sl-foldbtn" aria-expanded="true"><span class="sl-chev"></span>Blocked and trusted addresses</button></h2>
+            <p>Addresses that get &ldquo;no match&rdquo; on Find My Photos, and trusted ones with no 3-children limit. Look up an address to see every search from it, all time. Phone carriers share addresses between many people, so the pattern of searches tells you more than the address.</p></div></div>
+          <div class="table-wrap sl-ipbox">
+            <div class="sl-blocks"><h3>Blocked addresses</h3><div id="aca-slBlocks"><div class="empty">Loading&#8230;</div></div></div>
+            <div class="sl-blocks"><h3>Trusted addresses <span class="muted" style="font-weight:400">(no 3-children limit)</span></h3><div id="aca-slTrusted"></div></div>
+            <h3 style="margin:16px 0 8px">Look up an address</h3>
+            <form id="aca-slIpForm" class="sl-ipform"><input type="text" id="aca-slIp" placeholder="e.g. 172.56.114.232" aria-label="IP address" autocomplete="off" spellcheck="false" /><button type="submit" class="small primary">Look up</button></form>
+            <div id="aca-slIpOut"></div>
+          </div>
+        </div>
       </section>

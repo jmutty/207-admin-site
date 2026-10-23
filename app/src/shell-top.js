@@ -328,15 +328,15 @@
     { id: "today",     group: "",         section: "today",    module: null,           tabs: [["today", "Today"]] },
     { id: "bookings",  group: "Jobs",     section: "jobs",     module: "bookings",     tabs: [["bookings", "Bookings"]] },
     { id: "jobs",      group: "Jobs",     section: "jobs",     module: "galleries",    tabs: [["jobs", "Galleries"]] },
-    { id: "hubact",    group: "Jobs",     section: "jobs",     module: "hub",          title: "Hub activity", tabs: [["hubact", "Activity"], ["schools", "Schools on the hub"]] },
+    { id: "hubact",    group: "Jobs",     section: "jobs",     module: "hub",          title: "Hub activity", tabs: [["hubact", "Activity"]] }, // #jobs/schools: partners-hub.js sends it to Hub activity (ws/partners)
     { id: "calc",      group: "System",   section: "system",    module: "bookings",     tabs: [["calc", "Job calculator"]] },
     { id: "requests",  group: "Parents",  section: "parents",  module: "parents",      tabs: [["requests", "Help requests"]] },
     { id: "makeups",   group: "Parents",  section: "parents",  module: "parents",      tabs: [["makeups", "Makeups"]] },
     { id: "retakes",   group: "Parents",  section: "parents",  module: "parents",      tabs: [["retakes", "Retakes"]] },
-    { id: "searchlog", group: "Parents",  section: "parents",  module: "findmyphotos", title: "Find My Photos", tabs: [["searchlog", "Activity"], ["settings", "Search rules"], ["blocks", "Blocked names"]] },
+    { id: "searchlog", group: "Parents",  section: "parents",  module: "findmyphotos", title: "Find My Photos", tabs: [["searchlog", "Activity"], ["settings", "Search rules"], ["blocks", "Blocked"]] },
     { id: "orgs",      group: "Partners", section: "partners", module: "partners",     tabs: [["orgs", "All partners"]],
       search: [["Clients", "clients"], ["Active leads", "active"], ["Prospecting", "prospecting"], ["Cold leads", "cold"], ["Follow up later", "later"], ["Past clients", "past"]] },
-    { id: "outbox",    group: "Partners", section: "partners", module: "partners",     title: "Outbox", tabs: [["outbox", "Everything"], ["ready", "Outreach to review"]] },
+    { id: "outbox",    group: "Partners", section: "partners", module: "partners",     title: "Outbox", tabs: [["outbox", "Outbox"]] }, // #partners/ready: outbox.js sends it to the Outbox (ws/partners)
     { id: "library",   group: "Partners", section: "partners", module: "partners",     tabs: [["library", "Email library"]] },
     { id: "sending",   group: "System",   section: "system",   module: "settings",     title: "Settings", tabs: [["sending", "Sending"], ["health", "Sync"], ["signin", "Sign-in"]] },
   ];

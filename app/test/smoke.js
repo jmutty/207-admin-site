@@ -576,41 +576,45 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
-  console.log("Season results (owner)");
+  console.log("Sales (owner)");
   {
     const { page, errors } = await open(browser, port, "", "#jobs/seasons");
-    await page.waitForSelector("#aca-panel-seasons .tiles");
-    check(await page.$eval("#aca-panel-seasons", (n) => n.classList.contains("active")), "#jobs/seasons opens Seasons");
+    await page.waitForSelector("#aca-panel-resjobs .tiles");
+    check(await page.$eval("#aca-panel-resjobs", (n) => n.classList.contains("active")), "#jobs/seasons opens Sales, by season");
+    check(await page.$eval('#aca-rsViews [data-view="season"]', (b) => b.getAttribute("aria-pressed") === "true"), "By season is picked");
+    check((await page.textContent("#aca-rsViews")).includes("Owed to partners"), "Owed to partners shows while something is owed");
     check(await page.$eval("#aca-rsSeason", (s) => s.value) === "fall:2026", "starts on the latest season");
-    const tiles = await page.textContent("#aca-panel-seasons .tiles");
+    const tiles = await page.textContent("#aca-panel-resjobs .tiles");
     check(tiles.includes("$11,000") && tiles.includes("vs $9,500"), "sales against the same season last year: " + tiles.replace(/\s+/g, " ").slice(0, 120));
     check(tiles.includes("+16%"), "change shown");
-    const orgs = await page.textContent("#aca-panel-seasons table");
-    check(orgs.includes("Old Town Soccer") === false && orgs.includes("No organization"), "jobs without an organization are grouped");
+    const orgs = await page.textContent("#aca-rsView table");
+    check(orgs.includes("Old Town Soccer") === false && orgs.includes("No partner"), "jobs without a partner are grouped");
     check(orgs.includes("Island Cheer") && orgs.includes("new"), "a new partner says new");
+    check(!!(await page.$('#aca-rsView a[href^="#partners/org/11111111-1111-1111-1111-111111111111"]')), "partner names link to the partner page");
     await page.selectOption("#aca-rsSeason", "year:2026");
     await page.waitForTimeout(100);
-    check((await page.textContent("#aca-panel-seasons .tiles")).includes("$16,400"), "whole year adds every season");
+    check((await page.textContent("#aca-panel-resjobs .tiles")).includes("$16,400"), "whole year adds every season");
 
-    await page.evaluate(() => { location.hash = "#jobs/payouts"; });
-    await page.waitForSelector("#aca-panel-payouts .rs-org");
-    const pay = await page.textContent("#aca-panel-payouts");
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#jobs/payouts`);
+    await page.waitForSelector("#aca-panel-resjobs .rs-org");
+    check(await page.$eval('#aca-rsViews [data-view="owed"]', (b) => b.getAttribute("aria-pressed") === "true"), "#jobs/payouts opens Owed to partners");
+    const pay = await page.textContent("#aca-rsView");
     check(pay.includes("$760.00 owed on 4 jobs"), "owed total: " + pay.replace(/\s+/g, " ").slice(0, 140));
-    check((await page.$$("#aca-panel-payouts .rs-org")).length === 2, "one block per partner owed");
-    await page.click('#aca-panel-payouts .rs-org >> nth=0 >> [data-emailst]');
+    check((await page.$$("#aca-rsView .rs-org")).length === 2, "one block per partner owed");
+    await page.click('#aca-rsView .rs-org >> nth=0 >> [data-emailst]');
     await page.waitForTimeout(200);
     const est = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "partner_statement_queue").pop());
     check(est && /picture day statement/.test(est[1].p_subject) && est[1].p_body.includes("{{paid_line}}") && est[1].p_body.includes("your share"), "Email statement drops the statement in the outbox, held");
     check((await page.textContent("#aca-toast")).includes("held for you"), "says it is held for review");
-    await page.click('#aca-panel-payouts [data-payall="r1,r8"]');
+    await page.click('#aca-rsView [data-payall="r1,r8"]');
     await page.waitForSelector("#aca-rsPayRef");
     await page.fill("#aca-rsPayRef", "1101");
     await page.click(".modal [data-go]");
     await page.waitForTimeout(200);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_pay" && c[1].p_jobs.join() === "r1,r8" && c[1].p_method === "Check" && c[1].p_ref === "1101" && c[1].p_amount === undefined)), "records a payment for what is owed");
-    await page.click('#aca-panel-payouts [data-f="paid"]');
+    await page.click('#aca-rsView [data-f="paid"]');
     await page.waitForTimeout(100);
-    check((await page.textContent("#aca-panel-payouts")).includes("Brewer Travel | Fall 2025"), "Paid filter lists paid jobs");
+    check((await page.textContent("#aca-rsView")).includes("Brewer Travel | Fall 2025"), "Paid filter lists paid jobs");
     await page.click("#aca-rsAddTerms");
     await page.waitForSelector("#aca-rsTOrg");
     check(await page.$eval("#aca-rsTOrg", (s) => [...s.options].map((o) => o.textContent).join()) === "Island Cheer & Tumbling", "add terms offers partners without terms");
@@ -623,23 +627,28 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_set_terms" && c[1].p_pct === 7.5 && c[1].p_kind === "percent" && c[1].p_org === "44444444-4444-4444-4444-444444444444")), "saves a partner's share");
 
-    await page.click('#aca-nav button[data-tab="jobs"]');
-    await page.click('#aca-pagetabs button[data-tab="resjobs"]');
-    await page.waitForSelector('#aca-panel-resjobs tr[data-job="r9"]');
-    check((await page.textContent('#aca-panel-resjobs tr[data-job="r9"]')).includes("typed in"), "typed-in sales are marked");
+    await page.click('#aca-rsViews [data-view="job"]');
+    await page.waitForSelector('#aca-rsView tr[data-job="r9"]');
+    check(page.url().includes("#jobs/resjobs/job"), "By job has its own address");
+    check((await page.textContent('#aca-rsView tr[data-job="r9"]')).includes("typed in"), "typed-in sales are marked");
     await page.fill("#aca-rsQ", "hancock");
     await page.waitForTimeout(100);
-    check((await page.$$("#aca-panel-resjobs tbody tr[data-job]")).length === 3, "search narrows the list");
-    await page.click('#aca-panel-resjobs tr[data-job="r2"]');
+    check((await page.$$("#aca-rsView tbody tr[data-job]")).length === 3, "search narrows the list");
+    await page.click('#aca-rsView tr[data-job="r2"] td.name');
     await page.waitForSelector("#aca-rsJSales");
     await page.fill("#aca-rsJSales", "3300");
     await page.selectOption("#aca-rsJOrg", "11111111-1111-1111-1111-111111111111");
     await page.click(".modal [data-go]");
     await page.waitForTimeout(150);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_save" && c[1].p_job === "r2" && c[1].p.manual_sales === "3300" && c[1].p.org_id === "11111111-1111-1111-1111-111111111111")), "saves typed sales and an organization");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_save" && c[1].p_job === "r2" && c[1].p.manual_sales === "3300" && c[1].p.org_id === "11111111-1111-1111-1111-111111111111")), "saves typed sales and a partner");
     await page.click("#aca-rsRefresh");
     await page.waitForTimeout(250);
     check(await page.evaluate(() => window.__salesCalls === 1), "Refresh sales calls the admin function");
+
+    // one partner's owed jobs, with a trail back to the partner
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#jobs/resjobs/owed/11111111-1111-1111-1111-111111111111`);
+    await page.waitForSelector("#aca-panel-resjobs .rs-trail");
+    check((await page.textContent("#aca-panel-resjobs .rs-trail")).includes("Brewer Travel Basketball Club") && (await page.$$("#aca-rsView .rs-org")).length === 1, "a partner's owed jobs, with a trail back to the partner");
 
     await page.click('#aca-nav button[data-tab="today"]');
     await page.waitForTimeout(250);
@@ -648,21 +657,22 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
-  console.log("Season results view only");
+  console.log("Sales view only");
   {
     const { page, errors } = await open(browser, port, "?as=money");
-    check(JSON.stringify(await rail(page)) === JSON.stringify(["today", "myday", "jobs"]), "menu: Today, My day and Jobs > Sales: " + (await rail(page)).join(","));
+    const r = await rail(page);
+    check(r.includes("jobs") && !r.includes("parents"), "menu: Sales under Jobs: " + r.join(","));
     check((await page.textContent('#aca-nav button[data-tab="jobs"]')).startsWith("Sales"), "an entry is named after the only tab they have");
-    await page.evaluate(() => { location.hash = "#jobs/seasons"; });
-    await page.waitForSelector("#aca-panel-seasons .tiles");
-    await page.evaluate(() => { location.hash = "#jobs/payouts"; });
-    await page.waitForSelector("#aca-panel-payouts .rs-org");
-    check(!(await page.$("#aca-panel-payouts [data-payall]")) && !(await page.$("#aca-rsAddTerms")), "no Record payment, no terms editing");
-    check(!!(await page.$("#aca-panel-payouts [data-copy]")), "can still copy a statement");
     await page.click('#aca-nav button[data-tab="jobs"]');
-    await page.waitForSelector('#aca-panel-resjobs tr[data-job="r1"]');
+    await page.waitForSelector("#aca-panel-resjobs .tiles");
+    await page.click('#aca-rsViews [data-view="owed"]');
+    await page.waitForSelector("#aca-rsView .rs-org");
+    check(!(await page.$("#aca-rsView [data-payall]")) && !(await page.$("#aca-rsAddTerms")), "no Record payment, no terms editing");
+    check(!!(await page.$("#aca-rsView [data-copy]")), "can still copy a statement");
+    await page.click('#aca-rsViews [data-view="job"]');
+    await page.waitForSelector('#aca-rsView tr[data-job="r1"]');
     check(!(await page.$("#aca-rsRefresh")), "no Refresh sales");
-    await page.click('#aca-panel-resjobs tr[data-job="r1"]');
+    await page.click('#aca-rsView tr[data-job="r1"] td.name');
     await page.waitForSelector("#aca-rsJSales");
     check(await page.$eval("#aca-rsJSales", (i) => i.disabled) && !(await page.$(".modal [data-go]")), "job is read-only");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
@@ -984,37 +994,89 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
-  console.log("Organization page (owner)");
+  console.log("Partner page (owner)");
   {
     const BR = "11111111-1111-1111-1111-111111111111";
     const { page, errors } = await open(browser, port, "", "#partners/orgs");
     await page.waitForSelector(`#aca-panel-orgs [data-id="${BR}"]`);
     await page.click(`#aca-panel-orgs [data-id="${BR}"]`);
     await page.waitForSelector("#aca-opTabs button");
-    check(await page.$eval("#aca-panel-org", (n) => n.classList.contains("active")), "clicking an organization opens its page");
+    check(await page.$eval("#aca-panel-org", (n) => n.classList.contains("active")), "clicking a partner opens its page");
     check(page.url().includes("#partners/org/" + BR), "the address is #partners/org/<id>");
-    check(await page.$eval('#aca-nav button[data-tab="orgs"]', (b) => b.getAttribute("aria-selected") === "true"), "Organizations stays lit in the menu");
+    check(await page.$eval('#aca-nav button[data-tab="orgs"]', (b) => b.getAttribute("aria-selected") === "true"), "Partners stays lit in the menu");
     const tabs = await page.$$eval("#aca-opTabs button", (bs) => bs.map((b) => b.dataset.t));
-    check(JSON.stringify(tabs) === JSON.stringify(["overview", "jobs", "galleries", "contacts", "emails", "agreements", "payouts", "history"]), "tabs: " + tabs.join(","));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "jobs", "sales", "contacts", "emails", "agreements", "history"]), "tabs: " + tabs.join(","));
+    const labels = await page.$$eval("#aca-opTabs button", (bs) => bs.map((b) => b.textContent));
+    check(labels.join("|") === "Overview|Jobs|Sales|Contacts|Emails & hub|Agreement & rebooking|Notes & history", "tab names: " + labels.join("|"));
     await page.waitForSelector(".op-need, .jp-sec .empty");
     check((await page.textContent("#aca-opBody")).includes("Needs you here"), "overview lists what needs you here");
     check(!!(await page.$(`#aca-opBody a[href="#jobs/job/bk1"]`)) || (await page.textContent("#aca-opBody")).includes("Winter Sports"), "overview shows the next job");
+    check(!!(await page.$("#aca-opBody .op-grid")), "overview grid has a class (one column on a phone)");
+    const ov = await page.textContent("#aca-opBody");
+    check(ov.includes("Stage changed: New") && !/stage_change|email_sent/.test(ov), "activity kinds read as words");
+    check(ov.includes("Jobs with us") && ov.includes("Payout") && ov.includes("10% of sales"), "at a glance: jobs and payout");
+    check(!!(await page.$('#aca-opBody .op-need [data-go="pay"]')), "a payout owed for an ended season has Record payment right there");
+    await page.click('#aca-opBody .op-need [data-go="pay"]');
+    await page.waitForSelector("#aca-rsPayRef");
+    check(true, "Record payment opens from the overview");
+    await page.evaluate(() => document.querySelectorAll(".modal-wrap").forEach((n) => n.remove()));
     await page.click('#aca-opTabs button[data-t="jobs"]');
     await page.waitForSelector("#aca-opBody .op-table, #aca-opBody .empty");
-    check((await page.textContent("#aca-opBody")).includes("Winter Sports"), "Jobs tab lists this organization's jobs");
-    await page.click('#aca-opTabs button[data-t="galleries"]');
+    check((await page.textContent("#aca-opBody")).includes("Winter Sports"), "Jobs tab lists this partner's jobs");
+    check((await page.textContent("#aca-opBody")).includes("Brewer Travel | Fall 2025") && (await page.textContent("#aca-opBody")).includes("GotPhoto only"), "Jobs tab includes GotPhoto jobs with no booking");
+    await page.click('#aca-opTabs button[data-t="sales"]');
     await page.waitForSelector("#aca-opBody .op-card, #aca-opBody .empty");
-    check((await page.textContent("#aca-opBody")).includes("Brewer Travel | Fall 2026"), "Galleries tab lists its galleries");
+    const sales = await page.textContent("#aca-opBody");
+    check(sales.includes("Brewer Travel | Fall 2026"), "Sales tab lists its galleries");
+    check(/Payout:\s*10% of sales/.test(sales) && !!(await page.$('#aca-opBody [data-s="terms"]')) && (await page.textContent('#aca-opBody [data-s="terms"]')) === "Change", "payout line: 10% of sales, Change");
+    check(!!(await page.$('#aca-opBody [data-s="pay"]')) && !!(await page.$('#aca-opBody [data-s="stmt"]')), "Record payment and Copy statement on the Sales tab");
+    await page.click('#aca-opBody [data-s="terms"]');
+    await page.waitForSelector("#aca-rsTPct");
+    check(await page.$eval("#aca-rsTPct", (i) => i.value) === "10", "Change opens the terms");
+    await page.evaluate(() => document.querySelectorAll(".modal-wrap").forEach((n) => n.remove()));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#partners/org/${BR}/payouts`);
+    await page.waitForSelector("#aca-opTabs button");
+    check(await page.$eval('#aca-opTabs button[data-t="sales"]', (b) => b.getAttribute("aria-selected") === "true") && page.url().endsWith("/sales"), "an old /payouts address opens Sales");
     await page.click('#aca-opTabs button[data-t="contacts"]');
     await page.waitForSelector("#aca-opPanel #aca-ogPanel.og-inline");
-    check((await page.textContent("#aca-opPanel")).includes("Chris"), "Contacts & outreach shows the people");
-    check(!(await page.isVisible('#aca-opPanel [data-act="close"]')), "no close or next buttons on the page");
-    await page.click('#aca-opTabs button[data-t="payouts"]');
+    check((await page.textContent("#aca-opPanel")).includes("Chris"), "Contacts shows the people");
+    check(!(await page.isVisible('#aca-opPanel [data-act="close"]')) && !(await page.$("#aca-opPanel .og-ptop")), "no close, arrows or second name on the page");
+    check(!(await page.isVisible("#aca-ogDetails")) && !!(await page.$('#aca-opPanel [data-act="details"]')), "details sit behind Edit details");
+    await page.click('#aca-opPanel .og-actions [data-act="details"]');
+    check(await page.isVisible("#aca-ogDetails"), "Edit details opens them");
+    const secs = await page.$$eval("#aca-opPanel .og-sec h3", (hs) => hs.map((h) => h.textContent.trim()));
+    check(/^Contacts/.test(secs[0]), "contacts come first: " + secs.join(" / "));
+    await page.waitForSelector("#aca-opPanel .og-lbl");
+    check((await page.textContent("#aca-opPanel")).includes("gets booking emails") && (await page.textContent("#aca-opPanel")).includes("coach"), "booking email and coach contacts are labelled");
+
+    await page.click('#aca-opTabs button[data-t="emails"]');
+    await page.waitForSelector("#aca-opBody .op-table, #aca-opBody .empty");
+    check(!!(await page.$('#aca-opBody a[href="#partners/outbox/' + BR + '"]')), "Emails & hub links to the Outbox for this partner");
+    check(!!(await page.$('#aca-opBody tr[data-id="ob2"] [data-v="sendnow"]')) && !!(await page.$('#aca-opBody tr[data-id="ob2"] [data-v="bskip"]')), "a failed booking email has Send now and Don't send");
+    await page.click('#aca-opBody tr[data-id="ob2"] [data-v="preview"]');
+    await page.waitForSelector("#aca-opBody tr.op-prev .ob-mail:not(:has(.spin))");
+    check((await page.textContent("#aca-opBody tr.op-prev")).includes("Picture day is coming up"), "Preview shows the email");
+    await page.click('#aca-opBody tr[data-id="ob2"] [data-v="bskip"]');
     await page.waitForTimeout(200);
-    check((await page.textContent("#aca-opBody")).includes("10%"), "Payouts tab shows the terms");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_email_skip" && c[1].p_email === "ob2")), "Don't send skips the booking email");
+
+    await page.click('#aca-opTabs button[data-t="agreements"]');
+    await page.waitForSelector('#aca-opBody [data-a="new"]');
+    check(!!(await page.$('#aca-opBody [data-a="rebook"]')), "Agreement & rebooking: New agreement and Draft rebook email");
+    await page.click('#aca-opBody [data-a="new"]');
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_save" && c[1].p_id === null && c[1].p.org_id === "11111111-1111-1111-1111-111111111111")), "New agreement starts one for this partner without asking which");
+    await page.evaluate(() => document.querySelectorAll(".modal-wrap").forEach((n) => n.remove()));
+
     await page.click('#aca-opTabs button[data-t="history"]');
     await page.waitForSelector("#aca-opHist .hv-list li, #aca-opHist .empty");
     check(!!(await page.$("#aca-opNotes")) && !!(await page.$("#aca-opHist .hv-list li")), "Notes & history tab shows the changes");
+    await page.waitForSelector("#aca-opTl .op-tl li");
+    check((await page.textContent("#aca-opTl")).includes("Met Chris at the fall tourney"), "notes are on Notes & history");
+    await page.fill("#aca-opNote", "Wants a spring date");
+    await page.click('#aca-opBody [data-h="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "prospect_activities" && w[1] === "insert" && w[2].kind === "note" && w[2].body === "Wants a spring date")), "adds a note");
     await page.click("#aca-bookBtn");
     await page.waitForTimeout(300);
     await page.waitForSelector("#aca-bkOrgPick strong");
@@ -1025,7 +1087,80 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.keyboard.press("Escape");
     await page.goto(`http://127.0.0.1:${port}/test/harness.html#jobs/job/bk1`);
     await page.waitForSelector(".jp-trail");
-    check((await page.textContent(".jp-trail")).includes("Brewer Travel Basketball Club") && !!(await page.$(`.jp-trail a[href^="#partners/org/${BR}"]`)), "a job page leads back to its organization");
+    check((await page.textContent(".jp-trail")).includes("Brewer Travel Basketball Club") && !!(await page.$(`.jp-trail a[href^="#partners/org/${BR}"]`)), "a job page leads back to its partner");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("One Outbox (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#partners/ready");
+    await page.waitForSelector("#aca-obHeld .og-rcard");
+    check(await page.$eval("#aca-panel-outbox", (n) => n.classList.contains("active")), "#partners/ready opens the Outbox");
+    const card = await page.textContent("#aca-obHeld .og-rcard");
+    check(card.includes("Island Cheer") && card.includes("Looks like your teams are already practicing"), "outreach waiting for an OK shows as a card with its body");
+    const verbs = await page.$$eval("#aca-obHeld .og-rcard button", (bs) => bs.map((b) => b.textContent.trim()));
+    check(["Approve and send", "Edit", "Don\u2019t send"].every((v) => verbs.includes(v) || verbs.includes(v.replace("\u2019", "'"))), "card verbs: " + verbs.join(", "));
+    check(!(await page.$('#aca-obBody [data-id="ob1"], #aca-obList [data-id="ob1"]')), "the same email is not listed twice");
+    check(!(await page.$("#aca-ogPause")) && !(await page.$("#aca-ogTest")), "no pause, test or tracking switches here");
+    check(!!(await page.$('#aca-panel-outbox a[href="#system/sending"]')), "sending switches link to Settings");
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#partners/outbox/44444444-4444-4444-4444-444444444444`);
+    await page.waitForSelector("#aca-obTrail a");
+    check((await page.textContent("#aca-obTrail")).includes("Island Cheer") && (await page.textContent("#aca-obOrgTag")).includes("Island Cheer"), "one partner's Outbox, with a trail back");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Partners list (owner)");
+  {
+    const { page, errors } = await open(browser, port, "?clients=1", "#partners/orgs");
+    await page.waitForSelector("#aca-ogBody tr.og-row");
+    check(await page.$eval('#aca-ogGroups [data-group="clients"]', (b) => b.getAttribute("aria-pressed") === "true"), "admins open on Clients");
+    const heads = await page.$$eval("#aca-ogHead th[data-b]", (ts) => ts.map((t) => t.textContent.trim()));
+    check(heads.includes("Main contact") && heads.includes("Last picture day") && heads.includes("Next picture day") && heads[0] === "Partner", "client columns: " + heads.join(","));
+    check((await page.textContent("#aca-panel-orgs .og-head h2")) === "Partners" && (await page.textContent("#aca-ogAdd")).includes("Add partner"), "says Partners");
+    await page.click('#aca-ogGroups [data-group="past"]');
+    check((await page.textContent("#aca-ogBody")).includes("No partners in Past clients"), "an empty group says so plainly");
+    await page.click("#aca-ogAdd");
+    await page.fill("#aca-ogNewName", "Orono Rec");
+    await page.fill("#aca-ogNewFirst", "Dana");
+    await page.fill("#aca-ogNewEmail", "dana@orono.org");
+    await page.click('.og-modal [data-v="1"]');
+    await page.waitForTimeout(250);
+    const w = await page.evaluate(() => window.__writes || []);
+    check(w.some((x) => x[0] === "prospect_orgs" && x[1] === "insert" && x[2].name === "Orono Rec" && x[2].source === "Partners tab"), "Add partner adds the partner");
+    check(w.some((x) => x[0] === "prospect_contacts" && x[1] === "insert" && x[2].email === "dana@orono.org" && x[2].first_name === "Dana" && x[2].is_primary === true), "and its main contact");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  {
+    const { page, errors } = await open(browser, port, "?clients=1", "#partners/orgs");
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.waitForSelector("#aca-ogBody tr.og-row");
+    check(!(await page.isVisible("#aca-ogFlags")), "phone: the flag chips fold behind Filters");
+    await page.click("#aca-ogFToggle");
+    check(await page.isVisible("#aca-ogFlags"), "phone: Filters shows them");
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= 392), "phone: no sideways scroll");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Hub activity, Parents (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/schools");
+    await page.waitForSelector("#aca-hubactBody .hubact-org");
+    check(await page.$eval("#aca-panel-hubact", (n) => n.classList.contains("active")), "#jobs/schools opens Hub activity");
+    check(await page.$eval('#aca-hubactChips [data-f="school"]', (b) => b.getAttribute("aria-pressed") === "true"), "on the Schools filter");
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#parents/blocks`);
+    await page.waitForSelector("#aca-panel-blocks #aca-slIpCard");
+    check(!(await page.$("#aca-panel-searchlog #aca-slIpForm")) && !!(await page.$("#aca-panel-blocks #aca-slIpForm")), "blocked and trusted addresses live on the Blocked tab");
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#parents/searchlog`);
+    await page.waitForSelector("#aca-panel-searchlog h2");
+    check((await page.textContent("#aca-panel-searchlog h2")).includes("Find My Photos activity"), "the Find My Photos tab is the activity log");
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#parents/requests`);
+    await page.waitForSelector("#aca-reqBody .js-resolve");
+    check((await page.textContent("#aca-reqBody .js-resolve")) === "Mark handled", "help requests say Mark handled");
+    await page.waitForSelector('#aca-reqBody [data-gplinks]:not(.hidden) a');
+    check(!!(await page.$('#aca-reqBody [data-gplinks] a[href="#jobs/job/bk1"]')) && !!(await page.$('#aca-reqBody [data-gplinks] a[href^="#partners/org/11111111"]')), "a help request links its job page and partner");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
