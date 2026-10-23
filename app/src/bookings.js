@@ -1121,7 +1121,62 @@
     const can = canEdit("bookings");
     return '<div class="bk-sec"><h3>Tracking only</h3><div class="bk-sub">This job did not go through Book a job. It is here for its stages and deliverables only: no emails, no calendar event and no hub reminders come from it.</div>' +
       (b.gotphoto_job ? '<div class="bk-sub" style="margin-top:6px">GotPhoto job <strong>' + esc(b.gotphoto_job.name) + "</strong>" + (b.gotphoto_job.gp_activated_at ? ", gallery live since " + esc(fmtWhen(b.gotphoto_job.gp_activated_at)) : ", gallery not live yet") + "</div>" : "") +
-      (can ? '<div style="margin-top:8px"><button type="button" class="small" data-v="untrack">Stop tracking</button></div>' : "") + "</div>";
+      (can ? '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">' +
+        (b.picture_day >= todayIso() ? '<button type="button" class="small primary" data-v="makereal">Make it a real booking</button>' : "") +
+        '<button type="button" class="small" data-v="untrack">Stop tracking</button></div>' : "") + "</div>";
+  }
+  function todayIso() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  // Moving off 17hats (2026-10-23): a track-only job becomes a booking on its job type's emails. 17hats already sent
+  // Start here (and maybe more), so those are ticked and marked "Not needed"; the calendar event that day is linked
+  // instead of a second one being made. The list underneath is a dry run of exactly what Admin will send, and when.
+  async function openMakeReal(id) {
+    const { data: s, error } = await sb.rpc("booking_make_real_suggest", { p_id: id });
+    if (error) return toast(cleanErr(error), true);
+    const usable = s.contacts.filter((c) => c.usable), ev = s.events.find((x) => x.matches) || null;
+    const box = dialog(`<div class="bk-fhead"><h2>Make it a real booking</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">✕</button></div>
+      <div class="bk-sub" style="margin-bottom:10px"><strong>${esc(s.org)}</strong>, ${esc(fmtDay(s.picture_day))}. Admin takes over this job's emails from 17hats. Turn off its 17hats workflow the same day.</div>
+      ${s.has_sequence ? "" : '<div class="inline-error">This job type has no active email sequence.</div>'}
+      <div class="og-grid">
+        <span>Director</span><span id="aca-bkMrWho">${s.contacts.map((c, i) => '<label style="display:block"><input type="checkbox" data-who="' + esc(c.id) + '"' + (c.usable ? (c === usable[0] ? " checked" : "") : " disabled") + " /> " + esc(c.name || c.email) + (c.name ? ' <span class="bk-sub">' + esc(c.email) + "</span>" : "") + (c.usable ? "" : ' <span class="pill muted">bounced or stopped</span>') + "</label>").join("") || '<span class="inline-error">No contacts on this partner. Add the director on the partner page first.</span>'}</span>
+        <label for="aca-bkMrEv">Calendar</label><select id="aca-bkMrEv"><option value="">Make a new event</option>${s.events.map((x) => '<option value="' + esc(x.id) + '" data-st="' + esc(x.start_time || "") + '" data-en="' + esc(x.end_time || "") + '"' + (x === ev ? " selected" : "") + ">Use " + esc(x.title) + " (" + esc(x.start_time || "") + ")</option>").join("")}</select>
+        <label for="aca-bkMrSt">Start</label><input type="time" id="aca-bkMrSt" value="${esc(ev ? ev.start_time : "")}" />
+        <label for="aca-bkMrEn">End</label><input type="time" id="aca-bkMrEn" value="${esc(ev ? ev.end_time : "")}" />
+        <span>17hats already sent</span><span>${s.steps.map((st) => '<label style="display:block"><input type="checkbox" data-sent="' + esc(st.step_no) + '"' + (st.offset_days === 0 ? " checked disabled" : "") + " /> " + esc(st.subject.replace(/\{\{\s*\w+\s*\}\}/g, "…")) + ' <span class="bk-sub">' + (st.offset_days === 0 ? "at booking" : esc(fmtDay(st.send_day)) + (st.passed ? ", date passed" : "")) + "</span></label>").join("")}</span>
+      </div>
+      <h3 style="font-size:14px;margin:14px 0 6px">What Admin will send</h3>
+      <div id="aca-bkMrPlan" class="bk-sub"><span class="spin"></span>Working it out&#8230;</div>
+      <div id="aca-bkMrErr" class="inline-error hidden" style="margin:10px 0 0"></div>
+      <div class="og-actions" style="margin-top:12px"><button type="button" class="primary" data-v="save" disabled>Make it a real booking</button><button type="button" data-v="close">Cancel</button></div>`, true);
+    box.classList.add("bk-form");
+    const args = () => ({ contact_ids: [...box.querySelectorAll("input[data-who]:checked")].map((x) => x.dataset.who), start_time: el("bkMrSt").value,
+      end_time: el("bkMrEn").value, google_event_id: el("bkMrEv").value, sent_steps: [...box.querySelectorAll("input[data-sent]:checked")].map((x) => +x.dataset.sent) });
+    const row = (m) => "<tr><td>" + (m.status === "scheduled" ? esc(fmtWhen(m.send_at)) : '<span class="pill muted">' + esc(m.status === "waiting" ? "waiting" : "won't send") + "</span>") + "</td><td>" + esc(m.subject || "Step " + m.step_no) +
+      (m.status === "scheduled" ? "" : '<div class="bk-sub">' + esc(m.reason || "") + "</div>") + "</td><td>" + esc((m.to || []).concat(m.cc || []).join(", ")) + "</td></tr>";
+    let seq = 0;
+    async function preview() {
+      const mine = ++seq, err = el("bkMrErr"), save = box.querySelector('button[data-v="save"]');
+      err.classList.add("hidden"); save.disabled = true;
+      const { data, error: e2 } = await sb.rpc("booking_make_real", { p_id: id, p: args(), p_dry_run: true });
+      if (mine !== seq) return;
+      if (e2) { el("bkMrPlan").innerHTML = ""; err.textContent = cleanErr(e2); err.classList.remove("hidden"); return; }
+      const list = data.emails.slice().sort((a, b2) => (a.status === "scheduled") === (b2.status === "scheduled") ? 0 : a.status === "scheduled" ? -1 : 1);
+      el("bkMrPlan").innerHTML = '<div class="table-wrap"><table class="bk-emails"><tbody>' + list.map(row).join("") + "</tbody></table></div>";
+      save.disabled = false;
+    }
+    box.addEventListener("change", (e) => {
+      if (e.target.id === "aca-bkMrEv") { const o = e.target.selectedOptions[0]; if (o && o.dataset.st) { el("bkMrSt").value = o.dataset.st; el("bkMrEn").value = o.dataset.en; } }
+      preview();
+    });
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("button[data-v]"); if (!b) return;
+      if (b.dataset.v === "close") return box.close();
+      if (b.dataset.v !== "save") return;
+      b.disabled = true;
+      const { error: e3 } = await sb.rpc("booking_make_real", { p_id: id, p: args(), p_dry_run: false });
+      if (e3) { b.disabled = false; el("bkMrErr").textContent = cleanErr(e3); el("bkMrErr").classList.remove("hidden"); return; }
+      box.close(); toast("It's a real booking now. Turn off its 17hats workflow."); load(true); loadAttention(); await refreshDetail();
+    });
+    preview();
   }
   async function openTrack() {
     const can = canEdit("bookings");
@@ -1352,6 +1407,7 @@
         b.disabled = true; const { data, error } = await sb.rpc("booking_set_stage", { p_booking: detail.id, p_stage: s.id }); if (error) throw error; if (!data.ok) throw new Error(data.error);
         toast("Moved to " + s.label + "."); load(true); await reloadJob(); return;
       }
+      if (v === "makereal") { await openMakeReal(detail.id); return; }
       if (v === "untrack") {
         if (!confirm("Stop tracking this job? It leaves All jobs (its stage history and deliverables are kept).")) return;
         b.disabled = true; const { data, error } = await sb.rpc("booking_untrack", { p_id: detail.id }); if (error) throw error; if (!data.ok) throw new Error("This job is not track-only.");

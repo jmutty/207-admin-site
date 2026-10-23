@@ -339,6 +339,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const txt = await page.textContent("#aca-bkDetail");
     check(txt.includes("Tracking only") && !txt.includes("Calendar") && !txt.includes("Emails") && !(await page.$('#aca-panel-job [data-j="edit"]')), "Booking tab shows tracking only: no calendar, emails or edit");
     check(!!(await page.$("#aca-bkDetail .bk-dlv")), "deliverables still there");
+    await page.click('#aca-bkDetail button[data-v="makereal"]');
+    await page.waitForSelector("#aca-bkMrPlan .bk-emails");
+    const mr = await page.textContent("#aca-bkMrPlan");
+    check(mr.includes("Not needed: already sent from 17hats") && mr.includes("One week before"), "Make it a real booking: shows the dry-run email list");
+    check(await page.evaluate(() => { const x = document.querySelector('input[data-sent="1"]'); return x.checked && x.disabled && document.getElementById("aca-bkMrSt").value === "17:00" && document.getElementById("aca-bkMrEv").value === "ev9"
+      && document.querySelector('input[data-who="c1"]').checked && document.querySelector('input[data-who="c2"]').disabled; }), "Start here ticked as sent by 17hats, calendar event + time + director filled in");
+    await page.click('.og-modal button[data-v="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_make_real" && c[1].p_dry_run === false && c[1].p.google_event_id === "ev9" && c[1].p.contact_ids.join() === "c1")), "Make it a real booking saves with the linked event");
     await page.click('#aca-bkDetail button[data-v="untrack"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_untrack" && c[1].p_id === "bk1")), "Stop tracking");
