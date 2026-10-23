@@ -2,7 +2,8 @@
   // https://admin.207photo.com/#welcome, linked from the welcome email new staff get (SQL team_send_welcome).
   // Shown before sign-in, in a browser tab only (the home-screen app goes straight to sign-in).
   //   Android / desktop Chrome: a one-tap Install button (beforeinstallprompt), menu steps if the browser gives none.
-  //   iPhone: an app can't install itself there, so pictures of the taps: Share, Add to Home Screen, Add.
+  //   iPhone: an app can't install itself there, so pictures of the taps: Share, Add to Home Screen, Add,
+  //   drawn for the browser they're in (Safari, Chrome, Firefox/Edge; an app's built-in browser is sent to Safari).
   const Welcome = (function () {
     const ua = navigator.userAgent;
     const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -35,16 +36,42 @@
       '<div class="wl-row">Open as Web App <span class="wl-tog"></span></div></div>';
     const PIC_HOME = '<div class="wl-home"><span class="wl-dot"></span><span class="wl-dot"></span><span class="wl-appic"><img src="https://socluffmclkdljtmiexw.supabase.co/storage/v1/object/public/admin-app/icons/apple-touch-icon.png" alt="" /><small>207 Admin</small></span><span class="wl-dot"></span></div>';
 
+    // Chrome on iPhone (2026-10-23): Share sits in the address bar at the top, and its share sheet is Chrome's own list.
+    const isChrome = isIOS && /CriOS/.test(ua);
+    const PIC_CHROME_BAR = '<div class="wl-bar"><span>&#8592;</span><span class="wl-addr2"><span>admin.207photo.com</span><span class="wl-hot">' + SHARE + '</span></span><span>' + DOTS + "</span></div>";
+    const PIC_CHROME_SHEET = '<div class="wl-sheet"><div class="wl-row">Add to Bookmarks</div><div class="wl-row">Find in Page</div><div class="wl-row">Print</div>' +
+      '<div class="wl-row wl-hotrow">Add to Home Screen ' + PLUS + '</div><div class="wl-row">Open in Safari</div></div>';
+
     function iosSteps() {
-      const tip = iosInApp
-        ? '<div class="wl-tip"><b>Open this page in Safari first.</b> You are in another app&#8217;s browser, which can&#8217;t add to your home screen. Tap ' + icon(SHARE) + ' or ' + icon(DOTS) + ' and pick <b>Open in Safari</b>, or copy the link and paste it into Safari.<button type="button" class="small" id="aca-wlCopy">Copy link</button></div>'
-        : iosOther ? '<div class="wl-tip">In Chrome, the Share button ' + icon(SHARE) + ' is at the top right, next to the address. The other steps are the same.</div>' : "";
-      return tip + '<ol class="wl-steps">' +
+      const end = step(4, "Open <b>207 Admin</b> from your home screen and sign in with the email and temporary password we sent you.", PIC_HOME) +
+        step(5, NOTIF_STEP) + "</ol>";
+      if (iosInApp) {
+        return '<div class="wl-tip"><b>Open this page in Safari first.</b> You are in another app&#8217;s browser, which can&#8217;t add to your home screen. Tap ' + icon(SHARE) + ' or ' + icon(DOTS) + ' and pick <b>Open in Safari</b> (or <b>Open in Chrome</b>), or copy the link and paste it into Safari.<button type="button" class="small" id="aca-wlCopy">Copy link</button></div>' +
+          '<p class="wl-small">Then, in Safari:</p>' + safariSteps(end);
+      }
+      if (isChrome) {
+        return '<ol class="wl-steps">' +
+          step(1, "Tap " + icon(SHARE) + " <b>Share</b> at the top right, inside the address bar.", PIC_CHROME_BAR) +
+          step(2, "Scroll down and tap <b>Add to Home Screen</b> " + icon(PLUS) + ".", PIC_CHROME_SHEET) +
+          step(3, "Tap <b>Add</b> at the top right.", PIC_ADD) + end +
+          '<p class="wl-small">No <b>Add to Home Screen</b> in the list? Tap <b>Open in Safari</b> in the same list and follow the Safari steps there.</p>';
+      }
+      if (iosOther) {
+        // Firefox / Edge: Share is in their menu; the sheet after it is the same as Safari's.
+        const menu = /FxiOS/.test(ua) ? "&#9776; at the bottom right" : icon(DOTS) + " at the bottom";
+        return '<ol class="wl-steps">' +
+          step(1, "Tap " + menu + ", then " + icon(SHARE) + " <b>Share</b>.") +
+          step(2, "Scroll down and tap <b>Add to Home Screen</b> " + icon(PLUS) + ".", PIC_SHEET) +
+          step(3, "Tap <b>Add</b> at the top right.", PIC_ADD) + end +
+          '<p class="wl-small">No <b>Add to Home Screen</b>? Open this page in Safari instead.</p>';
+      }
+      return safariSteps(end);
+    }
+    function safariSteps(end) {
+      return '<ol class="wl-steps">' +
         step(1, "Tap " + icon(DOTS) + " at the bottom right, then " + icon(SHARE) + " <b>Share</b>.", PIC_BAR) +
         step(2, "Scroll down and tap <b>Add to Home Screen</b> " + icon(PLUS) + ". Tap <b>More</b> or <b>Edit Actions</b> if it isn&#8217;t in the list.", PIC_SHEET) +
-        step(3, "Tap <b>Add</b> at the top right.", PIC_ADD) +
-        step(4, "Open <b>207 Admin</b> from your home screen and sign in with the email and temporary password we sent you.", PIC_HOME) +
-        step(5, NOTIF_STEP) + "</ol>";
+        step(3, "Tap <b>Add</b> at the top right.", PIC_ADD) + end;
     }
     // The last step everywhere (2026-10-24): notifications only work in the home-screen app, so they're turned on there.
     const NOTIF_STEP = "When it asks, tap <b>Turn on for this device</b> so you hear about jobs offered to you and changes to your schedule. " +
