@@ -365,24 +365,49 @@
   registerAttention("bookingDeliverablesOverdue", { module: "bookings", level: "warn", name: "overdue deliverables",
     one: "A deliverable is past its due date.", many: "{n} deliverables are past their due date." });
   const showOwed = (filter) => { scope = "owed"; el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x.dataset.scope === "owed" ? "true" : "false")); el("bkStage").value = filter || ""; load(true); };
+  // The bookings behind each Today count, read from the list's own fields (admin_bookings, a month back for failed
+  // emails). Today names them only when they match the server's count exactly, so a mismatch falls back to one count line.
+  async function attentionJobs() {
+    const out = {};
+    try {
+      const ymd = (d) => d.toLocaleDateString("en-CA", { timeZone: TZ });
+      const today = ymd(new Date()), in7 = ymd(new Date(Date.now() + 7 * 864e5)), in21 = ymd(new Date(Date.now() + 21 * 864e5));
+      const { data } = await sb.rpc("admin_bookings", { p_from: ymd(new Date(Date.now() - 30 * 864e5)), p_to: null });
+      const add = (k, b) => (out[k] = out[k] || []).push({ id: b.id, title: b.org_name ? b.org_name + (b.title_label ? " · " + b.title_label : "") : b.title, day: b.picture_day });
+      (data || []).filter((b) => b.status === "booked").forEach((b) => {
+        const day = String(b.picture_day || ""), ahead = day >= today;
+        const rest = num(b.emails_waiting) - num(b.emails_waiting_time) - num(b.emails_waiting_coaches) - num(b.emails_waiting_gallery);
+        if (num(b.emails_failed)) add("bookingFailed", b);
+        if (!ahead) return;
+        if (!(b.contacts || []).length) add("bookingNoContact", b);
+        if (["moved", "missing", "error"].includes(b.calendar_status)) add("bookingCalendar", b);
+        if (b.time_set === false) add(day <= in21 ? "bookingNeedsTime" : "bookingNeedsTimeLater", b);
+        if (rest > 0) add(b.audience === "school" ? "bookingNeedsCode" : "bookingNeedsJob", b);
+        if (num(b.emails_waiting_coaches) && day <= in7) add("bookingNeedsCoaches", b);
+      });
+    } catch (_e) { /* the count lines still show */ }
+    return out;
+  }
   async function loadAttention() {
     sb.rpc("admin_deliverables_attention").then(({ data }) => {
       setAttention("bookingDeliverablesOverdue", num((data || {}).overdue), "deliverable(s) overdue", "bookings", "warn", () => showOwed(":overdue"));
     }, () => {});
     try {
-      const { data, error } = await sb.rpc("admin_bookings_attention");
+      const [{ data, error }, J] = await Promise.all([sb.rpc("admin_bookings_attention"), attentionJobs()]);
       if (error) throw error;
       const a = data || {};
-      setAttention("bookingFailed", num(a.send_failed), "booking email(s) failed to send", "bookings", "err", () => { scope = "upcoming"; load(true); });
-      setAttention("bookingCalendar", num(a.calendar), "booking(s) out of step with Google Calendar", "bookings", "warn", () => { scope = "upcoming"; load(true); });
-      setAttention("bookingNeedsCode", num(a.needs_code), "school booking(s) waiting for an access code", "bookings", "warn", () => { scope = "upcoming"; load(true); });
-      setAttention("bookingNeedsJob", num(a.needs_job), "sports booking(s) waiting for the GotPhoto job", "bookings", "warn", () => { scope = "upcoming"; load(true); });
-      setAttention("bookingNeedsCoaches", num(a.needs_coaches), "sports booking(s) a week out with no coach emails", "bookings", "soon", () => { scope = "upcoming"; load(true); });
-      setAttention("bookingNoContact", num(a.no_contact), "booking(s) with nobody to email", "bookings", "err", () => { scope = "upcoming"; load(true); });
-      setAttention("bookingNeedsTime", num(a.needs_time), "booking(s) need their start and end time", "bookings", "warn", () => { scope = "upcoming"; load(true); });
-      setAttention("bookingNeedsTimeLater", num(a.needs_time_later), "booking(s) without a time yet", "bookings", "soon", () => { scope = "upcoming"; load(true); });
+      const up = () => { scope = "upcoming"; load(true); };
+      // Each line on Today names its job and opens it (shell stream, 2026-10-24): J[key] are the bookings behind each count.
+      setAttention("bookingFailed", num(a.send_failed), "booking email(s) failed to send", "bookings", "err", up, J.bookingFailed);
+      setAttention("bookingCalendar", num(a.calendar), "booking(s) out of step with Google Calendar", "bookings", "warn", up, J.bookingCalendar);
+      setAttention("bookingNeedsCode", num(a.needs_code), "school booking(s) waiting for an access code", "bookings", "warn", up, J.bookingNeedsCode);
+      setAttention("bookingNeedsJob", num(a.needs_job), "sports booking(s) waiting for the GotPhoto job", "bookings", "warn", up, J.bookingNeedsJob);
+      setAttention("bookingNeedsCoaches", num(a.needs_coaches), "sports booking(s) a week out with no coach emails", "bookings", "soon", up, J.bookingNeedsCoaches);
+      setAttention("bookingNoContact", num(a.no_contact), "booking(s) with nobody to email", "bookings", "err", up, J.bookingNoContact);
+      setAttention("bookingNeedsTime", num(a.needs_time), "booking(s) need their start and end time", "bookings", "warn", up, J.bookingNeedsTime);
+      setAttention("bookingNeedsTimeLater", num(a.needs_time_later), "booking(s) without a time yet", "bookings", "soon", up, J.bookingNeedsTimeLater);
       const ban = el("bkBanner");
-      if (a.sending_enabled === false) { ban.className = "bk-banner"; ban.innerHTML = "<strong>Sending is off.</strong> Emails are scheduled but nothing goes out until sending is turned on (Library &rsaquo; Booking emails &rsaquo; Settings)."; }
+      if (a.sending_enabled === false) { ban.className = "bk-banner"; ban.innerHTML = '<strong>Sending is off.</strong> Emails are scheduled but nothing goes out until sending is turned on in <a href="#system/sending">Settings &rsaquo; Sending</a>.'; }
       else if (a.test_mode) { ban.className = "bk-banner test"; ban.innerHTML = "<strong>Test mode.</strong> Every booking email goes to the test address with a [TEST] subject."; }
       else ban.className = "bk-banner hidden";
     } catch (_e) { /* badge stays unknown; the tab shows its own error */ }

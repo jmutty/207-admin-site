@@ -108,7 +108,7 @@
       // Booking emails wait on something (coach emails, the gallery going live), not on the sending switch.
       const waitingRows = all.filter((r) => r.src === "booking" && r.status === "waiting");
       const waitingB = waitingRows.length;
-      const byWhy = {}; waitingRows.forEach((r) => { const k = r.error || "something else first"; byWhy[k] = (byWhy[k] || 0) + 1; });
+      const byWhy = {}; waitingRows.forEach((r) => { const k = r.error || "waiting on an earlier step"; byWhy[k] = (byWhy[k] || 0) + 1; });
       const whyText = Object.keys(byWhy).map((k) => byWhy[k] + " " + k).join(", ");
       const needs = all.filter((r) => ["needs_review", "ready", "failed"].includes(r.status)).length;
       const out = el("todayOut");

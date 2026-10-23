@@ -82,6 +82,8 @@
     .aca .tc-today p { margin: 8px 0; font-size: 13.5px; }
     .aca .tc-only-sm { display: none; }
     .aca .tc-today .tc-tbtn { display: flex; gap: 8px; flex-wrap: wrap; }
+    .aca .tc-today.tc-quiet { margin-bottom: 16px; } .aca .tc-today .tc-line { margin: 0; padding: 8px 0; border-bottom: 1px solid var(--border); color: var(--muted); }
+    .aca .tc-today .tc-line button.link { font-weight: 600; margin-left: 4px; }
     @media (max-width: 700px) {
       .aca .tc-list li { grid-template-columns: 1fr auto; } .aca .tc-list li > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
       .aca .tc-modal .row2, .aca .tc-modal .row3 { grid-template-columns: 1fr; } .aca .tc-hide-sm { display: none; } .aca .tc-only-sm { display: block; }
@@ -634,6 +636,10 @@
         const o = data.open;
         st = st || data;
         st.gps = data.gps;
+        // Clocked out, it's one quiet line (2026-10-24): the orange button on Today belongs to what needs you, not to Clock in.
+        box.classList.toggle("tc-quiet", !o);
+        if (!o) { box.innerHTML = '<p class="tc-line">Time clock: ' + esc(data.jobs && data.jobs.some((j) => j.mine) ? "you have a job today." : hm(data.week_worked_min) + " worked this week.") +
+          ' <button type="button" class="link" data-tc="in">Clock in</button></p>'; return; }
         box.innerHTML = '<h2>Time clock <span class="c">' + (o ? "clocked in" : "clocked out") + '</span><a href="#staff/clock">Clock</a></h2>' +
           (o ? "<p>" + esc(what(o)) + " since " + esc(T.fmtTs(o.clock_in)) + " (" + hm(since(o.clock_in)) + ")</p>" : "<p>" + esc(data.jobs && data.jobs.some((j) => j.mine) ? "You have a job today. Clock in when you start." : hm(data.week_worked_min) + " worked this week.") + "</p>") +
           '<div class="tc-tbtn">' + (o ? '<button type="button" class="primary" data-tc="out">Clock out</button><button type="button" class="small" data-tc="in">Switch</button>' : '<button type="button" class="primary" data-tc="in">Clock in</button>') + "</div>";
