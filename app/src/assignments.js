@@ -95,18 +95,21 @@
         const s = new Date(e.starts_at), en = new Date(e.ends_at);
         const sDay = T.local(e.starts_at).day, eDay = T.local(e.ends_at).day;
         if (e.kind === "off") { rows.push([0, '<li><span class="t">All day</span><span>Time off' + (e.title ? ": " + esc(e.title) : "") + "</span></li>"]); return; }
+        const su = e.kind === "job" ? num(e.setup_min) : 0, td = e.kind === "job" ? num(e.teardown_min) : 0;
         if (e.kind === "job" && e.drive_before_min) {
-          const leave = new Date(s - e.drive_before_min * 6e4).toISOString();
-          rows.push([T.local(leave).min, '<li class="drive"><span class="t drive">' + esc(T.fmtTs(leave)) + '</span><span class="drive">Leave the studio (' + num(e.drive_before_min) + " min drive)</span></li>"]);
+          const leave = new Date(s - (e.drive_before_min + su) * 6e4).toISOString();
+          rows.push([T.local(leave).min, '<li class="drive"><span class="t drive">' + esc(T.fmtTs(leave)) + '</span><span class="drive">' + (e.from_last_job ? "Leave the last job" : e.from_home ? "Leave home" : "Leave the studio") + " (" + num(e.drive_before_min) + " min drive)</span></li>"]);
         }
+        if (su) { const at = new Date(s - su * 6e4).toISOString(); rows.push([T.local(at).min, '<li><span class="t drive">' + esc(T.fmtTs(at)) + '</span><span class="drive">Set up (' + su + " min)</span></li>"]); }
         rows.push([sDay < day ? 0 : T.local(e.starts_at).min, '<li><span class="t">' + esc(T.fmtTs(e.starts_at)) + "\u2013" + esc(T.fmtTs(e.ends_at)) + (eDay > day ? "+" : "") + "</span><span>" +
           esc(e.kind === "job" ? e.booking_title : e.title || ({ studio: "Studio", admin: "Admin" })[e.kind] || "Work") + (e.booking_status === "cancelled" ? ' <span class="as-tag urgent">cancelled</span>' : "") +
           (e.role ? ' <span class="muted">(' + esc(e.role) + ")</span>" : "") +
           (e.confirm && e.confirm.status === "confirmed" ? ' <span class="pill ok">Confirmed</span>' : e.confirm && e.confirm.status === "pending" ? ' <a class="pill warn" href="#crew/' + esc(e.confirm.token) + '">Confirm</a>' : "") +
           (e.booking_location ? '<span class="s">' + esc(e.booking_location) + "</span>" : "") + (e.note ? '<span class="s">' + esc(e.note) + "</span>" : "") + "</span></li>"]);
+        if (td) { rows.push([T.local(e.ends_at).min + 0.5, '<li><span class="t drive">' + esc(T.fmtTs(e.ends_at)) + '</span><span class="drive">Tear down (' + td + " min)</span></li>"]); }
         if (e.kind === "job" && e.drive_after_min) {
-          const back = new Date(en.getTime() + e.drive_after_min * 6e4).toISOString();
-          rows.push([T.local(back).min, '<li><span class="t drive">' + esc(T.fmtTs(back)) + '</span><span class="drive">Back at the studio (' + num(e.drive_after_min) + " min drive)</span></li>"]);
+          const back = new Date(en.getTime() + (e.drive_after_min + td) * 6e4).toISOString();
+          rows.push([T.local(back).min, '<li><span class="t drive">' + esc(T.fmtTs(back)) + '</span><span class="drive">' + (e.from_home ? "Back home" : "Back at the studio") + " (" + num(e.drive_after_min) + " min drive)</span></li>"]);
         }
       });
       rows.sort((a, b) => a[0] - b[0]);

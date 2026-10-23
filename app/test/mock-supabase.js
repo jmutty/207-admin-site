@@ -404,22 +404,27 @@
     const add = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
     const today = nyDay(Date.now()), sun = add(today, -new Date(today + "T12:00:00Z").getUTCDay());
     const at = (d, hm) => d + "T" + hm + ":00-04:00";
-    RPC.schedule_week = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", studio_address: AS_STAFF ? "1 Main St, Bangor ME" : "",
+    RPC.schedule_week = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", studio_address: AS_STAFF ? "1 Main St, Bangor ME" : "", setup_default: 30, teardown_default: 30,
       calendar: [{ event_id: "ev1@google.com", summary: "Studio makeup session", start_date: add(sun, 3), end_date: add(sun, 3), all_day: false, start_at: at(add(sun, 3), "10:00"), end_at: at(add(sun, 3), "12:00"), off_user: null },
         { event_id: "ev2@google.com", summary: "Alex Off", start_date: add(sun, 6), end_date: add(sun, 6), all_day: true, start_at: null, end_at: null, off_user: "u5" }],
-      people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40 }, { user_id: "u2", name: "Sam Helper", weekly_hours: 24 }, { user_id: "u5", name: "Alex Assistant", weekly_hours: null }],
+      people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40 }, { user_id: "u2", name: "Sam Helper", weekly_hours: 24 }, { user_id: "u5", name: "Alex Assistant", weekly_hours: null, from_home: true }],
       bookings: [{ booking_id: "bk1", day: add(sun, 2), start_at: at(add(sun, 2), "09:00"), end_at: at(add(sun, 2), "12:00"), title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", location: "89 Western Ave, Hampden ME", status: "booked", day_label: "" },
         { booking_id: "bk2", day: add(sun, 4), start_at: at(add(sun, 4), "16:00"), end_at: at(add(sun, 4), "19:00"), title: "Brewer Travel Basketball Club \u2022 Winter Sports", type_label: "Sports", location: "", status: "booked", day_label: "" },
+        { booking_id: "bk4", day: add(sun, 2), start_at: at(add(sun, 2), "14:00"), end_at: at(add(sun, 2), "15:30"), title: "Hampden Rec \u2022 Fall Soccer", type_label: "Sports", location: "Dorothea Dix Park, Hampden ME", status: "booked", day_label: "" },
+        { booking_id: "bk5", day: add(sun, 5), start_at: at(add(sun, 5), "08:30"), end_at: at(add(sun, 5), "11:00"), title: "Ellsworth Elementary \u2022 School Photos", type_label: "School Photos", location: "Ellsworth ME", status: "booked", day_label: "" },
+        { booking_id: "bk6", day: add(sun, 5), start_at: at(add(sun, 5), "12:30"), end_at: at(add(sun, 5), "14:30"), title: "Bucksport Middle \u2022 School Photos", type_label: "School Photos", location: "Bucksport ME", status: "booked", day_label: "" },
         { booking_id: "bk3", day: add(sun, 6), start_at: null, end_at: null, title: "Island Cheer & Tumbling \u2022 Cheer", type_label: "Sports", location: "Deer Isle", status: "booked", day_label: "" }],
-      entries: [{ id: "se1", user_id: "u1", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
-        { id: "se2", user_id: "u2", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
+      entries: [{ id: "se1", user_id: "u1", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
+        { id: "se2", user_id: "u2", kind: "job", booking_id: "bk1", starts_at: at(add(sun, 2), "09:00"), ends_at: at(add(sun, 2), "12:00"), drive_before_min: 30, drive_after_min: 30, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Hampden Academy \u2022 School Photos", booking_location: "89 Western Ave, Hampden ME", booking_status: "booked" },
         { id: "se3", user_id: "u2", kind: "admin", booking_id: null, starts_at: at(add(sun, 2), "12:15"), ends_at: at(add(sun, 2), "16:00"), drive_before_min: 0, drive_after_min: 0, title: "Editing", note: "", booking_title: null },
         { id: "se4", user_id: "u1", kind: "studio", booking_id: null, starts_at: at(add(sun, 1), "08:00"), ends_at: at(add(sun, 1), "16:30"), drive_before_min: 0, drive_after_min: 0, title: "", note: "", booking_title: null },
         { id: "se6", user_id: "u2", kind: "flex", booking_id: null, starts_at: at(add(sun, 4), "09:00"), ends_at: at(add(sun, 4), "11:00"), drive_before_min: 0, drive_after_min: 0, title: "Cull photos", note: "", booking_title: null },
+        { id: "se7", user_id: "u1", kind: "job", booking_id: "bk5", batch_id: "trip1", starts_at: at(add(sun, 5), "08:30"), ends_at: at(add(sun, 5), "11:00"), drive_before_min: 45, drive_after_min: 0, drive_before_m: 70000, drive_after_m: 0, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Ellsworth Elementary \u2022 School Photos", booking_location: "Ellsworth ME", booking_status: "booked" },
+        { id: "se8", user_id: "u1", kind: "job", booking_id: "bk6", batch_id: "trip1", starts_at: at(add(sun, 5), "12:30"), ends_at: at(add(sun, 5), "14:30"), drive_before_min: 25, drive_after_min: 25, drive_before_m: 30000, drive_after_m: 32000, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Bucksport Middle \u2022 School Photos", booking_location: "Bucksport ME", booking_status: "booked" },
         { id: "se5", user_id: "u5", kind: "off", booking_id: null, starts_at: at(add(sun, 3), "00:00"), ends_at: at(add(sun, 5), "00:00"), drive_before_min: 0, drive_after_min: 0, title: "Vacation", note: "", booking_title: null }],
       tasks: [{ user_id: "u2", day: add(sun, 1), n: 2 }, { user_id: "u2", day: add(sun, 2), n: 1 }, { user_id: "u1", day: add(sun, 5), n: 1 }] };
     RPC.schedule_attention = { unstaffed: 2 };
-    RPC.schedule_save = { ok: true, id: "se9", overlaps: 0 }; RPC.schedule_remove = { ok: true }; RPC.schedule_settings_save = { ok: true };
+    RPC.schedule_save = { ok: true, id: "se9", overlaps: 0 }; RPC.schedule_remove = { ok: true }; RPC.schedule_settings_save = { ok: true }; RPC.schedule_batch_save = { ok: true }; RPC.schedule_setup_save = { ok: true, changed: 0 };
     const task = (id, title, repeat, extra) => Object.assign({ task_id: id, user_id: "u2", user_name: "Sam Helper", title, notes: "", repeat, priority: "normal", est_minutes: null, on_date: today, overdue: false, done_at: null, done_by: null }, extra || {});
     RPC.assignments_day = [task("t4", "Call Hampden about retakes", "once", { priority: "urgent", overdue: true, on_date: add(today, -1) }), task("t1", "Back up memory cards", "daily", { est_minutes: 15 }),
       task("t2", "Order print supplies", "weekly", { overdue: true, on_date: add(today, -2) }), task("t3", "Empty the studio trash", "daily", { done_at: new Date().toISOString(), done_by: "Sam Helper" })];
@@ -669,6 +674,7 @@
     RPC.portal_queue = { ok: true, email_id: "m11", status: "review" };
     RPC.portal_job = { org_id: A, org: "Brewer Travel Basketball Club", token: "b".repeat(36), active: true, viewed_at: iso(-0.2), proofs: proofs.slice(0, 2), files: [] };
   }
+  window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { email: "test@207photo.com" }, access_token: "x" } } }),
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
@@ -693,6 +699,7 @@
     }
     if (String(url).includes("/functions/v1/drive-time")) {
       window.__driveCalls = (window.__driveCalls || []).concat([JSON.parse(opts.body)]);
+      if (JSON.parse(opts.body).from_booking_id) return new Response(JSON.stringify({ ok: true, minutes: 12, meters: 9000, origin: "89 Western Ave, Hampden ME", destination: "Dorothea Dix Park, Hampden ME" }), { status: 200 });
       return new Response(JSON.stringify({ ok: true, minutes: 23, meters: 21000, destination: "89 Western Ave, Hampden ME" }), { status: 200 });
     }
     if (String(url).includes("/functions/v1/place-search")) {

@@ -697,7 +697,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('.sc-modal [data-m="cancel"]');
     check((await page.$$("#aca-scGrid .sc-head")).length === 8, "week view: 7 days Sunday to Saturday");
     check((await page.textContent("#aca-scGrid .sc-head:nth-child(2)")).startsWith("Sun"), "the week starts on Sunday");
-    check((await page.$$("#aca-scGrid .sc-b.sc-k-drive")).length === 4 && (await page.$$("#aca-scGrid .sc-b.sc-k-job")).length >= 2, "job bars with drive time on both sides");
+    check((await page.$$("#aca-scGrid .sc-b.sc-k-drive")).length === 7 && (await page.$$("#aca-scGrid .sc-b.sc-k-job")).length >= 2, "job bars with drive time on both sides (a batched first stop has none back)");
+    check((await page.$$("#aca-scGrid .sc-b.sc-k-setup")).length === 8, "every job bar has setup before and teardown after");
+    check((await page.$$("#aca-scGrid .sc-b.trip")).length === 1 && (await page.$$("#aca-scGrid .sc-b.batched.sc-k-job")).length === 2, "a batched trip: both jobs marked, a dashed line between them");
     check((await page.$$("#aca-scGrid .sc-b.sc-k-off")).length === 3, "time off spans two days, plus \"Alex Off\" from Google Calendar");
     check((await page.$$("#aca-scGrid .sc-chip.gcal")).length === 1 && (await page.textContent("#aca-scGrid")).includes("From Google Calendar"), "calendar events that aren't bookings get their own lane");
     await page.click("#aca-scGrid .sc-chip.gcal");
@@ -711,8 +713,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.$$("#aca-scGrid .sc-b.clash")).length > 0, "overlapping bars are flagged");
     check((await page.textContent("#aca-scGrid")).includes("40 h") && (await page.textContent("#aca-scGrid")).includes("under"), "hours against the weekly target");
     check(await visible(page, "#aca-scWarn"), "asks for the studio address");
-    check((await page.$$("#aca-scGrid .sc-chip.none")).length === 2, "jobs with nobody on them stand out");
-    check((await page.textContent("#aca-scGrid")).includes("Jobs not assigned") && (await page.$$("#aca-scGrid .sc-chip[data-booking]")).length === (await page.$$("#aca-scGrid .sc-chip.none")).length + (await page.$$("#aca-scGrid .sc-chip.tracked")).length + (await page.$$("#aca-scGrid .sc-chip.part")).length, "only jobs short of people sit in Jobs not assigned");
+    check((await page.$$("#aca-scGrid .sc-chip.none")).length === 3, "jobs with nobody on them stand out");
+    check((await page.textContent("#aca-scGrid")).includes("Jobs not assigned") && (await page.$$("#aca-scGrid .sc-chip[data-booking]")).length === (await page.$$("#aca-scGrid .sc-chip.none")).length + (await page.$$("#aca-scGrid .sc-chip.tracked")).length, "only jobs nobody is on sit in Jobs not assigned");
     await page.click("#aca-scGrid .sc-b.sc-k-job:not(.drive)");
     await page.waitForSelector('.sc-modal [data-m="more"]');
     await page.click('.sc-modal [data-m="more"]');
@@ -786,6 +788,41 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('.sc-modal [data-m="save"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").pop()[1].p.role_id === "r2"), "changes the role");
+    // a Part time / 1099 person drives from home
+    await page.evaluate(() => { window.__rpcCalls.length = 0; window.__driveCalls = []; });
+    await page.click('#aca-scGrid .sc-chip.none[data-booking="bk2"]');
+    await page.waitForSelector(".sc-modal .sc-people input");
+    await page.check('.sc-modal .sc-people input[value="u5"]');
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__driveCalls.some((b) => b.booking_id === "bk2" && b.user_id === "u5")), "a Part time / 1099 person's drive is looked up from their home");
+    // batch a job with another one that day (right-click the bar)
+    await page.evaluate(() => { window.__rpcCalls.length = 0; window.__driveCalls = []; });
+    await page.click('#aca-scGrid .sc-b.sc-k-job[data-entry="se1"]', { button: "right" });
+    await page.waitForSelector('.sc-menu [data-mm="batch"]');
+    check((await page.textContent(".sc-menu")).includes("Batch with another job"), "right-click a job bar: the batching menu");
+    await page.click('.sc-menu [data-mm="batch"]');
+    await page.waitForSelector(".sc-modal .sc-trip");
+    const tripText = await page.textContent(".sc-modal .sc-trip");
+    check(tripText.includes("Leave the studio") && tripText.includes("drive to Hampden Rec") && tripText.includes("Set up (30 min)") && tripText.includes("Back at the studio"), "the trip: studio, job to job, back");
+    check(await page.evaluate(() => window.__driveCalls.some((b) => b.from_booking_id === "bk1" && b.booking_id === "bk4")), "asks for the drive from the first job to the next");
+    check(await page.isChecked(".sc-modal .sc-crew"), "the rest of the crew comes along by default");
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(200);
+    const bsaves = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_batch_save").map((c) => c[1].p.entries));
+    const bput = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
+    check(bput.length === 2 && bput.every((x) => x.booking_id === "bk4"), "both people are put on the second job");
+    check(bsaves.length === 2 && bsaves[0][0].drive_before_min === 25 && bsaves[0][0].drive_after_min === 0 && bsaves[0][1].drive_before_min === 15 && bsaves[0][1].drive_after_min === 25 && bsaves[0][0].batch_id === bsaves[0][1].batch_id,
+      "saved as one trip: studio -> first (25), first -> second (15), second -> studio (25): " + JSON.stringify(bsaves[0]));
+    await page.click('#aca-scGrid .sc-b.sc-k-job[data-entry="se8"]', { button: "right" });
+    await page.click('.sc-menu [data-mm="trip"]');
+    await page.waitForSelector(".sc-modal .sc-trip");
+    check((await page.textContent(".sc-modal .sc-trip")).includes("Wait"), "See the trip: the wait between jobs");
+    await page.evaluate(() => { window.__rpcCalls.length = 0; });
+    await page.click('.sc-modal [data-m="unbatch"]');
+    await page.waitForTimeout(200);
+    const ub = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_batch_save").map((c) => c[1].p.entries)[0]);
+    check(ub && ub.length === 2 && ub.every((r) => r.batch_id === null && r.drive_before_min === 25 && r.drive_after_min === 25), "taking a stop out: both go back to round trips from the studio");
     // add time from an empty spot (day view)
     await page.click('input[name="aca-scView"][value="day"] + span');
     await page.waitForTimeout(150);
