@@ -221,6 +221,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.$$("#aca-bkDetail .bk-stages li.done")).length === 2, "earlier stages ticked");
     check((await page.$$('#aca-panel-job button[data-j="edit"]')).length === 1 && !(await page.$('#aca-bkDetail [data-v="edit"]')), "one Edit button: Edit booking in the header");
     check((await page.$$("#aca-bkDetail .bk-gp")).length <= 1, "one GotPhoto create block");
+    check(!(await page.$('#aca-bkDetail a[href*="config_jobs/create"]')), "no link to GotPhoto's retired create page");
+    const gpMake = await page.$('#aca-bkDetail button[data-v="gpmake"]');
+    if (gpMake) {
+      await gpMake.click();
+      await page.waitForTimeout(300);
+      check(await page.evaluate(() => (window.__gpjobCalls || []).some((u) => u.includes("/admin/gpjob?booking=bk1"))), "Create it in GotPhoto now calls admin /gpjob for the booking");
+    }
     await page.click('#aca-bkDetail button[data-next="1"]');
     await page.waitForTimeout(150);
     const mv = await lastRpc("booking_set_stage");
@@ -1038,7 +1045,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-panel-job", (n) => n.classList.contains("active")), "clicking the row opens the job page");
     check(!(await page.$('#aca-nav button[data-tab="job"]')), "the job page is not in the menu");
     const tabs = await page.$$eval("#aca-jpTabs button", (bs) => bs.map((b) => b.dataset.t));
-    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "hub", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "hub", "crew", "checklist", "results", "gotphoto", "time", "notes", "history"]), "tabs: " + tabs.join(","));
     await page.click('#aca-jpTabs button[data-t="hub"]');
     await page.waitForSelector("#aca-jpBody .pr-tbl");
     const hubTxt = await page.textContent("#aca-jpBody");
@@ -1892,6 +1899,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const jtx = await page.textContent("#aca-stJt-sports_data");
     check(jtx.includes("Picture day done") && jtx.includes("Team composites") && jtx.includes("Sports with data"), "a job type card: stages, deliverables, its booking emails");
     check(!!(await page.$("#aca-stJt-all")) && !!(await page.$("#aca-stAuto")), "every-job-type card and the auto-track switch");
+    check(jtx.includes("GotPhoto defaults") && jtx.includes("Sport (Other)") && (await page.textContent("#aca-stJt-school")).includes("K-12 School"), "GotPhoto defaults on each job type card");
+    await page.click('#aca-stJt-sports_data [data-st="gpdef"]');
+    await page.waitForFunction(() => { const s = document.querySelector("#aca-stGpprice_profile_fall"); return s && [...s.options].some((o) => o.text === "Fall Sports 2026"); });
+    check(true, "GotPhoto defaults lists the price profiles from GotPhoto");
+    await page.selectOption("#aca-stGpprice_profile_fall", "pp-fall");
+    await page.selectOption("#aca-stGpprepay", "false");
+    await page.click('.modal [data-m="save"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "gp_type_defaults_save" && c[1].p_type === "sports_data" && c[1].p.price_profile_fall === "pp-fall" && c[1].p.labels.price_profile_fall === "Fall Sports 2026" && c[1].p.prepay === "false")), "saves the GotPhoto defaults with the profile name");
     await page.click('#aca-stJt-sports_data [data-st="stages"]');
     await page.waitForSelector('#aca-bkJtTypes button[aria-pressed="true"]');
     check(await page.$eval('#aca-bkJtTypes button[aria-pressed="true"]', (b) => b.dataset.jt) === "sports_data", "Stages & deliverables opens on that job type");
