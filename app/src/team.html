@@ -16,8 +16,10 @@
             </table>
           </div>
         </div>
-        <div class="card">
-          <div class="card-head"><div><h2>Recent changes</h2><p>Who added whom, and every change to someone's access.</p></div></div>
+        <!-- Recent changes folds shut by default (2026-10-23): rarely needed, and it grows. -->
+        <details class="card tm-logcard">
+          <summary><h2>Recent changes</h2> <span class="muted" id="aca-teamLogLast"></span></summary>
+          <p class="muted">Who added whom, and every change to someone's access.</p>
           <div id="aca-teamLog"><p class="muted">Loading&#8230;</p></div>
-        </div>
+        </details>
       </section>

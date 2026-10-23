@@ -12,6 +12,16 @@
   const Team = (function () {
     const tmCss = document.createElement("style");
     tmCss.textContent = ".aca .tm-acc { margin: 0 0 8px; font-size: 13.5px; } .aca .tm-presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; font-size: 13px; }" +
+      " .aca .tm-sub { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }" +
+      " .aca .tm-role { display: inline-block; font-size: 11.5px; font-weight: 500; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; vertical-align: 1px; }" +
+      " .aca .tm-accsum > summary { cursor: pointer; list-style: none; } .aca .tm-accsum > summary::-webkit-details-marker { display: none; }" +
+      " .aca .tm-accsum > summary::after { content: \"Show\"; margin-left: 6px; font-size: 12.5px; color: var(--muted); text-decoration: underline; } .aca .tm-accsum[open] > summary::after { content: \"Hide\"; }" +
+      " .aca .tm-accsum > div { margin-top: 6px; font-size: 13px; line-height: 20px; }" +
+      " .aca .tm-logcard > summary { cursor: pointer; display: flex; align-items: baseline; gap: 8px; } .aca .tm-logcard > summary h2 { display: inline; margin: 0; font-size: 15px; font-weight: 600; line-height: 22px; color: var(--head); }" +
+      " .aca .tm-logcard > summary { list-style: none; } .aca .tm-logcard > summary::-webkit-details-marker { display: none; }" +
+      " .aca .tm-logcard > summary::after { content: \"Show\"; margin-left: auto; font-size: 13px; color: var(--muted); text-decoration: underline; } .aca .tm-logcard[open] > summary::after { content: \"Hide\"; }" +
+      " .aca .tm-logcard[open] > summary { margin-bottom: 4px; }" +
+      " .aca .tm-log li .muted.tm-also { font-size: 12.5px; } .aca .tm-older { margin-top: 8px; }" +
       " .aca #aca-tmMore > summary { cursor: pointer; font-weight: 600; font-size: 13.5px; margin: 4px 0 8px; } .aca .tm-copy { margin: 4px 0 10px; font-size: 13px; }";
     document.head.appendChild(tmCss);
     const TEAM_FN_URL = SUPABASE_URL + "/functions/v1/team";
@@ -78,17 +88,25 @@
       return out;
     }
 
+    // The list shows a short summary (the preset it matches, or Custom, and how many areas); the full list folds open.
     function accessText(p) {
       if (p.is_admin) return "<b>Full access</b>";
-      const parts = modules.filter((m) => p.modules[m.key]).map((m) => esc(m.label) + ' <span class="muted">(' + LEVEL_WORD[p.modules[m.key]] + ")</span>");
-      return parts.length ? parts.join(", ") : '<span class="muted">Nothing yet</span>';
+      const mine = modules.filter((m) => p.modules[m.key]);
+      if (!mine.length) return '<span class="muted">Nothing yet</span>';
+      const same = (o) => Object.keys(o).length === mine.length && mine.every((m) => o[m.key] === p.modules[m.key]);
+      const preset = PRESETS.find((x) => x[2] && same(x[2]));
+      const edits = mine.filter((m) => p.modules[m.key] === "edit").length;
+      const parts = mine.map((m) => esc(m.label) + ' <span class="muted">(' + LEVEL_WORD[p.modules[m.key]] + ")</span>");
+      return '<details class="tm-accsum"><summary><b>' + esc(preset ? preset[1] : "Custom") + '</b> <span class="muted">&middot; ' + mine.length + (mine.length === 1 ? " area" : " areas") +
+        (edits ? ", " + edits + " can edit" : ", view only") + "</span></summary><div>" + parts.join(", ") + "</div></details>";
     }
 
     function render() {
       el("teamBody").innerHTML = people.length ? people.map((p) =>
         "<tr" + (p.active ? "" : ' class="muted"') + '><td class="name">' + esc(p.name || p.email) + (p.is_me ? ' <span class="muted">(you)</span>' : "") +
-        '<div class="muted" style="font-size:12.5px">' + [p.job_title, typeLabel(p.employment_type)].filter(Boolean).map(esc).join(" &middot; ") + ((p.job_title || p.employment_type) ? "<br>" : "") + esc(p.email) + (p.weekly_hours != null ? " &middot; " + esc(String(Number(p.weekly_hours))) + " h/week" : "") +
-          (rolesOf(p.user_id).length ? '<br>Crew roles: ' + esc(rolesOf(p.user_id).join(", ")) : "") + "</div></td>" +
+          rolesOf(p.user_id).map((r) => ' <span class="tm-role">' + esc(r) + "</span>").join("") +
+        '<div class="muted tm-sub">' + [p.job_title, typeLabel(p.employment_type), p.weekly_hours != null ? Number(p.weekly_hours) + " h/week" : ""].filter(Boolean).map(esc).join(" &middot; ") + "</div>" +
+        '<div class="muted tm-sub">' + esc(p.email) + "</div></td>" +
         "<td>" + accessText(p) + "</td>" +
         "<td>" + esc(p.last_sign_in_at ? fmtAgo(p.last_sign_in_at) : "never") + "</td>" +
         "<td>" + (!p.active ? '<span class="pill muted">Deactivated</span>' : p.must_change_password ? '<span class="pill warn">Temporary password</span>' : '<span class="pill ok">Active</span>') + "</td>" +
@@ -284,11 +302,33 @@
     }
 
     const ACTIONS = { added: "added", updated: "changed access for", deactivated: "deactivated", reactivated: "reactivated", removed: "removed", temp_password_set: "set a temporary password for", temp_password_cleared: "cleared the temporary password for", hours_set: "changed the weekly hours for", profile_set: "changed the job title or employment type for", roles_set: "changed the crew roles for", welcome_sent: "emailed sign-in details to" };
+    // One save writes several audit rows (added, temporary password, hours, roles...). Rows by the same person about the
+    // same person within two minutes read as one entry; the newest few show and the rest fold under "Show older".
+    const ALSO = { updated: "access", hours_set: "weekly hours", profile_set: "job title or type", roles_set: "crew roles", temp_password_set: "temporary password",
+      temp_password_cleared: "temporary password cleared", welcome_sent: "welcome email sent", deactivated: "deactivated", reactivated: "reactivated", removed: "removed" };
+    const LOG_SHOWN = 6;
     async function loadLog() {
-      const { data, error } = await supabase.rpc("team_audit_list", { p_limit: 30 });
-      el("teamLog").innerHTML = error ? '<span class="inline-error">' + esc(error.message) + "</span>"
-        : !data || !data.length ? '<p class="muted">No changes yet.</p>'
-        : "<ul class=\"tm-log\">" + data.map((r) => "<li><span class=\"muted\">" + esc(fmtDate(r.at)) + "</span> " + esc(r.actor || "Someone") + " " + esc(ACTIONS[r.action] || r.action) + " " + esc(r.target || "") + "</li>").join("") + "</ul>";
+      const { data, error } = await supabase.rpc("team_audit_list", { p_limit: 60 });
+      if (error) { el("teamLog").innerHTML = '<span class="inline-error">' + esc(error.message) + "</span>"; return; }
+      if (!data || !data.length) { el("teamLog").innerHTML = '<p class="muted">No changes yet.</p>'; return; }
+      el("teamLogLast").textContent = "\u00b7 last " + fmtDate(data.reduce((a, r) => (r.at > a ? r.at : a), data[0].at));
+      const groups = [];
+      data.forEach((r) => {
+        const g = groups[groups.length - 1];
+        if (g && g.actor === r.actor && g.target === r.target && Math.abs(new Date(g.last) - new Date(r.at)) <= 120000) { g.rows.push(r); g.last = r.at; }
+        else groups.push({ actor: r.actor, target: r.target, at: r.at, last: r.at, rows: [r] });
+      });
+      const line = (g) => {
+        // The list is newest first, so the first thing done in a save is the group's last row.
+        const main = g.rows.find((r) => r.action === "added") || (g.rows.length === 1 ? g.rows[0] : null);
+        const verb = main ? ACTIONS[main.action] || main.action : "updated";
+        const also = [...new Set(g.rows.filter((r) => r !== main).reverse().map((r) => ALSO[r.action] || ACTIONS[r.action] || r.action))];
+        return "<li><span class=\"muted\">" + esc(fmtDate(g.at)) + "</span> " + esc(g.actor || "Someone") + " " + esc(verb) + " " + esc(g.target || "") +
+          (also.length ? ' <span class="muted tm-also">&middot; ' + esc(also.join(", ")) + "</span>" : "") + "</li>";
+      };
+      const older = groups.slice(LOG_SHOWN);
+      el("teamLog").innerHTML = '<ul class="tm-log">' + groups.slice(0, LOG_SHOWN).map(line).join("") + "</ul>" +
+        (older.length ? '<details class="tm-older"><summary class="muted">Show older (' + older.length + ')</summary><ul class="tm-log">' + older.map(line).join("") + "</ul></details>" : "");
     }
 
     // Open one person's record (Open jobs > Part-timers & 1099 links here).
