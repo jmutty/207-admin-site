@@ -97,6 +97,23 @@
     .aca .sc-hrs .over { color: var(--accent); font-weight: 600; } .aca .sc-hrs .under { color: var(--muted); } .aca .sc-hrs .on { color: var(--ok-fg); font-weight: 600; }
     .aca .sc-head { padding: 6px 8px; font-size: 12.5px; font-weight: 600; background: var(--surface-2); position: relative; }
     .aca .sc-head.today { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+    .aca .sc-head.hl { background: var(--accent-soft, #e6f0fb); box-shadow: inset 0 0 0 2px var(--accent); }
+    /* ws/settings (2026-10-24): 8 weeks view (B1), Times and drive fold (B8), phone swipe hint (B2) */
+    .aca #aca-scWeeks { display: none; }
+    .aca .sc-w8 #aca-scWeeks { display: block; }
+    .aca .sc-w8 .sc-scroll, .aca .sc-w8 #aca-scSum, .aca .sc-w8 #aca-scWarn, .aca .sc-w8 .sc-swipe, .aca .sc-w8 [data-v="prev"], .aca .sc-w8 [data-v="next"], .aca .sc-w8 [data-v="today"],
+      .aca .sc-w8 #aca-scJump, .aca .sc-w8 .sc-mineopt { display: none !important; }
+    .aca .sc-w8row { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); padding: 8px 10px; margin: 0 0 8px; }
+    .aca .sc-w8row h3 { margin: 0 0 6px; font-size: 14px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .aca .sc-w8row h3 .s { font-weight: 400; color: var(--muted); font-size: 12.5px; }
+    .aca .sc-w8row .sc-jobs { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; min-height: 0; }
+    .aca .sc-w8row .sc-chip { max-width: 100%; }
+    .aca .sc-fold { margin: 4px 0 10px; border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; }
+    .aca .sc-fold > summary { cursor: pointer; font-weight: 600; font-size: 13.5px; }
+    .aca .sc-fold > summary .s { font-weight: 400; color: var(--muted); font-size: 12.5px; margin-left: 6px; }
+    .aca .sc-fold[open] > summary { margin-bottom: 8px; }
+    .aca .sc-swipe { font-size: 12px; color: var(--muted); margin: 0 0 4px; text-align: right; }
+    .aca .sc-scroll.fade { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); }
     .aca .sc-head button.link { font-weight: 600; font-size: 12.5px; padding: 0; height: auto; }
     .aca .sc-ticks { position: relative; height: 14px; margin: 2px -8px 0; font-weight: 400; color: var(--faint); font-size: 11px; }
     .aca .sc-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
@@ -205,6 +222,10 @@
       .aca .sc-pick li select { grid-column: 2; }
       .aca .sc-cap { padding: 4px 5px; font-size: 11px; }
       .aca .sc-bar .primary { margin-left: auto; }
+      .aca .sc-bar #aca-scJump { flex: 1 1 120px; min-width: 0; }
+      .aca .sc-bar .sc-mineopt { font-size: 12.5px !important; }
+      .aca #aca-scPeak { display: none; }
+      .aca .sc-w8 #aca-scPeak:not(.hidden) { display: block; }
       .aca .sc-grid { grid-template-columns: 92px repeat(var(--cols), minmax(var(--colmin), 1fr)); min-width: calc(92px + var(--cols) * var(--colmin)); }
       .aca .sc-name { padding: 6px 7px; font-size: 12.5px; }
       .aca .sc-name b { white-space: normal; overflow-wrap: anywhere; line-height: 16px; }
@@ -227,9 +248,9 @@
         '<button type="button" class="small" data-v="prev" aria-label="Earlier">&lsaquo;</button><button type="button" class="small" data-v="today">Today</button><button type="button" class="small" data-v="next" aria-label="Later">&rsaquo;</button>' +
         '<select class="small" id="aca-scJump" aria-label="Jump to a week"></select>' +
         '<h2 id="aca-scTitle">Schedule</h2>' +
-        '<div class="seg" role="radiogroup" aria-label="View"><label><input type="radio" name="aca-scView" value="week" checked /><span>Week</span></label><label><input type="radio" name="aca-scView" value="day" /><span>Day</span></label></div>' +
-        '<label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="aca-scMine" /> Just me</label>' +
-        '<label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center" title="Only jobs where someone hasn&#39;t answered yet"><input type="checkbox" id="aca-scWait" /> Still waiting</label>' +
+        '<div class="seg" role="radiogroup" aria-label="View"><label><input type="radio" name="aca-scView" value="week" checked /><span>Week</span></label><label><input type="radio" name="aca-scView" value="day" /><span>Day</span></label><label><input type="radio" name="aca-scView" value="weeks8" /><span>8 weeks</span></label></div>' +
+        '<label class="muted sc-mineopt" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="aca-scMine" /> Just me</label>' +
+        '<label class="muted sc-mineopt" style="font-size:13px;display:flex;gap:6px;align-items:center" title="Only jobs where someone hasn&#39;t answered yet"><input type="checkbox" id="aca-scWait" /> Still waiting</label>' +
         '<span class="grow"></span>' +
         '<button type="button" class="small sc-keybtn" data-v="key" aria-expanded="false">Colors</button>' +
         '<div class="sc-legend"><span><i class="sc-k-job"></i>On site job</span><span><i class="sc-k-drive"></i>Drive</span><span><i class="sc-k-setup"></i>Setup / teardown</span><span><i class="sc-k-studio"></i>Studio</span><span><i class="sc-k-admin"></i>Admin</span><span><i class="sc-k-flex"></i>Flex</span><span><i class="sc-k-work"></i>Other</span><span><i class="sc-k-off"></i>Time off</span><span><i class="sc-k-gcal"></i>Google Calendar</span></div>' +
@@ -241,6 +262,8 @@
       "</div>" +
       '<div id="aca-scErr" class="inline-error hidden"></div>' +
       '<div id="aca-scWarn" class="sc-warn hidden"></div>' +
+      '<div id="aca-scWeeks"></div>' +
+      '<p class="sc-swipe hidden" id="aca-scSwipe">Swipe sideways for more days &rsaquo;</p>' +
       '<div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
       '<div class="sc-sum hidden" id="aca-scPeak"></div>' +
@@ -250,6 +273,8 @@
     let view = narrow() ? "day" : "week";
     let anchor = T.today();       // the day shown in day view; its week in week view
     let data = null, mineOnly = false, waitOnly = false, loading = 0;
+    let highlight = null;     // a day picked from the 8 weeks view or Busiest days, outlined in the week
+    let pendingAssign = null; // a job picked from the 8 weeks view: open its assign dialog once its week is loaded
     root.querySelector('input[name="aca-scView"][value="' + view + '"]').checked = true;
 
     const editable = () => !!(data && data.can_edit);
@@ -261,6 +286,7 @@
     const shortTitle = (s) => String(s || "").split(" \u2022 ")[0];
 
     async function load() {
+      if (view === "weeks8") return loadWeeks();
       const my = ++loading;
       clearError("scErr");
       const start = T.weekStart(anchor);
@@ -269,18 +295,20 @@
         const { data: d, error } = await sb.rpc("schedule_week", { p_start: start, p_days: 7 });
         if (error) throw error;
         if (my !== loading) return;
-        data = d; data.start = start;
+        // B3: a copy, so the "X Off" bars below are never pushed into the RPC result itself
+        data = Object.assign({}, d, { start, entries: (d.entries || []).slice() });
         data.crew = Object.assign({ roles: [], needed: {}, declined: [], requests: [], settings: {} }, d.crew || {});
         (d.people || []).forEach((p) => { p.name = T.shortName(p.name); });
         // Time off someone asked for and nobody has answered yet: a faded bar on their row (not counted as hours)
         data.asked = (data.crew.requests || []).map((r) => ({ id: "req:" + r.id, user_id: r.user_id, kind: "asked", booking_id: null, drive_before_min: 0, drive_after_min: 0,
           starts_at: T.toIso(r.first_day, r.start_time || "00:00"), ends_at: r.start_time ? T.toIso(r.first_day, r.end_time) : T.toIso(T.addDays(r.last_day, 1), "00:00"), title: r.note || "", note: "", request: r }));
         // "Ryan Off" on the Google Calendar: time off on that person's row (read only; change it in Google)
-        (d.calendar || []).filter((c) => c.off_user).forEach((c) => d.entries.push({ id: "gcal:" + c.event_id, user_id: c.off_user, kind: "off", booking_id: null,
+        (d.calendar || []).filter((c) => c.off_user).forEach((c) => data.entries.push({ id: "gcal:" + c.event_id, user_id: c.off_user, kind: "off", booking_id: null,
           starts_at: c.all_day || !c.start_at ? T.toIso(c.start_date, "00:00") : c.start_at, ends_at: c.all_day || !c.end_at ? T.toIso(T.addDays(c.end_date, 1), "00:00") : c.end_at,
           drive_before_min: 0, drive_after_min: 0, title: c.summary, note: "", gcal: c }));
         render();
         loadPeak();
+        openPending();
       } catch (e) {
         if (my !== loading) return;
         showError("scErr", "Could not load the schedule: " + cleanErr(e));
@@ -291,7 +319,7 @@
     let peakFor = "";
     async function loadPeak() {
       const box = el("scPeak");
-      if (narrow() || peakFor === T.today()) return;
+      if ((narrow() && view !== "weeks8") || peakFor === T.today()) return;
       try {
         const { data: c, error } = await sb.rpc("crew_capacity", { p_from: T.today(), p_days: 56 });
         if (error) throw error;
@@ -302,7 +330,7 @@
           days.map((d) => { const lvl = d.needed > d.free ? "red" : d.needed === d.free ? "amber" : "";
             return '<tr><td><button type="button" class="link" data-peak="' + esc(d.day) + '">' + esc(T.fmtDay(d.day)) + "</button></td><td>" + num(d.jobs) + "</td><td>" + num(d.needed) + "</td><td>" + num(d.on_jobs) + "</td><td>" + num(d.off) + "</td><td>" + num(d.asked_off) +
               '</td><td class="' + lvl + '">' + num(d.free) + (lvl === "red" ? " (short " + num(d.needed - d.free) + ")" : "") + "</td></tr>"; }).join("") +
-          '</tbody></table></div><p class="sc-note">Free = everyone on the team minus time off (approved or asked for). Red: the jobs need more people than are free.</p>';
+          '</tbody></table></div><p class="sc-note">Free = everyone on the team minus time off (approved or asked for). Red: the jobs need more people than are free. Click a day to see its week.</p>';
       } catch (_e) { box.classList.add("hidden"); }
     }
 
@@ -376,6 +404,7 @@
 
     // ---------------------------------------------------------------- render
     function render() {
+      root.classList.remove("sc-w8");
       const start = data.start, today = T.today();
       const days = view === "week" ? [0, 1, 2, 3, 4, 5, 6].map((i) => T.addDays(start, i)) : [anchor];
       const sameMonth = view === "week" && days[0].slice(0, 7) === days[6].slice(0, 7);
@@ -396,10 +425,15 @@
       grid.style.setProperty("--cols", days.length);
       grid.style.setProperty("--colmin", view === "week" ? "118px" : narrow() ? "0px" : "640px");
       grid.style.setProperty("--hours", hours);
+      // B2: on a phone the week is wider than the screen; say so until they swipe
+      const sw = narrow() && view === "week", scr = root.querySelector(".sc-scroll");
+      el("scSwipe").classList.toggle("hidden", !sw);
+      scr.classList.toggle("fade", sw);
+      if (sw) scr.scrollLeft = 0;
 
       let h = '<div class="sc-head sc-name">' + (view === "week" ? "Team" : "") + "</div>";
       days.forEach((d) => {
-        h += '<div class="sc-head' + (d === today ? " today" : "") + '">' + (view === "week" ? '<button type="button" class="link" data-day="' + d + '">' + esc(T.fmtDay(d)) + "</button>" : esc(T.fmtDay(d, { weekday: "long" }))) +
+        h += '<div class="sc-head' + (d === today ? " today" : "") + (d === highlight && view === "week" ? " hl" : "") + '">' + (view === "week" ? '<button type="button" class="link" data-day="' + d + '">' + esc(T.fmtDay(d)) + "</button>" : esc(T.fmtDay(d, { weekday: "long" }))) +
           '<div class="sc-ticks">' + ticks() + "</div></div>";
       });
       // Capacity: per day, who is free (not off) against the people that day's jobs still need.
@@ -543,7 +577,11 @@
         return;
       }
       const pk = e.target.closest("[data-peak]");
-      if (pk) { anchor = pk.dataset.peak; setView("day"); window.scrollTo(0, 0); return; }
+      if (pk) { anchor = highlight = pk.dataset.peak; setView("week"); window.scrollTo(0, 0); return; }
+      const w8 = e.target.closest("[data-w8week]");
+      if (w8) { anchor = w8.dataset.w8week; highlight = null; setView("week"); window.scrollTo(0, 0); return; }
+      const w8b = e.target.closest("[data-w8b]");
+      if (w8b) { anchor = highlight = w8b.dataset.day; pendingAssign = { id: w8b.dataset.w8b, day: w8b.dataset.day }; setView("week"); window.scrollTo(0, 0); return; }
       const dayBtn = e.target.closest(".sc-head [data-day]");
       if (dayBtn) { anchor = dayBtn.dataset.day; setView("day"); return; }
       const chip = e.target.closest("[data-booking]");
@@ -572,13 +610,67 @@
     });
     root.addEventListener("change", (e) => {
       if (e.target.name === "aca-scView") setView(e.target.value);
-      if (e.target.id === "aca-scMine") { mineOnly = e.target.checked; if (data) render(); }
-      if (e.target.id === "aca-scWait") { waitOnly = e.target.checked; if (data) render(); }
+      if (e.target.id === "aca-scMine") { mineOnly = e.target.checked; if (data && view !== "weeks8") render(); }
+      if (e.target.id === "aca-scWait") { waitOnly = e.target.checked; if (data && view !== "weeks8") render(); }
     });
+    root.querySelector(".sc-scroll").addEventListener("scroll", (e) => {
+      const n = e.currentTarget;
+      if (n.scrollLeft > 20) el("scSwipe").classList.add("hidden");
+      n.classList.toggle("fade", narrow() && view === "week" && n.scrollLeft + n.clientWidth < n.scrollWidth - 4);
+    }, { passive: true });
     function setView(v) {
       view = v;
       root.querySelector('input[name="aca-scView"][value="' + v + '"]').checked = true;
-      if (data && T.weekStart(anchor) === data.start) render(); else load();
+      if (v === "weeks8") { loadWeeks(); return; }
+      if (data && T.weekStart(anchor) === data.start) { render(); openPending(); } else load();
+    }
+
+    // B1: the next 8 weeks at a glance: per week, its jobs and the ones that still need people, plus Busiest days.
+    // schedule_week allows up to 42 days, so two calls. A week or a job jumps to that week (a job opens its assign dialog).
+    function openPending() {
+      if (!pendingAssign) return;
+      const pa = pendingAssign; pendingAssign = null;
+      const b = data.bookings.find((x) => x.booking_id === pa.id && x.day === pa.day);
+      if (b && editable()) openAssign(b);
+    }
+    async function loadWeeks() {
+      const my = ++loading;
+      clearError("scErr");
+      root.classList.add("sc-w8");
+      el("scTitle").textContent = "Next 8 weeks";
+      const box = el("scWeeks"), wk0 = T.weekStart(T.today()), today = T.today();
+      if (!box.children.length) box.innerHTML = '<p class="empty" style="padding:16px">Loading&#8230;</p>';
+      peakFor = ""; loadPeak();
+      try {
+        const res = await Promise.all([[0, 42], [42, 14]].map(([o, n]) => sb.rpc("schedule_week", { p_start: T.addDays(wk0, o), p_days: n })));
+        res.forEach((r) => { if (r.error) throw r.error; });
+        if (my !== loading) return;
+        const seen = new Set(), bookings = [], entries = [], needed = {};
+        res.forEach(({ data: d }) => {
+          (d.bookings || []).forEach((b) => { const k = b.booking_id + "|" + b.day; if (!seen.has(k)) { seen.add(k); bookings.push(b); } });
+          (d.entries || []).forEach((x) => { if (!entries.some((y) => y.id === x.id)) entries.push(x); });
+          Object.assign(needed, (d.crew || {}).needed || {});
+        });
+        const need = (id) => num(needed[id]) || 1;
+        const have = (id, d) => new Set(entries.filter((x) => x.booking_id === id && T.local(x.starts_at).day <= d && T.local(x.ends_at).day >= d).map((x) => x.user_id)).size;
+        const weeks = Array.from({ length: 8 }, (_, i) => T.addDays(wk0, 7 * i));
+        box.innerHTML = weeks.map((w, i) => {
+          const end = T.addDays(w, 7);
+          const jobs = bookings.filter((b) => b.day >= w && b.day < end && b.day >= today).sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : String(a.start_at || "").localeCompare(String(b.start_at || ""))));
+          const open = jobs.filter((b) => have(b.booking_id, b.day) < need(b.booking_id));
+          return '<div class="sc-w8row"><h3><button type="button" class="link" data-w8week="' + esc(w) + '">' + (i === 0 ? "This week" : i === 1 ? "Next week" : "Week of " + esc(T.fmtDay(w, { weekday: undefined }))) + "</button>" +
+            '<span class="s">' + (jobs.length ? num(jobs.length) + " job" + (jobs.length === 1 ? "" : "s") + ", " + (open.length ? num(open.length) + " not assigned" : "all have people") : "no jobs") + "</span></h3>" +
+            (open.length ? '<div class="sc-jobs">' + open.map((b) => {
+              const h = have(b.booking_id, b.day), n = need(b.booking_id);
+              return '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : h ? " part" : " none") + '" data-w8b="' + esc(b.booking_id) + '" data-day="' + esc(b.day) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "")) + '">' +
+                esc(shortTitle(b.title)) + "<small>" + esc(T.fmtDay(b.day)) + (b.start_at ? " &middot; " + esc(T.fmtTs(b.start_at)) : "") + (h ? " &middot; " + num(h) + " of " + num(n) : n > 1 ? " &middot; needs " + num(n) : "") + "</small></button>";
+            }).join("") + "</div>" : "") + "</div>";
+        }).join("");
+      } catch (e) {
+        if (my !== loading) return;
+        box.innerHTML = "";
+        showError("scErr", "Could not load the next 8 weeks: " + cleanErr(e));
+      }
     }
 
     // ---------------------------------------------------------------- drive time
@@ -643,13 +735,24 @@
           (!e.confirm || e.confirm.status !== "confirmed" ? ' <button type="button" class="link" data-m="ask" data-user="' + esc(e.user_id) + '">' + (e.confirm && e.confirm.asked_at ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</li>").join("") + "</ul>" : "") +
         (no.length ? '<p class="sc-facts"><b>Can&#39;t make it:</b> ' + no.map((x) => esc(x.name) + (x.reason ? ' <span class="muted">(' + esc(x.reason) + ")</span>" : "")).join(", ") + "</p>" : "") +
         '<div class="field"><label>Add people</label><ul class="sc-pick" id="aca-scPick"><li><span></span><span class="muted">Checking who is free&#8230;</span><span></span></li></ul></div>' +
+        (canEdit("openjobs") ? '<p class="sc-note">Nobody free? <a href="#staff/openjobs/' + esc(b.booking_id) + '" data-m="offer">Offer to part-timers</a>: Part time and 1099 people nearby get it in Open jobs.</p>' : "") +
+        // B8: times, setup and drive are rarely changed here once the Drive & setup defaults are set
+        '<details class="sc-fold" id="aca-scTimes"' + (b.start_at ? "" : " open") + '><summary>Times and drive <span class="s" id="aca-scTimesTxt"></span></summary>' +
         '<div class="row2"><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(en) + '" /></div></div>' +
         driveHtml(already[0] && !already[0].batch_id ? already[0].drive_before_min : 30, already[0] && !already[0].batch_id ? already[0].drive_after_min : 30,
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
-        (data.people.some((p) => p.from_home) ? '<p class="sc-note">Part time and 1099 people drive from home: theirs is looked up for each of them when you add them.</p>' : "") +
+        (data.people.some((p) => p.from_home) ? '<p class="sc-note">Part time and 1099 people drive from home: theirs is looked up for each of them when you add them.</p>' : "") + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Job page</a><a href="#jobs/bookings" data-m="open" class="small">Open the booking</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
+      const timesTxt = () => {
+        const st = el("scS").value, et = el("scE").value, v = driveVals(m);
+        const t = (x) => { const [hh, mm] = x.split(":").map(Number); return T.fmtMin(hh * 60 + mm); };
+        el("scTimesTxt").textContent = (st && et ? t(st) + "\u2013" + t(et) : "time not set") + ", setup " + v.setup_min + " / teardown " + v.teardown_min + " min, drive " + v.drive_before_min + " / " + v.drive_after_min + " min";
+      };
+      timesTxt();
+      el("scTimes").addEventListener("input", timesTxt); el("scTimes").addEventListener("change", timesTxt);
+      el("scTimes").addEventListener("toggle", timesTxt);
       // Who is free, their roles and the drive from home (sorted: free first, then nearest).
       const pick = m.querySelector("#aca-scPick");
       const rows = (list, cp) => list.map((p) => {
@@ -678,7 +781,7 @@
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") m.close();
         if (t.dataset.m === "open") { ev.preventDefault(); m.close(); showTab("bookings"); Bookings.openId(b.booking_id); }
-        if (t.dataset.m === "job") m.close();
+        if (t.dataset.m === "job" || t.dataset.m === "offer") m.close();
         if (t.dataset.m === "edit") { m.close(); openEntry(data.entries.find((x) => x.id === t.dataset.id)); }
         if (t.dataset.m === "ask") {
           t.disabled = true;
@@ -694,7 +797,7 @@
             return;
           }
           if (!who.length) return mErr("Pick at least one person.");
-          if (!st || !et) return mErr("Enter the start and end time.");
+          if (!st || !et) { el("scTimes").open = true; return mErr("Enter the start and end time."); }
           const endDay = et <= st ? T.addDays(b.day, 1) : b.day;
           t.disabled = true;
           try {
@@ -835,7 +938,7 @@
         '<div class="field"><label for="aca-scN">Note</label><textarea id="aca-scN" maxlength="1000">' + esc(e ? e.note : "") + "</textarea></div>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions">' + (isNew ? "" : '<button type="button" class="small warn" data-m="remove">Remove</button>') + (e && e.kind === "job" && !limited && jobOf(e) ? ' <button type="button" class="small" data-m="more">More people</button>' : "") +
-        (e && e.kind === "job" && !limited ? ' <button type="button" class="small" data-m="batch">' + (e.batch_id ? "Add to trip" : "Batch") + "</button>" : "") + '<span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (isNew ? "Add" : "Save") + "</button></div></div>");
+        (e && e.kind === "job" && !limited ? ' <button type="button" class="small" data-m="batch">' + (e.batch_id ? "Add another job to this trip\u2026" : "Batch with another job\u2026") + "</button>" : "") + '<span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (isNew ? "Add" : "Save") + "</button></div></div>");
       const kind = () => m.querySelector('input[name="aca-scK"]:checked').value;
       function sync() {
         const k = kind();

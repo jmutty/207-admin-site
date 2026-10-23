@@ -660,6 +660,10 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.$$("#aca-scGrid .sc-b.sc-k-setup")).length === 8, "every job bar has setup before and teardown after");
     check((await page.$$("#aca-scGrid .sc-b.trip")).length === 1 && (await page.$$("#aca-scGrid .sc-b.batched.sc-k-job")).length === 2, "a batched trip: both jobs marked, a dashed line between them");
     check((await page.$$("#aca-scGrid .sc-b.sc-k-off")).length === 3, "time off spans two days, plus \"Alex Off\" from Google Calendar");
+    // ws/settings B3: reloading the week does not add the calendar's "Alex Off" bar again
+    await page.click('#aca-panel-schedule [data-v="next"]'); await page.waitForTimeout(100);
+    await page.click('#aca-panel-schedule [data-v="prev"]'); await page.waitForTimeout(150);
+    check((await page.$$("#aca-scGrid .sc-b.sc-k-off")).length === 3 && await page.evaluate(() => !window.__RPC.schedule_week.entries.some((e) => String(e.id).startsWith("gcal:"))), "B3: the RPC result is not changed");
     check((await page.$$("#aca-scGrid .sc-chip.gcal")).length === 1 && (await page.textContent("#aca-scGrid")).includes("From Google Calendar"), "calendar events that aren't bookings get their own lane");
     await page.click("#aca-scGrid .sc-chip.gcal");
     await page.waitForSelector("#aca-scT");
@@ -682,6 +686,10 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     // put someone on a job
     await page.click("#aca-scGrid .sc-chip.none");
     await page.waitForSelector(".sc-modal .sc-pick input[type=checkbox]");
+    // ws/settings: B8 times and drive folded; Offer to part-timers
+    check(!(await page.$eval("#aca-scTimes", (d) => d.open)) && (await page.textContent("#aca-scTimesTxt")).includes("drive"), "B8: Times and drive folded, with a one-line summary");
+    check((await page.getAttribute('.sc-modal [data-m="offer"]', "href")).startsWith("#staff/openjobs/bk"), "assign dialog: Offer to part-timers");
+    await page.click("#aca-scTimes > summary");
     await page.click('.sc-modal [data-m="drive"]');
     await page.waitForTimeout(150);
     check(await page.$eval(".sc-modal .sc-db", (n) => n.value) === "25", "drive time looked up and rounded up to 25");
@@ -690,6 +698,25 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     const saved = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
     check(saved.length === 1 && saved[0].kind === "job" && saved[0].drive_before_min === 25 && /T\d\d:00:00.000Z$/.test(saved[0].starts_at), "saves a job bar with drive time");
+    // ws/settings B9: the bar dialog has the batch button
+    await page.click("#aca-scGrid .sc-b.sc-k-job:not(.drive):not(.batched)");
+    await page.waitForSelector('.sc-modal [data-m="batch"]');
+    check((await page.textContent('.sc-modal [data-m="batch"]')).includes("Batch with another job"), "B9: Batch with another job in the bar's dialog");
+    await page.click('.sc-modal [data-m="cancel"]');
+    // ws/settings B1: 8 weeks view; a job jumps to its week and opens the assign dialog
+    await page.click('input[name="aca-scView"][value="weeks8"] + span');
+    await page.waitForSelector("#aca-scWeeks .sc-w8row");
+    check((await page.$$("#aca-scWeeks .sc-w8row")).length === 8 && !(await page.isVisible("#aca-scGrid")) && (await page.textContent("#aca-scTitle")) === "Next 8 weeks", "B1: 8 weeks view, one row a week");
+    check((await page.textContent("#aca-scWeeks")).includes("not assigned") && await page.isVisible("#aca-scPeak"), "8 weeks: jobs not assigned and busiest days");
+    await page.click("#aca-scWeeks [data-w8b] >> nth=0");
+    await page.waitForSelector(".sc-modal .sc-pick");
+    check(await page.isChecked('input[name="aca-scView"][value="week"]') && (await page.$$("#aca-scGrid .sc-head.hl")).length === 1, "a job in the 8 weeks view opens its week, day outlined, and its assign dialog");
+    await page.click('.sc-modal [data-m="cancel"]');
+    await page.click("#aca-scPeak [data-peak] >> nth=0");
+    await page.waitForTimeout(150);
+    check(await page.isChecked('input[name="aca-scView"][value="week"]') && (await page.$$("#aca-scGrid .sc-head.hl")).length === 1, "a Busiest day jumps to its week");
+    await page.click('#aca-panel-schedule [data-v="today"]');
+    await page.waitForTimeout(150);
     // Crew (2026-10-23): answers on the bars, people needed, capacity, the crew picker, settings, the weekly email
     await page.evaluate(() => { window.__rpcCalls.length = 0; });
     check((await page.$$("#aca-scGrid .sc-b .sc-cf.ok")).length === 1 && (await page.$$("#aca-scGrid .sc-b .sc-cf.wait")).length === 1, "job bars show confirmed and still waiting");
@@ -1519,6 +1546,27 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       await page.waitForTimeout(300);
       check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), tab + ": no sideways scroll at 390px");
     }
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Schedule on a phone (390px, ws/settings)");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#staff/schedule`);
+    await page.waitForSelector("#aca-scGrid .sc-head");
+    check(!(await page.isVisible("#aca-panel-schedule .sc-legend")) && await page.isVisible('#aca-panel-schedule [data-v="key"]'), "B2: colors folded behind a button");
+    await page.click('input[name="aca-scView"][value="week"] + span');
+    await page.waitForTimeout(200);
+    check(await page.isVisible("#aca-scSwipe"), "B2: week view says to swipe for more days");
+    await page.$eval("#aca-panel-schedule .sc-scroll", (n) => { n.scrollLeft = 200; n.dispatchEvent(new Event("scroll")); });
+    await page.waitForTimeout(100);
+    check(!(await page.isVisible("#aca-scSwipe")), "the hint goes once they swipe");
+    await page.click('input[name="aca-scView"][value="weeks8"] + span');
+    await page.waitForSelector("#aca-scWeeks .sc-w8row");
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1) && await page.isVisible("#aca-scPeak"), "8 weeks fits a phone, with busiest days");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
