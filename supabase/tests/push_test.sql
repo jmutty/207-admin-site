@@ -73,10 +73,17 @@ delete from net.calls;
 insert into public.lookup_requests (parent_email) values ('parent@example.com');
 select pg_temp.ok((select count(*) from public.push_outbox where topic = 'help_request' and sent_at is null) = 1, 'help request queues one notification');
 select pg_temp.ok((select count(*) from net.calls where url like '%/push-sender' and headers ? 'x-push-secret') = 1, 'and wakes push-sender with the secret');
+select pg_temp.ok((select body from public.push_outbox where topic = 'help_request' and sent_at is null) like 'Parent/guardian box NOT ticked.%', 'no checkbox: the push says it was not ticked');
+select pg_temp.ok(not exists (select 1 from pg_trigger where tgrelid = 'public.lookup_requests'::regclass and tgname = 'lookup_request_email'), 'no alert email per help request (push + morning email instead)');
 insert into public.lookup_requests (parent_email) values ('parent2@example.com');
 select pg_temp.ok((select count(*) from public.push_outbox where topic = 'help_request' and sent_at is null) = 1, 'a second one within 10 minutes is merged');
 select pg_temp.act(null, 'service_role');
 select pg_temp.ok(pg_temp.claim_users() = '["00000000-0000-0000-0000-0000000000c1", "ccbe859a-d295-4df0-94bc-6f423db4d806"]', 'goes to the owner and p1 only (not b1, not deactivated d1)');
+select public.push_done((select jsonb_agg(jsonb_build_object('id', id, 'sent', 2)) from public.push_outbox where sent_at is null));
+reset role;
+insert into public.lookup_requests (parent_email, search_data) values ('parent3@example.com', '{"affirm": "yes", "last_name": "jones"}');
+select pg_temp.ok((select body from public.push_outbox where topic = 'help_request' and sent_at is null) like 'Parent/guardian box ticked.%', 'ticked checkbox: the push says so first');
+select pg_temp.act(null, 'service_role');
 select public.push_done((select jsonb_agg(jsonb_build_object('id', id, 'sent', 2)) from public.push_outbox where sent_at is null));
 reset role;
 

@@ -21,6 +21,7 @@
     .aca .rq-reply input, .aca .rq-reply textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 3px; font: inherit; font-size: 14px; color: var(--text); }
     .aca .rq-reply textarea { line-height: 1.45; resize: vertical; min-height: 220px; padding: 8px 10px; }
     .aca .rq-reply-acts { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+    .aca .rq-affirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; margin: 4px 0 12px; }
     @media (max-width: 1000px) { .aca .rq-detail { grid-template-columns: 1fr; } }
     @media (max-width: 760px) {
       .aca #aca-panel-requests thead { display: none; }
@@ -104,7 +105,8 @@
       return '<tr class="rq-row" data-id="' + esc(r.id) + '">' +
         '<td class="name">' + esc(r.parent_email) +
           (who ? '<div class="req-who">' + who + '</div>' : '') +
-          (r.ip_key ? '<div class="req-who mono">IP ' + esc(r.ip_key) + '</div>' : '') + '</td>' +
+          (r.ip_key ? '<div class="req-who mono">IP ' + esc(r.ip_key) + '</div>' : '') +
+          '<div class="req-who">' + (affirmed(sd) ? '<span class="pill ok">&#10003; Parent/guardian</span>' : '<span class="pill err">Not confirmed parent/guardian</span>') + '</div></td>' +
         '<td class="rq-job">' + jobCell + '</td>' +
         '<td class="rq-typed muted mono">' + blockedFlag(r) + esc(summarizeSearch(studentOnly(r.search_data)) || "—") + '</td>' +
         '<td class="rq-when"><span class="rq-pre">Waiting since </span>' + fmtDate(r.created_at) + '</td>' +
@@ -115,6 +117,17 @@
     }).join("");
     openRequests.forEach((r) => loadReqDetails(r));
     fillJobLinks(body); // the job page and partner, when a booking has this GotPhoto job (2026-10-24)
+  }
+
+  // the parent/guardian checkbox on the lookup form, saved as search_data.affirm = "yes" (2026-10-23)
+  function affirmed(sd) {
+    const v = (sd || {}).affirm;
+    return v === true || /^(yes|true|on|1)$/i.test(String(v == null ? "" : v).trim());
+  }
+  function affirmHtml(r) {
+    return affirmed(r.search_data)
+      ? '<div class="rq-affirm"><span class="pill ok">&#10003; Parent/guardian</span> They ticked the box saying they are the parent or guardian.</div>'
+      : '<div class="rq-affirm"><span class="pill err">Not confirmed</span> They did not tick the parent/guardian box. Check who is asking before sending a code.</div>';
   }
 
   // the typed student fields only (the searcher's own details show under the email; affirm is just the checkbox)
@@ -205,7 +218,7 @@
         '<td' + (x.searcher ? '' : ' class="rq-empty"') + '>' + esc(x.searcher ? [x.searcher.name, x.searcher.email, x.searcher.phone].filter(Boolean).join(" · ") : "—") + '</td>' +
         '<td class="mono' + (x.ip ? '' : ' rq-empty') + '">' + esc(x.ip || "—") + '</td><td>' + outcomePill(x.outcome) + '</td></tr>').join("") + '</tbody></table>'
       : '<div class="muted" style="font-size:13px">No searches from this email or IP in the last 7 days.</div>';
-    cell.innerHTML = '<div class="rq-detail"><div>' + matchHtml + '</div>' + replyHtml + '</div>' + '<div class="rq-hist">' + histHtml + '</div>';
+    cell.innerHTML = affirmHtml(r) + '<div class="rq-detail"><div>' + matchHtml + '</div>' + replyHtml + '</div>' + '<div class="rq-hist">' + histHtml + '</div>';
   }
 
   function reqRemoveRows(id) {
