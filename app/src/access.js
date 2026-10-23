@@ -35,7 +35,7 @@
     el("bookBtn").classList.toggle("hidden", !canEdit("bookings"));
     el("syncNowBtn").classList.toggle("hidden", !canEdit("galleries"));
     el("syncStatus").classList.toggle("hidden", !seesSync());
-    el("gsTop").placeholder = gsPlaceholder();
+    el("gsTop").placeholder = matchMedia("(max-width: 700px)").matches ? "Search" : gsPlaceholder();
     el("todayUpBox").classList.toggle("hidden", !canSee("bookings"));
     el("todayOutBox").classList.toggle("hidden", !canSee("partners"));
     el("todayDigestBox").classList.toggle("hidden", !canSee("settings"));

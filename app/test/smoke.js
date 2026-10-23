@@ -2098,7 +2098,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       d.innerHTML = "<table><thead><tr><th>Who</th><th>When</th><th></th></tr></thead><tbody><tr><td>Sam</td><td>Mon</td><td class='act'><button>Open</button></td></tr></tbody></table>";
       document.getElementById("aca-panel-health").appendChild(d); });
     await page.waitForTimeout(100);
-    check(await page.$eval("#aca-cardTest td", (td) => td.getAttribute("data-label") === "Who" && getComputedStyle(td).display === "flex" && getComputedStyle(td.closest("tr")).display === "block"), "table-wrap cards: rows stack as labelled cards on a phone");
+    check(await page.$eval("#aca-cardTest td", (td) => td.getAttribute("data-label") === "Who" && getComputedStyle(td).display === "block" && getComputedStyle(td.closest("tr")).display === "block"), "table-wrap cards: rows stack as labelled cards on a phone");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -2112,7 +2112,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector("#aca-nav button[data-tab]", { state: "attached" });
     await page.waitForTimeout(500);
     check(await page.isVisible("#aca-bookBtn") && (await page.textContent("#aca-bookBtn .bk-plus")) === "+" && !(await page.isVisible("#aca-bookBtn .bk-txt")), "Book a job is a + in the top bar");
-    check((await page.textContent("#aca-whoBtn")).includes("Jeremiah") && await page.isVisible("#aca-whoBtn .who-f"), "the account button shows the first name");
+    check((await page.textContent("#aca-whoBtn .who-i")) === "JM" && await page.isVisible("#aca-whoBtn .who-i") && !(await page.isVisible("#aca-whoBtn .who-f")), "the account button shows initials, so the search box keeps its width");
     const order = await page.evaluate(() => { const l = document.getElementById("aca-todayList").getBoundingClientRect().top, m = document.getElementById("aca-todayClock"); return m ? l < m.getBoundingClientRect().top : true; });
     check(order, "Today on a phone: what needs you comes before the clock");
     await page.evaluate(() => { location.hash = "#jobs/bookings"; });
@@ -2120,7 +2120,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-pagetabs", (n) => n.scrollWidth <= n.clientWidth + 1), "the page tab strip wraps instead of running off the edge");
     await page.evaluate(() => { location.hash = "#jobs/job/bk1"; });
     await page.waitForSelector("#aca-jpTabs button");
-    check(await page.$eval("#aca-jpTabs", (n) => getComputedStyle(n).flexWrap === "wrap"), "job page tabs wrap on a phone");
+    check(await page.$eval("#aca-jpTabs", (n) => getComputedStyle(n).flexWrap === "nowrap" && getComputedStyle(n).overflowX === "auto"), "job page tabs are one row you swipe on a phone");
+    check(await page.$eval("html", (n) => n.scrollWidth <= n.clientWidth + 1), "the job page never scrolls sideways on a phone");
     await page.click("#aca-whoBtn");
     await page.click("#aca-notifBtn");
     await page.waitForSelector(".modal-wrap.sheet .modal");

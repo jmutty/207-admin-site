@@ -90,7 +90,7 @@
       const inMonth = list.filter((x) => x.day >= month && x.day < addMonths(month, 1));
       const waiting = all ? list.filter((x) => x.status === "submitted" && !(x.day >= month && x.day < addMonths(month, 1))) : [];
       const sum = (l, st) => l.filter((x) => !st || x.status === st).reduce((n, x) => n + num(x.amount), 0);
-      const head = '<div class="table-wrap"><table class="tc-week"><thead><tr><th></th><th>Day</th>' + (all ? "<th>Person</th>" : "") + '<th>For</th><th class="tc-num">Amount</th><th>Status</th><th></th></tr></thead><tbody>';
+      const head = '<div class="table-wrap cards"><table class="tc-week"><thead><tr><th></th><th>Day</th>' + (all ? "<th>Person</th>" : "") + '<th>For</th><th class="tc-num">Amount</th><th>Status</th><th></th></tr></thead><tbody>';
       el("txBody").innerHTML =
         '<p class="tc-sum">' + (inMonth.length ? money(sum(inMonth)) + " this month · " + money(sum(inMonth, "approved")) + " approved · " + money(sum(inMonth, "submitted")) + " waiting." : "No expenses this month.") +
         " Add a photo of the receipt. Approved expenses are paid back with payroll; mileage is separate (Mileage tab).</p>" +

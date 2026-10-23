@@ -82,8 +82,6 @@
     .aca .pagetabs { flex-wrap: wrap; row-gap: 0; }
     .aca .pagetabs h1 { flex: 1 0 100%; padding-bottom: 2px; }
   }
-  /* Job and partner page tabs (jobpage.js .jp-tabs) wrap onto a second row on phones instead of hiding off the edge. */
-  @media (max-width: 760px) { .aca div.jp-tabs { flex-wrap: wrap; overflow-x: visible; } }
 
   /* ---- Page header, page tabs ---- */
   .aca .pagehead { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -229,7 +227,7 @@
     .aca .table-wrap.cards table, .aca .table-wrap.cards tbody, .aca .table-wrap.cards tr, .aca .table-wrap.cards td { display: block; width: 100%; }
     .aca .table-wrap.cards thead { display: none; }
     .aca .table-wrap.cards tr { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin: 0 0 10px; background: var(--surface); }
-    .aca .table-wrap.cards tbody tr:last-child td, .aca .table-wrap.cards td { border: 0; padding: 3px 0; }
+    .aca .table-wrap.cards tbody tr:last-child td, .aca .table-wrap.cards td { border: 0; }
     .aca .table-wrap.cards td { display: flex; gap: 10px; align-items: baseline; min-width: 0; overflow-wrap: anywhere; }
     .aca .table-wrap.cards td[data-label]::before { content: attr(data-label); flex: 0 0 34%; color: var(--faint); font-size: 12px; font-weight: 600; }
     .aca .table-wrap.cards td.act { flex-wrap: wrap; gap: 6px; padding-top: 8px; }
@@ -489,6 +487,55 @@
     .aca .pagetabs { flex-wrap: wrap; }
     .aca .pagetabs h1 { flex: 1 0 100%; margin: 0 0 4px; padding-bottom: 0; }
     .aca .pagetabs button { min-height: 40px; padding: 10px 10px 10px 0; }
+  }
+  /* ---- Phone review (2026-10-23): one swipeable tab row, no zoom on typing, room for thumbs ----
+     Page tabs and job/partner tabs stay on one row you swipe (the strip fades at the edge that has more, and the open
+     tab is scrolled into view by shell-top.js) instead of wrapping onto two or three rows above the page. */
+  .aca .pagetabs .pt-row { display: contents; }
+  @media (max-width: 700px) {
+    .aca .pagetabs .pt-row { display: flex; flex: 1 0 100%; gap: 14px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .aca .pagetabs .pt-row button { flex: none; padding: 10px 2px; }
+    .aca .pt-row::-webkit-scrollbar, .aca .jp-tabs::-webkit-scrollbar { display: none; }
+    .aca .pt-row.more-r, .aca .jp-tabs.more-r { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); }
+    .aca .pt-row.more-l, .aca .jp-tabs.more-l { -webkit-mask-image: linear-gradient(to left, #000 82%, transparent); mask-image: linear-gradient(to left, #000 82%, transparent); }
+    .aca .pt-row.more-l.more-r, .aca .jp-tabs.more-l.more-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); }
+    .aca div.jp-tabs { flex-wrap: nowrap; overflow-x: auto; margin: 10px 0 16px; }
+    .aca div.jp-tabs button { flex: none; min-height: 44px; padding: 0 10px; }
+    /* Typing in any box no longer zooms the page in (iPhone zooms on text under 16px). Some modules set 12-15px. */
+    .aca input:not([type=checkbox]):not([type=radio]):not([type=range]), .aca select, .aca textarea { font-size: 16px !important; }
+    /* Thumb-sized: day arrows, checkboxes, small inline actions. */
+    .aca input[type=checkbox], .aca input[type=radio] { width: 22px; height: 22px; }
+    .aca button { min-width: 40px; }
+    .aca .jp-trail, .aca .op-trail { font-size: 14px; } .aca .jp-trail a, .aca .op-trail a { display: inline-block; padding: 6px 0; }
+    /* Job and partner headers take less of the screen before the tabs. */
+    .aca .jp-head h2 { font-size: 18px; line-height: 24px; }
+    .aca .jp-head .s { font-size: 13px; }
+    /* Cards (".table-wrap.cards"): the label sits in a left gutter and the cell's own content flows normally beside it,
+       so a cell holding several spans or a pill reads as one line of text, not side-by-side columns. */
+    .aca .table-wrap.cards tbody td { display: block; position: relative; padding: 4px 0 4px 34%; text-align: left; white-space: normal; }
+    .aca .table-wrap.cards td[data-label]::before { position: absolute; left: 0; top: 6px; width: 31%; overflow-wrap: anywhere; }
+    .aca .table-wrap.cards td:not([data-label]), .aca .table-wrap.cards td[colspan], .aca .table-wrap.cards td.act { padding-left: 0; }
+    .aca .table-wrap.cards td:empty { display: none; }
+    /* A first cell with no column name (a tick box, a receipt photo) sits in the card's top-right corner. */
+    .aca .table-wrap.cards tbody tr { position: relative; }
+    .aca .table-wrap.cards tbody td:first-child:not([data-label]):not([colspan]) { position: absolute; top: 10px; right: 12px; width: auto; padding: 0; z-index: 1; }
+    .aca .table-wrap.cards tbody td:first-child:not([data-label]):not([colspan]) img { max-width: 56px; max-height: 56px; }
+    .aca .table-wrap.cards tbody tr:has(> td:first-child:not([data-label]):not([colspan])) > td[data-label] { padding-right: 64px; }
+    .aca .table-wrap.cards td:first-child { font-weight: 600; }
+    .aca .table-wrap.cards td.act, .aca .table-wrap.cards td:last-child:not([data-label]) { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
+    /* The account button is your initials in a circle, so the search box keeps its width. */
+    .aca #aca-whoBtn .who-f { display: none; }
+    .aca #aca-whoBtn .who-i { display: inline-flex; width: 36px; height: 36px; min-height: 0; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); align-items: center; justify-content: center; font-size: 13px; }
+    .aca header.top #aca-whoBtn { flex: none; width: 36px; padding: 0; border: 0; background: transparent; min-width: 0; }
+    .aca header.top .grow { display: none; } .aca header.top .search { flex: 1 1 auto; }
+    /* The partner panel inside the partner page: actions wrap, contact rows stack instead of pushing the page sideways. */
+    .aca #aca-ogPanel.og-inline .og-phead .og-actions { flex: 1 0 100%; overflow: visible; flex-wrap: wrap; }
+    .aca .og-ctab tr:not(.og-cedit):not(.og-caddlink) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .aca .og-ctab tr:not(.og-cedit):not(.og-caddlink) > td { border: 0; padding: 0; white-space: normal !important; }
+    .aca .og-ctab td.og-cview { flex: 1 0 100%; }
+    .aca .og-ctab td.og-cview + td { flex: 1 1 auto; }
+    .aca .og-ctab select { max-width: none; }
+    .aca .og-sub { overflow-wrap: anywhere; }
   }
   /* Generic sheet: any side panel (.og-panel, #aca-bkPanel) becomes a full-screen scrolling sheet */
   @media (max-width: 900px) {

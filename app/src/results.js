@@ -196,14 +196,14 @@
           tile(dollars(A.due), "Partner share", A.balance > 0.005 ? '<span class="rs-up" style="color:var(--accent)">' + cents(A.balance) + " still owed</span>" : A.due ? "all paid" : "none this season") +
         "</div>" +
         '<div class="rs-h">By partner</div>' +
-        '<div class="table-wrap"><table class="rs-t"><thead><tr><th>Partner</th><th class="r">Jobs</th><th class="r">Sales</th><th class="r hide-sm">' + esc(lastLabel) + '</th><th class="r">Change</th><th class="r hide-sm">Orders</th><th class="r">Share</th></tr></thead><tbody>' +
+        '<div class="table-wrap cards"><table class="rs-t"><thead><tr><th>Partner</th><th class="r">Jobs</th><th class="r">Sales</th><th class="r hide-sm">' + esc(lastLabel) + '</th><th class="r">Change</th><th class="r hide-sm">Orders</th><th class="r">Share</th></tr></thead><tbody>' +
           orgRows.map((o) => '<tr class="click" data-org="' + esc(o.id) + '" title="See these jobs"><td class="name">' + orgA(o.id, o.name) +
             (!o.now.length ? '<span class="s">Not on the books this season</span>' : "") + '</td><td class="r">' + o.a.jobs + '</td><td class="r">' + dollars(o.a.sales) +
             '</td><td class="r hide-sm">' + (o.before.length ? dollars(o.b.sales) : "") + '</td><td class="r">' + change(o.a.sales, o.b.sales) +
             '</td><td class="r hide-sm">' + o.a.orders + '</td><td class="r">' + (o.a.due ? cents(o.a.due) : "") + (o.a.balance > 0.005 ? '<span class="s">' + cents(o.a.balance) + " owed</span>" : "") + "</td></tr>").join("") +
         '</tbody></table></div>' +
         '<div class="rs-h">By kind of job</div>' +
-        '<div class="table-wrap"><table class="rs-t"><thead><tr><th>Kind</th><th class="r">Jobs</th><th class="r">Sales</th><th class="r hide-sm">' + esc(lastLabel) + '</th><th class="r">Change</th><th class="r">Per job</th></tr></thead><tbody>' +
+        '<div class="table-wrap cards"><table class="rs-t"><thead><tr><th>Kind</th><th class="r">Jobs</th><th class="r">Sales</th><th class="r hide-sm">' + esc(lastLabel) + '</th><th class="r">Change</th><th class="r">Per job</th></tr></thead><tbody>' +
           kinds.map((x) => "<tr><td>" + esc(x.l) + '</td><td class="r">' + x.a.jobs + (x.b.jobs ? '<span class="s">was ' + x.b.jobs + "</span>" : "") + '</td><td class="r">' + dollars(x.a.sales) +
             '</td><td class="r hide-sm">' + dollars(x.b.sales) + '</td><td class="r">' + change(x.a.sales, x.b.sales) + '</td><td class="r">' + (x.a.jobs ? dollars(x.a.sales / x.a.jobs) : "") + "</td></tr>").join("") +
         "</tbody></table></div>";
@@ -240,7 +240,7 @@
             '<button type="button" class="small quiet" data-copy="' + esc(g.id) + '">Copy statement</button>' +
             (edit() && g.id ? '<button type="button" class="small quiet" data-emailst="' + esc(g.id) + '">Email statement</button>' : "") +
             (edit() && ids.length ? '<button type="button" class="small primary" data-payall="' + esc(ids.join(",")) + '">Record payment</button>' : "") + "</div>" +
-            '<div class="table-wrap"><table class="rs-t"><thead><tr><th>Job</th><th class="r hide-sm">Sales</th><th class="r">Share</th><th class="r hide-sm">Paid</th><th class="r">Owed</th><th></th></tr></thead><tbody>' +
+            '<div class="table-wrap cards"><table class="rs-t"><thead><tr><th>Job</th><th class="r hide-sm">Sales</th><th class="r">Share</th><th class="r hide-sm">Paid</th><th class="r">Owed</th><th></th></tr></thead><tbody>' +
             g.list.map((j) => '<tr class="click" data-job="' + esc(j.id) + '"><td class="name">' + esc(j.name) + '<span class="s">' + esc(fmtD(j.picture_day, true)) + " &middot; " + esc(seasonLabel(j.season, j.season_year)) + "</span></td>" +
               '<td class="r hide-sm">' + (j.sales == null ? "&mdash;" : dollars(n(j.sales))) + '</td><td class="r">' + cents(n(j.due)) + (j.pct_source !== "none" && j.payout_amount == null ? '<span class="s">' + esc(n(j.pct)) + "%</span>" : "") +
               '</td><td class="r hide-sm">' + (n(j.paid) ? cents(n(j.paid)) + '<span class="s">' + esc(fmtD(j.last_paid_on, true)) + "</span>" : "") + '</td><td class="r">' + (n(j.balance) ? cents(n(j.balance)) : "") + '</td><td class="jstate">' + pill(j.state) + "</td></tr>").join("") +
@@ -382,7 +382,7 @@
           years.map((y) => '<option value="year:' + y + '"' + ("year:" + y === jobSeason ? " selected" : "") + ">" + y + "</option>").join("") + "</select>" +
           '<div class="chips"><button type="button" id="aca-rsMiss" aria-pressed="' + jobOnlyMissing + '">No sales yet</button></div>' +
           (jobOrg ? '<span class="rs-tag">Only ' + esc(nameOf(jobOrg) || "this partner") + ' <button type="button" id="aca-rsJOrgX" aria-label="Show every partner">&times;</button></span>' : "") + "</div>" +
-        '<div class="table-wrap"><table class="rs-t"><thead><tr><th>Job</th><th class="hide-sm">Partner</th><th class="r">Sales</th><th class="r hide-sm">Orders</th><th class="r">Share</th><th></th></tr></thead><tbody>' +
+        '<div class="table-wrap cards"><table class="rs-t"><thead><tr><th>Job</th><th class="hide-sm">Partner</th><th class="r">Sales</th><th class="r hide-sm">Orders</th><th class="r">Share</th><th></th></tr></thead><tbody>' +
           (shown.length ? shown.slice(0, 400).map((j) => '<tr class="click" data-job="' + esc(j.id) + '"><td class="name">' + esc(j.name) + '<span class="s">' + esc(fmtD(j.picture_day, true)) +
             (j.season ? " &middot; " + esc(seasonLabel(j.season, j.season_year)) : "") + (j.gp_error ? ' &middot; <span style="color:var(--err-fg)">sales read failed</span>' : "") + "</span></td>" +
             '<td class="hide-sm">' + (j.org_name ? orgA(j.org_id, j.org_name) : '<span class="muted">none</span>') + '</td><td class="r">' + (j.sales == null ? "&mdash;" : dollars(n(j.sales))) + (j.manual_sales != null ? '<span class="s">typed in</span>' : "") +

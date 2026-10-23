@@ -73,7 +73,7 @@
     .aca .op-wrap { overflow-x: auto; }
     .aca .op-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
     .aca .op-card { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); padding: 12px 14px; font-size: 13.5px; }
-    .aca button.op-card { text-align: left; cursor: pointer; font: inherit; color: inherit; width: 100%; }
+    .aca button.op-card { text-align: left; cursor: pointer; font: inherit; color: inherit; width: 100%; height: auto; display: block; white-space: normal; }
     .aca button.op-card:hover { border-color: var(--accent); }
     .aca .op-card .h { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; margin-bottom: 8px; }
     .aca .op-card .nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; color: var(--muted); font-size: 12.5px; }

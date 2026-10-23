@@ -515,7 +515,7 @@
     const strip = el("pagetabs");
     const page = item && pageOf(item);
     if (!page) { strip.classList.add("hidden"); strip.innerHTML = ""; return; }
-    strip.innerHTML = '<h1>' + esc(page.title) + '</h1>' + page.tabs.map((t) => '<button type="button" role="tab" data-tab="' + t[0] + '" aria-selected="' + (t[0] === name) + '">' + esc(t[1]) + '<span class="n" id="aca-ptab-' + t[0] + '"></span></button>').join("");
+    strip.innerHTML = '<h1>' + esc(page.title) + '</h1><div class="pt-row">' + page.tabs.map((t) => '<button type="button" role="tab" data-tab="' + t[0] + '" aria-selected="' + (t[0] === name) + '">' + esc(t[1]) + '<span class="n" id="aca-ptab-' + t[0] + '"></span></button>').join("") + "</div>";
     strip.classList.remove("hidden");
     renderAttention();
   }
@@ -602,8 +602,28 @@
       });
     });
   }
+  // Phone tab strips (2026-10-23): page tabs and job/partner tabs are one row you swipe. Keep the open tab in view and
+  // fade whichever edge has more tabs past it (CSS: ".pt-row.more-r" in shell.html).
+  function tabStripEdges(s) {
+    const more = s.scrollWidth > s.clientWidth + 2;
+    s.classList.toggle("more-l", more && s.scrollLeft > 2);
+    s.classList.toggle("more-r", more && s.scrollLeft + s.clientWidth < s.scrollWidth - 2);
+  }
+  function revealTabStrips() {
+    document.querySelectorAll(".aca .pt-row, .aca .jp-tabs").forEach((s) => {
+      const on = s.querySelector('[aria-selected="true"]');
+      if (on && on.dataset.shown !== "1" && s.scrollWidth > s.clientWidth) {
+        on.dataset.shown = "1";
+        const l = on.offsetLeft - s.offsetLeft, r = l + on.offsetWidth;
+        if (l < s.scrollLeft || r > s.scrollLeft + s.clientWidth) s.scrollLeft = Math.max(0, l - (s.clientWidth - on.offsetWidth) / 2);
+      }
+      tabStripEdges(s);
+    });
+  }
+  document.addEventListener("scroll", (e) => { const s = e.target; if (s.classList && (s.classList.contains("pt-row") || s.classList.contains("jp-tabs"))) tabStripEdges(s); }, true);
+  window.addEventListener("resize", revealTabStrips);
   let cardsQueued = false;
-  new MutationObserver(() => { if (cardsQueued) return; cardsQueued = true; requestAnimationFrame(() => { cardsQueued = false; labelCardTables(); }); })
+  new MutationObserver(() => { if (cardsQueued) return; cardsQueued = true; requestAnimationFrame(() => { cardsQueued = false; labelCardTables(); revealTabStrips(); }); })
     .observe(document.querySelector(".aca"), { childList: true, subtree: true });
 
   // ================= Attention (rail badges + Today) =================
