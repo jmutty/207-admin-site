@@ -148,34 +148,53 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.selectOption("#aca-bkStage", "Booked");
     check((await page.$$("#aca-bkBody tr.bk-row")).length === 1, "stage filter by name");
     await page.selectOption("#aca-bkStage", "");
+    // ws/jobs: All jobs heading and toolbar, the checklist chip, the short preview with Open
+    check((await page.textContent("#aca-panel-bookings .card-head h2")) === "All jobs", "heading says All jobs");
+    check(await page.$eval("#aca-panel-bookings .bk-tools", (n) => n.firstElementChild.id) === "aca-bkNew", "+ Book a job comes first");
+    check(!(await visible(page, "#aca-bkMenu")), "Track a job sits behind the ... menu");
+    check((await page.textContent('#aca-bkBody tr[data-id="bk3"] .bk-c-stage')).includes("Checklist: 2 to do, 1 late"), "checklist chip on the row");
+    await page.selectOption("#aca-bkStage", ":checklate");
+    check((await page.$$("#aca-bkBody tr.bk-row")).length === 1, "Checklist steps late filter");
+    await page.selectOption("#aca-bkStage", "");
     await page.click('#aca-bkBody tr[data-id="bk1"]');
-    await page.waitForSelector("#aca-bkPanel .bk-stages");
-    check((await page.$$("#aca-bkPanel .bk-stages li")).length === 6, "panel shows the type's six stages");
-    check((await page.textContent("#aca-bkPanel .bk-stages li.cur")).includes("In production"), "current stage highlighted");
-    check((await page.$$("#aca-bkPanel .bk-stages li.done")).length === 2, "earlier stages ticked");
-    await page.click('#aca-bkPanel button[data-next="1"]');
+    await page.waitForSelector('#aca-bkPanel a[data-v="open"]');
+    check(!(await page.$("#aca-bkPanel .bk-stages")) && !(await page.$("#aca-bkPanel .bk-emails")), "the drawer is a short preview");
+    await page.click('#aca-bkPanel a[data-v="open"]');
+    await page.waitForSelector("#aca-jpTabs button");
+    check(page.url().endsWith("#jobs/job/bk1"), "Open goes to the job page");
+    await page.click('#aca-jpTabs button[data-t="booking"]');
+    await page.waitForSelector("#aca-bkDetail .bk-stages");
+    check((await page.$$("#aca-bkDetail .bk-stages li")).length === 6, "Booking tab shows the type's six stages");
+    check((await page.textContent("#aca-bkDetail .bk-stages li.cur")).includes("In production"), "current stage highlighted");
+    check((await page.$$("#aca-bkDetail .bk-stages li.done")).length === 2, "earlier stages ticked");
+    check((await page.$$('#aca-panel-job button[data-j="edit"]')).length === 1 && !(await page.$('#aca-bkDetail [data-v="edit"]')), "one Edit button: Edit booking in the header");
+    check((await page.$$("#aca-bkDetail .bk-gp")).length <= 1, "one GotPhoto create block");
+    await page.click('#aca-bkDetail button[data-next="1"]');
     await page.waitForTimeout(150);
     const mv = await lastRpc("booking_set_stage");
     check(mv && mv[1].p_stage === "st-sports_data-3" && mv[1].p_booking === "bk1", "Move to Job launched");
-    check((await page.$$("#aca-bkPanel .bk-dlv li")).length === 3 && (await page.textContent("#aca-bkPanel .bk-dlv")).includes("overdue"), "deliverables listed with overdue");
-    await page.click('#aca-bkPanel input[data-dlv="bd1"]');
+    await page.waitForSelector("#aca-bkDetail .bk-dlv li");
+    check((await page.$$("#aca-bkDetail .bk-dlv li")).length === 3 && (await page.textContent("#aca-bkDetail .bk-dlv")).includes("overdue"), "deliverables listed with overdue");
+    await page.click('#aca-bkDetail input[data-dlv="bd1"]');
     await page.waitForTimeout(150);
     const tick = await lastRpc("booking_deliverable_update");
     check(tick && tick[1].p_id === "bd1" && tick[1].p.status === "done", "ticking marks it delivered");
     const opts = await page.$$eval("#aca-bkDlvPick option", (os) => os.map((o) => o.textContent));
     check(opts.some((o) => o.includes("Thank-you card")) && !opts.some((o) => o.includes("Team composites")), "saved picks leave out ones already on the job");
     await page.fill("#aca-bkDlvNew", "Coach banner 2");
-    await page.click('#aca-bkPanel button[data-v="dlvnew"]');
+    await page.click('#aca-bkDetail button[data-v="dlvnew"]');
     await page.waitForTimeout(150);
     const add = await lastRpc("booking_deliverables_add");
     check(add && add[1].p_items[0].label === "Coach banner 2" && add[1].p_items[0].save === true, "typed deliverable added and saved for the type");
-    await page.click('#aca-bkPanel button[data-v="dlvedit"][data-dlv="bd2"]');
+    await page.waitForSelector('#aca-bkDetail button[data-v="dlvedit"][data-dlv="bd2"]');
+    await page.click('#aca-bkDetail button[data-v="dlvedit"][data-dlv="bd2"]');
     await page.selectOption("#aca-bkDeStatus", "skipped");
     await page.click('.og-modal button[data-v="save"]');
     await page.waitForTimeout(150);
     const ed = await lastRpc("booking_deliverable_update");
     check(ed && ed[1].p_id === "bd2" && ed[1].p.status === "skipped" && ed[1].p.label === "Coach banner", "edit dialog saves");
-    await page.click('#aca-bkPanel button[data-v="close"]');
+    await page.click('#aca-nav button[data-tab="jobs"]');
+    await page.waitForSelector("#aca-bkBody tr.bk-row");
 
     // Book a job: saved deliverables for the type, "every job" ones pre-ticked, typed ones kept
     await page.click("#aca-bkNew");
@@ -231,7 +250,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-bkLoc-places", (n) => n.classList.contains("hidden")) && /google\.com\/maps/.test(await page.$eval("#aca-bkLocNote a", (a) => a.href)), "the list closes and a map link shows");
     await page.click('.bk-form button[data-v="save"]');
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_create"));
-    await page.waitForSelector("#aca-bkPanel .bk-stages");
+    await page.waitForSelector("#aca-bkDetail .bk-stages");
+    check(page.url().endsWith("#jobs/job/bk1/booking"), "after booking, the new job's page opens (Booking tab)");
     check((await lastRpc("booking_create"))[1].p.location === "James F. Doughty Middle School, 143 Fifth St, Bangor, ME 04401", "the picked address is saved as the location");
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_deliverables_add"), null, { timeout: 3000 }).catch(() => {});
     const bk = await lastRpc("booking_deliverables_add");
@@ -239,8 +259,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const crewSave = await lastRpc("schedule_save");
     check(crewSave && crewSave[1].p.kind === "job" && crewSave[1].p.booking_id === "bk1" && crewSave[1].p.user_id === "u2", "the crew picked when booking goes on the schedule");
 
-    // Stages & deliverables per job type
-    await page.click('#aca-bkPanel button[data-v="close"]');
+    // Stages & deliverables per job type (the small Job types link for now)
+    await page.click('#aca-nav button[data-tab="jobs"]');
+    await page.waitForSelector("#aca-bkBody tr.bk-row");
     await page.click("#aca-bkJobTypes");
     await page.waitForSelector("#aca-bkJtBody [data-st]");
     check((await page.$$("#aca-bkJtBody [data-st]")).length === 6, "job type dialog lists the stages");
@@ -255,7 +276,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       "job type dialog saves stage names and new deliverables");
     await page.click('.bk-form .bk-factions button[data-v="close"]');
 
-    // Track a job: GotPhoto jobs not on the screen; nothing is sent for them
+    // Track a job (behind "..."): GotPhoto jobs not on the screen; nothing is sent for them
+    await page.click("#aca-bkMore");
     await page.click("#aca-bkTrack");
     await page.waitForSelector('#aca-bkTrList [data-pick="g10"]');
     check((await page.textContent('#aca-bkTrList [data-job="g10"]')).includes("Hancock Grammar School"), "track picker shows the matched organization");
@@ -270,6 +292,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(200);
     const tr = await lastRpc("booking_track_jobs");
     check(tr && tr[1].p_items.length === 2 && tr[1].p_items.some((x) => x.gotphoto_job_id === "g11" && x.org_id === "44444444-4444-4444-4444-444444444444" && x.type_key === "sports_data"), "tracks the picked GotPhoto jobs");
+    await page.click("#aca-bkMore");
     await page.click("#aca-bkTrack");
     await page.waitForSelector("#aca-bkTrAuto");
     await page.check("#aca-bkTrAuto");
@@ -288,11 +311,12 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   console.log("Bookings: a track-only job");
   {
     const { page, errors } = await open(browser, port, "?tracked=1", "#jobs/bookings/bk1");
-    await page.waitForSelector("#aca-bkPanel .bk-stages");
-    const txt = await page.textContent("#aca-bkPanel");
-    check(txt.includes("Tracking only") && !txt.includes("Calendar") && !txt.includes("Emails") && !(await page.$('#aca-bkPanel button[data-v="edit"]')), "panel shows tracking only: no calendar, emails or edit");
-    check(!!(await page.$("#aca-bkPanel .bk-dlv")), "deliverables still there");
-    await page.click('#aca-bkPanel button[data-v="untrack"]');
+    await page.waitForSelector("#aca-bkDetail .bk-stages");
+    check(page.url().endsWith("#jobs/job/bk1/booking"), "an old booking link opens the job page's Booking tab");
+    const txt = await page.textContent("#aca-bkDetail");
+    check(txt.includes("Tracking only") && !txt.includes("Calendar") && !txt.includes("Emails") && !(await page.$('#aca-panel-job [data-j="edit"]')), "Booking tab shows tracking only: no calendar, emails or edit");
+    check(!!(await page.$("#aca-bkDetail .bk-dlv")), "deliverables still there");
+    await page.click('#aca-bkDetail button[data-v="untrack"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_untrack" && c[1].p_id === "bk1")), "Stop tracking");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
@@ -302,11 +326,12 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   console.log("Bookings view only");
   {
     const { page, errors } = await open(browser, port, "?as=viewer", "#jobs/bookings/bk1");
-    await page.waitForSelector("#aca-bkPanel .bk-stages");
-    check(await page.$$eval("#aca-bkPanel .bk-stages button", (bs) => bs.every((b) => b.disabled)), "stages read-only");
-    check(!(await page.$('#aca-bkPanel button[data-next]')) && !(await page.$("#aca-bkDlvNew")) && !(await page.$('#aca-bkPanel button[data-v="dlvedit"]')), "no move / add / edit controls");
-    check(await page.$$eval("#aca-bkPanel input[data-dlv]", (cs) => cs.every((c) => c.disabled)), "deliverable ticks disabled");
-    check(!(await visible(page, "#aca-bkTrack")), "Track a job hidden");
+    await page.waitForSelector("#aca-bkDetail .bk-stages");
+    check(await page.$$eval("#aca-bkDetail .bk-stages button", (bs) => bs.every((b) => b.disabled)), "stages read-only");
+    check(!(await page.$('#aca-bkDetail button[data-next]')) && !(await page.$("#aca-bkDlvNew")) && !(await page.$('#aca-bkDetail button[data-v="dlvedit"]')), "no move / add / edit controls");
+    check(await page.$$eval("#aca-bkDetail input[data-dlv]", (cs) => cs.every((c) => c.disabled)), "deliverable ticks disabled");
+    check(!(await page.$('#aca-panel-job [data-j="edit"]')) && !(await page.$('#aca-bkDetail [data-v="sendnow"]')) && !(await page.$('#aca-bkDetail [data-v="cancel"]')), "no Edit booking, Send now or Cancel for view-only");
+    check(!(await visible(page, "#aca-bkMoreWrap")), "Track a job hidden");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -795,7 +820,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-nav button[data-tab="myday"]');
     await page.waitForSelector("#aca-asBody .as-task");
     check((await page.textContent("#aca-asBody")).includes("Leave the studio"), "my day says when to leave");
-    check(await page.$eval("#aca-asBody .as-task", (n) => n.textContent.includes("Urgent")), "urgent task on top");
+    check(await page.$eval("#aca-asTasks .as-task", (n) => n.textContent.includes("Urgent")), "urgent task on top");
     await page.click("#aca-asBody .as-task:nth-of-type(2) input");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "assignment_check" && c[1].p_done === true)), "checks a task off");
@@ -883,17 +908,36 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   }
   console.log("Job page (owner)");
   {
-    const { page, errors } = await open(browser, port, "", "#jobs/bookings/bk1");
+    const { page, errors } = await open(browser, port, "", "#jobs/bookings");
+    await page.waitForSelector('#aca-bkBody tr[data-id="bk1"]');
+    await page.click('#aca-bkBody tr[data-id="bk1"]');
     await page.waitForSelector('#aca-bkPanel a[href="#jobs/job/bk1"]');
-    check(true, "booking panel links to the job page");
+    check(true, "the preview links to the job page");
     await page.click('#aca-bkPanel a[href="#jobs/job/bk1"]');
     await page.waitForSelector("#aca-jpTabs button");
     check(await page.$eval("#aca-panel-job", (n) => n.classList.contains("active")), "the link opens the job page");
     check(!(await page.$('#aca-nav button[data-tab="job"]')), "the job page is not in the menu");
     const tabs = await page.$$eval("#aca-jpTabs button", (bs) => bs.map((b) => b.dataset.t));
-    check(JSON.stringify(tabs) === JSON.stringify(["overview", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "booking", "crew", "checklist", "results", "time", "notes", "history"]), "tabs: " + tabs.join(","));
     const ov = await page.textContent("#aca-jpBody");
     check(ov.includes("Sam Helper") && ov.includes("40 min drive") && ov.includes("Chris Snowdeal"), "overview shows crew and contacts");
+    check(!ov.includes("Use the side door"), "booking notes are not on Overview");
+    check(!(await page.$('#aca-panel-job [data-j="booking"]')), "no Open the booking button");
+    // Edit booking: the crew is there to change, and moving the day says what moves with it
+    await page.click('#aca-panel-job button[data-j="edit"]');
+    await page.waitForSelector("#aca-bkCrew .bk-crew", { state: "attached" });
+    await page.waitForFunction(() => { const x = document.querySelector('#aca-bkCrew .bk-crew[value="u2"]'); return x && x.checked; }, null, { timeout: 3000 }).catch(() => {});
+    check((await page.textContent(".bk-form h2")) === "Edit booking" && await page.isChecked('#aca-bkCrew .bk-crew[value="u2"]'), "Edit booking shows who's on the job");
+    await page.$eval("#aca-bkDays .bk-d-day", (n) => { n.value = "2027-01-09"; n.dispatchEvent(new Event("input", { bubbles: true })); });
+    await page.waitForSelector("#aca-bkMoveNote:not(.hidden)");
+    const mvn = await page.textContent("#aca-bkMoveNote");
+    check(mvn.includes("Moving the day") && mvn.includes("Sam H.") && mvn.includes("Google Calendar") && /email/.test(mvn), "moving the day says what moves: " + mvn);
+    await page.click("#aca-bkCrewSum");
+    await page.uncheck('#aca-bkCrew .bk-crew[value="u2"]');
+    await page.click('.bk-form button[data-v="save"]');
+    await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "schedule_remove"), null, { timeout: 3000 }).catch(() => {});
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_update") && window.__rpcCalls.some((c) => c[0] === "schedule_remove" && c[1].p_id === "se2")), "unticking takes them off the job");
+    await page.waitForSelector("#aca-jpTabs button");
     await page.click('#aca-jpTabs button[data-t="checklist"]');
     check(page.url().endsWith("#jobs/job/bk1/checklist"), "a tab goes in the address");
     await page.waitForSelector("#aca-jpBody .tb-jt");
@@ -906,6 +950,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent("#aca-jpBody")).includes("$1,234.50 from 40 orders"), "results show sales");
     await page.click('#aca-jpTabs button[data-t="notes"]');
     await page.waitForSelector(".jp-notes li[data-n]");
+    check((await page.textContent(".jp-booknote")).includes("From the booking") && (await page.textContent(".jp-booknote")).includes("Use the side door"), "booking notes top the Notes tab");
     check((await page.$eval(".jp-notes .at", (n) => n.textContent)) === "@Sam Helper", "a mention is highlighted");
     await page.click("#aca-jpNote");
     await page.keyboard.type("Ask @sa");
@@ -962,6 +1007,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(300);
     await page.waitForSelector("#aca-bkOrgPick strong");
     check((await page.textContent("#aca-bkOrgPick")).includes("Brewer Travel Basketball Club"), "Book a job from an organization page starts with that organization");
+    await page.waitForFunction(() => { const x = document.querySelector('#aca-bkTypes input[value="sports_data"]'); return x && x.checked; }, null, { timeout: 3000 }).catch(() => {});
+    check(await page.isChecked('#aca-bkTypes input[value="sports_data"]'), "a league starts on a sports job type");
+    check(!(await page.$eval("#aca-bkOrgPick a", (a) => a.target)), "open organization stays in this tab");
     await page.keyboard.press("Escape");
     await page.goto(`http://127.0.0.1:${port}/test/harness.html#jobs/job/bk1`);
     await page.waitForSelector(".jp-trail");
@@ -1686,6 +1734,53 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.goto(`http://127.0.0.1:${port}/test/harness.html#crew/${"c".repeat(32)}`);
     await page.waitForSelector("#crp-home");
     check(await page.isVisible("#crp-home"), "signed in on this device: the confirm page offers Open 207 Admin");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  // ws/jobs (2026-10-24): Book a job adds a new league inline; crew reach their job from My jobs, My day and Open jobs.
+  console.log("Book a job: a new league inline (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/bookings");
+    await page.waitForSelector("#aca-bkBody tr.bk-row");
+    await page.click("#aca-bkNew");
+    await page.waitForSelector("#aca-bkOrgQ");
+    await page.click('#aca-bkTypes input[value="sports_data"]', { force: true });
+    await page.fill("#aca-bkOrgQ", "Lincoln Lacrosse");
+    await page.waitForSelector("#aca-bkOrgList button[data-addorg]");
+    check((await page.textContent("#aca-bkOrgList button[data-addorg]")).includes("as a new league"), "offers to add it as a new league");
+    await page.click("#aca-bkOrgList button[data-addorg]");
+    await page.waitForSelector("#aca-bkOrgPick strong");
+    const w = await page.evaluate(() => (window.__writes || []).filter((x) => x[0] === "prospect_orgs" && x[1] === "insert").pop());
+    check(w && w[2].name === "Lincoln Lacrosse" && w[2].audience === "league" && w[2].source === "Book a job", "adds the partner (source Book a job) and picks it: " + JSON.stringify(w && w[2]));
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Crew reach their job (staff, part-timer)");
+  {
+    const { page, errors } = await open(browser, port, "?as=staff", "#staff/crew");
+    await page.waitForSelector("#aca-crMine .cr-card");
+    check(!!(await page.$('#aca-crMine .cr-card h4 a[href="#jobs/job/bk1"]')), "My jobs: the title opens the job page");
+    const card = await page.textContent("#aca-crMine .cr-card");
+    check(card.includes("Checklist: 2 open, 1 late") && card.includes("from home"), "My jobs: checklist line and leave from home: " + card);
+    await page.click('#aca-pagetabs button[data-tab="myday"]');
+    await page.waitForSelector("#aca-asBody .as-plan");
+    check(!!(await page.$('#aca-asBody .as-plan a[href="#jobs/job/bk1"]')), "My day: a job row opens the job page");
+    check((await page.textContent("#aca-asBody")).includes("My checklist steps") && !!(await page.$('#aca-asSteps a[href="#jobs/job/bk3/checklist"]')), "My day: my checklist steps, each with its job");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  {
+    const { page, errors } = await open(browser, port, "?as=parttime", "#staff/openjobs");
+    await page.waitForSelector("#aca-ojMine .oj-card");
+    check(!!(await page.$('#aca-ojMine [data-offer="of1"] h4 a[href="#jobs/job/bk1"]')) && !(await page.$('#aca-ojMine [data-offer="of2"] h4 a')), "Open jobs: an open offer's title opens the job");
+    await page.click('#aca-ojMine [data-offer="of1"] h4 a');
+    await page.waitForSelector("#aca-jpTabs button");
+    const tabs = await page.$$eval("#aca-jpTabs button", (bs) => bs.map((b) => b.dataset.t));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "checklist", "notes"]), "crew without a job area: Overview, Checklist, Notes: " + tabs.join(","));
+    check(!(await page.$('#aca-panel-job [data-j="edit"]')), "no Edit booking for crew");
+    await page.click('#aca-jpTabs button[data-t="checklist"]');
+    await page.waitForSelector("#aca-jpBody .tb-jt, #aca-jpBody .empty");
+    check(!(await page.textContent("#aca-jpBody")).includes("Assignments"), "says My day, not Assignments");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

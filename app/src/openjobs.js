@@ -111,7 +111,9 @@
         const open = o.status === "open" && !me.answer, picked = !!me.picked_at;
         const tag = picked ? '<span class="oj-tag ok">You\u2019re on it</span>' : o.status === "filled" ? '<span class="oj-tag">Filled</span>' : o.status === "closed" ? '<span class="oj-tag">No longer needed</span>'
           : me.answer === "accepted" ? '<span class="oj-tag ok">You said you\u2019re available</span>' : me.answer === "declined" ? '<span class="oj-tag">You can\u2019t make it</span>' : "";
-        return '<div class="oj-card' + (open ? "" : " done") + '" data-offer="' + esc(o.id) + '"><h4>' + esc(o.title) + tag + "</h4>" +
+        // The title opens the job's page while the offer is open or once they're on it (2026-10-24).
+        const canOpen = o.booking_id && typeof jobLink === "function" && ((o.status === "open" && me.answer !== "declined") || picked);
+        return '<div class="oj-card' + (open ? "" : " done") + '" data-offer="' + esc(o.id) + '"><h4>' + (canOpen ? '<a href="' + esc(jobLink(o.booking_id)) + '">' + esc(o.title) + "</a>" : esc(o.title)) + tag + "</h4>" +
           '<p class="oj-facts"><b>' + esc(daysText(o.days)) + "</b>" + (o.location ? "<br>" + mapLink(o.location) : "") +
           (me.drive_min != null ? "<br>About " + num(me.drive_min) + " min drive from home" : "") + (o.pay ? "<br>Pay: " + esc(o.pay) : "") +
           (o.spots > 1 ? "<br>" + esc(spotsText(o)) : "") + "</p>" +

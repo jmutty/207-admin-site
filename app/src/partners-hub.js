@@ -241,7 +241,7 @@
       const who = node.querySelector(".hubact-who"); if (!who) return;
       const names = (b.contacts || []).map((c) => c.name || c.email).filter(Boolean).join(", ");
       const note = document.createElement("span"); note.className = "muted"; note.style.cssText = "flex-basis:100%;font-size:12.5px";
-      note.innerHTML = "Booked" + (names ? ", reminders go to " + esc(names) : "") + '. <a href="#jobs/bookings/' + esc(b.id) + '">Change contacts on the booking</a>';
+      note.innerHTML = "Booked" + (names ? ", reminders go to " + esc(names) : "") + '. <a href="' + esc(jobLink(b.id, "booking")) + '">Change contacts on the booking</a>';
       who.appendChild(note);
     });
   }

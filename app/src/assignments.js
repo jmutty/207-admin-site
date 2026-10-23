@@ -102,7 +102,9 @@
         }
         if (su) { const at = new Date(s - su * 6e4).toISOString(); rows.push([T.local(at).min, '<li><span class="t drive">' + esc(T.fmtTs(at)) + '</span><span class="drive">Set up (' + su + " min)</span></li>"]); }
         rows.push([sDay < day ? 0 : T.local(e.starts_at).min, '<li><span class="t">' + esc(T.fmtTs(e.starts_at)) + "\u2013" + esc(T.fmtTs(e.ends_at)) + (eDay > day ? "+" : "") + "</span><span>" +
-          esc(e.kind === "job" ? e.booking_title : e.title || ({ studio: "Studio", admin: "Admin" })[e.kind] || "Work") + (e.booking_status === "cancelled" ? ' <span class="as-tag urgent">cancelled</span>' : "") +
+          // A job's name opens its page (notes, contacts, crew, checklist), 2026-10-24.
+          (e.kind === "job" && e.booking_id && typeof jobLink === "function" ? '<a href="' + esc(jobLink(e.booking_id)) + '">' + esc(e.booking_title || "Job") + "</a>"
+            : esc(e.kind === "job" ? e.booking_title : e.title || ({ studio: "Studio", admin: "Admin" })[e.kind] || "Work")) + (e.booking_status === "cancelled" ? ' <span class="as-tag urgent">cancelled</span>' : "") +
           (e.role ? ' <span class="muted">(' + esc(e.role) + ")</span>" : "") +
           (e.confirm && e.confirm.status === "confirmed" ? ' <span class="pill ok">Confirmed</span>' : e.confirm && e.confirm.status === "pending" ? ' <a class="pill warn" href="#crew/' + esc(e.confirm.token) + '">Confirm</a>' : "") +
           (e.booking_location ? '<span class="s">' + esc(e.booking_location) + "</span>" : "") + (e.note ? '<span class="s">' + esc(e.note) + "</span>" : "") + "</span></li>"]);
@@ -113,13 +115,17 @@
         }
       });
       rows.sort((a, b) => a[0] - b[0]);
+      const steps = (d.tasks || []).filter((t) => t.booking_id), plain = (d.tasks || []).filter((t) => !t.booking_id);
       const hrs = T.workHours(d.entries || [], day);
       const hrsLine = hrs > 0 ? '<p class="as-hrs">' + (Math.round(hrs * 4) / 4) + " hours scheduled" + (hrs >= T.LUNCH_AFTER_H ? ' <span class="as-tag overdue">Plan a lunch break</span>' : "") + "</p>" : "";
       el("asBody").innerHTML =
         '<div class="as-sec"><h3>Schedule</h3>' + hrsLine + (rows.length ? '<ul class="as-plan">' + rows.map((r) => r[1]).join("") + "</ul>" : '<p class="empty">Nothing on the schedule.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>' : "") + "</p>") + "</div>" +
+        // Job checklist steps get their own section, each with its job (2026-10-24); plain tasks stay under Tasks.
+        (steps.length ? '<div class="as-sec"><h3>My checklist steps</h3><div id="aca-asSteps"></div></div>' : "") +
         '<div class="as-sec"><h3>Tasks</h3><div id="aca-asTasks"></div></div>' +
         '<label class="as-mail hidden"><input type="checkbox" id="aca-asMailMine" /> Email me my day each morning</label>';
-      renderTasks(d.tasks || [], false, el("asTasks"));
+      renderTasks(plain, false, el("asTasks"));
+      if (steps.length) el("asSteps").innerHTML = steps.map(taskHtml).join("");
       sb.rpc("day_email_status").then(({ data: m }) => {
         const box = el("asMailMine"); if (!m || !box) return;
         box.checked = !!m.mine; box.disabled = !m.on;
@@ -133,7 +139,8 @@
       const since = t.overdue ? "from " + T.fmtDay(t.on_date) : "";
       return '<label class="as-task' + (done ? " done" : "") + '"><input type="checkbox" data-task="' + esc(t.task_id) + '" data-on="' + esc(t.on_date) + '"' + (done ? " checked" : "") + " />" +
         '<span><span class="as-title">' + esc(t.title) + "</span>" + (t.priority === "urgent" ? '<span class="as-tag urgent">Urgent</span>' : "") + (t.overdue && !done ? '<span class="as-tag overdue">Overdue, ' + esc(since) + "</span>" : "") +
-        '<span class="s">' + esc([REPEAT[t.repeat], t.est_minutes ? "about " + t.est_minutes + " min" : "", done ? "done " + T.fmtTs(t.done_at) + (t.done_by ? " by " + T.shortName(t.done_by) : "") : ""].filter(Boolean).join(" \u00b7 ")) + "</span>" +
+        (t.booking_id && typeof jobLink === "function" ? '<span class="s"><a href="' + esc(jobLink(t.booking_id, "checklist")) + '">' + esc(t.booking_title || "The job") + "</a></span>" : "") +
+        '<span class="s">' + esc([t.booking_id ? "" : REPEAT[t.repeat], t.est_minutes ? "about " + t.est_minutes + " min" : "", done ? "done " + T.fmtTs(t.done_at) + (t.done_by ? " by " + T.shortName(t.done_by) : "") : ""].filter(Boolean).join(" \u00b7 ")) + "</span>" +
         (t.notes ? '<span class="s">' + esc(t.notes) + "</span>" : "") + "</span></label>";
     }
     function renderTasks(list, grouped, into) {
