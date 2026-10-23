@@ -8,7 +8,8 @@
 // Deployed with verify_jwt=false: email links carry no sign-in.
 //
 // Short links (2026-10-24): emails now carry https://admin.207photo.com/go/<code>. Cloudflare Pages (site/_redirects)
-// sends that here as ?c=<code>; booking_link_go looks the code up, logs the click and answers where to go.
+// sends that here as /functions/v1/go/<code> (Cloudflare fills placeholders in the path only, never in a query
+// string; ?c=<code> is still accepted); booking_link_go looks the code up, logs the click and answers where to go.
 // The e=&u= form above keeps working for emails that already went out.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -60,7 +61,7 @@ async function short(code: string, req: Request): Promise<Response> {
 Deno.serve(async (req) => {
   if (req.method !== "GET" && req.method !== "HEAD") return text("Not found", 404);
   const url = new URL(req.url);
-  const code = url.searchParams.get("c");
+  const code = url.searchParams.get("c") ?? (url.pathname.match(/\/go\/([^/]+)\/?$/) ?? [])[1] ?? null;
   if (code !== null) return short(code, req);
   const email = url.searchParams.get("e") ?? "";
   const link = decode(url.searchParams.get("u") ?? "");
