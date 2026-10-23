@@ -158,7 +158,7 @@
   function fmtShort(iso) {
     if (!iso) return "";
     const d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" });
+    return isNaN(d) ? "" : Fmt.day(d);
   }
   // Sort a copy of allJobs.
   //   "shoot"     = anchored on today: today's and upcoming shoots first, soonest at the top, then
@@ -523,7 +523,7 @@
     drawer.innerHTML =
       '<div class="dhead"><div><div class="t">' + esc(job.name) + '</div>' +
         '<div class="mono muted">' + esc(job.job_type) + ' · ' + (job.status === "published" && job.gp_activated_at ? 'published ' + esc(fmtShort(job.gp_activated_at)) : (job.status === "created" ? "planning" : esc(job.status))) + ' · ' + esc(job.code_count == null ? 0 : job.code_count) + ' codes' +
-        (job.shoot_at ? ' · shot ' + esc(new Date(job.shoot_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })) : '') + '</div>' +
+        (job.shoot_at ? ' · shot ' + esc(Fmt.day(job.shoot_at)) : '') + '</div>' +
         '<div class="muted hidden" style="font-size:12.5px;margin-top:2px" data-gplinks="' + esc(job.gotphoto_job_id) + '"></div></div>' +
         '<button class="small js-dclose" aria-label="Close"><span class="x" aria-hidden="true">&#10005;</span><span class="w">Close</span></button></div>' +
 
@@ -642,7 +642,7 @@
   }
   function hubLongDate(iso) {
     const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return m + "/" + d;
   }
   function hubDateRow(r) {
     return '<div class="li" style="display:grid;grid-template-columns:auto 110px minmax(0,1fr);gap:8px;align-items:center;padding:6px 0">' +

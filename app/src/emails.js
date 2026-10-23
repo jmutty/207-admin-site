@@ -18,7 +18,7 @@
     const ST = { queued: ["muted", "Sending"], sent: ["muted", "Sent"], delivered: ["ok", "Delivered"], delayed: ["warn", "Delayed"],
                  bounced: ["err", "Bounced"], complained: ["err", "Marked spam"], failed: ["err", "Failed"], unknown: ["warn", "Unknown"] };
     const PROBLEM = { bounced: 1, complained: 1, failed: 1 };
-    const when = (ts) => new Date(ts).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    const when = (ts) => Fmt.dayTime(ts);
     const pct = (n, d) => (d ? Math.round((100 * n) / d) + "%" : "");
 
     const css = `

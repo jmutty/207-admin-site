@@ -105,7 +105,7 @@
     const parseHash = () => { const m = /^#partners\/org\/([0-9a-f-]{36})(?:\/([a-z0-9_-]+))?/i.exec(location.hash); return m ? { id: m[1], tab: m[2] || "" } : null; };
     const ALIAS = { galleries: "sales", payouts: "sales" };
     const today = () => T.today();
-    const day = (d, o) => (d ? T.fmtDay(String(d).slice(0, 10), Object.assign({ month: "short", day: "numeric", year: "numeric" }, o || {})) : "");
+    const day = (d) => Fmt.day(d ? String(d).slice(0, 10) : "");
     const money = (v) => "$" + Math.round(num(v)).toLocaleString("en-US");
     const safe = (f) => { try { return f(); } catch (e) { return false; } };
     // The last day of the season a picture day falls in (winter = Dec-Feb, spring = Mar-May, summer = Jun-Jul, fall = Aug-Nov),
@@ -353,7 +353,7 @@
         Orgs.spText(O) ? ["School photos", Orgs.spText(O).replace(/^School photos: /, "")] : null,
       ].filter(Boolean);
       const cName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "";
-      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(day(b.picture_day, { weekday: "short" })) +
+      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(Fmt.days(b)) +
         (b.location ? " · " + esc(b.location) : "") + '</span></div><div class="s">' + esc([b.stage ? "Stage: " + b.stage : b.status === "tracked" ? "Tracking only" : "",
           b.status === "booked" ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" · ")) + "</div></a>";
       box.innerHTML = '<div class="op-grid"><div>' +
@@ -442,7 +442,7 @@
       const all = (bks || []), aj = allJobs(bks, res);
       const rows = all.map((b) => ({ d: String(b.picture_day || ""), html:
           '<tr><td data-l="Job"><a href="' + jobLink(b.id) + '"><b>' + esc(b.title || b.title_label || "Job") + "</b></a>" + (b.status !== "booked" ? ' <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>" : "") +
-          '<div class="muted" style="font-size:12.5px">' + esc(b.type_label || "") + '</div></td><td data-l="Picture day">' + esc(day(b.picture_day, { weekday: "short" })) + '</td><td data-l="Stage">' + esc(b.stage || "") +
+          '<div class="muted" style="font-size:12.5px">' + esc(b.type_label || "") + '</div></td><td data-l="Picture day">' + esc(Fmt.days(b)) + '</td><td data-l="Stage">' + esc(b.stage || "") +
           (num(b.progress && b.progress.overdue) ? ' <span class="pill err">' + num(b.progress.overdue) + " overdue</span>" : "") + '</td><td data-l="Booking emails">' +
           (b.status === "booked" ? esc(num(b.emails_sent) + " of " + num(b.emails_total) + " sent") + (num(b.emails_failed) ? ' <span class="pill err">' + num(b.emails_failed) + " failed</span>" : "") : '<span class="muted">none</span>') +
           '</td><td data-l="Where">' + esc(b.location || "") + "</td></tr>" }))
@@ -518,7 +518,7 @@
         '<div class="jp-sec"><h3>Emails</h3>' + (rows.length ? '<div class="op-wrap"><table class="op-table op-phone"><thead><tr><th>When</th><th>Kind</th><th>Subject</th><th>To</th><th>Status</th><th></th></tr></thead><tbody>' + rows.map((x) => {
           const s = OB_ST[x.status] || ["muted", x.status || ""];
           const verbs = Outbox.verbs(x, { inPartner: true });
-          return '<tr data-id="' + esc(x.id) + '"><td data-l="When" style="white-space:nowrap">' + esc(x.at ? T.fmtDay(String(x.at).slice(0, 10), { month: "short", day: "numeric" }) : "") + '</td><td data-l="Kind">' + esc(OB_SRC[x.src] || x.src || "") + '</td><td data-l="Subject">' + esc(x.subject || "") +
+          return '<tr data-id="' + esc(x.id) + '"><td data-l="When" style="white-space:nowrap">' + esc(x.at ? Fmt.day(x.at) : "") + '</td><td data-l="Kind">' + esc(OB_SRC[x.src] || x.src || "") + '</td><td data-l="Subject">' + esc(x.subject || "") +
             (x.detail ? '<div class="muted" style="font-size:12.5px">' + esc(x.detail) + "</div>" : "") + '</td><td data-l="To">' + esc(x.to_name || x.to_email || "") + '</td><td data-l="Status"><span class="pill ' + s[0] + '">' + esc(s[1]) + "</span>" +
             (x.error ? '<div class="muted" style="font-size:12.5px">' + esc(x.error) + "</div>" : "") + '</td><td><div class="op-acts">' + verbs.join("") +
             '<button type="button" class="small" data-v="preview" aria-expanded="false">Preview</button></div></td></tr>';

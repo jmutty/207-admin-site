@@ -113,7 +113,7 @@
     const TZ = "America/New_York";
     const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
     // "2026-05-10" -> "May 10, 2026" (dates without a time never shift a day)
-    const day = (d, short) => (d ? new Date(String(d).slice(0, 10) + "T12:00:00").toLocaleDateString("en-US", short ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" }) : "");
+    const day = (d) => Fmt.day(d ? String(d).slice(0, 10) : "");
     const inDays = (n) => (n === 0 ? "today" : n > 0 ? "in " + n + (n === 1 ? " day" : " days") : Math.abs(n) + (n === -1 ? " day ago" : " days ago"));
     const pill = (cls, text) => '<span class="pill ' + cls + '">' + esc(text) + "</span>";
     function chips(id, defs, cur, onPick) {

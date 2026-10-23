@@ -169,6 +169,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const row1 = await page.textContent('#aca-bkBody tr[data-id="bk1"] .bk-c-stage');
     check(row1.includes("In production") && row1.includes("1 of 3 delivered") && row1.includes("1 overdue"), "list shows the stage and deliverables: " + row1.trim());
     check((await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-c-stage')).includes("Booked"), "list shows Booked for a new job");
+    const bk2When = await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-date');
+    check(/^\d+\/\d+, \d+\/\d+, \d+\/\d+$/.test(bk2When.trim()), "a multi-day job lists each of its three dates, not a range: " + bk2When);
     await page.selectOption("#aca-bkStage", ":overdue");
     check((await page.$$("#aca-bkBody tr.bk-row")).length === 1, "Deliverables overdue filter");
     await page.selectOption("#aca-bkStage", "Booked");
@@ -269,7 +271,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-bkDays .dp-face");
     for (let i = 0; i < 36 && !(await page.$('.dp-cal [data-d="2026-12-05"]')); i++) await page.click('.dp-cal [data-m="' + (new Date() < new Date(2026, 11, 5) ? 1 : -1) + '"]');
     await page.click('.dp-cal [data-d="2026-12-05"]');
-    check(await page.$eval("#aca-bkDays .bk-d-day", (n) => n.value) === "2026-12-05" && /Dec 5, 2026/.test(await page.textContent("#aca-bkDays .dp-face")), "calendar sets the day");
+    check(await page.$eval("#aca-bkDays .bk-d-day", (n) => n.value) === "2026-12-05" && /^\s*12\/5\s*$/.test(await page.textContent("#aca-bkDays .dp-face")), "calendar sets the day");
     await page.fill("#aca-bkDays .bk-dayrow .dp-time >> nth=0", "930");
     await page.keyboard.press("Enter");
     const tm = await page.$eval("#aca-bkDays .bk-dayrow", (r) => [r.querySelector(".bk-d-start").value, r.querySelector(".bk-d-end").value, r.querySelectorAll(".dp-time")[1].value]);

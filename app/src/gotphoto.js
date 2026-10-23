@@ -24,7 +24,7 @@
     .aca .gp-sw label { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; } .aca .gp-sw label span { color: var(--muted); font-size: 13px; display: block; }`;
     const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
 
-    const day = (d) => (d ? new Date(String(d).slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" }) : "");
+    const day = (d) => Fmt.day(d ? String(d).slice(0, 10) : "");
     const when = (ts) => (ts ? fmtAgo(ts) : "");
     const plus1 = (d) => { const x = new Date(String(d).slice(0, 10) + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + 1); return x.toISOString().slice(0, 10); };
     const ACTION = { launch: "Launch", dates: "Dates sent" };
