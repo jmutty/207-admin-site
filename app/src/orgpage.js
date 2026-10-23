@@ -1,10 +1,11 @@
   // ================================================================ PARTNERS: Partner page (2026-10-23, tabs reworked 2026-10-24)
-  // Everything about one league or school on one screen, at #partners/org/<org id>[/<tab>]: Overview, Jobs, Sales, Contacts,
+  // Everything about one league or school on one screen, at #partners/org/<org id>[/<tab>]: Overview, Contacts, Jobs, Sales,
   // Emails & hub, Agreement & rebooking, Notes & history. Rows on Partners, search, links in jobs and old
   // #partners/orgs/<id> links all open it. Book a job (top bar or this page) starts with the partner picked.
   // Each tab reads the same RPCs as its own page (admin_bookings, results_jobs, agreements_list, admin_outbox, ...)
   // and keeps this partner's rows, so every tab shows only what that person may see on that page.
   // The Contacts tab is the old Organizations side panel, moved in (Orgs.embed / Orgs.unembed).
+  // 2026-10-23: Contacts comes right after Overview (Jeremiah).
   // Old tab addresses still work: /galleries and /payouts open Sales.
   //
   // Other modules add a tab from their own file, the same way as job tabs:
@@ -201,7 +202,7 @@
         { id: "overview", label: "Overview", order: 10, render: renderOverview },
         { id: "jobs", label: "Jobs", order: 20, show: () => canSee("bookings") || canSee("results"), render: renderJobs },
         { id: "sales", label: "Sales", order: 30, module: "results", render: renderSales },
-        { id: "contacts", label: "Contacts", order: 40, module: "partners", render: renderContacts },
+        { id: "contacts", label: "Contacts", order: 15, module: "partners", render: renderContacts },
         { id: "emails", label: "Emails & hub", order: 50, module: "partners", render: renderEmails },
         { id: "agreements", label: "Agreement & rebooking", order: 60, show: () => canSee("agreements") || canSee("partners"), render: renderAgreements },
         { id: "history", label: "Notes & history", order: 90, render: renderHistory },
