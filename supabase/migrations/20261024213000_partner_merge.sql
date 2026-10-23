@@ -17,7 +17,7 @@
 -- The old prospect_merge_orgs (never called by the app) removed the duplicate outright and missed bookings and
 -- agreements; it now runs this instead.
 
-alter table public.prospect_orgs add column if not exists merged_into uuid references public.prospect_orgs (id) on delete set null;
+alter table public.prospect_orgs add column if not exists merged_into uuid references public.prospect_orgs (id);
 create index if not exists prospect_orgs_merged_into_idx on public.prospect_orgs (merged_into) where merged_into is not null;
 
 -- The Barracudas Swim record merged by hand on 2026-10-23.
