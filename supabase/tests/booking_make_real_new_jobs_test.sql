@@ -63,7 +63,7 @@ update synced_jobs set shoot_at = now() + interval '17 days' where gotphoto_job_
 select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
 create temp table nj as select public.booking_make_real('00000000-0000-0000-0000-0000000000d1',
   jsonb_build_object('contact_ids', '["00000000-0000-0000-0000-0000000000c1"]'::jsonb, 'google_event_id', 'zzev1', 'start_here_sent', false,
-    'days', jsonb_build_array(jsonb_build_object('day', current_date + 17), jsonb_build_object('day', current_date + 18), jsonb_build_object('day', current_date + 20)))) j;
+    'days', jsonb_build_array(jsonb_build_object('day', current_date + 17), jsonb_build_object('day', current_date + 18, 'google_event_id', 'zzday2@google.com'), jsonb_build_object('day', current_date + 20)))) j;
 reset role;
 select pg_temp.ok((select (j->>'ok')::boolean from nj), 'converted with no start time');
 select pg_temp.ok((select status = 'booked' and not time_set and picture_day = current_date + 17 from bookings where id = '00000000-0000-0000-0000-0000000000d1'), 'booked, first day is the picture day, time not set');
@@ -72,6 +72,20 @@ select pg_temp.ok(not exists (select 1 from booking_emails where booking_id = '0
 select pg_temp.ok((select status = 'scheduled' and send_at > now() and send_at < now() + interval '1 hour' from booking_emails where booking_id = '00000000-0000-0000-0000-0000000000d1' and step_no = 1), 'Start here goes out shortly');
 select pg_temp.ok((select status = 'waiting' and reason like 'needs the start time%' from booking_emails where booking_id = '00000000-0000-0000-0000-0000000000d1' and step_no = 2), 'the plan email (mentions the time) waits for the start time');
 select pg_temp.ok((select count(*) = 3 from booking_emails where booking_id = '00000000-0000-0000-0000-0000000000d1' and step_no = 11), 'a day-before nudge per night');
+select pg_temp.ok((select google_event_id = 'zzday2' and calendar_status = 'synced' from booking_days where booking_id = '00000000-0000-0000-0000-0000000000d1' and day = current_date + 18), 'day 2 linked to its own calendar event');
+select pg_temp.ok((select calendar_status = 'pending' and google_event_id is null from booking_days where booking_id = '00000000-0000-0000-0000-0000000000d1' and day = current_date + 20), 'a day with no event gets one made');
+
+-- ---------------------------------------------------------------- a second booking sharing that event: no calendar at all
+insert into bookings (id, org_id, type_key, picture_day, start_at, end_at, gotphoto_job_id, calendar_status, status, time_set, end_set) values
+  ('00000000-0000-0000-0000-0000000000d4', '00000000-0000-0000-0000-0000000000f1', 'zz_sports', current_date + 17, now(), now(), null, 'deleted', 'tracked', false, false);
+delete from net.q;
+select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.raises($$select public.booking_make_real('00000000-0000-0000-0000-0000000000d4', '{"contact_ids":["00000000-0000-0000-0000-0000000000c1"],"google_event_id":"zzev1"}')$$, 'the shared event cannot be linked twice');
+select public.booking_make_real('00000000-0000-0000-0000-0000000000d4', '{"contact_ids":["00000000-0000-0000-0000-0000000000c1"],"start_time":"12:00","no_calendar":true,"start_here_sent":false}');
+reset role;
+select pg_temp.ok((select calendar_status = 'deleted' and google_event_id is null from bookings where id = '00000000-0000-0000-0000-0000000000d4')
+                  and not exists (select 1 from booking_days where booking_id = '00000000-0000-0000-0000-0000000000d4' and calendar_status <> 'deleted')
+                  and not exists (select 1 from net.q where url like '%calendar-write%'), 'no_calendar: no event made, no calendar-write call');
 
 -- ---------------------------------------------------------------- the default is unchanged: Start here counts as sent
 select pg_temp.act('00000000-0000-0000-0000-0000000000a1');
