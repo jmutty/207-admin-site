@@ -4,6 +4,9 @@
   // on change. List search/filter/sort run in the browser (the whole list is ~1k rows); the list fields
   // (last contact, last result, next action, search_text) are kept current by triggers (migration T06).
   // Sending is untouched here: enrolling still goes through the Prospects tab until stage 3.
+  registerAttention("rolesCheck", { module: "partners", level: "soon", name: "who's main",
+    one: "A partner uses two of our services and one person is main for both. Check who's main for each.",
+    many: "{n} partners use two of our services with one person main for both. Check who's main for each." });
   const Orgs = (function () {
   const sb = supabase;
   const $ = (id) => document.getElementById("aca-" + id);
@@ -18,7 +21,7 @@
     unsubscribed: ["Unsubscribed", "err"], stopped: ["Stopped", "muted"], no_reply: ["No reply", "muted"], not_emailed: ["Not emailed", "muted"] };
   const SEASONS = ["fall", "winter", "spring", "summer", "year-round"];
   const FLAGS = [["due7", "Due this week"], ["followup", "Follow-up due"], ["ready", "Waiting for your OK"], ["needs_new", "Needs new contact"],
-    ["never", "Never contacted"], ["cooldown", "Cool-down active"], ["opened", "Opened, no reply"]];
+    ["never", "Never contacted"], ["cooldown", "Cool-down active"], ["opened", "Opened, no reply"], ["rolecheck", "Check who's main"]];
   // Pipeline chips (2026-10-12): one click per group, each with its own address (#partners/orgs/<group>)
   const GROUPS = [
     ["clients", "Clients", ["client", "booked"], { key: "next", dir: 1 }],
@@ -40,12 +43,25 @@
   const SERVICE_NAME = Object.fromEntries(SERVICES);
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const monthsText = (o) => (o.shoot_months || []).map((m) => MONTHS[m - 1]).join(", ");
-  const DEFAULT_STATE = { q: "", group: "", stage: "", sport: "", season: "", audience: "", sp: "", month: "", service: "", county: "", towns: [], flag: "", sort: { key: "next", dir: 1 } };
+  const DEFAULT_STATE = { q: "", group: "", stage: "", sport: "", season: "", audience: "", sp: "", month: "", service: "", svs: "", county: "", towns: [], flag: "", sort: { key: "next", dir: 1 } };
   const COUNTIES = ["Androscoggin", "Aroostook", "Cumberland", "Franklin", "Hancock", "Kennebec", "Knox", "Lincoln", "Oxford", "Penobscot",
     "Piscataquis", "Sagadahoc", "Somerset", "Waldo", "Washington", "York"];
   // School photos status (schools only), separate from the main stage (2026-09-27)
   const SP = [["client", "Client"], ["prospect", "Prospect"], ["competitor", "With another photographer"], ["not_interested", "Not interested"]];
   const SP_NAME = Object.fromEntries(SP);
+  // Main contact per service (2026-10-24, migration 20261024170000): each service has its own status on the partner
+  // (service_status; missing = Not offered) and each person is Main, Copy in or Not involved for it (service_roles;
+  // missing = Not involved). Book a job, Email someone, Enroll and rebooking pick people by the service.
+  const SVC_ST = [["client", "Client"], ["prospect", "Prospect"], ["past_client", "Past client"], ["competitor", "With another photographer"], ["not_interested", "Not interested"]];
+  const SVC_ST_NAME = Object.fromEntries(SVC_ST);
+  const SVC_CLS = { client: "ok", past_client: "muted", prospect: "accent", competitor: "warn", not_interested: "muted" };
+  const ROLE_NAME = { main: "Main", copy: "Copy in", "": "Not involved" };
+  const svcList = (o) => SERVICES.map((x) => x[0]).filter((k) => o && o.service_status && o.service_status[k]);
+  const roleOf = (c, k) => (c && c.service_roles && c.service_roles[k]) || "";
+  // The service a partner-page email is about by default: the first one we're a client for, else the first one.
+  const defaultSvc = (o) => { const l = svcList(o); return l.find((k) => o.service_status[k] === "client") || l[0] || (o && o.audience === "school" ? "school_photos" : "portraits"); };
+  const seqSvc = (o) => (o && o.audience === "school" ? "school_photos" : "portraits");
+  let roleCheck = new Set();
   function spText(o) {
     if (o.audience !== "school" || !o.sp_status) return "";
     if (o.sp_status === "competitor") {
@@ -202,6 +218,15 @@
   .aca .og-ptop input.og-title:hover, .aca .og-ptop input.og-title:focus { border-color: var(--border); background: var(--surface); }
   .aca .og-pnav { display: flex; gap: 4px; }
   .aca .og-pmeta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+  .aca .og-svcs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .aca .og-svc { display: inline-flex; align-items: center; gap: 2px; padding-right: 2px; font-size: 12.5px; }
+  .aca .og-svcs select { font: inherit; font-size: 12.5px; font-weight: 600; border: 0; background-color: transparent; color: inherit; padding: 0 2px; min-height: 0; height: auto; width: auto; min-width: 0; max-width: 15em; field-sizing: content; }
+  .aca .og-svcs .og-svcadd { color: var(--muted); font-weight: 400; border: 1px dashed var(--border); border-radius: 999px; padding: 1px 8px; }
+  .aca .og-roletags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .aca .og-roles { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .aca .og-roles label { display: inline-flex; gap: 4px; align-items: center; }
+  .aca .og-roles select { font: inherit; font-size: 12px; padding: 1px 4px; min-height: 0; height: auto; width: auto; }
+  .aca .og-rolecheck { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 10px; margin: 0 0 10px; border-radius: 6px; background: var(--surface-2); font-size: 13px; }
   .aca .og-pbody { flex: 1; overflow: auto; padding: 4px 18px 60px; }
   .aca tr.og-row { scroll-margin-top: calc(var(--og-top, 0px) + 50px); scroll-margin-bottom: 40px; }
   .aca .og-sec { padding: 14px 0; border-bottom: 1px solid var(--border); }
@@ -378,7 +403,7 @@
       if (!data || data.length < 1000) return out;
     }
   }
-  const ORG_COLS = "id,name,name_known,audience,stage,sports,seasons,seasons_manual,town,county,website,notes,source,personal_line,last_contact_at,last_result,last_opened_at,next_action_at,next_action,needs_new_contact,search_text,created_at,stage_changed_at,gotphoto_names,client_since,last_job_at,next_job_at,job_count,sp_status,sp_competitor,sp_until,sp_note,shoot_months,services";
+  const ORG_COLS = "id,name,name_known,audience,stage,sports,seasons,seasons_manual,town,county,website,notes,source,personal_line,last_contact_at,last_result,last_opened_at,next_action_at,next_action,needs_new_contact,search_text,created_at,stage_changed_at,gotphoto_names,client_since,last_job_at,next_job_at,job_count,sp_status,sp_competitor,sp_until,sp_note,shoot_months,services,service_status,roles_checked_at";
 
   // ---------------------------------------------------------------- panel markup (section lives in partners.html)
   const panelEl = el("panel-orgs");
@@ -414,6 +439,7 @@
           <label class="og-f"><span>Season</span><select id="aca-ogSeason"><option value="">Any</option>${SEASONS.map((s) => `<option value="${s}">${s[0].toUpperCase() + s.slice(1)}</option>`).join("")}</select></label>
           <label class="og-f"><span>Type</span><select id="aca-ogAud"><option value="">Leagues + schools</option><option value="league">Leagues</option><option value="school">Schools</option></select></label>
           <label class="og-f"><span>Service</span><select id="aca-ogService"><option value="">Any</option>${SERVICES.map((x) => `<option value="${x[0]}">${x[1]}</option>`).join("")}</select></label>
+          <label class="og-f"><span>Service status</span><select id="aca-ogSvs"><option value="">Any</option>${SVC_ST.map((x) => `<option value="${x[0]}">${x[1]}</option>`).join("")}</select></label>
           <label class="og-f"><span>Shoots in</span><select id="aca-ogMonth"><option value="">Any month</option>${MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("")}</select></label>
           <label class="og-f"><span>County</span><select id="aca-ogCounty"><option value="">Any</option>${COUNTIES.map((c) => `<option value="${c}">${c}</option>`).join("")}<option value="__none">Not set</option></select></label>
           <div class="og-f og-towns"><span>Towns</span><details id="aca-ogTownsBox"><summary id="aca-ogTownsSum">All towns</summary><div class="og-townlist" id="aca-ogTownList"></div></details></div>
@@ -460,14 +486,16 @@
     if (loaded && !force) { render(); return; }
     loading = (async () => {
       try {
-        const [rows, contacts, fus, held, sets, views] = await Promise.all([
+        const [rows, contacts, fus, held, sets, views, rc] = await Promise.all([
           fetchAll(() => sb.from("prospect_orgs").select(ORG_COLS).order("name")),
           fetchAll(() => sb.from("prospect_contacts").select("org_id,first_name,last_name,email,is_primary,created_at,bounced_at,unsubscribed_at,stopped_at").order("id")),
           fetchAll(() => sb.from("prospect_followups").select("org_id,due_on").eq("status", "open").order("id")),
           sb.from("prospect_scheduled_emails").select("org_id").eq("status", "held").eq("needs_review", true),
           sb.from("prospect_settings").select("cooldown_months").maybeSingle(),
           sb.from("prospect_saved_views").select("id,name,config,sort_order").order("sort_order").order("created_at"),
+          sb.rpc("prospect_roles_to_check"),
         ]);
+        roleCheck = new Set(((rc && rc.data) || []).map((r) => (typeof r === "string" ? r : r.prospect_roles_to_check)));
         orgs = rows;
         byId = new Map(orgs.map((o) => [o.id, o]));
         contactStats = new Map();
@@ -549,6 +577,7 @@
     }
     if (f === "ready") return readyOrgs.has(o.id);
     if (f === "needs_new") return !!o.needs_new_contact;
+    if (f === "rolecheck") return roleCheck.has(o.id);
     if (f === "never") return !o.last_contact_at;
     if (f === "opened") return !!o.last_opened_at && o.last_result !== "Replied";
     if (f === "cooldown") {
@@ -559,7 +588,7 @@
     return true;
   }
   // Search is global: while there's search text, filters and quick buttons are paused (Jeremiah 2026-09-27)
-  const filtersActive = () => !!(st.stage || st.sport || st.season || st.audience || st.service || st.month || st.sp || st.county || (st.towns || []).length || st.flag);
+  const filtersActive = () => !!(st.stage || st.sport || st.season || st.audience || st.service || st.svs || st.month || st.sp || st.county || (st.towns || []).length || st.flag);
   function matches(o) {
     if (st.q) return searchHit(o);
     if (st.group && GROUP_OF[st.group] && !GROUP_OF[st.group][2].includes(o.stage)) return false;
@@ -569,7 +598,9 @@
     if (st.sport && st.sport !== "__none" && !(o.sports || []).includes(st.sport)) return false;
     if (st.season && !(o.seasons || []).includes(st.season)) return false;
     if (st.month && !(o.shoot_months || []).includes(+st.month)) return false;
-    if (st.service && !(o.services || []).includes(st.service)) return false;
+    if (st.service && !(o.services || []).includes(st.service) && !(o.service_status || {})[st.service]) return false;
+    // status for the picked service (any service when none is picked)
+    if (st.svs && !(st.service ? (o.service_status || {})[st.service] === st.svs : Object.values(o.service_status || {}).includes(st.svs))) return false;
     if (st.sp === "__none" && (o.audience !== "school" || o.sp_status)) return false;
     if (st.sp && st.sp !== "__none" && (o.audience !== "school" || o.sp_status !== st.sp)) return false;
     if (st.county === "__none" && o.county) return false;
@@ -747,7 +778,7 @@
   }
   function syncControls() {
     el("ogQ").value = st.q; el("ogStage").value = st.stage; el("ogSport").value = st.sport;
-    el("ogSeason").value = st.season; el("ogAud").value = st.audience; el("ogSp").value = st.sp || ""; el("ogMonth").value = st.month || ""; el("ogService").value = st.service || "";
+    el("ogSeason").value = st.season; el("ogAud").value = st.audience; el("ogSp").value = st.sp || ""; el("ogMonth").value = st.month || ""; el("ogService").value = st.service || ""; el("ogSvs").value = st.svs || "";
     el("ogCounty").value = st.county || "";
     fillTowns();
   }
@@ -762,14 +793,14 @@
   }
   // Phone: filters fold behind one button (count shows what's active); column headers become a Sort menu.
   function syncMobile() {
-    const n = [st.stage, st.sport, st.season, st.audience, st.sp, st.month, st.service, st.county].filter(Boolean).length + ((st.towns || []).length ? 1 : 0);
+    const n = [st.stage, st.sport, st.season, st.audience, st.sp, st.month, st.service, st.svs, st.county].filter(Boolean).length + ((st.towns || []).length ? 1 : 0);
     el("ogFCount").textContent = n; el("ogFCount").classList.toggle("hidden", !n);
     const v = st.sort.key + ":" + st.sort.dir, sel = el("ogSortM");
     if (![...sel.options].some((o) => o.value === v)) sel.insertAdjacentHTML("beforeend", `<option value="${esc(v)}">Sort: ${esc(st.sort.key)}</option>`);
     sel.value = v;
   }
   const FILTER_KEYS = [["stage", "ogStage", "Stage"], ["sport", "ogSport", "Sport"], ["season", "ogSeason", "Season"], ["audience", "ogAud", "Type"],
-    ["service", "ogService", "Service"], ["month", "ogMonth", "Shoots in"], ["sp", "ogSp", "School photos"], ["county", "ogCounty", "County"]];
+    ["service", "ogService", "Service"], ["svs", "ogSvs", "Service status"], ["month", "ogMonth", "Shoots in"], ["sp", "ogSp", "School photos"], ["county", "ogCounty", "County"]];
   function renderActive() {
     const tags = FILTER_KEYS.filter(([k]) => st[k]).map(([k, id, label]) => {
       const sel = el(id), opt = sel && [...sel.options].find((o) => o.value === String(st[k]));
@@ -808,7 +839,7 @@
     st.towns = [...el("ogTownList").querySelectorAll("input:checked")].map((i) => i.value);
     shown = PAGE; fillTowns(); render();
   });
-  [["ogStage", "stage"], ["ogSport", "sport"], ["ogSeason", "season"], ["ogAud", "audience"], ["ogSp", "sp"], ["ogMonth", "month"], ["ogService", "service"]].forEach(([id, k]) =>
+  [["ogStage", "stage"], ["ogSport", "sport"], ["ogSeason", "season"], ["ogAud", "audience"], ["ogSp", "sp"], ["ogMonth", "month"], ["ogService", "service"], ["ogSvs", "svs"]].forEach(([id, k]) =>
     el(id).addEventListener("change", () => { st[k] = el(id).value; shown = PAGE; render(); }));
   el("ogFlags").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-flag]"); if (!b) return;
@@ -1189,7 +1220,7 @@
             ${inline ? '<label>Name</label><input type="text" data-f="name" value="' + esc(o.name) + '" aria-label="Partner name" />' : ""}
             <label>Type</label><select data-f="audience"><option value="league" ${o.audience === "league" ? "selected" : ""}>League</option><option value="school" ${o.audience === "school" ? "selected" : ""}>School</option></select>
             ${o.audience === "school" ? `<label>School photos</label><div class="og-sp">
-              <select data-f="sp_status" aria-label="School photos status"><option value="">Not set</option>${SP.map((x) => `<option value="${x[0]}" ${o.sp_status === x[0] ? "selected" : ""}>${x[1]}</option>`).join("")}</select>
+              <span class="muted">${esc(o.sp_status ? SP_NAME[o.sp_status] : "Not offered")} <span class="og-sub">(set it at the top)</span></span>
               ${o.sp_status === "competitor" ? `<input type="text" data-f="sp_competitor" value="${esc(o.sp_competitor || "")}" placeholder="Who (e.g. Lifetouch)" aria-label="Other photographer" />
                 <label class="og-sub" style="display:flex;gap:6px;align-items:center;white-space:nowrap">until <input type="date" data-f="sp_until" value="${esc(o.sp_until || "")}" aria-label="Contract ends" /></label>` : ""}
               <input type="text" data-f="sp_note" value="${esc(o.sp_note || "")}" placeholder="Note (optional)" aria-label="School photos note" style="grid-column:1/-1" /></div>` : ""}
@@ -1238,6 +1269,7 @@
           ${o.needs_new_contact ? '<span class="pill err">Needs a new contact</span>' : ""}
           ${o.next_action ? `<span class="muted">Next: <strong>${esc(o.next_action_at ? fmtDay(o.next_action_at) : "")}</strong> ${esc(o.next_action)}</span>` : ""}
         </div>
+        ${svcStatusHtml(o)}
         <div class="og-actions">
           <button type="button" class="small primary" data-act="enroll">Enroll</button>
           <button type="button" class="small" data-act="email">Email someone</button>
@@ -1373,23 +1405,49 @@ ${order.map((k) => sec[k]).join("")}
       toast(email + " will get the reminder emails."); return again();
     }
   }
+  // Header: one status per service the partner uses or is pitched for, plus "+ Service" for the rest.
+  function svcStatusHtml(o) {
+    const on = svcList(o), off = SERVICES.filter((x) => !on.includes(x[0]));
+    return `<div class="og-svcs">${on.map((k) => `<label class="og-svc pill ${SVC_CLS[o.service_status[k]] || "muted"}" title="${esc(SERVICE_NAME[k])}: ${esc(SVC_ST_NAME[o.service_status[k]] || "")}">${esc(SERVICE_NAME[k])}
+        <select data-svcst="${k}" aria-label="${esc(SERVICE_NAME[k])} status">${SVC_ST.map((x) => `<option value="${x[0]}" ${o.service_status[k] === x[0] ? "selected" : ""}>${x[1]}</option>`).join("")}<option value="">Not offered</option></select></label>`).join("")}
+      ${off.length ? `<select class="og-svcadd" data-svcadd aria-label="Add a service"><option value="">+ Service</option>${off.map((x) => `<option value="${x[0]}">${x[1]}</option>`).join("")}</select>` : ""}</div>`;
+  }
+  // "★ School photos main", "pitch to" while the service is still a prospect, "copy in".
+  function roleTagsHtml(o, c) {
+    const t = svcList(o).filter((k) => roleOf(c, k)).map((k) => {
+      const r = roleOf(c, k), st0 = o.service_status[k];
+      const word = r === "main" ? (st0 === "client" || st0 === "past_client" ? "main" : "pitch to") : "copy in";
+      return `<span class="pill ${r === "main" ? "accent" : "muted"} og-lbl">${r === "main" ? "&#9733; " : ""}${esc(SERVICE_NAME[k])} ${word}</span>`;
+    });
+    return t.length ? `<div class="og-roletags">${t.join(" ")}</div>` : "";
+  }
+  function roleSelectsHtml(o, c) {
+    const on = svcList(o);
+    if (!on.length) return "";
+    return `<div class="og-roles">${on.map((k) => `<label><span>${esc(SERVICE_NAME[k])}</span><select data-role="${k}" aria-label="${esc(SERVICE_NAME[k])} for ${esc(who(c))}">${["main", "copy", ""].map((r) =>
+      `<option value="${r}" ${roleOf(c, k) === r ? "selected" : ""}>${ROLE_NAME[r]}</option>`).join("")}</select></label>`).join("")}</div>`;
+  }
   function contactsHtml(d) {
+    const o = byId.get(openId) || {};
+    const check = roleCheck.has(o.id) ? `<div class="og-rolecheck">${esc(o.name)} uses ${svcList(o).filter((k) => ["client", "past_client"].includes(o.service_status[k])).map((k) => SERVICE_NAME[k]).join(" and ")}, and one person is main for more than one. Set who's main for each below.
+        <button type="button" class="small" data-act="rolesok">Looks right</button></div>` : "";
     const rows = d.contacts.map((c) => {
       const s = d.status.get(c.id) || {};
       const chip = CONTACT_CHIP[s.status] || ["", "muted"];
       let label = chip[0];
       if (s.status === "sent" && s.steps_total) label = `Sent ${s.steps_sent} of ${s.steps_total}`;
       if (s.status === "queued" && s.next_send_at) label = `Queued ${fmtDay(s.next_send_at)}`;
-      const acts = [["", "&hellip;"], ["edit", "Edit details"], c.is_primary ? ["unprimary", "Remove as main contact"] : ["primary", "Add as main contact"], c.stopped_at ? ["resume", "Resume emails"] : ["stop", "Stop emails"],
+      const acts = [["", "&hellip;"], ["edit", "Edit details"], c.stopped_at ? ["resume", "Resume emails"] : ["stop", "Stop emails"],
         ["bounced", "Mark bounced"], ["unsubscribed", "Mark unsubscribed"],
         ...(c.bounced_at || c.unsubscribed_at || c.stopped_at ? [["clear_flags", "Clear flags"]] : []),
         ["remove", "Remove"]];
       const fullName = [c.first_name, c.last_name].filter(Boolean).join(" ") || "(no name)";
       return `<tr data-cid="${esc(c.id)}">
         <td class="og-cview" colspan="2"><div><strong>${esc(fullName)}</strong>${c.role ? ' <span class="muted">' + esc(c.role) + "</span>" : ""}${inline ? contactLabels(c) : ""}</div>
-          <div class="og-sub">${esc(c.email)}${c.phone ? " \u00b7 " + esc(c.phone) : ""}</div></td>
+          <div class="og-sub">${esc(c.email)}${c.phone ? " \u00b7 " + esc(c.phone) : ""}</div>
+          ${roleTagsHtml(o, c)}${roleSelectsHtml(o, c)}</td>
 
-        <td style="white-space:nowrap">${c.is_primary ? '<span class="pill accent" title="Emails go to the main contacts by default">&#9733; Main</span> ' : ""}<span class="pill ${chip[1]}">${esc(label)}</span>${c.history_only ? '<div class="og-sub" title="From your earlier email history. Not emailed by sequences unless you list them when enrolling.">history</div>' : ""}</td>
+        <td style="white-space:nowrap"><span class="pill ${chip[1]}">${esc(label)}</span>${c.history_only ? '<div class="og-sub" title="From your earlier email history. Not emailed by sequences unless you list them when enrolling.">history</div>' : ""}</td>
         <td><select data-cact aria-label="Contact actions">${acts.map((a) => `<option value="${a[0]}">${a[1]}</option>`).join("")}</select></td></tr>
         <tr class="og-cedit" data-cid="${esc(c.id)}"><td colspan="4"><div class="og-cgrid">
           <label><span>First name</span><input data-cf="first_name" value="${esc(c.first_name || "")}" /></label>
@@ -1400,7 +1458,7 @@ ${order.map((k) => sec[k]).join("")}
           <div class="og-cgrid-foot"><span class="muted">Each field saves when you leave it.</span><button type="button" class="small" data-act="cdone">Done</button></div>
         </div></td></tr>`;
     }).join("");
-    return `<table class="og-ctab"><tbody>${rows || '<tr><td class="muted" colspan="4">No contacts yet.</td></tr>'}
+    return check + `<table class="og-ctab"><tbody>${rows || '<tr><td class="muted" colspan="4">No contacts yet.</td></tr>'}
       <tr class="og-caddlink" id="aca-ogCAddLink"><td colspan="4"><button type="button" class="link" data-act="addc">+ Add a contact</button></td></tr>
       <tr class="og-cedit og-cadd" id="aca-ogCAdd"><td colspan="4"><div class="og-cgrid">
         <label><span>First name</span><input id="aca-ogCFirst" /></label>
@@ -1604,14 +1662,18 @@ ${order.map((k) => sec[k]).join("")}
     if (!mailable.length) { toast("Add a contact with a working email first.", true); return; }
     const anyFresh = mailable.some((c) => !c.history_only);
     const anyMain = mailable.some((c) => c.is_primary);
-    const ticked = (c) => anyMain ? !!c.is_primary : (!c.history_only || !anyFresh && c === mailable[0]);
+    // Outreach goes to the sequence's service: its main and copy-ins. Not involved stays unticked (2026-10-24).
+    const svc = seqSvc(o), roled = panelData.contacts.some((c) => Object.keys(c.service_roles || {}).length);
+    const svcSet = mailable.some((c) => roleOf(c, svc));
+    const ticked = (c) => roled ? ["main", "copy"].includes(roleOf(c, svc)) : anyMain ? !!c.is_primary : (!c.history_only || !anyFresh && c === mailable[0]);
+    const roleNote = (c) => roleOf(c, svc) === "main" ? ` &middot; ${esc(SERVICE_NAME[svc])} main` : roleOf(c, svc) === "copy" ? " &middot; copy in" : roled ? ` &middot; not on ${esc(SERVICE_NAME[svc])}` : c.is_primary ? " &middot; main" : "";
     modal(`
       <h2>Enroll ${esc(o.name)}</h2>
       <div class="field"><label for="aca-ogEnSeq">Sequence</label><select id="aca-ogEnSeq">${seqs.map((q, i) => `<option value="${esc(q.key)}">${esc(q.name)}${q.reason ? " (" + esc(q.reason) + ")" : ""}${i === 0 && seqs.length > 1 ? " \u2605 best match" : ""}</option>`).join("")}</select>
         <span class="og-sub" style="white-space:normal">Sorted for ${esc((o.sports || []).join(", ") || "this org")}: same sport first, then same season, then general.</span></div>
       <div class="field"><label>Who gets it</label><div class="og-enc">${mailable.map((c) => `<label><input type="checkbox" value="${esc(c.id)}" ${ticked(c) ? "checked" : ""} />
-        ${esc(who(c))}${c.role ? ` <span class="og-role">${esc(c.role)}</span>` : ""} <span class="muted">${esc(c.email)}${c.is_primary ? " &middot; main" : ""}${c.history_only ? " &middot; from earlier emails" : ""}</span></label>`).join("")}</div>
-        <span class="og-sub" style="white-space:normal">Everyone ticked gets each email in the same send window, addressed to them. A reply from anyone stops them all.</span></div>
+        ${esc(who(c))}${c.role ? ` <span class="og-role">${esc(c.role)}</span>` : ""} <span class="muted">${esc(c.email)}${roleNote(c)}${c.history_only ? " &middot; from earlier emails" : ""}</span></label>`).join("")}</div>
+        <span class="og-sub" style="white-space:normal">${roled && !svcSet ? `Nobody is set for ${esc(SERVICE_NAME[svc])} here yet. Tick who we should pitch; the first one becomes the ${esc(SERVICE_NAME[svc])} main. ` : ""}Everyone ticked gets each email in the same send window, addressed to them. A reply from anyone stops them all.</span></div>
       <div class="field"><label for="aca-ogEnLine">Custom opening line (optional)</label><textarea id="aca-ogEnLine" rows="2" placeholder="Leave blank for the sequence's default opener">${esc(o.personal_line || "")}</textarea></div>
       <p class="og-sub" style="white-space:normal;margin:0 0 12px">Nothing sends yet: email 1 waits in the <strong>Outbox</strong> so you can read and edit it first.</p>
       <div id="aca-ogEnErr" class="inline-error hidden" style="margin:0 0 12px"></div>
@@ -1632,6 +1694,13 @@ ${order.map((k) => sec[k]).join("")}
         const { data, error } = await sb.rpc("prospect_enroll_org", { p_org: o.id, p_contacts: ids, p_sequence_key: el("ogEnSeq").value,
           p_personal_line: el("ogEnLine").value.trim() || null });
         if (error) throw error;
+        // nobody was on the service: the people we pitch become its main (the first) and copy-ins
+        if (!mailable.some((c) => roleOf(c, svc) === "main")) {
+          for (const [i, id] of ids.entries()) {
+            const c = mailable.find((x) => x.id === id); if (!c || roleOf(c, svc)) continue;
+            await sb.from("prospect_contacts").update({ service_roles: { ...(c.service_roles || {}), [svc]: i === 0 ? "main" : "copy" } }).eq("id", id);
+          }
+        }
         box.close(true);
         toast(`${data.emails} emails created. Email 1 is waiting in the Outbox.`);
         await reloadOrg(o.id); await loadPanel(o.id); loadReady(true);
@@ -1644,11 +1713,20 @@ ${order.map((k) => sec[k]).join("")}
     const mailable = panelData.contacts.filter((c) => !c.bounced_at && !c.unsubscribed_at);
     if (!mailable.length) { toast("Add a contact with a working email first.", true); return; }
     const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0);
+    // "About" a service: its main is ticked (2026-10-24). A partner nobody has sorted yet keeps the Main stars.
+    const svcs = svcList(o), roled = panelData.contacts.some((c) => Object.keys(c.service_roles || {}).length);
+    const toList = (svc) => mailable.map((c, i) => {
+      const r = roleOf(c, svc), on = roled && svc ? r === "main" : (mailable.some((x) => x.is_primary) ? c.is_primary : i === 0);
+      const note = roled && svc ? (r === "main" ? " &middot; main" : r === "copy" ? " &middot; copy in" : " &middot; not on this service") : c.is_primary ? " &middot; main" : "";
+      return `<label><input type="checkbox" value="${esc(c.id)}" ${on ? "checked" : ""} />
+          ${esc(who(c))}${c.role ? ` <span class="og-role">${esc(c.role)}</span>` : ""} <span class="muted">${esc(c.email)}${note}</span></label>`;
+    }).join("") + (roled && svc && !mailable.some((c) => roleOf(c, svc) === "main") ? `<span class="og-sub" style="white-space:normal">Nobody is the ${esc(SERVICE_NAME[svc])} main here yet. Tick who it's for.</span>` : "");
+    const svc0 = svcs.length ? defaultSvc(o) : "";
     modal(`
       <h2>Email someone at ${esc(o.name)}</h2>
       <div class="og-grid">
-        <label>To</label><div class="og-enc" id="aca-ogOoTo">${mailable.map((c, i) => `<label><input type="checkbox" value="${esc(c.id)}" ${(mailable.some((x) => x.is_primary) ? c.is_primary : i === 0) ? "checked" : ""} />
-          ${esc(who(c))}${c.role ? ` <span class="og-role">${esc(c.role)}</span>` : ""} <span class="muted">${esc(c.email)}${c.is_primary ? " &middot; main" : ""}</span></label>`).join("")}</div>
+        ${svcs.length > 1 ? `<label>About</label><div class="chips" id="aca-ogOoSvc">${svcs.map((k) => `<button type="button" data-svc="${k}" aria-pressed="${k === svc0}">${esc(SERVICE_NAME[k])}</button>`).join("")}</div>` : ""}
+        <label>To</label><div class="og-enc" id="aca-ogOoTo">${toList(svc0)}</div>
         <label for="aca-ogOoSubj">Subject</label><input type="text" id="aca-ogOoSubj" />
         <label for="aca-ogOoWhen">Send</label><input type="datetime-local" id="aca-ogOoWhen" value="${esc(toLocalInput(d.toISOString()))}" />
       </div>
@@ -1660,6 +1738,8 @@ ${order.map((k) => sec[k]).join("")}
     const box = modal.last;
     fillSnippetPickers(box, o);
     box.addEventListener("click", async (e) => {
+      const sv = e.target.closest("button[data-svc]");
+      if (sv) { box.querySelectorAll("button[data-svc]").forEach((x) => x.setAttribute("aria-pressed", String(x === sv))); el("ogOoTo").innerHTML = toList(sv.dataset.svc); return; }
       const b = e.target.closest("button[data-v]"); if (!b) return;
       if (b.dataset.v === "close") return box.close(false);
       const err = (m) => { el("ogOoErr").textContent = m; el("ogOoErr").classList.remove("hidden"); };
@@ -1941,6 +2021,28 @@ ${order.map((k) => sec[k]).join("")}
       await saveOrg(patch);
       return;
     }
+    if (t.dataset.svcst !== undefined || t.hasAttribute("data-svcadd")) {
+      const o = byId.get(openId), k = t.dataset.svcst || t.value, v = t.dataset.svcst !== undefined ? t.value : "prospect";
+      if (!k) return;
+      const next = { ...(o.service_status || {}) };
+      if (v) next[k] = v; else {
+        const who2 = panelData.contacts.filter((c) => roleOf(c, k)).length;
+        if (!confirm(`Mark ${SERVICE_NAME[k]} as not offered for ${o.name}?${who2 ? ` ${who2} ${who2 === 1 ? "person is" : "people are"} set for it; they keep that, hidden, in case you turn it back on.` : ""}`)) { renderPanel(); return; }
+        delete next[k];
+      }
+      await saveOrg({ service_status: next });
+      return;
+    }
+    if (t.dataset.role !== undefined) {
+      const tr = t.closest("tr[data-cid]"), c = panelData.contacts.find((x) => x.id === tr.dataset.cid), k = t.dataset.role;
+      const roles = { ...(c.service_roles || {}) };
+      if (t.value) roles[k] = t.value; else delete roles[k];
+      const { error } = await sb.from("prospect_contacts").update({ service_roles: roles }).eq("id", c.id);
+      if (error) { toast("Not saved: " + cleanErr(error), true); renderPanel(); return; }
+      toast(t.value === "main" ? `${who(c)} is the ${SERVICE_NAME[k]} main` : t.value === "copy" ? `${who(c)} is copied in on ${SERVICE_NAME[k]}` : `${who(c)} is not involved in ${SERVICE_NAME[k]}`);
+      await reloadOrg(openId); await loadPanel(openId);
+      return;
+    }
     if (t.dataset.service) {
       const services = [...panel.querySelectorAll("input[data-service]")].filter((x) => x.checked).map((x) => x.dataset.service);
       await saveOrg({ services });
@@ -2011,6 +2113,7 @@ ${order.map((k) => sec[k]).join("")}
     if (act === "addc") { el("ogCAdd").classList.add("open"); el("ogCAddLink").classList.add("hidden"); el("ogCFirst").focus(); return; }
     if (act === "addc_cancel") { el("ogCAdd").classList.remove("open"); el("ogCAddLink").classList.remove("hidden"); return; }
     if (act === "autoseason") return saveOrg({ seasons_manual: false });
+    if (act === "rolesok") { const ok = await saveOrg({ roles_checked_at: new Date().toISOString() }, true); if (ok) { roleCheck.delete(o.id); toast("Thanks. Off the check list."); loadAttention(); renderPanel(); } return; }
     if (act === "enroll") return openEnroll(o);
     if (act === "email") return openOneOff(o);
     const reloadHere = async () => { await reloadOrg(o.id); if (openId === o.id) await loadPanel(o.id); loadReady(true); };
@@ -2229,10 +2332,15 @@ ${order.map((k) => sec[k]).join("")}
   // ---------------------------------------------------------------- Today / section badges (light queries only)
   async function loadAttention() {
     const today = todayStr();
-    const [fu, held] = await Promise.all([
+    const [fu, held, rc] = await Promise.all([
       sb.from("prospect_followups").select("org_id", { count: "exact", head: true }).eq("status", "open").lte("due_on", today),
       sb.from("prospect_scheduled_emails").select("id,org_id,enrollment_id,batch_id").eq("status", "held").eq("needs_review", true),
+      sb.rpc("prospect_roles_to_check"),
     ]);
+    if (!rc.error) {
+      const nr = (rc.data || []).length;
+      setAttention("rolesCheck", nr, nr === 1 ? "partner to check who's main" : "partners to check who's main", "orgs", "soon", () => showFlag("rolecheck"));
+    }
     if (fu.error || held.error) return;
     const n = fu.count || 0;
     setAttention("followups", n, n === 1 ? "prospect follow-up due" : "prospect follow-ups due", "orgs", "warn", () => showFlag("followup"));

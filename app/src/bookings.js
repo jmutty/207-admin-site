@@ -549,6 +549,11 @@
     let contacts = isNew ? [] : (d.org_contacts || []);
     let typeKey = d.type_key || (types[0] && types[0].key) || "", typeTouched = !isNew;
     const chosen = new Set(isNew ? [] : (d.contact_ids || []));
+    // Main contact per service (2026-10-24): the job type's service picks who's ticked. orgSvc = the partner's
+    // service statuses; ticksTouched stops a type change from re-ticking what you picked by hand.
+    let orgSvc = {}, ticksTouched = false, handoff = null;
+    const svcOf = (k) => (byType(k).audience === "school" ? "school_photos" : "portraits");
+    const SVC_NAME = { portraits: "Team & individual", action: "Action", school_photos: "School photos", events: "Events" };
     // The organization link opens its page in this tab; the form closes (it can be reopened there).
     const orgLinkHtml = (o) => '<a href="#partners/org/' + esc(o.id) + '" class="bk-sub" data-v="orglink">open organization</a>';
     const canCrew = canEdit("scheduling") && typeof Schedule !== "undefined";
@@ -653,12 +658,53 @@
       if (!org) { list.innerHTML = '<span class="bk-sub">Pick an organization first.</span>'; el("bkAddCBtn").classList.add("hidden"); return; }
       el("bkAddCBtn").classList.remove("hidden");
       if (!contacts.length) { list.innerHTML = '<span class="bk-sub">No contacts on file for ' + esc(org.name) + ' yet. Add one below.</span>'; return; }
+      const svc = svcOf(typeKey), roled = contacts.some((c) => c.service_roles);
+      const tag = (c) => {
+        if (!roled) return c.is_primary ? ' <span class="pill accent">Main</span>' : "";
+        const r = (c.service_roles || {})[svc];
+        return r === "main" ? ' <span class="pill accent">&#9733; ' + esc(SVC_NAME[svc]) + " main</span>" : r === "copy" ? ' <span class="pill muted">copy in</span>' : "";
+      };
       list.innerHTML = contacts.map((c) => {
         const ok = c.emailable !== false && !!c.email;
         const name = [c.first_name, c.last_name].filter(Boolean).join(" ");
         return '<label class="' + (ok ? "" : "off") + '"><input type="checkbox" data-cid="' + esc(c.id) + '"' + (chosen.has(c.id) && ok ? " checked" : "") + (ok ? "" : " disabled") + ' /><span>' +
-          (name ? "<strong>" + esc(name) + "</strong> " : "") + esc(c.email || "(no email)") + (c.role ? ' <span class="bk-sub">' + esc(c.role) + "</span>" : "") + (c.is_primary ? ' <span class="pill accent">Main</span>' : "") + (ok ? "" : ' <span class="pill muted">not emailable</span>') + "</span></label>";
-      }).join("");
+          (name ? "<strong>" + esc(name) + "</strong> " : "") + esc(c.email || "(no email)") + (c.role ? ' <span class="bk-sub">' + esc(c.role) + "</span>" : "") + tag(c) + (ok ? "" : ' <span class="pill muted">not emailable</span>') + "</span></label>";
+      }).join("") + (isNew && roled && !contacts.some((c) => (c.service_roles || {})[svc] === "main")
+        ? '<div class="bk-sub" style="margin-top:6px">Nobody is the ' + esc(SVC_NAME[svc]) + " main here yet. Tick who should get the booking emails; the first one becomes the main.</div>" : "") + handoffHtml();
+    }
+    // The first School Photos booking at a school we were pitching (or that uses another photographer): who runs
+    // picture day. They go first on the booking and become the School photos main; whoever we pitched stays copied
+    // in unless unticked. Saved after "Book it" (prospect_school_handoff).
+    function handoffHtml() {
+      handoff = null;
+      if (!isNew || !org || svcOf(typeKey) !== "school_photos" || orgSvc.school_photos === "client" || !contacts.some((c) => c.emailable)) return "";
+      const pitched = contacts.filter((c) => (c.service_roles || {}).school_photos === "main");
+      const pick = box.querySelector('input[name="bkRuns"]:checked');
+      const keepEl = box.querySelector("#aca-bkKeepPitched");
+      handoff = { runner: pick ? pick.value : "", keep: keepEl ? keepEl.checked : true, pitched };
+      return '<div class="bk-handoff" style="margin-top:10px;padding:10px 12px;border:1px solid var(--line2);border-radius:6px">' +
+        "<strong>Who runs school picture day at " + esc(org.name) + "?</strong>" +
+        '<div class="bk-sub" style="margin:2px 0 6px">This is the first school photos booking here.' + (pitched.length ? " " + esc(pitched.map((c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email).join(" and ")) + (pitched.length === 1 ? " was" : " were") + " the person we pitched." : "") +
+        " Pick who gets the school photos emails from now on, or leave it for later.</div>" +
+        contacts.filter((c) => c.emailable).map((c) => '<label><input type="radio" name="bkRuns" value="' + esc(c.id) + '"' + (handoff.runner === c.id ? " checked" : "") + " /><span><strong>" +
+          esc([c.first_name, c.last_name].filter(Boolean).join(" ") || c.email) + "</strong>" + (c.role ? ' <span class="bk-sub">' + esc(c.role) + "</span>" : "") + "</span></label>").join("") +
+        (pitched.length ? '<label style="margin-top:4px"><input type="checkbox" id="aca-bkKeepPitched"' + (handoff.keep ? " checked" : "") + " /><span>Keep " + esc(pitched.map((c) => c.first_name || c.email).join(" and ")) + " copied on school photos emails</span></label>" : "") + "</div>";
+    }
+    // Tick the job type's service people: its main and copy-ins. With nobody set for it, nobody (the note says so);
+    // a partner with no service roles at all keeps the old rule (the Main stars, else everyone).
+    function tickForType() {
+      if (!isNew || ticksTouched || !org) return;
+      const svc = svcOf(typeKey);
+      chosen.clear();
+      if (contacts.some((c) => c.service_roles)) {
+        contacts.filter((c) => c.emailable && ["main", "copy"].includes((c.service_roles || {})[svc]))
+          .sort((a, b) => ((b.service_roles || {})[svc] === "main") - ((a.service_roles || {})[svc] === "main")).forEach((c) => chosen.add(c.id));
+        // a sports job at a partner we shoot action for also copies the Action people in
+        if (svc === "portraits" && orgSvc.action === "client") contacts.filter((c) => c.emailable && (c.service_roles || {}).action).forEach((c) => chosen.add(c.id));
+      } else {
+        contacts.forEach((c) => { if (c.is_primary && c.emailable) chosen.add(c.id); });
+        if (!chosen.size) contacts.filter((c) => c.emailable).forEach((c) => chosen.add(c.id));
+      }
     }
     // Deliverables picked while booking (new bookings only): saved ones for the type, "every job" ones pre-ticked, plus typed ones.
     let fdType = null; const fdPicked = new Set(), fdNew = [];
@@ -706,6 +752,7 @@
       box.querySelectorAll('#aca-bkTypes input[name="bkType"]').forEach((x) => { x.checked = x.value === k; });
       box.querySelectorAll(".bk-card").forEach((c) => c.classList.toggle("sel", c.querySelector("input").checked));
       renderLabels(); renderPreview(); renderFormDlv();
+      if (org && isNew) { tickForType(); renderContacts(); renderPreview(); }
     }
     // A league gets the first sports type, a school the school type, unless a type was already clicked (2026-10-24).
     async function typeForOrg(o) {
@@ -728,11 +775,16 @@
         const loc = last && last[0] && last[0].location;
         if (loc && org === o && (!el("bkLoc").value || el("bkLoc").dataset.auto === "1")) { el("bkLoc").value = loc; el("bkLoc").dataset.auto = "1"; el("bkLocNote").textContent = "Same place as last time."; }
       }, () => {});
-      const { data } = await sb.from("prospect_contacts").select("id, first_name, last_name, email, role, is_primary, bounced_at, unsubscribed_at, stopped_at, history_only").eq("org_id", o.id);
-      contacts = (data || []).filter((c) => !c.history_only).map((c) => ({ ...c, emailable: !!c.email && !c.bounced_at && !c.unsubscribed_at && !c.stopped_at }))
+      const [{ data }, { data: os }] = await Promise.all([
+        sb.from("prospect_contacts").select("id, first_name, last_name, email, role, is_primary, bounced_at, unsubscribed_at, stopped_at, history_only, service_roles").eq("org_id", o.id),
+        sb.from("prospect_orgs").select("service_status").eq("id", o.id).maybeSingle()]);
+      if (org !== o) return;
+      orgSvc = (os && os.service_status) || {};
+      // roles only count once someone has one (a partner nobody has sorted yet keeps the old rule)
+      const anyRole = (data || []).some((c) => c.service_roles && Object.keys(c.service_roles).length);
+      contacts = (data || []).filter((c) => !c.history_only).map((c) => ({ ...c, service_roles: anyRole ? (c.service_roles || {}) : null, emailable: !!c.email && !c.bounced_at && !c.unsubscribed_at && !c.stopped_at }))
         .sort((a, b) => (b.is_primary - a.is_primary) || String(a.first_name || "").localeCompare(String(b.first_name || "")));
-      contacts.forEach((c) => { if (c.is_primary && c.emailable) chosen.add(c.id); });
-      if (!chosen.size) contacts.filter((c) => c.emailable).forEach((c) => chosen.add(c.id));
+      ticksTouched = false; tickForType();
       renderContacts(); renderPreview();
       if (!contacts.length && o.added) { el("bkAddC").classList.remove("hidden"); el("bkAddCBtn").classList.add("hidden"); }
     }
@@ -789,10 +841,22 @@
         typeKey = e.target.value; typeTouched = true;
         box.querySelectorAll(".bk-card").forEach((c) => c.classList.toggle("sel", c.querySelector("input").checked));
         renderLabels(); renderPreview(); renderFormDlv();
+        if (org && isNew) { tickForType(); renderContacts(); renderPreview(); }
       }
       if (e.target.dataset && e.target.dataset.fdt) { if (e.target.checked) fdPicked.add(e.target.dataset.fdt); else fdPicked.delete(e.target.dataset.fdt); }
       if (e.target.dataset && e.target.dataset.fdn) { if (!e.target.checked) { fdNew.splice(Number(e.target.dataset.fdn), 1); renderFormDlv(); } }
-      if (e.target.dataset && e.target.dataset.cid) { if (e.target.checked) chosen.add(e.target.dataset.cid); else chosen.delete(e.target.dataset.cid); renderPreview(); }
+      if (e.target.dataset && e.target.dataset.cid) { ticksTouched = true; if (e.target.checked) chosen.add(e.target.dataset.cid); else chosen.delete(e.target.dataset.cid); renderPreview(); }
+      // who runs school picture day: they get the emails (first), and the person we pitched stays on only if kept
+      if (e.target.name === "bkRuns" || e.target.id === "aca-bkKeepPitched") {
+        const runner = (box.querySelector('input[name="bkRuns"]:checked') || {}).value, keep = !box.querySelector("#aca-bkKeepPitched") || box.querySelector("#aca-bkKeepPitched").checked;
+        if (runner) {
+          ticksTouched = true;
+          const rest = [...chosen].filter((id) => id !== runner && (keep || !(handoff && handoff.pitched.some((p) => p.id === id))));
+          if (keep && handoff) handoff.pitched.forEach((p) => { if (p.emailable && !rest.includes(p.id) && p.id !== runner) rest.push(p.id); });
+          chosen.clear(); chosen.add(runner); rest.forEach((id) => chosen.add(id));
+        }
+        renderContacts(); renderPreview();
+      }
       if (e.target.closest && e.target.closest("#aca-bkDays")) renderMoveNote();
     });
     box.addEventListener("click", async (e) => {
@@ -822,7 +886,7 @@
         const { data, error } = await sb.from("prospect_contacts").insert({ org_id: org.id, email, first_name: el("bkCFirst").value.trim() || null, last_name: el("bkCLast").value.trim() || null, role: el("bkCRole").value.trim() || null }).select("*").single();
         b.disabled = false;
         if (error) return err(cleanErr(error));
-        contacts.push({ ...data, emailable: true }); chosen.add(data.id);
+        contacts.push({ ...data, service_roles: contacts.some((c) => c.service_roles) ? (data.service_roles || {}) : null, emailable: true }); chosen.add(data.id); ticksTouched = true;
         ["bkCFirst", "bkCLast", "bkCEmail", "bkCRole"].forEach((id) => { el(id).value = ""; });
         clearError("bkFormErr"); renderContacts(); renderPreview(); return;
       }
@@ -853,7 +917,13 @@
           const moved = !isNew && dayKey(days) !== dayKey(origDays);
           const items = isNew ? [...fdPicked].map((id) => ({ template_id: id })).concat(fdNew.concat(typed ? [typed] : []).map((label) => ({ label, save: el("bkFDlvSave").checked }))) : [];
           const dir = DirectorFields.read();
+          const ho = isNew && handoff && handoff.runner ? { runner: handoff.runner, keep: handoff.keep } : null;
           box.close();
+          let hoMsg = "";
+          if (ho) {
+            const { data: hr, error: he } = await sb.rpc("prospect_school_handoff", { p_booking: data.id, p_runner: ho.runner, p_keep: ho.keep });
+            hoMsg = he ? " Who runs picture day was not saved: " + cleanErr(he) + "." : " School photos is now a client" + (hr && hr.outreach_stopped ? " and its school photos outreach stopped." : ".");
+          }
           const dirErr = await DirectorFields.save(isNew ? data.id : d.id, dir, isNew);
           let dlvErr = "";
           if (items.length) { try { await addDeliverables(data.id, items); } catch (e3) { dlvErr = cleanErr(e3); } }
@@ -868,6 +938,7 @@
               crewMsg = sr.untimed.length ? " " + (sr.added ? "On the schedule for the days with a time; " : "") + "add the crew on the Schedule once " + sr.untimed.map(fmtDay).join(", ") + (sr.untimed.length > 1 ? " have times." : " has a time.") : " Crew is on the schedule.";
             } catch (e4) { crewMsg = " The crew was not put on the schedule: " + cleanErr(e4) + "."; }
           }
+          crewMsg += hoMsg;
           if (dirErr) crewMsg += " The team times and order dates were not saved (" + dirErr + "); open Edit booking to try again.";
           toast((dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event\u2026" :
             "Saved." + (moved ? " The Schedule, the calendar event and the unsent emails move with it." : "")) + crewMsg, !!dlvErr || !!dirErr || /not put|not changed/.test(crewMsg));
