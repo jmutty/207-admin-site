@@ -4,7 +4,7 @@
   //   Rebooking   partner_rebook_list / _set; the email via partner_compose + partner_queue (kind 'rebook').
   //   Reviews     rows made by a trigger when a job reaches Deliverables sent; partner_reviews_list / partner_review_log.
   //   Agreements  agreements_list / agreement_get / _save / _set_status / _orgs; agreement_public / _accept for the page.
-  // Every email lands in the outreach pipeline (the Outbox): "Hold for review" or "Approve and schedule".
+  // Every email lands in the outreach pipeline (the Outbox): "Hold for review", "Add to queue" or "Send now".
   // 2026-10-24 (ws/partners): partner names link to the partner page, "Review it" opens that email in the Outbox,
   // and the tables turn into cards under 700px.
   // 2026-10-23: the tables became grid rows with one main button each (the rest in a ... menu), cards on phones.
@@ -178,10 +178,10 @@
           : '<p class="inline-error">Nobody to email. Add a contact on the partner page first.</p>') +
         '<div class="field"><label for="aca-pfCmSubj">Subject</label><input type="text" id="aca-pfCmSubj" maxlength="200" /></div>' +
         '<div class="field"><label for="aca-pfCmBody">Message</label><textarea id="aca-pfCmBody" class="pf-body"></textarea></div>' +
-        '<p class="pf-help">Your outreach signature is added when it sends. It goes out through the Outbox like every outreach email.</p>' +
+        '<p class="pf-help">Your outreach signature is added when it sends. <strong>Send now</strong> sends it right away; <strong>Add to queue</strong> sends it in the next send window; <strong>Hold for review</strong> keeps it in the Outbox for your OK.</p>' +
         '<div class="inline-error hidden" id="aca-pfCmErr"></div>' +
         '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" id="aca-pfCmCancel">Cancel</button>' +
-        '<button type="button" id="aca-pfCmHold">Hold for review</button><button type="button" class="primary" id="aca-pfCmGo">Approve and schedule</button></div>');
+        '<button type="button" id="aca-pfCmHold">Hold for review</button><button type="button" id="aca-pfCmGo">Add to queue</button><button type="button" class="primary" id="aca-pfCmNow">Send now</button></div>');
       const fill = () => { el("pfCmSubj").value = c.subject || ""; el("pfCmBody").value = c.body || ""; edited = false; };
       fill();
       ["pfCmSubj", "pfCmBody"].forEach((id) => el(id).addEventListener("input", () => { edited = true; }));
@@ -192,19 +192,21 @@
       });
       const err = (t) => { const n = el("pfCmErr"); n.textContent = t; n.classList.remove("hidden"); };
       el("pfCmCancel").addEventListener("click", () => m.close());
-      const send = async (approve) => {
+      const send = async (approve, now) => {
         if (!el("pfCmTo")) return err("Nobody to email.");
-        const btns = [el("pfCmHold"), el("pfCmGo")]; btns.forEach((b) => { b.disabled = true; });
-        const { error: e2 } = await sb.rpc("partner_queue", { p_kind: kind, p_ref: ref, p_contact: el("pfCmTo").value,
+        const btns = [el("pfCmHold"), el("pfCmGo"), el("pfCmNow")]; btns.forEach((b) => { b.disabled = true; });
+        const { data: q, error: e2 } = await sb.rpc("partner_queue", { p_kind: kind, p_ref: ref, p_contact: el("pfCmTo").value,
           p_subject: el("pfCmSubj").value, p_body: el("pfCmBody").value, p_approve: approve, ...dueArg });
         btns.forEach((b) => { b.disabled = false; });
         if (e2) return err(cleanErr(e2));
         m.close();
-        toast(approve ? "Approved. It goes out in the next sending window." : "Saved. It's waiting in the Outbox for your OK.");
+        if (now) { try { await Orgs.sendNow([q.email_id]); } catch (e3) { toast("It's in the queue, but: " + cleanErr(e3), true); } }
+        else toast(approve ? "Added to the queue. It goes out in the next send window." : "Saved. It's waiting in the Outbox for your OK.");
         if (onDone) onDone();
       };
       el("pfCmHold").addEventListener("click", () => send(false));
       el("pfCmGo").addEventListener("click", () => send(true));
+      el("pfCmNow").addEventListener("click", () => send(true, true));
     }
 
     // ---------------------------------------------------------------- templates

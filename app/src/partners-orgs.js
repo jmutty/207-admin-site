@@ -930,13 +930,13 @@
     const enrs = [...new Set((data || []).filter((r) => r.enrollment_id).map((r) => r.enrollment_id))];
     const quick = (data || []).filter((r) => !r.enrollment_id).map((r) => r.id);
     const names = ids.map((id) => (byId.get(id) || {}).name).filter(Boolean);
-    if (!confirm(`Approve outreach for ${ids.length} partner${ids.length === 1 ? "" : "s"}? ${enrs.length} sequence${enrs.length === 1 ? "" : "s"}${quick.length ? ` and ${quick.length} quick email${quick.length === 1 ? "" : "s"}` : ""}. First emails go out in the next send window.\n\n${names.join(", ")}`)) return;
+    if (!confirm(`Approve outreach for ${ids.length} partner${ids.length === 1 ? "" : "s"}? ${enrs.length} sequence${enrs.length === 1 ? "" : "s"}${quick.length ? ` and ${quick.length} quick email${quick.length === 1 ? "" : "s"}` : ""}. First emails go out in the next send window (to send right away, use Send now on each one in the Outbox).\n\n${names.join(", ")}`)) return;
     const btn = el("ogBulkApprove"); btn.disabled = true;
     let ok = 0;
     try {
       for (const id of enrs) { const { error: e1 } = await sb.rpc("prospect_approve", { p_enrollment: id }); if (e1) toast(cleanErr(e1), true); else ok++; }
       if (quick.length) { const { error: e2 } = await sb.rpc("prospect_approve_quick", { p_ids: quick }); if (e2) toast(cleanErr(e2), true); else ok++; }
-      toast(`Approved ${ok}. They go out in the next send window.`);
+      toast(`Added ${ok} to the queue. They go out in the next send window.`);
       selected.clear(); await load(true);
     } finally { btn.disabled = false; }
   });
@@ -955,9 +955,9 @@
       ${snippetPicker("ogQBody")}
       <textarea id="aca-ogQBody" class="og-edbody" placeholder="{{hi|Hi there}},&#10;&#10;&hellip;"></textarea>
       <p class="og-sub" style="white-space:normal;margin:4px 0 12px">Fill-ins: <code>{{hi|Hi there}}</code> (Hi + first name), <code>{{first_name}}</code>, <code>{{league|your league}}</code>, <code>{{town}}</code>, <code>{{sport}}</code>, <code>{{quote}}</code> (a matching testimonial). Text after <code>|</code> is used when it's blank. ${esc(SIG_NOTE)}</p>
-      <p class="og-sub" style="white-space:normal;margin:0 0 12px"><strong>Nothing sends yet.</strong> One draft per person waits in the Outbox for your OK. Approving them sends in the next send window and moves new and no-reply orgs to Prospecting (clients stay Clients).</p>
+      <p class="og-sub" style="white-space:normal;margin:0 0 12px"><strong>Send now</strong> sends one email per person right away. <strong>Add to queue</strong> sends them in the next send window. <strong>Save for review</strong> keeps them in the Outbox for your OK. Sending moves new and no-reply orgs to Prospecting (clients stay Clients).</p>
       <div id="aca-ogQErr" class="inline-error hidden" style="margin:0 0 12px"></div>
-      <div class="og-actions"><button type="button" class="primary" data-v="go" disabled>Create drafts</button><button type="button" data-v="close">Cancel</button></div>`, true);
+      <div class="og-actions"><button type="button" class="primary" data-v="now" disabled>Send now</button><button type="button" data-v="queue" disabled>Add to queue</button><button type="button" data-v="go" disabled>Save for review</button><button type="button" data-v="close">Cancel</button></div>`, true);
     const box = modal.last;
     fillSnippetPickers(box, byId.get(ids[0]));
     const whoVal = () => (box.querySelector('input[name="aca-ogQWho"]:checked') || {}).value || "main";
@@ -972,7 +972,7 @@
       el("ogQCount").innerHTML = `<strong>${num(data.emails)} email${data.emails === 1 ? "" : "s"} to ${num(data.orgs)} partner${data.orgs === 1 ? "" : "s"}</strong>` +
         (sk.length ? ` &middot; ${sk.length} skipped <details class="og-qskip"><summary>why</summary>${Object.entries(why).map(([w, ns]) =>
           `<div><strong>${esc(w)} (${ns.length}):</strong> ${esc(ns.join(", "))}</div>`).join("")}</details>` : "");
-      box.querySelector('[data-v="go"]').disabled = !data.emails;
+      box.querySelectorAll('[data-v="go"], [data-v="queue"], [data-v="now"]').forEach((x) => { x.disabled = !data.emails; });
     };
     box.querySelectorAll('input[name="aca-ogQWho"]').forEach((r) => r.addEventListener("change", check));
     check();
@@ -982,12 +982,24 @@
       const subj = el("ogQSubj").value.trim(), body = el("ogQBody").value.trim();
       if (!subj || !body) return err("Add a subject and a message.");
       if (!last || !last.emails) return err("Nobody to email in this selection.");
+      const how = b.dataset.v;
+      if (how === "now" && !confirm(`Send ${last.emails} email${last.emails === 1 ? "" : "s"} right now?`)) return;
       b.disabled = true;
       const { data, error } = await sb.rpc("prospect_quick_draft", { p_orgs: ids, p_who: whoVal(), p_subject: subj, p_body: body, p_dry: false });
       if (error) { b.disabled = false; return err(cleanErr(error)); }
       box.close(true);
       selected.clear();
-      toast(`${data.emails} draft${data.emails === 1 ? "" : "s"} waiting in the Outbox`);
+      if (how === "go") toast(`${data.emails} draft${data.emails === 1 ? "" : "s"} waiting in the Outbox`);
+      else {
+        // the drafts exist now (held); approve them the same way the Outbox would
+        try {
+          const { data: rows, error: e2 } = await sb.from("prospect_scheduled_emails").select("id").eq("batch_id", data.batch).eq("status", "held");
+          if (e2) throw e2;
+          const qids = (rows || []).map((r) => r.id);
+          if (how === "now") await sendNow(qids);
+          else { const { error: e3 } = await sb.rpc("prospect_approve_quick", { p_ids: qids }); if (e3) throw e3; toast(QUEUED); }
+        } catch (e2) { toast("The drafts are in the Outbox, but: " + cleanErr(e2), true); }
+      }
       await load(true); loadReady(true); loadAttention();
     });
   }
@@ -1418,7 +1430,7 @@ ${order.map((k) => sec[k]).join("")}
     let h = enr.map((e) => {
       const held = e.enrollment_status === "paused" && e.end_reason === "held for review";
       return `<div class="og-enr"><div><strong>${esc(e.sequence_name)}</strong> ${held ? '<span class="pill warn">Waiting for your review</span>' : e.enrollment_status === "active" ? '<span class="pill accent">Sending</span>' : '<span class="pill muted">Paused</span>'}</div>
-        <div class="og-actions">${held ? `<button type="button" class="small primary" data-approve="${esc(e.enrollment_id)}">Approve and schedule</button>` : ""}
+        <div class="og-actions">${held ? `<button type="button" class="small primary" data-sendnow="${esc(e.enrollment_id)}">Send now</button><button type="button" class="small" data-approve="${esc(e.enrollment_id)}">Add to queue</button>` : ""}
           ${e.enrollment_status === "active" ? `<button type="button" class="small" data-enr="${esc(e.enrollment_id)}" data-do="pause">Pause</button>` : ""}
           ${e.enrollment_status === "paused" && !held ? `<button type="button" class="small" data-enr="${esc(e.enrollment_id)}" data-do="resume">Resume</button>` : ""}
           <button type="button" class="small" data-enr="${esc(e.enrollment_id)}" data-do="stop">Stop</button></div></div>`;
@@ -1427,7 +1439,7 @@ ${order.map((k) => sec[k]).join("")}
         <div class="og-emh"><span>${emailLabel(x, cById)}</span>${emailChip(x)}</div>
         <div class="og-sub" title="${esc(x.subject || "")}">${x.step_no > 1 ? "Re: " : ""}${esc(x.subject || "")}${x.edited ? " &middot; edited" : ""}</div>
         <div class="og-emb">${esc((x.body || "").slice(0, 160))}${(x.body || "").length > 160 ? "&hellip;" : ""}</div>
-        <div class="og-actions"><button type="button" class="small" data-eedit="${esc(x.id)}">Edit</button>
+        <div class="og-actions">${x.status === "scheduled" || x.status === "failed" ? `<button type="button" class="small" data-esend="${esc(x.id)}">Send now</button>` : ""}<button type="button" class="small" data-eedit="${esc(x.id)}">Edit</button>
           <button type="button" class="small" data-eskip="${esc(x.id)}">Skip</button></div></div>`).join("")
       : (enr.length ? "" : '<p class="muted" style="margin:0 0 8px;font-size:13px">Nothing scheduled. Use <strong>Enroll</strong> or <strong>Email someone</strong> above.</p>');
     if (sent.length) {
@@ -1498,6 +1510,17 @@ ${order.map((k) => sec[k]).join("")}
     });
   }
   const SIG_NOTE = "Your signature and the not-interested line are added at the bottom automatically.";
+  // Send now or Add to queue (2026-10-23): wherever an outreach email is approved, both choices. Add to queue is the
+  // old approve (it waits for the next send window); Send now sends these emails right away, at any hour.
+  async function sendNow(ids) {
+    const { data, error } = await sb.rpc("prospect_send_now", { p_ids: ids });
+    if (error) throw error;
+    if (data && data.ok === false) throw new Error(data.error || "Could not send.");
+    toast(data.paused ? "Approved, but sending is switched off in Settings > Sending, so it waits until you turn it back on."
+      : (data.sending > 1 ? `Sending ${data.sending} emails now.` : "Sending now.") + (data.test_mode ? " Test mode is on, so it goes to the test address." : ""));
+    return data;
+  }
+  const QUEUED = "Added to the queue. It goes out in the next send window.";
 
   // Edit one email. Resolves true when something changed.
   async function openEditor(x, contact, orgName, onDone) {
@@ -1511,15 +1534,16 @@ ${order.map((k) => sec[k]).join("")}
         ${threaded && !sent ? '<span></span><span class="og-sub" style="white-space:normal">Follow-ups reply in the same Gmail thread, so they keep the first email&#39;s subject.</span>' : ""}
         <label for="aca-ogEdWhen">${sent ? "Sent" : "Send"}</label><input type="datetime-local" id="aca-ogEdWhen" value="${esc(toLocalInput(sent ? x.sent_at : x.send_at))}" ${sent ? "disabled" : ""} />
       </div>
-      ${x.status === "held" ? '<p class="og-sub" style="white-space:normal;margin:8px 0 0">This email is waiting for your review. Saving keeps it waiting; <strong>Save and approve</strong> schedules it (and the rest of the sequence).</p>' : ""}
+      ${x.status === "held" ? '<p class="og-sub" style="white-space:normal;margin:8px 0 0">This email is waiting for your review. <strong>Save</strong> keeps it waiting; <strong>Add to queue</strong> sends it in the next send window; <strong>Send now</strong> sends it right away. The rest of a sequence follows on its own.</p>' : ""}
       ${sent ? "" : snippetPicker("ogEdBody")}
       <textarea id="aca-ogEdBody" class="og-edbody" ${sent ? "readonly" : ""}>${esc(x.body || "")}</textarea>
       <p class="og-sub" style="white-space:normal;margin:4px 0 12px">${esc(SIG_NOTE)}</p>
       <div id="aca-ogEdErr" class="inline-error hidden" style="margin:0 0 12px"></div>
       <div class="og-actions">
         ${sent ? '<button type="button" data-v="close">Close</button>' : `
-        ${x.status === "held" ? '<button type="button" class="primary" data-v="approve">Save and approve</button>' : ""}
-        <button type="button" class="${x.status === "held" ? "" : "primary"}" data-v="save">Save</button>
+        <button type="button" class="primary" data-v="sendnow">Send now</button>
+        ${x.status === "held" ? '<button type="button" data-v="approve">Add to queue</button>' : ""}
+        <button type="button" data-v="save">Save</button>
         <button type="button" data-v="skip">Skip this email</button>
         <button type="button" data-v="close">Cancel</button>`}
       </div>`, true);
@@ -1555,11 +1579,12 @@ ${order.map((k) => sec[k]).join("")}
         }
         const { error } = await sb.from("prospect_scheduled_emails").update(patch).eq("id", x.id);
         if (error) throw error;
-        if (v === "approve") {
+        if (v === "sendnow") await sendNow([x.id]);
+        else if (v === "approve") {
           const { error: e2 } = x.enrollment_id ? await sb.rpc("prospect_approve", { p_enrollment: x.enrollment_id })
             : await sb.rpc("prospect_approve_quick", { p_ids: [x.id] });
           if (e2) throw e2;
-          toast("Approved. It goes out in the next send window.");
+          toast(QUEUED);
         } else toast("Saved");
         box.close(true); if (onDone) onDone();
       } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
@@ -1627,9 +1652,9 @@ ${order.map((k) => sec[k]).join("")}
       </div>
       ${snippetPicker("ogOoBody")}
       <textarea id="aca-ogOoBody" class="og-edbody" placeholder="Hi &hellip;"></textarea>
-      <p class="og-sub" style="white-space:normal;margin:4px 0 12px">${esc(SIG_NOTE)} It goes out at this time, or in the next send window after it.</p>
+      <p class="og-sub" style="white-space:normal;margin:4px 0 12px">${esc(SIG_NOTE)} <strong>Send now</strong> sends it right away. <strong>Schedule</strong> sends it at the time above, or in the next send window after it.</p>
       <div id="aca-ogOoErr" class="inline-error hidden" style="margin:0 0 12px"></div>
-      <div class="og-actions"><button type="button" class="primary" data-v="go">Schedule email</button><button type="button" data-v="close">Cancel</button></div>`, true);
+      <div class="og-actions"><button type="button" class="primary" data-v="now">Send now</button><button type="button" data-v="go">Schedule</button><button type="button" data-v="close">Cancel</button></div>`, true);
     const box = modal.last;
     fillSnippetPickers(box, o);
     box.addEventListener("click", async (e) => {
@@ -1642,20 +1667,25 @@ ${order.map((k) => sec[k]).join("")}
       const ids = [...el("ogOoTo").querySelectorAll("input:checked")].map((i) => i.value);
       const to = mailable.filter((x) => ids.includes(x.id));
       if (!to.length) return err("Tick at least one person.");
-      if (!confirm(`Send this to ${to.map((c) => `${who(c)} (${c.email})`).join(", ")} ${at.getTime() <= Date.now() + 60e3 ? "within the next 15 minutes" : "on " + fmtWhen(at.toISOString())}?`)) return;
+      const now = b.dataset.v === "now";
+      if (!confirm(`Send this to ${to.map((c) => `${who(c)} (${c.email})`).join(", ")} ${now ? "right now" : at.getTime() <= Date.now() + 60e3 ? "in the next send window" : "on " + fmtWhen(at.toISOString()) + " (or the next send window after it)"}?`)) return;
       b.disabled = true;
+      const made = [];
       for (const c of to) {
-        const { error } = await sb.rpc("prospect_schedule_oneoff", { p_contact: c.id, p_subject: subj, p_body: body, p_send_at: at.toISOString() });
+        const { data: eid, error } = await sb.rpc("prospect_schedule_oneoff", { p_contact: c.id, p_subject: subj, p_body: body, p_send_at: now ? null : at.toISOString() });
         if (error) { b.disabled = false; return err(`${who(c)}: ${cleanErr(error)}`); }
+        made.push(eid);
       }
-      box.close(true); toast(to.length > 1 ? `${to.length} emails scheduled` : "Email scheduled");
+      box.close(true);
+      if (now) { try { await sendNow(made); } catch (e2) { toast(cleanErr(e2), true); } }
+      else toast(to.length > 1 ? `${to.length} emails scheduled` : "Email scheduled");
       await reloadOrg(o.id); await loadPanel(o.id);
     });
   }
 
   // ---------------------------------------------------------------- Held outreach (2026-10-24: part of the Outbox)
   // "Outreach to review" used to be its own tab. The same cards (who, subject, the whole email) now sit at the top of
-  // the Outbox (outbox.js calls mountHeld), with the Outbox's verbs: Approve and send / Edit / Don't send.
+  // the Outbox (outbox.js calls mountHeld), with the Outbox's verbs: Send now / Add to queue / Edit / Don't send.
   // #partners/ready still works: it opens the Outbox. Pause sending, test mode and open tracking live in Settings > Sending.
   el("panel-ready").innerHTML = '<div class="card"><div class="empty">Outreach to review is part of the <a href="#partners/outbox">Outbox</a> now.</div></div>';
   const heldEl = document.createElement("div");
@@ -1663,8 +1693,8 @@ ${order.map((k) => sec[k]).join("")}
   heldEl.innerHTML = `
       <div class="og-heldhead">
         <div><h3>Waiting for your OK <span class="muted" id="aca-ogHeldN"></span></h3>
-          <p class="og-sub" style="white-space:normal">New outreach and follow-up emails wait here. Read them, edit anything, then approve. Approved emails go out in the next send window, and the rest of a sequence follows on its own.</p></div>
-        <div class="og-actions"><button type="button" class="small primary" id="aca-ogApproveAll">Approve all</button></div>
+          <p class="og-sub" style="white-space:normal">New outreach and follow-up emails wait here. Read them, edit anything, then Send now (right away) or Add to queue (the next send window). The rest of a sequence follows on its own.</p></div>
+        <div class="og-actions"><button type="button" class="small primary" id="aca-ogApproveAll">Add all to queue</button></div>
       </div>
       <div class="og-sendstate" id="aca-ogSendState"></div>
       <div id="aca-ogReadyErr" class="inline-error hidden" style="margin-top:12px"></div>
@@ -1711,7 +1741,7 @@ ${order.map((k) => sec[k]).join("")}
     shownHeld().forEach((r) => { const k = readyKey(r); if (!byEnr.has(k)) byEnr.set(k, []); byEnr.get(k).push(r); });
     heldEl.classList.toggle("hidden", !byEnr.size);
     H("ogHeldN").textContent = byEnr.size ? String(byEnr.size) : "";
-    H("ogApproveAll").textContent = byEnr.size > 1 ? `Approve all ${byEnr.size}` : "Approve all";
+    H("ogApproveAll").textContent = byEnr.size > 1 ? `Add all ${byEnr.size} to queue` : "Add all to queue";
     H("ogApproveAll").classList.toggle("hidden", byEnr.size < 2 || !canEdit("partners"));
     const ed = canEdit("partners");
     H("ogReadyBody").innerHTML = [...byEnr.entries()].map(([enr, rows]) => {
@@ -1725,7 +1755,8 @@ ${order.map((k) => sec[k]).join("")}
         <div class="og-rsubj">${esc(first.subject || "")}</div>
         <div class="og-rbody">${esc(first.body || "")}</div>
         ${ed ? `<div class="og-actions">
-          <button type="button" class="small primary" data-rgo="approve">Approve and send</button>
+          <button type="button" class="small primary" data-rgo="sendnow">Send now</button>
+          <button type="button" class="small" data-rgo="approve">Add to queue</button>
           ${rows.map((r) => `<button type="button" class="small" data-redit="${esc(r.id)}">Edit${rows.length > 1 ? " (" + esc(who(readyContacts.get(r.contact_id))) + ")" : ""}</button>`).join("")}
           <button type="button" class="small" data-rgo="stop">Don't send</button></div>` : ""}</div>`;
     }).join("");
@@ -1738,14 +1769,14 @@ ${order.map((k) => sec[k]).join("")}
     const enrs = [...new Set(list.filter((r) => r.enrollment_id).map((r) => r.enrollment_id))];
     const quick = list.filter((r) => !r.enrollment_id).map((r) => r.id);
     const cards = new Set(list.map(readyKey)).size;
-    if (!cards || !confirm(`Approve and send all ${cards}? ${quick.length ? `${quick.length} single email${quick.length === 1 ? "" : "s"} and ` : ""}${enrs.length} sequence${enrs.length === 1 ? "" : "s"}. First emails go out in the next send window.`)) return;
+    if (!cards || !confirm(`Add all ${cards} to the queue? ${quick.length ? `${quick.length} single email${quick.length === 1 ? "" : "s"} and ` : ""}${enrs.length} sequence${enrs.length === 1 ? "" : "s"}. First emails go out in the next send window.`)) return;
     let ok = 0;
     for (const id of enrs) { const { error } = await sb.rpc("prospect_approve", { p_enrollment: id }); if (error) toast(cleanErr(error), true); else ok++; }
     if (quick.length) {
       const { data, error } = await sb.rpc("prospect_approve_quick", { p_ids: quick });
       if (error) toast(cleanErr(error), true); else ok += (data && data.orgs) || quick.length;
     }
-    toast(`Approved ${ok}`); heldChanged();
+    toast(`Added ${ok} to the queue. They go out in the next send window.`); heldChanged();
   });
   // After an approve / edit / don't send: the cards, the partners list and the Outbox table all refresh.
   function heldChanged() { loadReady(true); load(true); if (typeof Outbox !== "undefined" && Outbox.refresh) Outbox.refresh(); }
@@ -1764,7 +1795,12 @@ ${order.map((k) => sec[k]).join("")}
       const { error } = quickIds ? await sb.rpc("prospect_approve_quick", { p_ids: quickIds })
         : await sb.rpc("prospect_approve", { p_enrollment: card.dataset.enr });
       if (error) { b.disabled = false; toast(cleanErr(error), true); return; }
-      toast("Approved. It goes out in the next send window."); heldChanged(); return;
+      toast(QUEUED); heldChanged(); return;
+    }
+    if (b.dataset.rgo === "sendnow") {
+      b.disabled = true;
+      try { await sendNow(card.dataset.ids.split(",")); } catch (err) { b.disabled = false; toast(cleanErr(err), true); return; }
+      heldChanged(); return;
     }
     if (b.dataset.rgo === "stop") {
       if (!confirm(quickIds ? "Don't send this email? The draft is cancelled." : "Don't send this sequence? Its emails are cancelled (you can enroll again later).")) return;
@@ -1930,11 +1966,23 @@ ${order.map((k) => sec[k]).join("")}
     if (act === "email") return openOneOff(o);
     const reloadHere = async () => { await reloadOrg(o.id); if (openId === o.id) await loadPanel(o.id); loadReady(true); };
     if (b.dataset.approve) {
-      if (!confirm(`Approve ${o.name}'s sequence? Email 1 goes out in the next send window.`)) return;
+      if (!confirm(`Add ${o.name}'s sequence to the queue? Email 1 goes out in the next send window.`)) return;
       b.disabled = true;
       const { error } = await sb.rpc("prospect_approve", { p_enrollment: b.dataset.approve });
       if (error) { b.disabled = false; toast(cleanErr(error), true); return; }
-      toast("Approved"); return reloadHere();
+      toast(QUEUED); return reloadHere();
+    }
+    if (b.dataset.sendnow) {
+      b.disabled = true;
+      try { await sendNow(panelData.emails.filter((y) => y.enrollment_id === b.dataset.sendnow && y.status === "held").map((y) => y.id)); }
+      catch (err) { b.disabled = false; toast(cleanErr(err), true); return; }
+      return reloadHere();
+    }
+    if (b.dataset.esend) {
+      if (!confirm("Send this email now instead of waiting for its time?")) return;
+      b.disabled = true;
+      try { await sendNow([b.dataset.esend]); } catch (err) { b.disabled = false; toast(cleanErr(err), true); return; }
+      return reloadHere();
     }
     if (b.dataset.eedit || b.dataset.eview) {
       const x = panelData.emails.find((y) => y.id === (b.dataset.eedit || b.dataset.eview));
@@ -2148,6 +2196,6 @@ ${order.map((k) => sec[k]).join("")}
     applyConfig({ flag, sort: { key: "next", dir: 1 } });
   }
 
-  return { load: () => load(false), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
+  return { load: () => load(false), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, sendNow, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
     embed, unembed, get: (id) => byId.get(id) || null, stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
   })();

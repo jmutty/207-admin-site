@@ -1175,7 +1175,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const card = await page.textContent("#aca-obHeld .og-rcard");
     check(card.includes("Island Cheer") && card.includes("Looks like your teams are already practicing"), "outreach waiting for an OK shows as a card with its body");
     const verbs = await page.$$eval("#aca-obHeld .og-rcard button", (bs) => bs.map((b) => b.textContent.trim()));
-    check(["Approve and send", "Edit", "Don\u2019t send"].every((v) => verbs.includes(v) || verbs.includes(v.replace("\u2019", "'"))), "card verbs: " + verbs.join(", "));
+    check(["Send now", "Add to queue", "Edit", "Don\u2019t send"].every((v) => verbs.includes(v) || verbs.includes(v.replace("\u2019", "'"))), "card verbs: " + verbs.join(", "));
+    await page.click('#aca-obHeld .og-rcard button[data-rgo="sendnow"]');
+    await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "prospect_send_now"));
+    const sn = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "prospect_send_now").pop());
+    check(Array.isArray(sn[1].p_ids) && sn[1].p_ids.length > 0, "Send now on a held card sends that email right away: " + JSON.stringify(sn[1]));
     check(!(await page.$('#aca-obBody [data-id="ob1"], #aca-obList [data-id="ob1"]')), "the same email is not listed twice");
     check(!(await page.$("#aca-ogPause")) && !(await page.$("#aca-ogTest")), "no pause, test or tracking switches here");
     check(!!(await page.$('#aca-panel-outbox a[href="#system/sending"]')), "sending switches link to Settings");
@@ -1192,6 +1196,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       const box = await page.$("#aca-obPanel:not(.hidden) #aca-obPreview");
       check(!!box && (await box.textContent()).trim().length > 0 && !(await box.textContent()).includes("Loading"), "Outbox row " + id + " shows its email in the panel");
     }
+    // a queued outreach email can go right away too
+    await page.$eval('#aca-obBody tr[data-id="ob5"]', (n) => n.click());
+    await page.click('#aca-obPanel button[data-v="osend"]');
+    await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "prospect_send_now" && c[1].p_ids.includes("ob5")));
+    check(true, "Send now on a scheduled outreach row in the Outbox");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -1442,6 +1451,12 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-pfCmHold");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_queue" && c[1].p_kind === "rebook" && c[1].p_contact === "c1" && c[1].p_approve === false)), "Hold for review queues it unapproved");
+    await page.click('#aca-pfRbBody [data-do="draft"]');
+    await page.waitForSelector("#aca-pfCmNow");
+    check((await page.$$eval(".modal-actions button", (bs) => bs.map((b) => b.textContent.trim()))).join("|").includes("Add to queue|Send now"), "rebook email offers Add to queue and Send now");
+    await page.click("#aca-pfCmNow");
+    await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "prospect_send_now"));
+    check(await page.evaluate(() => { const q = window.__rpcCalls.filter((c) => c[0] === "partner_queue").pop(); const n = window.__rpcCalls.filter((c) => c[0] === "prospect_send_now").pop(); return q[1].p_approve === true && n[1].p_ids[0] === "m10"; }), "Send now approves it and sends that email right away");
 
     await page.evaluate(() => { location.hash = "#partners/reviews"; });
     await page.waitForSelector('#aca-pfRvBody .pf-item[data-id="rv2"]');

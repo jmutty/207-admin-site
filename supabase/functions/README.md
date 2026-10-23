@@ -15,6 +15,7 @@ Project `socluffmclkdljtmiexw`. Only the functions changed in this repo are kept
 | `team` | Team page account actions: create a login with a temporary password (and email them a welcome with it and the phone app link, SQL `team_send_welcome`), reset a password, deactivate or reactivate (ban or unban), remove a deactivated person (deletes the login). Access rules stay in SQL (`team_save` / `team_set_active` / `team_remove` / `team_flag_password`, run with the caller's JWT). | caller's JWT + `is_admin()` |
 | `go` | Tracked links in booking emails: `GET ?e=<booking_emails.id>&u=<base64url link>` logs the click (`booking_link_click`, anon) and redirects. Only our own pages (the hubs, `#day/` page, `booking-ics`); anything else gets a plain page, never a redirect. | none |
 | `booking-weather` | Forecast check for outdoor / either picture days 1 to 3 days out: geocodes the location once (Places Text Search, `GOOGLE_MAPS_API_KEY`), reads the National Weather Service hourly grid, and calls `booking_weather_record` (20%+ rain or gusts over 25 mph during the shoot alerts whoever booked). Cron `booking-weather` twice a day. | `x-booking-secret` (Vault) |
+| `prospect-sender` | Sends outreach email (`prospect_scheduled_emails`) through Gmail, every 15 minutes inside the send window (cron `prospect-sender-15min`). `?ids=A,B` is "Send now" (SQL `prospect_send_now`): just those emails, right away, any hour. Copied from deployed v12 on 2026-10-23. | `x-prospect-secret` (Vault `prospect_trigger_secret`) |
 
 All functions are deployed with `verify_jwt = false` and do their own checks.
 
@@ -30,6 +31,7 @@ supabase functions deploy gotphoto-sales --no-verify-jwt --project-ref socluffmc
 supabase functions deploy booking-ics --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase functions deploy go --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase functions deploy booking-weather --no-verify-jwt --project-ref socluffmclkdljtmiexw
+supabase functions deploy prospect-sender --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase secrets set GOOGLE_MAPS_API_KEY=... --project-ref socluffmclkdljtmiexw   # Routes API + Places API (New)
 ```
 
@@ -37,6 +39,6 @@ supabase secrets set GOOGLE_MAPS_API_KEY=... --project-ref socluffmclkdljtmiexw 
 would be refused.
 
 Not yet in the repo (unchanged, still only in Supabase): `gotphoto-sync`, `photo-release`,
-`calendar-ingest`, `prospect-sender`, `prospect-track`, `booking-sender`.
+`calendar-ingest`, `prospect-track`, `booking-sender`.
 Pull exact copies with `supabase functions download <slug> --project-ref socluffmclkdljtmiexw`
 before editing one.
