@@ -363,7 +363,7 @@
     ["Team", [["schedule", "Schedule", ["schedule", "openjobs@edit=Open jobs", "timeoff@edit:timeoff=Time off"]],
               ["tasks", "Tasks", ["tasks@edit"]],
               ["people", "People", ["team", "clearances@edit=Clearances", "onboarding@edit"]],
-              ["timepay", "Time & pay", ["clock@edit", "timesheets@edit", "mileage@edit", "expenses@edit"]]]],
+              ["timepay", "Time & pay", ["clock@edit=Who's in", "timesheets@edit", "mileage@edit", "expenses@edit"]]]],
     ["Gear", [["inventory", "Inventory", ["inventory", "invbins", "invkits", "invout", "invgear"]]]],
     // Settings (2026-10-24): per job type and "when emails go out" live here. Sync and Sign-in fold into Company.
     ["System", [["sending", "Settings", ["sending", "teamemails=Team emails", "jobtypes=Job types", "teampay=Team & pay", "company=Company",
@@ -376,7 +376,7 @@
     wfsteps: ["jobtypes"], health: ["company"], signin: ["company"] };
   // ...except these, whose pages still work on their own until their module hides or drops them (Seasons and Payouts
   // become Jobs > Sales; Job checklists becomes a column on All jobs). Until then their links open the old page.
-  const KEEP_UNTIL_RETIRED = new Set(["seasons", "payouts", "checklists"]);
+  const KEEP_UNTIL_RETIRED = new Set(["seasons", "payouts", "checklists", "wfsteps"]);
   // Words that stand for a page on their own in a link: #partners, #sales, #settings-like #system, #gear, #me.
   const ALIASES = { partners: "orgs", organizations: "orgs", prospects: "orgs", outreach: "outbox", sales: "resjobs", payouts: "resjobs",
     people: "team", gear: "inventory", ops: "inventory", system: "sending", me: "myday", staff: "myday", work: "orgs" };
@@ -897,7 +897,7 @@
     ["Morning email", ["teamemails", "sending"], "digest today page by email"], ["Who gets the morning email", ["teamemails", "sending"], "digest recipients"],
     ["Your-day email", ["teamemails", "tasks"], "day email"], ["Evening notification", ["teamemails", "tasks"], "evening push"],
     ["Weekly schedule email", ["teamemails", "schedule"], ""], ["Confirm asks", ["teamemails", "schedule"], "crew confirm"],
-    ["Clock reminders", ["teamemails", "timesheets"], "clock in reminder"], ["Quiet hours", ["teamemails", "sending"], "do not disturb"],
+    ["Clock reminders", ["teamemails", "timesheets"], "clock in reminder"], ["Send window", ["sending"], "quiet hours do not disturb"],
     ["Send window", ["sending"], "quiet hours sending hours"], ["Sending on or off", ["sending"], "pause test mode"], ["Email templates", ["library"], "email library"],
     ["Job calculator", ["calc"], "assumptions"],
   ];

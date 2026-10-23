@@ -44,7 +44,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
     // ws/settings: the new Settings tabs (settingsmore) are their own entry until the shell's MENU lists them under Settings
-    check(JSON.stringify(items.filter((t) => t !== "settingsmore")) === JSON.stringify(["today", "myday", "orgs", "jobs", "parents", "schedule", "tasks", "people", "timepay", "inventory", "sending"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "myday", "orgs", "jobs", "parents", "schedule", "tasks", "people", "timepay", "inventory", "sending"]), "menu has every page: " + items.join(","));
     const FIRST = { jobs: "bookings", parents: "requests", people: "team", timepay: "clock", settingsmore: "teamemails" };
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
@@ -99,7 +99,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!(await page.$eval("#aca-tmMore", (d) => d.open)), "access grid starts folded");
     await page.click("#aca-tmMore > summary");
     check(!(await page.$('input[name="tm-taskboard"]')), "a module with no page (Task board) is not offered");
-    check((await page.textContent("#aca-tmGrid")).includes("Ask who's available") && (await page.textContent("#aca-tmGrid")).includes("Timesheets"), "grid uses the menu's words");
+    check((await page.textContent("#aca-tmGrid")).includes("Open jobs") && (await page.textContent("#aca-tmGrid")).includes("Timesheets"), "grid uses the menu's words");
     await page.selectOption("#aca-tmCopyFrom", "u6");
     check(await page.isChecked('input[name="tm-timeclock"][value="view"]') && await page.isChecked('input[name="tm-bookings"][value="none"]'), "Copy access from someone");
     await page.click('[data-preset="office"]');
@@ -1518,7 +1518,6 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector("#aca-ssDayPhone");
     check(await page.$eval("#aca-ssDayPhone", (n) => n.value) === "(207) 558-3185" && (await page.$eval("#aca-ssWeather", (n) => n.value)).includes("backup date"), "shows the picture day phone and the rain plan");
     await page.fill("#aca-ssDayPhone", "(207) 555-0100");
-    if (!(await page.$("#aca-ssRecips .tag"))) { await page.fill("#aca-ssNewRecip", "test@207photo.com"); await page.press("#aca-ssNewRecip", "Enter"); }
     await page.click("#aca-ssSave");
     await page.waitForTimeout(200);
     check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "booking_settings" && w[1] === "update" && w[2].day_of_phone === "(207) 555-0100" && "weather_plan" in w[2])), "saves them with the booking sender settings");
@@ -2020,7 +2019,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await go("#jobs/schools");
     check(await active("hubact"), "#jobs/schools lands on Hub activity");
     await go("#system/health");
-    check(await active("health"), "#system/health still opens Sync until Settings > Company exists");
+    check(await active("company"), "#system/health opens Settings > Company");
     await go("#sales");
     check(await active("resjobs"), "#sales opens Jobs > Sales");
     await go("#partners");
@@ -2071,7 +2070,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.fill("#aca-gsInput", "pay rates");
     await page.waitForTimeout(300);
     let gs = await page.textContent("#aca-gsList");
-    check(gs.includes("Settings") && gs.includes("Pay rates") && gs.includes("Time & pay"), "Cmd-K finds a setting by name: " + gs.replace(/\s+/g, " ").slice(0, 120));
+    check(gs.includes("Settings") && gs.includes("Pay rates") && gs.includes("Team & pay"), "Cmd-K finds a setting by name: " + gs.replace(/\s+/g, " ").slice(0, 120));
     await page.fill("#aca-gsInput", "brewer");
     await page.waitForTimeout(400);
     gs = await page.textContent("#aca-gsList");

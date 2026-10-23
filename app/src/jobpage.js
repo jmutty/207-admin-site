@@ -336,7 +336,7 @@
       box.innerHTML = '<div class="jp-sec"><h3>Checklist</h3>' + (tasks.length ? '<ul class="jp-rows">' + tasks.map((t) => '<li class="' + (t.done ? "done" : "") + '"><span class="t">' +
         esc(t.title) + (t.priority === "urgent" ? ' <span class="pill err">urgent</span>' : "") + '</span><span class="r">' + esc(t.who || "") + (t.due_on ? " \u00b7 " + (t.done ? esc(T.fmtDay(t.due_on)) : dueTxt(t.due_on)) : "") +
         (t.done ? " \u00b7 done" : "") + "</span></li>").join("") + "</ul>" : '<div class="empty">No checklist tasks on this job.</div>') +
-        '<p class="muted" style="font-size:13px;margin:10px 0 0">People tick their own steps off on My day.' + (canSee("workflows") ? ' Change the steps under <a href="#jobs/wfsteps">Job checklists</a>.' : "") + "</p></div>";
+        '<p class="muted" style="font-size:13px;margin:10px 0 0">People tick their own steps off on My day.' + (canSee("workflows") ? ' Change the steps in <a href="#system/jobtypes">Settings &rsaquo; Job types</a>.' : "") + "</p></div>";
     }
 
     // ---------------------------------------------------------------- results
