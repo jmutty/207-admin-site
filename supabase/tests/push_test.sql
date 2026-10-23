@@ -112,13 +112,32 @@ reset role;
 insert into public.prospect_scheduled_emails (org_id, contact_id, subject, body, status, needs_review) values ('00000000-0000-0000-0000-0000000000f9', gen_random_uuid(), 's', 'b', 'held', true), ('00000000-0000-0000-0000-0000000000f9', gen_random_uuid(), 's', 'b', 'held', true);
 select pg_temp.ok((select count(*) from public.push_outbox where topic = 'outreach_review') = 1, 'two drafts held for review -> one notification');
 
+-- GotPhoto sync: quiet through blips, one push after an hour with no good sync, one when it is back.
 insert into public.sync_runs (trigger_source, started_at, ok) values ('cron', now() - interval '10 minutes', true);
 insert into public.sync_runs (id, trigger_source, started_at) values ('00000000-0000-0000-0000-0000000000a9', 'cron', now() - interval '5 minutes');
 update public.sync_runs set ok = false, error = 'timeout' where id = '00000000-0000-0000-0000-0000000000a9';
-select pg_temp.ok((select count(*) from public.push_outbox where topic = 'sync_failed') = 1, 'sync goes from ok to failed -> notification');
-update public.push_outbox set sent_at = now() where topic = 'sync_failed';
+select public.push_sync_watch();
+select pg_temp.ok(not exists (select 1 from public.push_outbox where topic = 'sync_failed' and created_at = now()), 'one failed run -> no notification');
+insert into public.sync_runs (trigger_source, started_at, ok) values ('cron', now(), true);
+select pg_temp.ok(not exists (select 1 from public.push_outbox where topic = 'sync_failed' and created_at = now()), 'blip fixes itself -> no all-clear either');
+update public.sync_runs set started_at = started_at - interval '70 minutes';
+insert into public.sync_runs (trigger_source, started_at, ok, error) values ('cron', now(), false, 'TimeoutError: Signal timed out.');
+select public.push_sync_watch();
+select pg_temp.ok((select count(*) from public.push_outbox where topic = 'sync_failed' and created_at = now() and title = 'GotPhoto sync is down' and body like '%Signal timed out%') = 1, 'no good sync for over an hour -> one notification');
+update public.push_outbox set sent_at = now() where topic = 'sync_failed' and created_at = now();
 insert into public.sync_runs (trigger_source, started_at, ok) values ('cron', now(), false);
-select pg_temp.ok((select count(*) from public.push_outbox where topic = 'sync_failed') = 1, 'still failing 5 minutes later -> no second notification');
+select public.push_sync_watch();
+select pg_temp.ok((select count(*) from public.push_outbox where topic = 'sync_failed' and created_at = now()) = 1, 'still down 5 minutes later -> no second notification');
+insert into public.sync_runs (id, trigger_source, started_at) values ('00000000-0000-0000-0000-0000000000aa', 'cron', now());
+update public.sync_runs set ok = true where id = '00000000-0000-0000-0000-0000000000aa';
+select pg_temp.ok((select count(*) from public.push_outbox where topic = 'sync_failed' and created_at = now() and title = 'GotPhoto sync is working again' and body like '%down 7_ minutes%') = 1, 'first good run -> one all-clear');
+insert into public.sync_runs (trigger_source, started_at, ok) values ('cron', now(), true);
+select pg_temp.ok((select count(*) from public.push_outbox where topic = 'sync_failed' and created_at = now()) = 2, 'more good runs -> nothing more');
+update public.sync_runs set started_at = started_at - interval '2 hours';
+select public.push_sync_watch();
+select pg_temp.ok((select count(*) from public.push_outbox where topic = 'sync_failed' and created_at = now() and title = 'GotPhoto sync is down') = 2, 'sync stops running altogether -> a new outage, a new notification');
+delete from public.push_outbox where topic = 'sync_failed' and created_at = now();
+update public.sync_alert set alerted_at = null;
 
 -- A broken notification never blocks the thing that caused it.
 alter table public.push_outbox rename to push_outbox_away;
