@@ -84,6 +84,8 @@
       const edit = canEdit("openjobs");
       el("ojBar").classList.toggle("hidden", !edit);
       el("ojPostedSec").classList.toggle("hidden", !edit);
+      // B10: someone who sends offers sees "Offers you sent" first; "Offered to you" (if any) below it.
+      if (edit && el("ojPostedSec").nextElementSibling !== el("ojMineSec")) el("ojMineSec").before(el("ojPostedSec"));
       const m = location.hash.match(/^#staff\/openjobs\/([0-9a-z-]{3,40})/i);
       if (m && edit) { pending = m[1]; history.replaceState(null, "", "#staff/openjobs"); }
       try {
@@ -95,6 +97,7 @@
         try {
           const { data, error } = await sb.rpc("openjobs_list");
           if (error) throw error;
+          await loadEmails();
           renderPosted(data || []);
         } catch (e) { showError("ojErr", "Could not load the offers: " + cleanErr(e)); }
         if (pending) { const b = pending; pending = null; openOffer(b); }
@@ -172,6 +175,15 @@
     }
 
     // ---------------------------------------------------------------- manager: offers sent
+    // Full access can see everyone's email (team_list), so an offer can go by email to someone without notifications.
+    let emails = {};
+    async function loadEmails() {
+      if (!ACCESS.is_admin || Object.keys(emails).length) return;
+      try { const { data } = await sb.rpc("team_list"); (data || []).forEach((p) => { if (p.email) emails[p.user_id] = p.email; }); } catch (_e) { /* no email links */ }
+    }
+    const mailto = (to, o) => "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent("Job offer: " + o.title) +
+      "&body=" + encodeURIComponent("Hi,\n\nAre you available for this job?\n\n" + o.title + "\n" + daysText(o.days) + (o.location ? "\n" + o.location : "") + (o.pay ? "\nPay: " + o.pay : "") +
+        (o.note ? "\n\n" + o.note : "") + "\n\nReply to this email, or answer it in 207 Admin under Open jobs.\n\nThanks!");
     function renderPosted(offers) {
       if (!offers.length) { el("ojPosted").innerHTML = '<p class="empty">Nothing offered yet. Use Offer a job to send a booked job to part-timers and 1099 contractors near it.</p>'; return; }
       el("ojPosted").innerHTML = offers.map((o) => {
@@ -182,7 +194,9 @@
         const who = (o.recipients || []).map((r) => {
           const a = r.picked_at ? '<span class="oj-tag ok">Picked</span>' : r.answer === "accepted" ? '<span class="oj-tag ok">Available</span>' + (live && o.taken < o.spots ? '<button type="button" class="small" data-offer="' + esc(o.id) + '" data-pick="' + esc(r.user_id) + '">Pick</button>' : "")
             : r.answer === "declined" ? '<span class="oj-tag">Can\u2019t make it</span>'
-            : r.seen_at ? '<span class="oj-tag">Seen, no answer</span>' : r.notified ? '<span class="oj-tag">Notified</span>' : '<span class="oj-tag warn">No notifications on</span>';
+            : r.seen_at ? '<span class="oj-tag">Seen, no answer</span>' : r.notified ? '<span class="oj-tag">Notified</span>'
+            : '<span class="oj-tag warn" title="They have not turned on notifications (account menu, Notifications), so the offer only shows when they open Open jobs.">No notifications on</span>' +
+              (emails[r.user_id] ? '<a class="s" href="' + esc(mailto(emails[r.user_id], o)) + '">Email them instead</a>' : '<span class="s">Ask them to turn on notifications: account menu, Notifications.</span>');
           return '<li><span class="n">' + esc(T.shortName(r.name)) + "</span>" + a + (r.drive_min != null ? '<span class="s">' + num(r.drive_min) + " min</span>" : "") +
             (r.reason ? '<span class="s">&ldquo;' + esc(r.reason) + "&rdquo;</span>" : "") + (r.answered_at ? '<span class="s">' + esc(fmtAgo(r.answered_at)) + "</span>" : "") + "</li>";
         }).join("");
@@ -284,8 +298,11 @@
     // people can change it here too; everyone with Edit sets home addresses and longest drives.
     const TYPES = [["full_time", "Full time"], ["salaried", "Salaried"], ["part_time", "Part time"], ["contractor", "1099 contractor"]];
     const OFFER_TYPES = ["part_time", "contractor"];
+    // Part-timers & 1099: read-only (ws/settings 2026-10-24). Type, home address and longest drive are set on each
+    // person's Team record (one person record); Edit opens it.
     async function openPeople() {
-      const m = openModal('<div class="oj-modal" style="max-width:860px"><h2>Part-timers and 1099</h2><p class="oj-facts">Part time and 1099 people get Open jobs offers. Their home address is where the drive to a job is measured from; offers start ticked for jobs within their longest drive.</p>' +
+      const m = openModal('<div class="oj-modal" style="max-width:860px"><h2>Part-timers and 1099</h2><p class="oj-facts">Part time and 1099 people get Open jobs offers. Their home address is where the drive to a job is measured from; offers start ticked for jobs within their longest drive. ' +
+        (ACCESS.is_admin ? "Change these on each person&#39;s Team record." : "Someone with full access changes these on the Team page.") + "</p>" +
         '<div id="aca-ojPplBody"><p class="empty">Loading&#8230;</p></div><div class="modal-actions"><span class="grow"></span><button type="button" class="primary" data-m="done">Done</button></div></div>', { onClose: load });
       m.querySelector('[data-m="done"]').addEventListener("click", () => m.close());
       let d;
@@ -293,38 +310,16 @@
       catch (e) { el("ojPplBody").innerHTML = '<p class="inline-error">' + esc(cleanErr(e)) + "</p>"; return; }
       const gets = (p) => OFFER_TYPES.includes(p.employment_type);
       const note = (p) => !gets(p) ? "No offers (" + ((TYPES.find((t) => t[0] === p.employment_type) || [0, "type not set"])[1]) + ")" : !p.has_access ? "Needs Open jobs on the Team page to see offers." : !p.has_device ? "Hasn't turned on notifications yet (account menu, Notifications)." : "Gets offers";
-      const typeCell = (p) => d.can_grant
-        ? '<select class="oj-type small"><option value="">Not set</option>' + TYPES.map((t) => '<option value="' + t[0] + '"' + (p.employment_type === t[0] ? " selected" : "") + ">" + t[1] + "</option>").join("") + "</select>"
-        : esc((TYPES.find((t) => t[0] === p.employment_type) || [0, "Not set"])[1]) + '<span class="s">Set on the Team page</span>';
       const sorted = d.people.slice().sort((a, b) => gets(b) - gets(a));
-      el("ojPplBody").innerHTML = '<table class="oj-ppl"><thead><tr><th>Person</th><th>Type</th><th>Home address</th><th>Longest drive</th></tr></thead><tbody>' + sorted.map((p) =>
+      el("ojPplBody").innerHTML = '<table class="oj-ppl"><thead><tr><th>Person</th><th>Type</th><th>Home address</th><th>Longest drive</th><th></th></tr></thead><tbody>' + sorted.map((p) =>
         '<tr data-u="' + esc(p.user_id) + '"><td><b>' + esc(T.shortName(p.name)) + "</b>" + (p.job_title ? '<span class="s">' + esc(p.job_title) + "</span>" : "") + '<span class="s oj-pnote">' + esc(note(p)) + "</span></td>" +
-        "<td>" + typeCell(p) + "</td>" +
-        '<td><input type="text" class="oj-home" maxlength="300" value="' + esc(p.home_address) + '" placeholder="Street, town" /><span class="s oj-homenote"></span></td>' +
-        '<td><select class="oj-max small">' + DRIVES.concat(DRIVES.includes(p.max_drive_min) ? [] : [p.max_drive_min]).sort((a, b) => a - b).map((n) => '<option value="' + n + '"' + (n === p.max_drive_min ? " selected" : "") + ">" + n + " min</option>").join("") + "</select></td></tr>").join("") + "</tbody></table>";
-      el("ojPplBody").querySelectorAll("tr[data-u]").forEach((tr) => {
-        if (typeof Places !== "undefined") Places.attach(tr.querySelector(".oj-home"), { note: tr.querySelector(".oj-homenote") });
-        const p = d.people.find((x) => x.user_id === tr.dataset.u);
-        async function save(ev) {
-          let granted = false;
-          if (ev.target.classList.contains("oj-type")) {
-            const type = ev.target.value || null;
-            if (type === (p.employment_type || null)) return;
-            const { data, error } = await sb.rpc("team_set_profile", { p_user_id: p.user_id, p_type: type || "", p_title: p.job_title || "" });
-            if (error) { toast(cleanErr(error), true); ev.target.value = p.employment_type || ""; return; }
-            p.employment_type = type; granted = data.granted;
-          } else {
-            const home = tr.querySelector(".oj-home").value.trim(), max = +tr.querySelector(".oj-max").value;
-            if (home === p.home_address && max === p.max_drive_min) return;
-            const { data, error } = await sb.rpc("openjobs_person_save", { p_user: p.user_id, p_part_time: gets(p), p_home: home, p_max_drive: max });
-            if (error) { toast(cleanErr(error), true); return; }
-            Object.assign(p, { home_address: home, max_drive_min: max }); granted = data.granted;
-          }
-          if (granted) p.has_access = true;
-          tr.querySelector(".oj-pnote").textContent = note(p);
-          toast("Saved." + (granted ? " " + T.shortName(p.name) + " can now see Open jobs." : "") + (gets(p) && !p.home_address ? " Add a home address so drive times work." : ""));
-        }
-        tr.addEventListener("change", save);
+        "<td>" + esc((TYPES.find((t) => t[0] === p.employment_type) || [0, "Not set"])[1]) + "</td>" +
+        "<td>" + (p.home_address ? esc(p.home_address) : '<span class="muted">' + (gets(p) ? "not set, so drive times can&#39;t be worked out" : "not set") + "</span>") + "</td>" +
+        "<td>" + num(p.max_drive_min) + " min</td>" +
+        "<td>" + (ACCESS.is_admin ? '<button type="button" class="small" data-editp="' + esc(p.user_id) + '">Edit</button>' : "") + "</td></tr>").join("") + "</tbody></table>";
+      el("ojPplBody").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-editp]"); if (!b) return;
+        m.close(); showTab("team"); Team.edit(b.dataset.editp);
       });
     }
     el("ojOffer").addEventListener("click", () => openOffer(null));
