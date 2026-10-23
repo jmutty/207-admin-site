@@ -285,7 +285,7 @@
     const g = b.gp_create, auto = b.gp_auto && b.gp_auto.auto_enabled;
     const btn = (label) => can ? '<button type="button" class="small primary" data-v="gpmake">' + label + "</button>" : "";
     if (g && (g.status === "created" || g.status === "linked")) return '<div class="bk-gp-made bk-sub" style="margin:8px 0">Made in GotPhoto as <strong>' + esc(g.job_name || "") + "</strong>" + (g.internal_name ? " (" + esc(g.internal_name) + ")" : "") +
-      (g.template_name ? ", settings copied from " + esc(g.template_name) : "") + (b.audience === "school" ? ". Type its access code below once GotPhoto shows it." : ". It links here within 5 minutes, then email 0 is scheduled.") + ' <a href="' + esc(gpJobUrl(g.gotphoto_job_id)) + '" target="_blank" rel="noopener">Open in GotPhoto</a> to check it.</div>';
+      (g.template_name ? ", settings copied from " + esc(g.template_name) : "") + (b.audience === "school" ? (b.access_code ? ", registration code <strong>" + esc(b.access_code) + "</strong>." : ". Set its registration code in GotPhoto and type it below.") : ". It links here within 5 minutes, then email 0 is scheduled.") + ' <a href="' + esc(gpJobUrl(g.gotphoto_job_id)) + '" target="_blank" rel="noopener">Open in GotPhoto</a> to check it.</div>';
     if (g && g.status === "working") return '<div class="bk-sub" style="margin:8px 0">Making it in GotPhoto now\u2026</div>';
     const failed = g && g.status === "failed" ? '<div class="bk-sub" style="margin:8px 0;color:var(--err-fg)">Couldn\u2019t make it in GotPhoto: ' + esc(g.error || "unknown error") + "</div>" : "";
     const note = !g && auto ? '<div class="bk-sub" style="margin:8px 0">207 Admin makes this job in GotPhoto by itself about ' + esc(String((b.gp_auto.grace_minutes || 15) + 5)) + " minutes after booking, with your GotPhoto settings for " + esc(b.type_label || "this job type") + ". Or do it now:</div>" : "";
@@ -547,6 +547,14 @@
   // "Create it in GotPhoto now": shows what the job will get (a dry run of gotphoto-jobs) with the price list, emails
   // and photo access as dropdowns. A change is saved to the job type's GotPhoto defaults first, so the job gets it and
   // so do the jobs after it (that's how a new season's price list is picked: once, here or in Settings).
+  // A school's registration code in Jeremiah's pattern: the name's initials and the school year (Orono High School,
+  // fall 2026 -> OHS2627). A one-word name keeps the word (Brooklin -> BROOKLIN2627).
+  const gpCodeSuggest = (bk) => {
+    const w = String(bk.org_name || "").replace(/[^A-Za-z0-9 ]+/g, " ").split(/\s+/).filter((x) => x && !/^(of|the|and|at)$/i.test(x));
+    const y = +(bk.picture_day || "").slice(0, 4), m = +(bk.picture_day || "").slice(5, 7), start = m >= 7 ? y : y - 1;
+    const yy = y ? String(start % 100).padStart(2, "0") + String((start + 1) % 100).padStart(2, "0") : "";
+    return ((w.length > 1 ? w.map((x) => x[0]).join("") : (w[0] || "")).toUpperCase().slice(0, 12) + yy);
+  };
   async function gpCheck(bk) {
     const box = dialog('<h3 style="margin:0 0 6px">Check the GotPhoto job</h3><p class="muted" id="aca-gpcLoad">Asking GotPhoto what this job would get\u2026</p>', true);
     try {
@@ -567,6 +575,7 @@
         return (cur && !list.some((o) => o.id === cur) ? [{ id: cur, name: curLabel || cur }] : []).concat(list)
           .map((o) => '<option value="' + esc(o.id) + '"' + (o.id === cur ? " selected" : "") + ">" + esc(o.name) + "</option>").join(""); };
       const acc0 = gpAccessOf(job), accList = gpAccessList(acc0, false);
+      const isSchoolBk = bk.audience === "school" || bk.type_key === "school", code0 = isSchoolBk ? (bk.access_code || gpCodeSuggest(bk)) : "";
       const row = (k, v) => '<div class="bk-sub" style="margin:2px 0"><strong>' + k + ":</strong> " + v + "</div>";
       const sel = (id, html) => '<select id="aca-gpc' + id + '" style="width:100%">' + html + "</select>";
       const field = (label, html) => '<div class="field" style="margin-top:10px"><label>' + label + "</label>" + html + "</div>";
@@ -578,12 +587,23 @@
         field("Price list", sel("price", opts("price_profiles", job.price_profile_id, L.price_profile_id))) +
         field("Emails (communication profile)", sel("comm", opts("communication_profiles", job.communication_profile_id, L.communication_profile_id))) +
         field("Photo access", sel("access", accList.map(([k, l]) => '<option value="' + esc(k) + '"' + (k === acc0 ? " selected" : "") + ">" + esc(l) + "</option>").join(""))) +
+        (isSchoolBk ? field("Registration code (parents sign up with it)", '<input type="text" id="aca-gpccode" value="' + esc(code0) + '" style="width:180px;text-transform:uppercase" />' +
+          '<p class="muted" id="aca-gpccodeNote" style="font-size:12px;margin:4px 0 0">207 Admin sets it in GotPhoto and puts the school on the hub with it.</p>') : "") +
         '<p class="muted" style="font-size:12px;margin:10px 0 0">Anything you change here is also remembered for the next ' + esc(bk.type_label || "jobs of this type") + " jobs (Settings &rsaquo; Job types &rsaquo; GotPhoto defaults).</p>" +
         '<div class="inline-error hidden" id="aca-gpcErr"></div><div class="og-actions" style="margin-top:14px"><button type="button" data-v="close">Cancel</button><button type="button" class="primary" data-v="make">Create in GotPhoto</button></div>';
+      // A code already used on the hub or another booking gets a warning (GotPhoto's codes are shared by everyone who types them).
+      const codeCheck = async () => { const n = el("gpccode"), note = el("gpccodeNote"); if (!n || !note) return;
+        const v = n.value.trim(); if (!v) { note.textContent = "Empty: you type the code in later, as before."; return; }
+        const { data } = await sb.rpc("gp_registration_code_taken", { p_code: v, p_booking: bk.id });
+        note.textContent = data ? v.toUpperCase() + " is already used by another school. Pick another." : "207 Admin sets it in GotPhoto and puts the school on the hub with it.";
+        note.style.color = data ? "var(--err-fg)" : ""; };
+      if (isSchoolBk) { codeCheck(); el("gpccode").addEventListener("change", codeCheck); }
       box.addEventListener("click", async (ev) => {
         const b = ev.target.closest("[data-v]"); if (!b) return;
         if (b.dataset.v === "close") return box.close();
         if (b.dataset.v !== "make") return;
+        const code = isSchoolBk ? el("gpccode").value.trim().toUpperCase() : "";
+        if (code && !/^[A-Z0-9-]{3,30}$/.test(code)) { const n = el("gpcErr"); n.textContent = "Registration codes are 3 to 30 letters or numbers."; n.classList.remove("hidden"); return; }
         const pick = (id) => { const n = el("gpc" + id); return { v: n.value, label: n.options[n.selectedIndex] ? n.options[n.selectedIndex].text : "" }; };
         const price = pick("price"), comm = pick("comm"), acc = pick("access");
         const changed = price.v !== (job.price_profile_id || "") || comm.v !== (job.communication_profile_id || "") || acc.v !== acc0;
@@ -599,10 +619,11 @@
             const { error } = await sb.rpc("gp_type_defaults_save", { p_type: bk.type_key, p });
             if (error) throw error;
           }
-          const r = await post("/gpjob?booking=" + encodeURIComponent(bk.id));
+          const r = await post("/gpjob?booking=" + encodeURIComponent(bk.id) + (code ? "&code=" + encodeURIComponent(code) : ""));
           const m = (r.j.made || [])[0] || {};
           if (!r.ok || r.j.error || m.error) toast(m.error && !r.j.error ? "GotPhoto didn't make it. The reason is on the job." : (r.j.error || "Couldn't reach GotPhoto (" + r.status + ")."), true);
-          else toast("Made in GotPhoto. It links here within 5 minutes." + (changed ? " Your changes are the new defaults." : ""));
+          else if (m.code_error) toast("Made in GotPhoto, but the registration code wasn't set: " + m.code_error + " Set it in GotPhoto and type it in here.", true);
+          else toast("Made in GotPhoto" + (m.code_set ? " with registration code " + m.code_set + ". The school is on the hub." : ". It links here within 5 minutes.") + (changed ? " Your changes are the new defaults." : ""));
           box.close(); await refreshDetail();
         } catch (e) { b.disabled = false; b.textContent = "Create in GotPhoto"; const n = el("gpcErr"); n.textContent = cleanErr(e); n.classList.remove("hidden"); }
       });
@@ -689,7 +710,7 @@
           <div class="bk-addc hidden" id="aca-bkAddC"><input type="text" id="aca-bkCFirst" placeholder="First" /><input type="text" id="aca-bkCLast" placeholder="Last" /><input type="email" id="aca-bkCEmail" placeholder="email@school.org" /><input type="text" id="aca-bkCRole" placeholder="Role (AD, secretary)" /><button type="button" class="small" data-v="addc">Add</button></div>
           <button type="button" class="link hidden" id="aca-bkAddCBtn" data-v="showaddc">+ Add a contact</button></div>
         <label for="aca-bkCode" class="bk-school">Access code</label>
-        <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Once the GotPhoto job is made, put its code here. Leave empty for now and email 0 waits for it.</span></span>
+        <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Leave it empty and 207 Admin sets one when it creates the GotPhoto job (you pick it on the check screen).</span></span>
         <label for="aca-bkRetake" class="bk-school">Retake day</label><span class="bk-school"><input type="date" id="aca-bkRetake" value="${esc(d.retake_day || "")}" /> <span class="bk-sub">optional</span></span>
         ${DirectorFields.formHtml()}
         <label for="aca-bkWifi">WiFi</label>
