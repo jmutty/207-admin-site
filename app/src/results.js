@@ -10,7 +10,7 @@
                  tabs: [["seasons", "Seasons"], ["payouts", "Partner payouts"], ["resjobs", "Jobs"]],
                  onShow: (tab) => Results.show(tab) });
   registerAttention("payoutsOwed", { module: "results", level: "soon", name: "partner payouts",
-    one: "A partner payout is owed for a picture day more than a month ago.", many: "{n} partner payouts are owed for picture days more than a month ago." });
+    one: "A partner payout is owed for a season that is over.", many: "{n} partner payouts are owed for seasons that are over." });
   registerTodayLoader("results", () => Results.loadAttention());
 
   const Results = (function () {
