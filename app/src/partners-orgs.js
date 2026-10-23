@@ -185,6 +185,12 @@
   .aca .og-panel { position: fixed; top: var(--og-top, 0px); right: 0; bottom: 0; width: min(600px, 100vw); border-top: 1px solid var(--border); background: var(--surface); border-left: 1px solid var(--border);
     box-shadow: -8px 0 28px rgba(16,24,40,.16); z-index: 9990; display: flex; flex-direction: column; }
   .aca .og-panel.hidden { display: none; }
+  .aca .og-panel.og-inline { position: static; width: auto; max-width: 860px; border: 0; background: transparent; box-shadow: none; z-index: auto; overflow: visible; }
+  .aca .og-panel.og-inline .og-pnav { display: none; }
+  .aca .og-panel.og-inline .og-ptop .og-title { font-size: 15px; font-weight: 600; }
+  .aca .og-panel.og-inline .og-phead { position: static; padding-left: 0; padding-right: 0; background: transparent; }
+  .aca .og-panel.og-inline .og-pbody { padding-left: 0; padding-right: 0; overflow: visible; }
+  .aca #aca-ogPanel.og-inline .og-phead { position: static; padding-left: 0; padding-right: 0; background: transparent; }
   .aca .og-phead { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
   .aca .og-ptop { display: flex; align-items: center; gap: 8px; }
   .aca .og-ptop input.og-title { flex: 1; min-width: 0; font-size: 17px; font-weight: 700; border: 1px solid transparent; background: transparent; padding: 3px 6px; margin-left: -6px; border-radius: 6px; color: var(--text); font-family: inherit; }
@@ -1016,18 +1022,31 @@
   window.addEventListener("scroll", queueMeasure, { passive: true });
   window.addEventListener("resize", queueMeasure);
 
-  async function openOrg(id) {
-    if (!byId.has(id)) return;
-    measureTop();
+  // A row (or a link, search, a new organization) opens the organization's own page (2026-10-23); the side panel
+  // markup below now lives inside that page's Contacts & outreach tab (embed / unembed).
+  function openOrg(id) {
+    if (!id) return;
+    location.hash = "#partners/org/" + id;
+  }
+  let inline = false;
+  const panelHome = panel.parentNode;
+  async function embed(id, box) {
+    await load(false);
+    if (!byId.has(id)) await reloadOrg(id);
+    inline = true;
     openId = id;
-    document.querySelectorAll(".aca tr.og-row").forEach((tr) => tr.classList.toggle("open", tr.dataset.id === id));
-    const row = el("ogBody").querySelector(`tr[data-id="${CSS.escape(id)}"]`);
-    if (row) row.scrollIntoView({ block: "nearest" });
-    history.replaceState(null, "", "#partners/orgs/" + id);
+    box.appendChild(panel);
+    panel.classList.add("og-inline");
     panel.classList.remove("hidden");
-    document.documentElement.classList.add("aca-sheet-open"); document.body.classList.add("aca-sheet-open");
     panel.innerHTML = '<div class="og-pbody"><div class="empty"><span class="spin"></span>Loading&hellip;</div></div>';
     await loadPanel(id);
+  }
+  function unembed() {
+    if (!inline) return;
+    inline = false; openId = null; panelData = null;
+    panel.classList.remove("og-inline");
+    panel.classList.add("hidden");
+    panelHome.appendChild(panel);
   }
   function closePanel(keepHash) {
     openId = null; panelData = null;
@@ -1677,7 +1696,7 @@
     const act = b.dataset.act;
     if (act === "cdone") { renderPanel(); return; }
     const o = byId.get(openId);
-    if (act === "close") return closePanel(false);
+    if (act === "close") return inline ? null : closePanel(false);
     if (act === "history" && o) return HistoryView.open("org", o.id, "History: " + o.name);
     if (act === "prev") return step(-1);
     if (act === "next") return step(1);
@@ -1772,7 +1791,7 @@
   });
 
   document.addEventListener("keydown", (e) => {
-    if (!openId || panel.classList.contains("hidden")) return;
+    if (!openId || inline || panel.classList.contains("hidden")) return;
     if (document.querySelector(".aca .og-modal-wrap, .aca .pr-modal-wrap")) return;
     const typing = e.target.closest && e.target.closest("input, textarea, select");
     if (e.key === "Escape" && !typing) { closePanel(false); return; }
@@ -1918,5 +1937,6 @@
     applyConfig({ flag, sort: { key: "next", dir: 1 } });
   }
 
-  return { load: () => load(false), loadReady: () => loadReady(), measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId) closePanel(true); } };
+  return { load: () => load(false), loadReady: () => loadReady(), measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
+    embed, unembed, get: (id) => byId.get(id) || null, stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
   })();

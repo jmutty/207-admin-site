@@ -300,20 +300,17 @@
     ["My work", [["myday", "My day", ["myday", "tasks@self=My tasks", "crew=My jobs", "openjobs@self=Open jobs", "timeoff@self:timeoff"]],
                  ["mytime", "My time", ["clock@self", "timesheets@self", "mileage@self", "expenses@self"]],
                  ["myrecords", "My records", ["clearances@self", "onboarding@self"]]]],
-    ["Jobs", [["bookings", "Bookings", ["bookings"]],
-              ["jobs", "Galleries", ["jobs=Galleries", "hubact=Hub activity", "schools=Schools on the hub"]],
-              ["seasons", "Season results", ["seasons", "payouts", "resjobs"]]]],
-    ["Parents", [["requests", "Help requests", ["requests"]], ["makeups", "Makeups", ["makeups"]], ["retakes", "Retakes", ["retakes"]],
-                 ["searchlog", "Find My Photos", ["searchlog", "settings", "blocks"]]]],
-    ["Partners", [["orgs", "Organizations", ["orgs"]],
-                  ["follow", "Follow-through", ["rebook", "reviews", "agreements"]],
-                  ["outbox", "Outbox", ["outbox=Everything", "ready=Outreach to review", "library=Email library", "delivery=Bounced"]]]],
+    // Organization first (2026-10-23): everything about one league or school is on its own page (#partners/org/<id>,
+    // orgpage.js), so the cross-organization lists sit under three entries. The fourth item is the Today area.
+    ["Work", [["orgs", "Organizations", ["orgs=All organizations", "ready=Outreach to review", "outbox=Outbox", "rebook=Due to rebook", "reviews", "agreements", "payouts=Payouts"], "Organizations"],
+              ["jobs", "Jobs", ["bookings=All jobs", "jobs=Galleries", "hubact=Hub activity", "schools=Schools on the hub", "seasons", "resjobs=Sales by job"], "Jobs"],
+              ["parents", "Parents", ["requests", "makeups", "retakes", "searchlog=Find My Photos", "settings", "blocks"], "Parents"]]],
     ["Team", [["schedule", "Schedule", ["schedule", "openjobs@edit=Ask who's available", "timeoff@edit:timeoff=Time off"]],
               ["tasks", "Tasks", ["tasks@edit", "checklists=Job checklists", "wfsteps=Checklist steps"]],
               ["people", "People", ["team", "clearances@edit=Records", "onboarding@edit"]],
               ["timepay", "Time & pay", ["clock@edit", "timesheets@edit", "mileage@edit", "expenses@edit"]]]],
     ["Gear", [["inventory", "Inventory", ["inventory", "invbins", "invkits", "invout", "invgear"]]]],
-    ["System", [["sending", "Settings", ["sending", "health", "signin", "calc@admin=Job calculator"]]]],
+    ["System", [["sending", "Settings", ["sending", "library=Email library", "delivery=Bounced", "health", "signin", "calc@admin=Job calculator"]]]],
   ];
   function registerPage(item) { RAIL.push(item); }
   const itemOf = (tab) => RAIL.find((it) => it.tabs.some((t) => t[0] === tab));
@@ -338,14 +335,14 @@
   function menuEntries() {
     const out = [], listed = new Set();
     const order = MENU.map((g) => g[0]);
-    MENU.forEach(([group, entries]) => entries.forEach(([id, title, specs]) => {
+    MENU.forEach(([group, entries]) => entries.forEach(([id, title, specs, area]) => {
       const tabs = [];
       specs.map(parseSpec).forEach((sp) => {
         listed.add(sp.tab);
         const it = itemOf(sp.tab); if (!it || !specShows(sp)) return;
         tabs.push([sp.tab, sp.label || it.tabs.find((t) => t[0] === sp.tab)[1]]);
       });
-      if (tabs.length) out.push({ group, id, title, tabs });
+      if (tabs.length) out.push({ group, id, title, tabs, area: area || group });
     }));
     RAIL.forEach((it) => {
       if (it.hidden || !canSee(it.module)) return;
@@ -353,7 +350,7 @@
       if (!tabs.length) return;
       const group = (it.group || "").replace("Outreach", "Partners");
       if (!order.includes(group)) order.splice(order.length - 1, 0, group);
-      out.push({ group, id: it.id, title: it.label || it.title || tabs[0][1], tabs });
+      out.push({ group, id: it.id, title: it.label || it.title || tabs[0][1], tabs, area: group });
     });
     return order.filter((g, i) => order.indexOf(g) === i).flatMap((g) => out.filter((e) => e.group === g));
   }
@@ -389,8 +386,9 @@
     const it = itemOf(name);
     if (!canSee(it.module) || (!it.hidden && MENU_NOW.length && !entryOf(name))) { if (name !== "today") showTab("today"); return; }
     currentTab = name;
-    const item = railItemOf(name);
-    lastTab[item] = name;
+    // A page outside the menu (a job, an organization) lights up the entry it belongs to.
+    const item = (it.hidden && it.navAs) || railItemOf(name);
+    if (!it.hidden) lastTab[item] = name;
     document.querySelectorAll("#aca-nav button[data-tab]").forEach((b) =>
       b.setAttribute("aria-selected", b.dataset.tab === item ? "true" : "false"));
     renderPageTabs(item, name);
@@ -441,7 +439,8 @@
   // Account menu
   el("whoBtn").addEventListener("click", (e) => { e.stopPropagation(); const m = el("whoMenu"); m.classList.toggle("hidden"); el("whoBtn").setAttribute("aria-expanded", String(!m.classList.contains("hidden"))); });
   document.addEventListener("click", (e) => { if (!e.target.closest("#aca-whoMenu, #aca-whoBtn")) { el("whoMenu").classList.add("hidden"); el("whoBtn").setAttribute("aria-expanded", "false"); } });
-  el("bookBtn").addEventListener("click", () => { showTab("bookings"); Bookings.openNew(); });
+  // On an organization's page, Book a job starts with that organization picked.
+  el("bookBtn").addEventListener("click", () => { const org = currentTab === "org" ? OrgPage.current() : null; showTab("bookings"); Bookings.openNew(org); });
 
   // Long help paragraphs under each heading fold behind "How this page works".
   function foldHelp() {
@@ -538,8 +537,8 @@
       // Counts per area (the menu groups), each with a caret to see what's in it (polish pass 2026-10-23).
       // Areas with something broken start open; the rest remember how they were left.
       const LV = { err: 0, warn: 1, soon: 2 };
-      const areaOf = (a) => { const e = entryOf(a.tab); return (e && e.group) || "Other"; };
-      const order = MENU.map((g) => g[0]).filter(Boolean).concat(["Other"]);
+      const areaOf = (a) => { const e = entryOf(a.tab); return (e && e.area) || "Other"; };
+      const order = MENU.flatMap(([g, entries]) => entries.map((x) => x[3] || g)).filter((g, i, all) => g && all.indexOf(g) === i).concat(["Other"]);
       const areas = order.map((name) => ({ name, rows: items.filter((a) => areaOf(a) === name).sort((x, y) => LV[x.level] - LV[y.level]) })).filter((x) => x.rows.length);
       list.innerHTML = '<div class="today-areas">' + areas.map((ar) => {
         const worst = ar.rows[0].level, open = todayOpen.has(ar.name) || (worst === "err" && !todayShut.has(ar.name));

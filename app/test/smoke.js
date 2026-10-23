@@ -43,8 +43,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "myday", "bookings", "jobs", "seasons", "requests", "makeups", "retakes", "searchlog", "orgs", "follow", "outbox", "schedule", "tasks", "people", "timepay", "inventory", "sending"]), "menu has every page: " + items.join(","));
-    const FIRST = { follow: "rebook", people: "team", timepay: "clock" };
+    check(JSON.stringify(items) === JSON.stringify(["today", "myday", "orgs", "jobs", "parents", "schedule", "tasks", "people", "timepay", "inventory", "sending"]), "menu has every page: " + items.join(","));
+    const FIRST = { jobs: "bookings", parents: "requests", people: "team", timepay: "clock" };
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -53,18 +53,18 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     }
     const tabsOf = async (t) => { await page.click(`#aca-nav button[data-tab="${t}"]`); await page.waitForTimeout(100); return page.$$eval("#aca-pagetabs button[data-tab]", (bs) => bs.map((b) => b.dataset.tab)); };
     check(JSON.stringify(await tabsOf("myday")) === JSON.stringify(["myday", "crew"]), "My day: my day and my jobs");
-    check(JSON.stringify(await tabsOf("jobs")) === JSON.stringify(["jobs", "hubact", "schools"]), "Galleries holds Hub activity");
-    check(JSON.stringify(await tabsOf("follow")) === JSON.stringify(["rebook", "reviews", "agreements"]), "Follow-through: rebooking, reviews, agreements");
-    check(JSON.stringify(await tabsOf("outbox")) === JSON.stringify(["outbox", "ready", "library", "delivery"]), "Outbox holds the library and Bounced");
+    check(JSON.stringify(await tabsOf("orgs")) === JSON.stringify(["orgs", "ready", "outbox", "rebook", "reviews", "agreements", "payouts"]), "Organizations: the lists across organizations");
+    check(JSON.stringify(await tabsOf("jobs")) === JSON.stringify(["bookings", "jobs", "hubact", "schools", "seasons", "resjobs"]), "Jobs: all jobs, galleries, hub, seasons");
+    check(JSON.stringify(await tabsOf("parents")) === JSON.stringify(["requests", "makeups", "retakes", "searchlog", "settings", "blocks"]), "Parents: one page with tabs");
     check(JSON.stringify(await tabsOf("schedule")) === JSON.stringify(["schedule", "openjobs", "timeoff"]), "Schedule: ask who's available, time off");
     check(JSON.stringify(await tabsOf("tasks")) === JSON.stringify(["tasks", "checklists", "wfsteps"]), "Tasks: one list and job checklists");
     check(JSON.stringify(await tabsOf("people")) === JSON.stringify(["team", "clearances", "onboarding"]), "People: team and records");
-    check(JSON.stringify(await tabsOf("sending")) === JSON.stringify(["sending", "health", "signin", "calc"]), "Settings holds the job calculator");
-    check((await page.textContent("#aca-nav")).includes("Partners") && !(await page.textContent("#aca-nav")).includes("Outreach"), "Outreach is called Partners");
+    check(JSON.stringify(await tabsOf("sending")) === JSON.stringify(["sending", "library", "delivery", "health", "signin", "calc"]), "Settings holds the email library, Bounced and the job calculator");
+    check((await page.textContent("#aca-nav")).includes("Work") && !(await page.textContent("#aca-nav")).includes("Outreach"), "Organizations, Jobs and Parents sit under Work");
     await page.click('#aca-nav button[data-tab="today"]');
     await page.waitForTimeout(300);
     const areas = await page.$$eval("#aca-todayList .today-area .today-an", (ns) => ns.map((n) => n.textContent));
-    check(areas.length >= 2 && areas.every((a) => ["My work", "Jobs", "Parents", "Partners", "Team", "Gear", "System", "Other"].includes(a)), "Today: counts per area: " + areas.join(","));
+    check(areas.length >= 2 && areas.every((a) => ["My work", "Organizations", "Jobs", "Parents", "Team", "Gear", "System", "Other"].includes(a)), "Today: counts per area: " + areas.join(","));
     const shut = await page.$("#aca-todayList .today-area:not(.open)");
     if (shut) { await shut.click(); }
     check(!shut || await page.$eval("#aca-todayList .today-area .today-ah[aria-expanded=true]", (n) => !!n), "the caret opens an area");
@@ -552,6 +552,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(100);
     check((await page.textContent("#aca-panel-seasons .tiles")).includes("$16,400"), "whole year adds every season");
 
+    await page.click('#aca-nav button[data-tab="orgs"]');
     await page.click('#aca-pagetabs button[data-tab="payouts"]');
     await page.waitForSelector("#aca-panel-payouts .rs-org");
     const pay = await page.textContent("#aca-panel-payouts");
@@ -578,6 +579,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_set_terms" && c[1].p_pct === 7.5 && c[1].p_kind === "percent" && c[1].p_org === "44444444-4444-4444-4444-444444444444")), "saves a partner's share");
 
+    await page.click('#aca-nav button[data-tab="jobs"]');
     await page.click('#aca-pagetabs button[data-tab="resjobs"]');
     await page.waitForSelector('#aca-panel-resjobs tr[data-job="r9"]');
     check((await page.textContent('#aca-panel-resjobs tr[data-job="r9"]')).includes("typed in"), "typed-in sales are marked");
@@ -605,13 +607,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   console.log("Season results view only");
   {
     const { page, errors } = await open(browser, port, "?as=money");
-    check(JSON.stringify(await rail(page)) === JSON.stringify(["today", "myday", "seasons"]), "menu: Today, My day and Season results");
-    await page.click('#aca-nav button[data-tab="seasons"]');
+    check(JSON.stringify(await rail(page)) === JSON.stringify(["today", "myday", "orgs", "jobs"]), "menu: Today, My day, payouts and season results: " + (await rail(page)).join(","));
+    await page.click('#aca-nav button[data-tab="jobs"]');
     await page.waitForSelector("#aca-panel-seasons .tiles");
-    await page.click('#aca-pagetabs button[data-tab="payouts"]');
+    await page.click('#aca-nav button[data-tab="orgs"]');
     await page.waitForSelector("#aca-panel-payouts .rs-org");
     check(!(await page.$("#aca-panel-payouts [data-payall]")) && !(await page.$("#aca-rsAddTerms")), "no Record payment, no terms editing");
     check(!!(await page.$("#aca-panel-payouts [data-copy]")), "can still copy a statement");
+    await page.click('#aca-nav button[data-tab="jobs"]');
     await page.click('#aca-pagetabs button[data-tab="resjobs"]');
     await page.waitForSelector('#aca-panel-resjobs tr[data-job="r1"]');
     check(!(await page.$("#aca-rsRefresh")), "no Refresh sales");
@@ -917,19 +920,51 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
-  console.log("Job page: history on organizations, sign-ins on Team");
+  console.log("Organization page (owner)");
   {
+    const BR = "11111111-1111-1111-1111-111111111111";
     const { page, errors } = await open(browser, port, "", "#partners/orgs");
-    await page.waitForSelector(".og-row, tr[data-id], [data-org]", { timeout: 5000 }).catch(() => {});
-    const row = await page.$("#aca-panel-orgs [data-id]");
-    if (row) {
-      await row.click();
-      await page.waitForSelector('[data-act="history"]');
-      await page.click('[data-act="history"]');
-      await page.waitForSelector(".hv-modal .hv-list");
-      check(true, "organization panel opens its history");
-      await page.click(".hv-modal [data-x]");
-    } else check(false, "found an organization row to open");
+    await page.waitForSelector(`#aca-panel-orgs [data-id="${BR}"]`);
+    await page.click(`#aca-panel-orgs [data-id="${BR}"]`);
+    await page.waitForSelector("#aca-opTabs button");
+    check(await page.$eval("#aca-panel-org", (n) => n.classList.contains("active")), "clicking an organization opens its page");
+    check(page.url().includes("#partners/org/" + BR), "the address is #partners/org/<id>");
+    check(await page.$eval('#aca-nav button[data-tab="orgs"]', (b) => b.getAttribute("aria-selected") === "true"), "Organizations stays lit in the menu");
+    const tabs = await page.$$eval("#aca-opTabs button", (bs) => bs.map((b) => b.dataset.t));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "jobs", "galleries", "contacts", "emails", "agreements", "payouts", "history"]), "tabs: " + tabs.join(","));
+    await page.waitForSelector(".op-need, .jp-sec .empty");
+    check((await page.textContent("#aca-opBody")).includes("Needs you here"), "overview lists what needs you here");
+    check(!!(await page.$(`#aca-opBody a[href="#jobs/job/bk1"]`)) || (await page.textContent("#aca-opBody")).includes("Winter Sports"), "overview shows the next job");
+    await page.click('#aca-opTabs button[data-t="jobs"]');
+    await page.waitForSelector("#aca-opBody .op-table, #aca-opBody .empty");
+    check((await page.textContent("#aca-opBody")).includes("Winter Sports"), "Jobs tab lists this organization's jobs");
+    await page.click('#aca-opTabs button[data-t="galleries"]');
+    await page.waitForSelector("#aca-opBody .op-card, #aca-opBody .empty");
+    check((await page.textContent("#aca-opBody")).includes("Brewer Travel | Fall 2026"), "Galleries tab lists its galleries");
+    await page.click('#aca-opTabs button[data-t="contacts"]');
+    await page.waitForSelector("#aca-opPanel #aca-ogPanel.og-inline");
+    check((await page.textContent("#aca-opPanel")).includes("Chris"), "Contacts & outreach shows the people");
+    check(!(await page.isVisible('#aca-opPanel [data-act="close"]')), "no close or next buttons on the page");
+    await page.click('#aca-opTabs button[data-t="payouts"]');
+    await page.waitForTimeout(200);
+    check((await page.textContent("#aca-opBody")).includes("10%"), "Payouts tab shows the terms");
+    await page.click('#aca-opTabs button[data-t="history"]');
+    await page.waitForSelector("#aca-opHist .hv-list li, #aca-opHist .empty");
+    check(!!(await page.$("#aca-opNotes")) && !!(await page.$("#aca-opHist .hv-list li")), "Notes & history tab shows the changes");
+    await page.click("#aca-bookBtn");
+    await page.waitForTimeout(300);
+    await page.waitForSelector("#aca-bkOrgPick strong");
+    check((await page.textContent("#aca-bkOrgPick")).includes("Brewer Travel Basketball Club"), "Book a job from an organization page starts with that organization");
+    await page.keyboard.press("Escape");
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#jobs/job/bk1`);
+    await page.waitForSelector(".jp-trail");
+    check((await page.textContent(".jp-trail")).includes("Brewer Travel Basketball Club") && !!(await page.$(`.jp-trail a[href^="#partners/org/${BR}"]`)), "a job page leads back to its organization");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Sign-ins on Team");
+  {
+    const { page, errors } = await open(browser, port, "", "#team/team");
     await page.click('#aca-nav button[data-tab="people"]');
     await page.waitForSelector('[data-edit="u2"]');
     await page.click('[data-edit="u2"]');
@@ -1003,7 +1038,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "?as=staff", "#partners/orgs");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "myday", "mytime", "myrecords", "bookings", "requests", "makeups", "retakes", "schedule"]), "menu limited to their pages: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "myday", "mytime", "myrecords", "jobs", "parents", "schedule"]), "menu limited to their pages: " + items.join(","));
     check(await page.$eval("#aca-panel-today", (n) => n.classList.contains("active")), "a link to a page they can't see lands on Today");
     const calls = await page.evaluate(() => window.__rpcCalls.map((c) => c[0]));
     const forbidden = calls.filter((n) => /^(admin_outbox|admin_hub|admin_lookup|prospect_|admin_morning|team_|admin_job)/.test(n));
@@ -1016,9 +1051,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-todayMine .as-task input >> nth=0");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "assignment_check")), "a task checks off from Today");
-    await page.click('#aca-nav button[data-tab="requests"]');
+    await page.click('#aca-nav button[data-tab="parents"]');
     check(await visible(page, "#aca-viewOnly"), "view-only notice on a view module");
-    await page.click('#aca-nav button[data-tab="bookings"]');
+    await page.click('#aca-nav button[data-tab="jobs"]');
     check(!(await visible(page, "#aca-viewOnly")), "no notice on an edit module");
     await page.evaluate(() => { location.hash = "#system/team"; });
     await page.waitForTimeout(200);
@@ -1346,11 +1381,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
-  console.log("Outbox > Bounced (owner)");
+  console.log("Settings > Bounced (owner)");
   {
     const { page, errors } = await open(browser, port, "", "#system/delivery");
     await page.waitForSelector("#aca-emBody tr.em-row");
-    check(await page.$eval("#aca-pagetabs", (n) => n.textContent.includes("Outbox") && n.textContent.includes("Bounced")), "an old link lands on Outbox > Bounced");
+    check(await page.$eval("#aca-pagetabs", (n) => n.textContent.includes("Email library") && n.textContent.includes("Bounced")), "an old link lands on Settings > Bounced");
     check(await page.evaluate(() => window.__rpcCalls.find((c) => c[0] === "email_list")[1].p_filter === "problems"), "starts on what bounced");
     check(!(await page.$('#aca-panel-delivery input[value="opened"]')) && !(await page.$('#aca-pagetabs button[data-tab="emailreport"]')), "no opens filter and no report");
     check((await page.$$("#aca-emBody tr.em-row")).length === 6, "every recorded email listed");

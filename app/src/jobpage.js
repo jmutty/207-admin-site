@@ -16,7 +16,7 @@
   // A link to a job page, for other modules: '<a href="' + jobLink(id) + '">'.
   function jobLink(id, tab) { return "#jobs/job/" + encodeURIComponent(id) + (tab ? "/" + tab : ""); }
 
-  registerPage({ id: "job", group: "Jobs", section: "jobs", module: null, hidden: true, selfService: true,
+  registerPage({ id: "job", group: "Jobs", section: "jobs", module: null, hidden: true, selfService: true, navAs: "jobs",
                  tabs: [["job", "Job"]], onShow: () => JobPage.show() });
 
   // ---------------------------------------------------------------- history, shared with Organizations and Team
@@ -114,6 +114,7 @@
     const sb = supabase;
     const cleanErr = (e) => String((e && (e.message || e.details)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
     const css = `
+    .aca .jp-trail { margin: 0 0 8px; font-size: 13px; color: var(--muted); } .aca .jp-trail a { color: var(--muted); } .aca .jp-trail a:last-of-type { color: var(--head); font-weight: 600; }
     .aca .jp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin: 2px 0 6px; }
     .aca .jp-head h2 { margin: 0; font-size: 20px; font-weight: 600; line-height: 26px; }
     .aca .jp-head .s { color: var(--muted); font-size: 13.5px; margin-top: 2px; }
@@ -232,14 +233,16 @@
       const b = J.booking, c = J.can;
       const status = b.status === "booked" ? "" : ' <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>";
       root().innerHTML =
-        '<p style="margin:0 0 8px"><a href="#jobs/bookings" id="aca-jpBack" class="muted" style="font-size:13px">&#8592; Bookings</a></p>' +
+        // A job lives inside its organization (2026-10-23): the trail leads back to the organization's page.
+        '<p class="jp-trail">' + (b.org_id && canSee("partners") ? '<a href="#partners/orgs">Organizations</a> &#8250; <a href="' + orgLink(b.org_id, "jobs") + '">' + esc(b.org_name || "Organization") + "</a> &#8250; Jobs"
+          : '<a href="#jobs/bookings" id="aca-jpBack">&#8592; Jobs</a>') + "</p>" +
         '<div class="jp-head"><div><h2>' + esc(b.title) + status + '</h2><div class="s">' + esc(dayLine(b)) + " \u00b7 " + esc(b.type_label || "") +
         (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></div>" +
         '<div class="acts">' + (c.bookings ? '<button type="button" class="small" data-j="booking">Open the booking</button>' : "") +
         '<span class="jp-dl-menu"><button type="button" class="small" data-j="dl">Download &#9662;</button></span></div></div>' +
         (J.stages && J.stages.length ? '<ul class="jp-stages">' + J.stages.map((s) => '<li class="' + (s.reached ? "on" : "") + (J.stage && J.stage.label === s.label ? " cur" : "") + '">' + esc(s.label) + "</li>").join("") + "</ul>" : "") +
         '<div class="jp-tabs" role="tablist" id="aca-jpTabs"></div><div id="aca-jpBody"></div>';
-      el("jpBack").onclick = (e) => { e.preventDefault(); showTab(canSee("bookings") ? "bookings" : "today"); };
+      if (el("jpBack")) el("jpBack").onclick = (e) => { e.preventDefault(); showTab(canSee("bookings") ? "bookings" : "today"); };
       root().querySelector(".jp-head").addEventListener("click", onHeadClick);
       el("jpTabs").innerHTML = tabs().map((t) => {
         const n = t.count ? safe(() => t.count(J)) : 0;
@@ -291,7 +294,7 @@
       const contacts = J.contacts || [];
       box.innerHTML = '<div class="jp-grid"><div>' +
         '<div class="jp-sec"><h3>The job</h3><dl class="jp-dl">' + facts.map((f) => "<dt>" + esc(f[0]) + "</dt><dd>" + esc(f[1] || "\u2014") + "</dd>").join("") +
-        "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="#partners/orgs/' + esc(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + "</dd></dl></div>" +
+        "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="' + orgLink(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + "</dd></dl></div>" +
         (b.notes ? '<div class="jp-sec"><h3>Booking notes</h3><div style="white-space:pre-wrap;font-size:13.5px">' + esc(b.notes) + "</div></div>" : "") +
         (contacts.length ? '<div class="jp-sec"><h3>Contacts</h3><ul class="jp-rows">' + contacts.map((p) => "<li><span>" + esc(p.name || p.email || "") +
           (p.role ? ' <span class="muted">' + esc(p.role) + "</span>" : "") + '</span><span class="r">' + esc([p.email, p.phone].filter(Boolean).join(" \u00b7 ")) + "</span></li>").join("") + "</ul></div>" : "") +
