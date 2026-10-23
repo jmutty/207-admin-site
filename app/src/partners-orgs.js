@@ -1280,8 +1280,10 @@ ${order.map((k) => sec[k]).join("")}
       bks.forEach((b) => { if (b.gotphoto_job_id) keys.add("sports:" + b.gotphoto_job_id); if (b.hub_school_id) keys.add("school:" + b.hub_school_id); });
       const booked = new Set(); live.forEach((b) => { if (b.gotphoto_job_id) booked.add("sports:" + b.gotphoto_job_id); if (b.hub_school_id) booked.add("school:" + b.hub_school_id); });
       (data || []).filter((x) => keys.has(x.hub + ":" + x.org_id) || (x.org || "").toLowerCase() === name).forEach((x) => {
-        // Rows with a booking send reminders to the booking's contacts; hand-added ones are for older hub rows.
-        if (!booked.has(x.hub + ":" + x.org_id)) out.hubAdd.push({ hub: x.hub, org_id: x.org_id, org: x.org });
+        // Rows with a booking send reminders through the booking's emails, so their old hub signups get nothing
+        // and aren't listed (2026-10-23); hand-added ones are for older hub rows.
+        if (booked.has(x.hub + ":" + x.org_id)) return;
+        out.hubAdd.push({ hub: x.hub, org_id: x.org_id, org: x.org });
         (x.watchers || []).forEach((w) => out.hub.push({ id: w.id, hub: x.hub, email: w.email, name: w.name || "", org: x.org }));
       });
     }
@@ -1931,10 +1933,17 @@ ${order.map((k) => sec[k]).join("")}
       if (act === "edit") { tr.classList.add("editing"); const er = tr.nextElementSibling; if (er && er.classList.contains("og-cedit")) { er.classList.add("open"); const i = er.querySelector("input[data-cf]"); if (i) i.focus(); } return; }
       const c = panelData.contacts.find((x) => x.id === tr.dataset.cid);
       const words = { stop: "Stop all emails to", resume: "Allow emails again to", bounced: "Mark as bounced (and stop emails to)", unsubscribed: "Mark as unsubscribed (and stop emails to)", clear_flags: "Clear the bounced/unsubscribed/stopped flags on", remove: "Remove", primary: "", unprimary: "" };
-      if (!/primary/.test(act) && !confirm(`${words[act]} ${who(c)}?`)) return;
-      const { error } = await sb.rpc("prospect_contact_action", { p_contact: c.id, p_action: act });
+      // Stopping someone also takes them off the booking emails of their booked jobs (2026-10-23).
+      const jobs = linked && /^(stop|bounced|unsubscribed|remove)$/.test(act) ? (linked.booking.get(c.id) || []) : [];
+      const also = jobs.length ? `\n\nThis also takes them off the booking emails for ${jobs.join(", ")}.` : "";
+      if (!/primary/.test(act) && !confirm(`${words[act]} ${who(c)}?${also}`)) return;
+      const { data, error } = await sb.rpc("prospect_contact_action", { p_contact: c.id, p_action: act });
       if (error) { toast(cleanErr(error), true); return; }
-      toast(act === "primary" ? `${who(c)} is now a main contact` : act === "unprimary" ? `${who(c)} is no longer a main contact` : "Done");
+      const bks = (data && data.bookings) || [], empty = bks.filter((x) => x.nobody_left).map((x) => x.title);
+      if (empty.length) toast(`Nobody gets the booking emails for ${empty.join(", ")} now. Add someone with Edit booking on the job.`, true);
+      else toast(act === "primary" ? `${who(c)} is now a main contact` : act === "unprimary" ? `${who(c)} is no longer a main contact`
+        : bks.length ? `Done. ${who(c)} is off the booking emails too.` : act === "resume" ? "Done. Add them on a job's Edit booking if they should get its emails." : "Done");
+      if (bks.length) linked = null;
       await reloadOrg(openId); await loadPanel(openId);
       if (/primary/.test(act)) load(true);
     }
