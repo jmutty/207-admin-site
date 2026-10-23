@@ -80,6 +80,7 @@
           <label for="aca-ssSig">Signature</label><div><textarea id="aca-ssSig" rows="3">${esc(bs.signature || "")}</textarea></div>
           <label for="aca-ssDelay">Undo window</label><div><input type="number" id="aca-ssDelay" value="${esc(bs.day0_delay_min ?? 10)}" min="1" max="120" /> <span class="muted" style="font-size:13px">minutes after booking before the first email goes</span></div>
           <label>Quiet hours</label><div><input type="time" id="aca-ssQ1" value="${esc(t5(bs.quiet_start || "21:00"))}" /> to <input type="time" id="aca-ssQ2" value="${esc(t5(bs.quiet_end || "07:00"))}" /> <span class="muted" style="font-size:13px">no sending overnight</span></div>
+          ${DirectorFields.sendingHtml(bs)}
         </div>
 
         <h2>Test mode</h2>
@@ -128,6 +129,7 @@
     const bRow = { sending_enabled: swOn("booking"), legacy_hub_reminders: swOn("legacy"), test_mode: swOn("test"), test_recipient: el("ssTestTo").value.trim() || null,
       from_name: el("ssFromName").value.trim() || "207 Photo", reply_to: el("ssReply").value.split(",").map((x) => x.trim()).filter(Boolean).join(", ") || null,
       bcc: el("ssBcc").value.trim() || null, signature: el("ssSig").value.trim(), day0_delay_min: Math.max(1, Number(el("ssDelay").value) || 10), quiet_start: el("ssQ1").value || "21:00", quiet_end: el("ssQ2").value || "07:00" };
+    Object.assign(bRow, DirectorFields.sendingRead()); // picture day phone + rain plan (director.js)
     if (bRow.test_mode && !bRow.test_recipient) return err("Test mode needs a test address.");
     if (bRow.sending_enabled && !bs.sending_enabled && !bRow.test_mode && !confirm("Turn on real sending? Every scheduled booking email will go to the actual admins from now on.")) return;
     const recips = [...el("ssRecips").querySelectorAll(".tag")].map((t) => t.firstChild.textContent.trim());
@@ -142,7 +144,7 @@
       toast("Settings saved");
       Bookings.loadAttention(); loaded = false; load(); if (typeof renderDigestNote === "function") renderDigestNote();
     } catch (e) { err(cleanErr(e)); }
-    finally { el("ssSave").disabled = false; }
+    finally { if (el("ssSave")) el("ssSave").disabled = false; } // the page re-renders after a save
   }
   return { load };
   })();

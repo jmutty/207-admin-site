@@ -194,6 +194,7 @@
             '<span class="muted">' + (p && hasTerms(p) ? esc(termsText(p)) : g.id ? "no terms" : "") + '</span><span class="grow"></span>' +
             (g.a.balance > 0.005 ? '<span class="owed">' + cents(g.a.balance) + " owed</span>" : "") +
             '<button type="button" class="small quiet" data-copy="' + esc(g.id) + '">Copy statement</button>' +
+            (edit() && g.id ? '<button type="button" class="small quiet" data-emailst="' + esc(g.id) + '">Email statement</button>' : "") +
             (edit() && ids.length ? '<button type="button" class="small primary" data-payall="' + esc(ids.join(",")) + '">Record payment</button>' : "") + "</div>" +
             '<div class="table-wrap"><table class="rs-t"><thead><tr><th>Job</th><th class="r hide-sm">Sales</th><th class="r">Share</th><th class="r hide-sm">Paid</th><th class="r">Owed</th><th></th></tr></thead><tbody>' +
             g.list.map((j) => '<tr class="click" data-job="' + esc(j.id) + '"><td class="name">' + esc(j.name) + '<span class="s">' + esc(fmtD(j.picture_day, true)) + " &middot; " + esc(seasonLabel(j.season, j.season_year)) + "</span></td>" +
@@ -213,13 +214,19 @@
       root.querySelectorAll("tr[data-job]").forEach((tr) => tr.addEventListener("click", () => openJob(tr.dataset.job)));
       root.querySelectorAll("[data-payall]").forEach((b) => b.addEventListener("click", () => openPay(b.dataset.payall.split(","))));
       root.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", () => copyStatement(b.dataset.copy)));
+      root.querySelectorAll("[data-emailst]").forEach((b) => b.addEventListener("click", () => emailStatement(b.dataset.emailst)));
       root.querySelectorAll("[data-terms]").forEach((b) => b.addEventListener("click", () => openTerms(b.dataset.terms)));
       const add = el("rsAddTerms"); if (add) add.addEventListener("click", () => openTerms(null));
     }
 
     // Plain text for an email to the partner: every job this year and last with a payout, paid and owed.
+    // season ("fall-2026", optional) keeps one season's jobs.
+    function statementJobs(orgId, season) {
+      return jobs.filter((j) => (j.org_id || "") === orgId && j.state !== "none" && (!season || j.season + "-" + j.season_year === season))
+        .sort((a, b) => String(a.picture_day).localeCompare(String(b.picture_day)));
+    }
     function copyStatement(orgId) {
-      const list = jobs.filter((j) => (j.org_id || "") === orgId && j.state !== "none").sort((a, b) => String(a.picture_day).localeCompare(String(b.picture_day)));
+      const list = statementJobs(orgId);
       const name = (list[0] && list[0].org_name) || "No organization";
       const a = agg(list);
       const lines = [name + ": picture day results from 207 Photo", ""].concat(list.map((j) =>
@@ -232,6 +239,29 @@
         const m = openModal('<h2>Statement</h2><textarea class="rs-note" style="height:240px;width:100%" readonly>' + esc(text) + '</textarea><div class="modal-actions"><button type="button" class="primary" data-x>Close</button></div>');
         m.querySelector("[data-x]").addEventListener("click", m.close);
       });
+    }
+
+    // "Email statement" (ws/director 2026-10-24): the same statement plus the latest payment ("Check for $380.00 mailed on
+    // March 2, 2026"), dropped into the outbox HELD for review (partner_statement_queue). Exported as Results.emailStatement.
+    async function emailStatement(orgId, season) {
+      try { await load(); } catch (e) { toast(cleanErr(e), true); return null; }
+      const list = statementJobs(orgId, season);
+      if (!list.length) { toast("No jobs with a payout for this partner" + (season ? " that season." : "."), true); return null; }
+      const name = list[0].org_name || "your program";
+      const sl = season ? seasonLabel(season.split("-")[0], season.split("-")[1]) : "";
+      const a = agg(list);
+      const lines = list.map((j) =>
+        seasonLabel(j.season, j.season_year) + ": " + j.name + " (picture day " + fmtD(j.picture_day, true) + ")\n" +
+        "  " + (j.orders == null ? "" : n(j.orders) + " orders, ") + (j.sales == null ? "sales not in yet" : cents(n(j.sales)) + " in sales") +
+        ", your share " + cents(n(j.due)) + (n(j.paid) ? ", paid " + cents(n(j.paid)) + " on " + fmtD(j.last_paid_on, true) : "") +
+        (n(j.balance) > 0.005 ? ", " + cents(n(j.balance)) + " to come" : ""));
+      const body = "{{hi|Hi there}},\n\nHere is your picture day statement from 207 Photo" + (sl ? " for " + sl : "") + ".\n\n" + lines.join("\n") +
+        "\n\nTotal share " + cents(a.due) + ", paid " + cents(a.paid) + (a.balance > 0.005 ? ", " + cents(a.balance) + " to come." : ".") +
+        "\n\n{{paid_line}}\n\nThank you for having us! Any questions, just reply.";
+      const { data, error } = await sb.rpc("partner_statement_queue", { p_org: orgId, p_subject: name + ": picture day statement" + (sl ? ", " + sl : ""), p_body: body });
+      if (error) { toast(cleanErr(error), true); return null; }
+      toast("The statement for " + name + " is in the outbox, held for you to check and send" + (data && data.to ? " (to " + data.to + ")." : "."));
+      return data;
     }
 
     function openPay(ids, single) {
@@ -394,5 +424,5 @@
       setAttention("payoutsOwed", n(data.owed), cents(n(data.total)) + " owed to partners", "payouts");
     }
 
-    return { show, loadAttention };
+    return { show, loadAttention, emailStatement };
   })();

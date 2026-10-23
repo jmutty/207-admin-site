@@ -446,6 +446,7 @@
         <label for="aca-bkCode" class="bk-school">Access code</label>
         <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Create the job in GotPhoto (link above), then put its code here. Leave empty for now and email 0 waits for it.</span></span>
         <label for="aca-bkRetake" class="bk-school">Retake day</label><span class="bk-school"><input type="date" id="aca-bkRetake" value="${esc(d.retake_day || "")}" /> <span class="bk-sub">optional</span></span>
+        ${DirectorFields.formHtml()}
         <label for="aca-bkNotes">Notes</label><textarea id="aca-bkNotes" rows="2" placeholder="Internal notes (also on the calendar event)">${esc(d.notes || "")}</textarea>
         ${isNew ? `<label>Deliverables</label>
         <div><div class="bk-contacts" id="aca-bkFDlv"></div>
@@ -457,6 +458,7 @@
       <div id="aca-bkFormErr" class="inline-error hidden" style="margin:10px 0 0"></div>
       <div class="og-actions bk-factions" style="margin-top:12px"><button type="button" class="primary" data-v="save">${isNew ? "Book it" : "Save changes"}</button><button type="button" data-v="close">Cancel</button></div>`, true);
     box.classList.add("bk-form");
+    if (!isNew) DirectorFields.fill(d.id); // team times, order dates, picture day page link (director.js)
 
     const err = (m) => { el("bkFormErr").textContent = m; el("bkFormErr").classList.remove("hidden"); };
     // One or more days. Day rows come from the booking's days (edit) or one blank row (new). Times optional.
@@ -540,6 +542,7 @@
         if (s.kind === "coach" && s.trigger === "gallery_live") return { k: "3|" + String(s.offset_days).padStart(4, "0"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">coach</span>: ' + (s.offset_days ? s.offset_days + " days after the gallery goes live" : "when the gallery goes live") + " (to the coaches on file)</li>" };
         if (s.kind === "hub" && s.trigger === "gallery_live") return { k: "3|" + String(s.offset_days).padStart(4, "0"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + (s.offset_days ? s.offset_days + " days after the gallery goes live" : "when the gallery goes live") + "</li>" };
         if (s.kind === "hub" && s.trigger === "retake_day") return { k: "2|" + (isSchool() && el("bkRetake").value ? addDays(el("bkRetake").value, -s.offset_days) : "9999"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + s.offset_days + " day" + (s.offset_days === 1 ? "" : "s") + " before retake day" + (isSchool() && el("bkRetake").value ? " (" + esc(fmtDay(addDays(el("bkRetake").value, -s.offset_days))) + ")" : " (needs a retake day)") + "</li>" };
+        if (s.trigger === "booking") return { k: "0|0", h: "<li><strong>" + esc(s.label) + "</strong>: " + (isNew ? "right after you book (after the undo window)" : "already scheduled") + "</li>" };
         if (s.offset_days === 0) return { k: "0|", h: "<li><strong>" + esc(s.label) + "</strong>: " + (isSchool() ? (el("bkCode").value.trim() ? (isNew ? "about 10 minutes after you book" : "already scheduled") : "waits for the access code, then 10 minutes later") : (isNew ? "10 minutes after the GotPhoto job exists (it links itself within 5 minutes of the job being created)" : "already scheduled")) + "</li>" };
         // the hub "day before" reminder goes once per night; everything else once, keyed off the first day
         const nights = s.kind === "hub" && s.hub_key === "day" && s.trigger === "picture_day" ? readDays().filter((d) => d.day) : [{ day: pd }];
@@ -652,7 +655,9 @@
           const typed = isNew ? el("bkFDlvNew").value.trim() : "";
           const crew = el("bkCrew") ? [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.value) : [];
           const items = isNew ? [...fdPicked].map((id) => ({ template_id: id })).concat(fdNew.concat(typed ? [typed] : []).map((label) => ({ label, save: el("bkFDlvSave").checked }))) : [];
+          const dir = DirectorFields.read();
           box.close();
+          const dirErr = await DirectorFields.save(isNew ? data.id : d.id, dir, isNew);
           let dlvErr = "";
           if (items.length) { try { await addDeliverables(data.id, items); } catch (e3) { dlvErr = cleanErr(e3); } }
           let crewMsg = "";
@@ -662,7 +667,8 @@
               crewMsg = sr.untimed.length ? " " + (sr.added ? "On the schedule for the days with a time; " : "") + "add the crew on the Schedule once " + sr.untimed.map(fmtDay).join(", ") + (sr.untimed.length > 1 ? " have times." : " has a time.") : " Crew is on the schedule.";
             } catch (e4) { crewMsg = " The crew was not put on the schedule: " + cleanErr(e4) + "."; }
           }
-          toast((dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event\u2026" : "Saved.") + crewMsg, !!dlvErr || /not put/.test(crewMsg));
+          if (dirErr) crewMsg += " The team times and order dates were not saved (" + dirErr + "); open Edit booking to try again.";
+          toast((dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event\u2026" : "Saved.") + crewMsg, !!dlvErr || !!dirErr || /not put/.test(crewMsg));
           await load(true);
           openDetail(isNew ? data.id : d.id, true);
         } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
