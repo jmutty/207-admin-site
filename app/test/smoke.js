@@ -278,6 +278,12 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     for (let i = 0; i < 36 && !(await page.$('.dp-cal [data-d="2026-12-05"]')); i++) await page.click('.dp-cal [data-m="' + (new Date() < new Date(2026, 11, 5) ? 1 : -1) + '"]');
     await page.click('.dp-cal [data-d="2026-12-05"]');
     check(await page.$eval("#aca-bkDays .bk-d-day", (n) => n.value) === "2026-12-05" && /^\s*12\/5\s*$/.test(await page.textContent("#aca-bkDays .dp-face")), "calendar sets the day");
+    // A school booking: the access code box gets the suggested registration code (initials + school year)
+    await page.click('#aca-bkTypes input[value="school"]', { force: true });
+    await page.waitForTimeout(100);
+    check((await page.$eval("#aca-bkCode", (n) => n.value)) === "BTBC2627", "a school booking suggests the registration code: " + (await page.$eval("#aca-bkCode", (n) => n.value)));
+    await page.click('#aca-bkTypes input[value="sports_data"]', { force: true });
+    await page.waitForTimeout(100);
     // Ordering dates work themselves out from the day after picture day (sports: +3 / +14 / +30)
     const od = await page.$eval("#aca-bkOrderBy", (n) => [document.getElementById("aca-bkFreeShip").value, document.getElementById("aca-bkDiscEnds").value, n.value].join(" "));
     check(od === "2026-12-09 2026-12-20 2027-01-05", "sports order dates from the launch: " + od);
