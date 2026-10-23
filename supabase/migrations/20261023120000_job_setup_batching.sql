@@ -315,6 +315,25 @@ select pg_temp.patch_function('public.day_email_content(uuid, date)'::regprocedu
   'case when public.schedule_batched_later(r.batch_id, r.starts_at) then ''leave the last job ''
         when public.schedule_from_home(r.user_id) then ''leave home '' else ''leave the studio '' end ||', 1);
 
+-- Crew emails (20261023101500): the weekly schedule and the "confirm this job" email leave earlier for setup,
+-- and say where they leave from (polish pass 2026-10-23, found when #36 and #37 were combined).
+create function public.schedule_leave_from(p_entry uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select case when public.schedule_batched_later(e.batch_id, e.starts_at) then 'leave the last job'
+              when public.schedule_from_home(e.user_id) then 'leave home' else 'leave the studio' end
+    from public.schedule_entries e where e.id = p_entry
+$$;
+select pg_temp.patch_extents('public.week_email_content(uuid, date)'::regprocedure, 'r', 1, 0);
+select pg_temp.patch_function('public.week_email_content(uuid, date)'::regprocedure,
+  '''leave the studio '' \|\|',
+  'public.schedule_leave_from(r.id) || '' '' ||', 1);
+select pg_temp.patch_function('public.crew_days(uuid, uuid)'::regprocedure,
+  'e\.drive_before_min, r\.label',
+  'e.drive_before_min + e.setup_min, r.label', 1);
+select pg_temp.patch_function('public.crew_ask_content(uuid, boolean)'::regprocedure,
+  'public\.crew_day_line\(r\.starts_at, r\.ends_at, r\.drive_before_min, r\.role\)',
+  'replace(public.crew_day_line(r.starts_at, r.ends_at, r.drive_before_min, r.role), ''leave the studio'', coalesce(public.schedule_leave_from(r.entry_id), ''leave the studio''))', 2);
+
 -- Time clock scheduled hours and Open jobs "busy" count setup and teardown.
 select pg_temp.patch_extents('public.tc_scheduled(uuid[], date, date)'::regprocedure, 'e', 2, 2);
 select pg_temp.patch_extents('public.openjobs_candidates(uuid)'::regprocedure, 'e', 1, 1);
@@ -328,7 +347,7 @@ select pg_temp.patch_function('public.mileage_list(date, boolean)'::regprocedure
   'public\.mileage_estimate\(r\.booking_id\)', 'public.mileage_estimate_for(r.user_id, r.booking_id, r.day)', 1);
 
 -- ---------------------------------------------------------------- grants
-revoke all on function public.schedule_entries_setup(), public.schedule_entries_unbatch(), public.schedule_batched_later(uuid, timestamptz),
+revoke all on function public.schedule_entries_setup(), public.schedule_entries_unbatch(), public.schedule_batched_later(uuid, timestamptz), public.schedule_leave_from(uuid),
   public.mileage_estimate_for(uuid, uuid, date), public.schedule_from_home(uuid), public.drive_cached(text, text) from public, anon, authenticated;
 revoke all on function public.drive_leg_target(uuid, uuid), public.drive_leg_store(text, text, int, int), public.drive_from_target(uuid, uuid),
   public.schedule_batch_save(jsonb), public.schedule_setup_save(int, int, boolean) from public, anon;

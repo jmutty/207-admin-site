@@ -31,13 +31,13 @@
 
 insert into public.app_modules (key, label, section, description, sort, status, admin_only)
 values ('emails', 'Email delivery', 'System',
-        'Every email sent through Resend with whether it was delivered, bounced, opened or clicked; resend failed ones; a monthly report. View = see them; Edit = resend and mark handled.',
+        'Emails sent through Resend that bounced or failed (Outbox > Bounced); resend them. View = see them; Edit = resend and mark handled.',
         92, 'live', false)
 on conflict (key) do update set status = 'live', label = excluded.label, section = excluded.section, description = excluded.description;
 
-insert into public.push_topics (key, label, description, module, sort)
-values ('email_problem', 'Email bounced or failed', 'An email we sent through Resend bounced, was marked as spam, or could not be sent.', 'emails', 93)
-on conflict (key) do nothing;
+-- Pushes go out as the one "email failed" kind booking emails already use (polish pass 2026-10-23: no second kind).
+update public.push_topics set label = 'Email failed or bounced',
+       description = 'A booking email could not be sent, or an email we sent bounced or was marked as spam.' where key = 'booking_email_failed';
 
 -- ---------------------------------------------------------------- table
 create table public.email_sends (
@@ -133,7 +133,7 @@ begin
     update public.prospect_contacts set bounced_at = now(), updated_at = now()
      where bounced_at is null and lower(btrim(email)) = any (e.to_emails);
   end if;
-  perform public.push_notify('email_problem',
+  perform public.push_notify('booking_email_failed',
     case e.status when 'bounced' then 'Email bounced' when 'complained' then 'Email marked as spam' else 'Email not sent' end,
     array_to_string(e.to_emails, ', ') || ': ' || e.subject, '/#system/delivery', 'email_' || e.status);
 exception when others then

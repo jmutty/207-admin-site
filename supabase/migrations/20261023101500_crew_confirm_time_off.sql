@@ -117,7 +117,7 @@ create table public.week_email_log (
 comment on table public.week_email_log is 'Who got the weekly schedule email for which week (the automatic send goes once per person per week).';
 
 alter table public.staff_settings
-  add column crew_confirm_on boolean not null default true,
+  add column crew_confirm_on boolean not null default false,  -- polish pass 2026-10-23: available, but off to start
   add column week_email_auto boolean not null default false,
   add column week_email_dow  smallint not null default 5 check (week_email_dow between 0 and 6),
   add column week_email_hour smallint not null default 15 check (week_email_hour between 6 and 20);
@@ -135,7 +135,6 @@ revoke all on public.crew_roles, public.team_member_roles, public.crew_asks, pub
 insert into public.push_topics (key, label, description, module, sort) values
   ('crew_ask',        'Job to confirm',        'You were put on a job. Confirm it or say you can''t make it.', 'scheduling', 72),
   ('crew_declined',   'Crew can''t make it',   'Someone on a job said they can''t make it.', 'scheduling', 73),
-  ('week_schedule',   'Your week',             'Your schedule for next week is in your email.', 'scheduling', 74),
   ('timeoff_request', 'Time off to approve',   'Someone asked for time off.', 'timeoff', 75),
   ('timeoff_decided', 'Your time off',         'Your time off was approved or declined.', 'timeoff', 76)
 on conflict (key) do nothing;
@@ -708,12 +707,6 @@ begin
     if v is null then v_empty := v_empty + 1; continue; end if;
     v_req := public.crew_send_email(r.email, v ->> 'subject', v ->> 'text', v ->> 'html');
     if v_req is null then v_noaddr := v_noaddr + 1; end if;
-    if public.crew_wants_push(r.user_id, 'week_schedule') then
-      perform public.push_notify('week_schedule', 'Your week of ' || to_char(p_start, 'FMMon FMDD'),
-        concat_ws(', ', case when (v ->> 'jobs')::int = 1 then '1 job' when (v ->> 'jobs')::int > 1 then (v ->> 'jobs') || ' jobs' end,
-                        case when (v ->> 'pending')::int > 0 then (v ->> 'pending') || ' to confirm' end, 'details in your email'),
-        '/#staff/crew', 'week_schedule_' || p_start, r.user_id);
-    end if;
     insert into public.week_email_log (user_id, week_start, request_id) values (r.user_id, p_start, v_req)
     on conflict (user_id, week_start) do update set sent_at = now(), request_id = excluded.request_id;
     v_sent := v_sent + 1;

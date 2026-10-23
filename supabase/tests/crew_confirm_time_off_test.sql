@@ -53,7 +53,9 @@ insert into public.booking_days (booking_id, day, start_at, end_at, sort) values
 select pg_temp.ok(exists (select 1 from public.app_modules where key = 'timeoff' and status = 'live' and not admin_only), 'timeoff module exists and is grantable');
 select pg_temp.ok((select count(*) from public.crew_roles where archived_at is null) = 4, 'four starter roles');
 select pg_temp.ok((select count(*) from cron.job where jobname in ('crew-send-due', 'week-email-auto')) = 2, 'crons scheduled');
-select pg_temp.ok((select count(*) from public.push_topics where key in ('crew_ask', 'crew_declined', 'week_schedule', 'timeoff_request', 'timeoff_decided')) = 5, 'push kinds added');
+select pg_temp.ok((select count(*) from public.push_topics where key in ('crew_ask', 'crew_declined', 'timeoff_request', 'timeoff_decided')) = 4 and not exists (select 1 from public.push_topics where key = 'week_schedule'), 'push kinds added (no week push: the email is enough)');
+select pg_temp.ok(not (select crew_confirm_on from public.staff_settings where id), 'crew confirmations start off');
+update public.staff_settings set crew_confirm_on = true where id;
 
 -- ---------------------------------------------------------------- outsiders
 select pg_temp.act(null);
@@ -206,7 +208,7 @@ reset role;
 select pg_temp.ok((select body ->> 'subject' from net.calls where url = 'https://api.resend.com/emails' order by id desc limit 1) like 'Your schedule, week of Nov 1: 1 job, 1 to confirm', 'the subject counts jobs and answers');
 select pg_temp.ok((select body ->> 'html' from net.calls where url = 'https://api.resend.com/emails' order by id desc limit 1) not like '%Edit One%', 'only their own schedule');
 select pg_temp.ok((select body ->> 'html' from net.calls where url = 'https://api.resend.com/emails' order by id desc limit 1) like '%(Lead)%', 'the role is in it');
-select pg_temp.ok(exists (select 1 from public.push_outbox where topic = 'week_schedule' and target_user = '00000000-0000-0000-0000-0000000000d1'), 'and a push');
+select pg_temp.ok(not exists (select 1 from public.push_outbox where topic = 'week_schedule'), 'no push on top of the email');
 select pg_temp.ok(public.week_email_content('00000000-0000-0000-0000-0000000000c1', '2026-11-01') is null, 'nothing on: no email');
 select pg_temp.ok((public.week_email_deliver('2026-11-01', array['00000000-0000-0000-0000-0000000000d1'::uuid], false) ->> 'sent')::int = 0, 'the automatic send skips people already sent');
 select pg_temp.ok(public.week_email_auto() = 0, 'automatic send is off by default');

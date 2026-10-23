@@ -378,7 +378,7 @@
       const total$ = (p) => (estPay(p) == null ? null : estPay(p) + num(p.mileage_pay) + num(p.expenses));
       const table = (list, ot) => '<div class="table-wrap"><table class="tc-week"><thead><tr><th>Person</th><th class="tc-num">' + (ot ? "Regular" : "Hours") + "</th>" + (ot ? '<th class="tc-num">Overtime</th>' : "") + '<th class="tc-num">Miles</th><th class="tc-num">Mileage</th><th class="tc-num">Expenses</th><th class="tc-num">Est. pay</th></tr></thead><tbody>' +
         list.map((p) => '<tr><td class="name">' + esc(p.name) + (p.employment_type === "salaried" ? ' <span class="pill muted">Salaried</span>' : "") + '</td><td class="tc-num">' + hrs2(ot ? p.regular_min : p.worked_min) + "</td>" + (ot ? '<td class="tc-num">' + (p.overtime_min ? hrs2(p.overtime_min) : "") + "</td>" : "") + '<td class="tc-num">' + mi(p.miles) + '</td><td class="tc-num">' + money(p.mileage_pay) +
-          '</td><td class="tc-num">' + (num(p.expenses) ? money(p.expenses) : "") + '</td><td class="tc-num" title="' + esc(p.pay ? (p.pay.basis === "day" ? "Day rate " + money(p.pay.rate) : money(p.pay.rate) + " an hour") + ", from the " + p.pay.source + " rate. Mileage and expenses added." : "No pay rate set") + '">' + (total$(p) != null ? money(total$(p)) : '<span class="muted">no rate</span>') + "</td></tr>").join("") +
+          '</td><td class="tc-num">' + (num(p.expenses) ? money(p.expenses) : "") + '</td><td class="tc-num" title="' + esc(p.pay ? (p.pay.basis === "day" ? "Day rate " + money(p.pay.rate) : p.pay.basis === "job" ? money(p.pay.rate) + " a job x " + num(p.pay.jobs) : money(p.pay.rate) + " an hour") + ", from the " + p.pay.source + " rate. Mileage and expenses added." : "No pay rate set") + '">' + (total$(p) != null ? money(total$(p)) : '<span class="muted">no rate</span>') + "</td></tr>").join("") +
         "</tbody></table></div>";
       async function run() {
         const n = +el("prW").value, start = T.addDays(week, -7 * (n - 1));
@@ -394,7 +394,7 @@
             (unapproved.length ? '<p class="tc-warn">Not approved yet: ' + esc(names(unapproved)) + "</p>" : "") +
             (pr.people.filter((p) => !isCont(p)).length ? table(pr.people.filter((p) => !isCont(p)), true) : pr.people.length ? "" : '<p class="empty">No time in this period.</p>') +
             (pr.people.some(isCont) ? '<h3 style="margin:16px 0 6px;font-size:14px">1099 contractors</h3><p class="tc-sum" style="margin:0 0 6px">Not in the payroll CSV. Pay them from their own CSV.</p>' + table(pr.people.filter(isCont), false) : "") +
-            '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Sunday\u2013Saturday); salaried people and 1099 contractors get none. Mileage at " + rateTxt(pr.mileage_rate) + ". Expenses are the approved ones. Est. pay = pay rate (overtime at 1.5x) + mileage + expenses; set rates under Pay rates.</p>";
+            '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Sunday\u2013Saturday); salaried people and 1099 contractors get none. Mileage at " + rateTxt(pr.mileage_rate) + ". Expenses are the approved ones. Est. pay = pay rate (overtime at 1.5x) + mileage + expenses; set rates under Pay rates. The CSV is for your payroll service.</p>";
           m.querySelector('[data-m="csv"]').disabled = !pr.people.some((p) => !isCont(p));
           m.querySelector('[data-m="detail"]').disabled = !pr.people.length;
           m.querySelector('[data-m="cont"]').classList.toggle("hidden", !pr.people.some(isCont));
@@ -437,7 +437,7 @@
       const m = openModal('<div class="tc-modal"><h2>Time clock settings</h2>' +
         '<div class="row2">' + numIn("tsR", "Mileage rate ($ a mile)", v.mileage_rate, 0, 5, 0.005) + numIn("tsO", "Overtime after (hours a week)", v.overtime_after, 0, 80, 0.5) + "</div>" +
         '<div class="row2">' + numIn("tsW", "Overtime warning (hours before; 0 = off)", v.ot_warn_hours, 0, 40, 0.5) + numIn("tsH", "Half day is under (hours)", v.half_day_hours, 1, 12, 0.5) + "</div>" +
-        '<div class="row2">' + numIn("tsB", "Clock-in reminder (minutes before; 0 = off)", v.remind_before_min, 0, 120, 5) + numIn("tsA", "Clock-out reminder (minutes after; 0 = off)", v.remind_out_after_min, 0, 240, 5) + "</div>" +
+        '<div class="row2">' + numIn("tsB", "Clock-in reminder (minutes before; 0 = off; never for salaried people)", v.remind_before_min, 0, 120, 5) + numIn("tsA", "Clock-out reminder (minutes after; 0 = off)", v.remind_out_after_min, 0, 240, 5) + "</div>" +
         box("tsG", "Save the phone\u2019s location with each clock in and out", v.gps_on) +
         box("tsX", "Stop clocks still running at midnight and flag them to check", v.auto_out) +
         '<p class="muted" style="font-size:12.5px">Reminders and warnings are phone notifications (people can turn each kind off). Trip miles are a round trip from the studio address on the Schedule page. The half-day rate applies to day-rate people who work less than the hours above.</p>' +

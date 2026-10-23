@@ -1,6 +1,6 @@
   // ================================================================ STAFF: Time clock, round two (2026-10-23)
   // Expenses tab (#staff/expenses): receipts with a photo, approved one by one with Time clock Edit. Pay rates modal
-  // (Timesheets > Pay rates, Edit): hourly or day rate by employment type, job title or person. A Time tab on the job
+  // (Timesheets > Pay rates, Edit): hourly, a day rate, or per job (1099s) by employment type, job title or person. A Time tab on the job
   // page: who clocked how long on that job, miles, expenses and estimated cost.
   // RPCs: expense_list / expense_save / expense_remove / expense_review / timeclock_rates / timeclock_rate_save /
   // timeclock_rate_remove / timeclock_job (migration 20261023141500). Receipt photos: private bucket `receipts`.
@@ -228,7 +228,7 @@
       const mErr = mErrIn(m);
       let d = null;
       const scopeTxt = (r) => (r.scope === "type" ? TYPE[r.scope_key] || r.scope_key : r.scope === "title" ? "Job title: " + r.scope_key : r.name || "Someone");
-      const rateTxt = (r) => (r.basis === "day" ? money(r.rate) + " a day" + (r.half_day_rate != null ? ", " + money(r.half_day_rate) + " a half day" : "") : money(r.rate) + " an hour");
+      const rateTxt = (r) => (r.basis === "day" ? money(r.rate) + " a day" + (r.half_day_rate != null ? ", " + money(r.half_day_rate) + " a half day" : "") : r.basis === "job" ? money(r.rate) + " a job" : money(r.rate) + " an hour");
       async function load() {
         try {
           const { data, error } = await sb.rpc("timeclock_rates");
@@ -253,7 +253,7 @@
         const f = openModal('<div class="tc-modal"><h2>' + (r ? "Change rate" : "Add a rate") + "</h2>" +
           '<div class="row2"><div class="field"><label for="aca-prtS">For</label><select id="aca-prtS"><option value="type">An employment type</option><option value="title">A job title</option><option value="person">One person</option></select></div>' +
           '<div class="field"><label for="aca-prtK">Which</label><span id="aca-prtKw">' + keyField(v.scope, v.scope_key) + "</span></div></div>" +
-          '<div class="row3"><div class="field"><label for="aca-prtB">Paid by</label><select id="aca-prtB"><option value="hourly">The hour</option><option value="day">The day</option></select></div>' +
+          '<div class="row3"><div class="field"><label for="aca-prtB">Paid by</label><select id="aca-prtB"><option value="hourly">The hour</option><option value="day">The day</option><option value="job">The job (1099)</option></select></div>' +
           '<div class="field"><label for="aca-prtR">Rate ($)</label><input type="number" id="aca-prtR" min="0" max="10000" step="0.01" value="' + esc(v.rate) + '" /></div>' +
           '<div class="field" id="aca-prtHw"><label for="aca-prtH">Half day ($, optional)</label><input type="number" id="aca-prtH" min="0" max="10000" step="0.01" value="' + esc(v.half_day_rate == null ? "" : v.half_day_rate) + '" /></div></div>' +
           '<p class="muted" style="font-size:12.5px" id="aca-prtHint"></p><div class="inline-error hidden tc-merr"></div>' +
@@ -263,7 +263,8 @@
         const sync = () => {
           const day = el("prtB").value === "day";
           el("prtHw").classList.toggle("hidden", !day);
-          el("prtHint").textContent = day ? "A day with time clocked pays the day rate; under " + num(d.half_day_hours) + " hours pays the half-day rate when one is set (change the hours in Settings)." : "";
+          el("prtHint").textContent = day ? "A day with time clocked pays the day rate; under " + num(d.half_day_hours) + " hours pays the half-day rate when one is set (change the hours in Settings)."
+            : el("prtB").value === "job" ? "Each job they clock time to pays this once, however many days it runs. For 1099s paid per job." : "";
         };
         sync();
         el("prtB").addEventListener("change", sync);
@@ -303,7 +304,7 @@
         const half = num(data.half_day_hours) * 60;
         const cost = (p) => {
           if (!p.rate) return null;
-          const wage = p.rate.basis === "day" ? num(p.days) * num(p.rate.rate) : num(p.minutes) / 60 * num(p.rate.rate);
+          const wage = p.rate.basis === "day" ? num(p.days) * num(p.rate.rate) : p.rate.basis === "job" ? num(p.rate.rate) : num(p.minutes) / 60 * num(p.rate.rate);
           return wage + num(p.miles) * num(data.mileage_rate) + num(p.expenses);
         };
         const tot = people.reduce((n, p) => ({ min: n.min + num(p.minutes), mi: n.mi + num(p.miles), ex: n.ex + num(p.expenses), cost: cost(p) == null ? n.cost : n.cost + cost(p) }), { min: 0, mi: 0, ex: 0, cost: 0 });

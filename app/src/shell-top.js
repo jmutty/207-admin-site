@@ -507,6 +507,8 @@
     if (!s) return a.label;
     return (a.count === 1 ? s[0] : s[1]).replace("{n}", a.count);
   }
+  const todayOpen = new Set(), todayShut = new Set();
+  try { JSON.parse(localStorage.getItem("aca-today-open") || "[]").forEach((x) => todayOpen.add(x)); } catch (_e) { /* private mode */ }
   function renderAttention() {
     // rail: one number per item; red when anything in it is an error
     const perItem = {};
@@ -533,18 +535,34 @@
     if (!items.length) {
       list.innerHTML = pending ? '<div class="empty"><span class="spin"></span>Checking everything&#8230;</div>' : '<div class="today-clear">All clear. Nothing needs you right now.</div>';
     } else {
-      list.innerHTML = GROUPS.map((g) => {
-        const rows = items.filter((a) => a.level === g[0]);
-        if (!rows.length) return "";
-        return '<div class="today-grp"><h2><span class="gd" style="background:' + g[2] + '"></span>' + g[1] + ' <span class="c">' + rows.reduce((n, a) => n + a.count, 0) + "</span></h2>" +
-          rows.map((a) => '<button type="button" class="today-item" data-go="' + esc(a.tab) + '" data-key="' + esc(a.key || "") + '">' +
-            '<span class="today-n">' + esc(a.count) + '</span><span class="today-l">' + esc(sentence(a)) + ' <span class="today-where">' + esc(tabName(a.tab)) + '</span></span>' +
-            '<span class="today-go">Open</span></button>').join("") + "</div>";
-      }).join("") + (pending ? '<div class="empty"><span class="spin"></span>Still checking a few things&#8230;</div>' : "");
+      // Counts per area (the menu groups), each with a caret to see what's in it (polish pass 2026-10-23).
+      // Areas with something broken start open; the rest remember how they were left.
+      const LV = { err: 0, warn: 1, soon: 2 };
+      const areaOf = (a) => { const e = entryOf(a.tab); return (e && e.group) || "Other"; };
+      const order = MENU.map((g) => g[0]).filter(Boolean).concat(["Other"]);
+      const areas = order.map((name) => ({ name, rows: items.filter((a) => areaOf(a) === name).sort((x, y) => LV[x.level] - LV[y.level]) })).filter((x) => x.rows.length);
+      list.innerHTML = '<div class="today-areas">' + areas.map((ar) => {
+        const worst = ar.rows[0].level, open = todayOpen.has(ar.name) || (worst === "err" && !todayShut.has(ar.name));
+        const n = ar.rows.reduce((k, a) => k + a.count, 0);
+        return '<div class="today-area' + (open ? " open" : "") + '" data-area="' + esc(ar.name) + '"><button type="button" class="today-ah" aria-expanded="' + open + '">' +
+          '<span class="caret" aria-hidden="true">&#9656;</span><span class="today-an">' + esc(ar.name) + '</span><span class="today-dot ' + worst + '" title="' + esc(GROUPS.find((g) => g[0] === worst)[1]) + '"></span>' +
+          '<span class="today-ac">' + n + "</span></button>" +
+          '<div class="today-ab">' + ar.rows.map((a) => '<button type="button" class="today-item" data-go="' + esc(a.tab) + '" data-key="' + esc(a.key || "") + '">' +
+            '<span class="today-n"><span class="today-dot ' + a.level + '"></span>' + esc(a.count) + '</span><span class="today-l">' + esc(sentence(a)) + ' <span class="today-where">' + esc(tabName(a.tab)) + '</span></span>' +
+            '<span class="today-go">Open</span></button>').join("") + "</div></div>";
+      }).join("") + "</div>" + (pending ? '<div class="empty"><span class="spin"></span>Still checking a few things&#8230;</div>' : "");
     }
     renderLead(items, pending);
   }
   el("todayList").addEventListener("click", (e) => {
+    const h = e.target.closest(".today-ah");
+    if (h) {
+      const box = h.parentElement, name = box.dataset.area, open = !box.classList.contains("open");
+      box.classList.toggle("open", open); h.setAttribute("aria-expanded", String(open));
+      if (open) { todayOpen.add(name); todayShut.delete(name); } else { todayOpen.delete(name); todayShut.add(name); }
+      try { localStorage.setItem("aca-today-open", JSON.stringify([...todayOpen])); } catch (_e) { /* private mode */ }
+      return;
+    }
     const b = e.target.closest("[data-go]");
     if (!b) return;
     showTab(b.dataset.go);

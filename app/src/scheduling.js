@@ -225,6 +225,7 @@
     root.innerHTML =
       '<div class="sc-bar">' +
         '<button type="button" class="small" data-v="prev" aria-label="Earlier">&lsaquo;</button><button type="button" class="small" data-v="today">Today</button><button type="button" class="small" data-v="next" aria-label="Later">&rsaquo;</button>' +
+        '<select class="small" id="aca-scJump" aria-label="Jump to a week"></select>' +
         '<h2 id="aca-scTitle">Schedule</h2>' +
         '<div class="seg" role="radiogroup" aria-label="View"><label><input type="radio" name="aca-scView" value="week" checked /><span>Week</span></label><label><input type="radio" name="aca-scView" value="day" /><span>Day</span></label></div>' +
         '<label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="aca-scMine" /> Just me</label>' +
@@ -263,6 +264,7 @@
       const my = ++loading;
       clearError("scErr");
       const start = T.weekStart(anchor);
+      fillJump();
       try {
         const { data: d, error } = await sb.rpc("schedule_week", { p_start: start, p_days: 7 });
         if (error) throw error;
@@ -516,6 +518,14 @@
     }
 
     // ---------------------------------------------------------------- events
+    // Jump ahead up to two months (polish pass 2026-10-23: the schedule is built 2-4 weeks out, looked at up to 2 months).
+    function fillJump() {
+      const wk0 = T.weekStart(T.today()), cur = T.weekStart(anchor);
+      const opts = Array.from({ length: 9 }, (_, i) => T.addDays(wk0, 7 * i));
+      el("scJump").innerHTML = (opts.includes(cur) ? "" : '<option value="">Week of ' + esc(T.fmtDay(cur, { weekday: undefined })) + "</option>") +
+        opts.map((w, i) => '<option value="' + w + '"' + (w === cur ? " selected" : "") + ">" + (i === 0 ? "This week" : i === 1 ? "Next week" : "Week of " + esc(T.fmtDay(w, { weekday: undefined }))) + "</option>").join("");
+    }
+    el("scJump").addEventListener("change", (e) => { if (!e.target.value) return; anchor = e.target.value; load(); });
     root.addEventListener("click", (e) => {
       if (pressed) { pressed = false; e.preventDefault(); return; } // the click after a long-press opened the menu
       const v = e.target.closest("[data-v]");

@@ -1,9 +1,10 @@
   // ================================================================ PUSH NOTIFICATIONS (2026-10-21)
   // Account menu -> Notifications. Turns phone / desktop notifications on for this device (service
   // worker /sw.js on admin.207photo.com + a Web Push subscription stored by push_subscribe), and lets the
-  // person pick which kinds they get. Which kinds exist and who may get them is SQL (push_topics: one per
+  // person pick, per kind, Push now / Morning email (it waits for the 7am email) / Off (polish pass 2026-10-23). Which kinds exist and who may get them is SQL (push_topics: one per
   // module); sending is the push-sender edge function. On iPhone this only works in the home-screen app.
   const Push = (function () {
+    const MODES = [["push", "Push now"], ["email", "Morning email"], ["off", "Off"]];
     const supported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     const standalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -54,8 +55,12 @@
           '<button type="button" class="primary" id="aca-pnOn">Turn on for this device</button>';
       }
       const topics = settings.topics.length
-        ? '<h3 class="pn-h">What to notify you about</h3>' + settings.topics.map((t) =>
-            '<label class="pn-topic"><input type="checkbox" data-topic="' + esc(t.key) + '"' + (t.enabled ? " checked" : "") + ' /><span><b>' + esc(t.label) + '</b><br><span class="muted">' + esc(t.description) + "</span></span></label>").join("")
+        ? '<h3 class="pn-h">What to tell you about, and how</h3><p class="muted" style="font-size:13px;margin:0 0 8px">Push now = a notification on your phone right away. Morning email = it waits for your 7am email instead. Off = neither.</p>' +
+          settings.topics.map((t) => {
+            const mode = t.mode || (t.enabled ? "push" : "off");
+            return '<div class="pn-topic pn-mode"><span><b>' + esc(t.label) + '</b><br><span class="muted">' + esc(t.description) + '</span></span><div class="seg" role="radiogroup" aria-label="' + esc(t.label) + '">' +
+              MODES.map((m) => '<label><input type="radio" name="aca-pn-' + esc(t.key) + '" data-topic="' + esc(t.key) + '" value="' + m[0] + '"' + (m[0] === mode ? " checked" : "") + " /><span>" + m[1] + "</span></label>").join("") + "</div></div>";
+          }).join("")
         : '<p class="muted">None of your areas have notifications yet.</p>';
       const others = settings.devices.filter((d) => !sub || d.endpoint !== sub.endpoint);
       const devices = others.length
@@ -108,8 +113,10 @@
         toast(data && data.ok ? "Test sent. It should arrive in a few seconds." : data && data.error === "wait" ? "A test was just sent. Try again in a minute." : "Couldn't send a test.", !(data && data.ok));
       });
       el("pnBody").querySelectorAll("[data-topic]").forEach((c) => c.addEventListener("change", async () => {
-        const { error } = await supabase.rpc("push_set_pref", { p_topic: c.dataset.topic, p_enabled: c.checked });
-        if (error) { c.checked = !c.checked; fail(error); }
+        if (!c.checked) return;
+        const { error } = await supabase.rpc("push_set_mode", { p_topic: c.dataset.topic, p_mode: c.value });
+        if (error) { fail(error); return render(); }
+        const t = settings.topics.find((x) => x.key === c.dataset.topic); if (t) t.mode = c.value;
       }));
       el("pnBody").querySelectorAll("[data-off]").forEach((b) => b.addEventListener("click", async () => {
         const { error } = await supabase.rpc("push_unsubscribe", { p_id: b.dataset.off });

@@ -61,6 +61,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(JSON.stringify(await tabsOf("people")) === JSON.stringify(["team", "clearances", "onboarding"]), "People: team and records");
     check(JSON.stringify(await tabsOf("sending")) === JSON.stringify(["sending", "health", "signin", "calc"]), "Settings holds the job calculator");
     check((await page.textContent("#aca-nav")).includes("Partners") && !(await page.textContent("#aca-nav")).includes("Outreach"), "Outreach is called Partners");
+    await page.click('#aca-nav button[data-tab="today"]');
+    await page.waitForTimeout(300);
+    const areas = await page.$$eval("#aca-todayList .today-area .today-an", (ns) => ns.map((n) => n.textContent));
+    check(areas.length >= 2 && areas.every((a) => ["My work", "Jobs", "Parents", "Partners", "Team", "Gear", "System", "Other"].includes(a)), "Today: counts per area: " + areas.join(","));
+    const shut = await page.$("#aca-todayList .today-area:not(.open)");
+    if (shut) { await shut.click(); }
+    check(!shut || await page.$eval("#aca-todayList .today-area .today-ah[aria-expanded=true]", (n) => !!n), "the caret opens an area");
     check(await visible(page, "#aca-bookBtn") && await shown(page, "#aca-syncNowBtn"), "Book a job + Sync now shown");
     // Team: add a person
     await page.click('#aca-nav button[data-tab="people"]');
@@ -106,14 +113,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-whoBtn");
     await page.click("#aca-notifBtn");
     await page.waitForSelector("[data-topic]");
-    check((await page.$$("[data-topic]")).length === 3, "Notifications lists the kinds this person can get");
+    check((await page.$$(".pn-mode")).length === 3, "Notifications lists the kinds this person can get");
     // Headless Chromium reports notifications as blocked; a real browser offers "Turn on".
     check(await page.isVisible("#aca-pnOn") || (await page.textContent("#aca-pnBody")).includes("blocked"), "shows this device's notification state");
     check((await page.textContent("#aca-pnBody")).includes("iPhone"), "lists their other devices");
-    await page.uncheck('[data-topic="help_request"]');
+    check((await page.$$('.pn-mode input[data-topic="help_request"]')).length === 3, "each kind: Push now, Morning email or Off");
+    await page.click('.pn-mode input[data-topic="help_request"][value="email"] + span');
     await page.waitForTimeout(150);
-    const pref = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "push_set_pref").pop());
-    check(pref && pref[1].p_topic === "help_request" && pref[1].p_enabled === false, "switching a kind off saves it");
+    const pref = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "push_set_mode").pop());
+    check(pref && pref[1].p_topic === "help_request" && pref[1].p_mode === "email", "moving a kind to the morning email saves it");
     await page.click("#aca-pnDone");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
@@ -561,10 +569,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-rsAddTerms");
     await page.waitForSelector("#aca-rsTOrg");
     check(await page.$eval("#aca-rsTOrg", (s) => [...s.options].map((o) => o.textContent).join()) === "Island Cheer & Tumbling", "add terms offers partners without terms");
+    check(await page.$eval("#aca-rsTKind", (s) => [...s.options].map((o) => o.value).join()) === "percent,deliverables,none", "terms: a percent, deliverables or nothing");
+    await page.selectOption("#aca-rsTKind", "deliverables");
+    check(await page.isVisible("#aca-rsTGets") && !(await page.isVisible("#aca-rsTPct")), "deliverables ask what they get");
+    await page.selectOption("#aca-rsTKind", "percent");
     await page.fill("#aca-rsTPct", "7.5");
     await page.click(".modal [data-go]");
     await page.waitForTimeout(150);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_set_terms" && c[1].p_pct === 7.5 && c[1].p_org === "44444444-4444-4444-4444-444444444444")), "saves a partner's share");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "results_set_terms" && c[1].p_pct === 7.5 && c[1].p_kind === "percent" && c[1].p_org === "44444444-4444-4444-4444-444444444444")), "saves a partner's share");
 
     await page.click('#aca-pagetabs button[data-tab="resjobs"]');
     await page.waitForSelector('#aca-panel-resjobs tr[data-job="r9"]');
@@ -691,7 +703,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(cs.length === 1 && cs[0].user_id === "u5" && cs[0].role_id === "r3", "puts them on with their role: " + JSON.stringify(cs));
     await page.click('[data-v="crewset"]');
     await page.waitForSelector("#aca-scRoles li[data-id]");
-    check((await page.$$("#aca-scRoles li[data-id]")).length === 4 && await page.isChecked("#aca-scCfOn") && !(await page.isChecked("#aca-scWkOn")), "crew settings: roles, asking on, weekly email off");
+    check((await page.$$("#aca-scRoles li[data-id]")).length === 4 && !(await page.isChecked("#aca-scCfOn")) && !(await page.isChecked("#aca-scWkOn")), "crew settings: roles, asking off to start, weekly email off");
     await page.fill("#aca-scRoleNew", "Lighting");
     await page.click('.sc-modal [data-m="addrole"]');
     await page.waitForTimeout(150);
@@ -768,6 +780,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "schedule_attention")), "Today checks for jobs with nobody on them");
     const legend = await page.textContent("#aca-panel-schedule .sc-legend");
     check(legend.includes("On site job") && legend.includes("Studio") && legend.includes("Admin"), "legend: On site job, Studio, Admin");
+    check((await page.$$("#aca-scJump option")).length >= 9, "jump up to two months ahead");
     // My day
     await page.click('#aca-nav button[data-tab="myday"]');
     await page.waitForSelector("#aca-asBody .as-task");

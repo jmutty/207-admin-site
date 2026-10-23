@@ -109,7 +109,7 @@ create table public.timeclock_pay_rates (
   id            uuid primary key default gen_random_uuid(),
   scope         text not null check (scope in ('type', 'title', 'person')),
   scope_key     text not null check (btrim(scope_key) <> '' and length(scope_key) <= 80),   -- employment type / lower(job title) / user_id
-  basis         text not null check (basis in ('hourly', 'day')),
+  basis         text not null check (basis in ('hourly', 'day', 'job')),   -- 'job' = a flat rate per job (1099s; polish pass 2026-10-23)
   rate          numeric(8,2) not null check (rate between 0 and 10000),
   half_day_rate numeric(8,2) check (half_day_rate between 0 and 10000),
   updated_by    uuid,
@@ -192,6 +192,12 @@ begin
              where t.user_id = p_user and public.tc_day_of(t.clock_in) >= p_from and public.tc_day_of(t.clock_in) < p_to
              group by 1) w;
     v_pay := round(v_reg / 60.0 * r.rate + v_ot / 60.0 * r.rate * 1.5, 2);
+  elsif r.basis = 'job' then
+    -- per job: each booked job they clocked time to in the range counts once, however many days it ran
+    select count(distinct t.booking_id) into v_full
+      from public.time_punches t
+     where t.user_id = p_user and t.booking_id is not null and public.tc_day_of(t.clock_in) >= p_from and public.tc_day_of(t.clock_in) < p_to;
+    v_pay := round(v_full * r.rate, 2);
   else
     select count(*) filter (where r.half_day_rate is null or d.m >= round(s.half_day_hours * 60)),
            count(*) filter (where r.half_day_rate is not null and d.m < round(s.half_day_hours * 60))
@@ -203,7 +209,8 @@ begin
     v_pay := round(v_full * r.rate + v_half * coalesce(r.half_day_rate, 0), 2);
   end if;
   return jsonb_build_object('basis', r.basis, 'rate', r.rate, 'half_day_rate', r.half_day_rate, 'source', r.source,
-                            'regular_min', v_reg, 'overtime_min', v_ot, 'days', v_full, 'half_days', v_half, 'pay', v_pay);
+                            'regular_min', v_reg, 'overtime_min', v_ot, 'days', case when r.basis = 'job' then 0 else v_full end, 'half_days', v_half,
+                            'jobs', case when r.basis = 'job' then v_full else 0 end, 'pay', v_pay);
 end $$;
 
 -- Approved expenses in [p_from, p_to).
@@ -423,9 +430,9 @@ begin
   if v_scope = 'type' and v_key not in ('full_time', 'salaried', 'part_time', 'contractor') then raise exception 'Pick an employment type.'; end if;
   if v_scope = 'person' and not exists (select 1 from public.team_members m where m.user_id::text = v_key) then raise exception 'Pick someone on the team.'; end if;
   if v_key = '' or length(v_key) > 80 then raise exception 'Pick who the rate is for.'; end if;
-  if v_basis is null or v_basis not in ('hourly', 'day') then raise exception 'Pick hourly or a day rate.'; end if;
+  if v_basis is null or v_basis not in ('hourly', 'day', 'job') then raise exception 'Pick hourly, a day rate or per job.'; end if;
   if v_rate is null or v_rate < 0 or v_rate > 10000 then raise exception 'Enter the rate.'; end if;
-  if v_basis = 'hourly' then v_half := null; end if;
+  if v_basis <> 'day' then v_half := null; end if;
   if v_half is not null and (v_half < 0 or v_half > 10000) then raise exception 'Check the half-day rate.'; end if;
   if nullif(p ->> 'id', '') is not null then
     update public.timeclock_pay_rates set scope = v_scope, scope_key = v_key, basis = v_basis, rate = v_rate, half_day_rate = v_half,
@@ -636,19 +643,20 @@ begin
   -- 1. Clock-in reminders: a bar (job, studio, admin, other work) starting within remind_before_min, drive time
   --    included, for someone not clocked in. One per bar.
   if s.remind_before_min > 0 then
-    for r in select e.id, e.user_id, e.kind, e.booking_id, e.title, e.starts_at, e.starts_at - make_interval(mins => e.drive_before_min) as go_at, e.drive_before_min
+    -- (setup time counts: they leave setup_min + drive before the start. Salaried people get no clock reminders.)
+    for r in select e.id, e.user_id, e.kind, e.booking_id, e.title, e.starts_at, e.starts_at - make_interval(mins => e.drive_before_min + e.setup_min) as go_at, e.drive_before_min + e.setup_min as drive_before_min
                from public.schedule_entries e
-               join public.team_members m on m.user_id = e.user_id and m.active
+               join public.team_members m on m.user_id = e.user_id and m.active and m.employment_type is distinct from 'salaried'
               where e.kind not in ('off', 'flex')
-                and e.starts_at - make_interval(mins => e.drive_before_min) > now()
-                and e.starts_at - make_interval(mins => e.drive_before_min) <= now() + make_interval(mins => s.remind_before_min)
+                and e.starts_at - make_interval(mins => e.drive_before_min + e.setup_min) > now()
+                and e.starts_at - make_interval(mins => e.drive_before_min + e.setup_min) <= now() + make_interval(mins => s.remind_before_min)
                 and (e.booking_id is null or exists (select 1 from public.bookings b where b.id = e.booking_id and b.status = 'booked'))
                 and not exists (select 1 from public.time_punches t where t.user_id = e.user_id and t.clock_out is null)
                 and not exists (select 1 from public.timeclock_reminders x where x.entry_id = e.id and x.kind = 'in') loop
       insert into public.timeclock_reminders (entry_id, kind, user_id) values (r.id, 'in', r.user_id) on conflict do nothing;
       perform public.tc_push(r.user_id, 'clock_reminder', 'Clock in at ' || to_char(r.go_at at time zone 'America/New_York', 'FMHH12:MI am'),
         coalesce(case when r.booking_id is not null then public.schedule_booking_title(r.booking_id) end, nullif(r.title, ''), initcap(r.kind))
-          || case when r.drive_before_min > 0 then ' starts at ' || to_char(r.starts_at at time zone 'America/New_York', 'FMHH12:MI am') || ' (drive time included).' else '.' end,
+          || case when r.drive_before_min > 0 then ' starts at ' || to_char(r.starts_at at time zone 'America/New_York', 'FMHH12:MI am') || ' (drive and setup included).' else '.' end,
         '/#staff/clock', 'clockin_' || r.id);
       v_in := v_in + 1;
     end loop;
@@ -657,17 +665,18 @@ begin
   -- 2. Clock-out reminders: still clocked in remind_out_after_min after the person's last bar of the stretch ended
   --    (nothing else on their schedule now or in the next 30 minutes). Bars that ended over 6 hours ago are ignored.
   if s.remind_out_after_min > 0 then
-    for r in select distinct on (t.user_id) t.user_id, e.id, e.ends_at + make_interval(mins => e.drive_after_min) as end_at, t.kind, t.booking_id, t.job_title
+    for r in select distinct on (t.user_id) t.user_id, e.id, e.ends_at + make_interval(mins => e.drive_after_min + e.teardown_min) as end_at, t.kind, t.booking_id, t.job_title
                from public.time_punches t
+               join public.team_members m on m.user_id = t.user_id and m.employment_type is distinct from 'salaried'
                join public.schedule_entries e on e.user_id = t.user_id and e.kind not in ('off', 'flex')
               where t.clock_out is null
-                and e.ends_at + make_interval(mins => e.drive_after_min) > t.clock_in
-                and e.ends_at + make_interval(mins => e.drive_after_min) <= now() - make_interval(mins => s.remind_out_after_min)
-                and e.ends_at + make_interval(mins => e.drive_after_min) > now() - interval '6 hours'
+                and e.ends_at + make_interval(mins => e.drive_after_min + e.teardown_min) > t.clock_in
+                and e.ends_at + make_interval(mins => e.drive_after_min + e.teardown_min) <= now() - make_interval(mins => s.remind_out_after_min)
+                and e.ends_at + make_interval(mins => e.drive_after_min + e.teardown_min) > now() - interval '6 hours'
                 and (e.booking_id is null or exists (select 1 from public.bookings b where b.id = e.booking_id and b.status = 'booked'))
                 and not exists (select 1 from public.schedule_entries e2 where e2.user_id = t.user_id and e2.kind not in ('off', 'flex')
-                                   and e2.starts_at - make_interval(mins => e2.drive_before_min) < now() + interval '30 minutes'
-                                   and e2.ends_at + make_interval(mins => e2.drive_after_min) > now()
+                                   and e2.starts_at - make_interval(mins => e2.drive_before_min + e2.setup_min) < now() + interval '30 minutes'
+                                   and e2.ends_at + make_interval(mins => e2.drive_after_min + e2.teardown_min) > now()
                                    and (e2.booking_id is null or exists (select 1 from public.bookings b where b.id = e2.booking_id and b.status = 'booked')))
               order by t.user_id, e.ends_at desc loop
       if exists (select 1 from public.timeclock_reminders x where x.entry_id = r.id and x.kind = 'out') then continue; end if;

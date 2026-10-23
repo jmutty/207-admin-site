@@ -60,7 +60,7 @@ insert into net._http_response (id, status_code, content) values
 select public.email_delivery_sweep();
 select pg_temp.ok((select status = 'sent' and resend_id = 're_day' and next_check_at > now() from public.email_sends where request_id = (select id from t_req where k = 'day')), 'accepted: sent, look-up scheduled');
 select pg_temp.ok((select status = 'failed' and error = 'Invalid `to` field.' from public.email_sends where request_id = (select id from t_req where k = 'pd')), 'refused: failed with Resend''s message');
-select pg_temp.ok(exists (select 1 from public.push_outbox where topic = 'email_problem' and title = 'Email not sent'), 'a failure is pushed');
+select pg_temp.ok(exists (select 1 from public.push_outbox where topic = 'booking_email_failed' and title = 'Email not sent'), 'a failure is pushed');
 update public.email_sends set next_check_at = now() - interval '1 minute' where resend_id in ('re_day', 're_code');
 select public.email_delivery_sweep();
 select pg_temp.ok((select count(*) from net.http_request_queue where method = 'GET' and url like 'https://api.resend.com/emails/re_%') = 2, 'due look-ups asked of Resend');
@@ -72,7 +72,7 @@ select public.email_delivery_sweep();
 select pg_temp.ok((select status = 'bounced' and next_check_at is null and poll_request_id is null from public.email_sends where resend_id = 're_day'), 'bounced: final');
 select pg_temp.ok((select bounced_at is not null from public.prospect_contacts where email = 'Bounce@Example.com'), 'the contact is marked bounced, so outreach stops');
 select pg_temp.ok((select status = 'delivered' and opened_at is not null and checks = 1 and next_check_at > now() + interval '50 minutes' from public.email_sends where resend_id = 're_code'), 'opened: delivered, opened, next look in an hour');
-select pg_temp.ok(exists (select 1 from public.push_outbox where topic = 'email_problem' and title = 'Email bounced'), 'a bounce is pushed');
+select pg_temp.ok(exists (select 1 from public.push_outbox where topic = 'booking_email_failed' and title = 'Email bounced'), 'a bounce is pushed');
 -- rate limited: same check again soon
 update public.email_sends set next_check_at = now() - interval '1 minute' where resend_id = 're_code';
 select public.email_delivery_sweep();

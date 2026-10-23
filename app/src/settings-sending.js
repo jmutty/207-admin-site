@@ -1,12 +1,12 @@
   // ================================================================ SETTINGS > Sending (2026-10-12 redesign)
   // One place for "what goes out": a switch per pipeline, the booking sender's from/reply-to/signature,
-  // test mode, and the morning digest (the Today page by email; recipients are a list Jeremiah edits).
+  // test mode, and the morning digest (the Today page by email; recipients picked from the team or typed in).
   // Booking settings live in booking_settings (one row, id = true); outreach pause in prospect_settings;
   // the digest in admin_settings (one row, id = true; migration 20261012T01).
   const SendingSettings = (function () {
   const sb = supabase;
   const cleanErr = (e) => String((e && (e.message || e.details)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
-  let bs = null, ps = null, ad = null, loaded = false;
+  let bs = null, ps = null, ad = null, loaded = false, team = [];
 
   const css = `
   .aca .ss h2 { margin: 32px 0 4px; font-size: 15px; font-weight: 600; }
@@ -33,7 +33,9 @@
     const root = el("panel-sending");
     if (!loaded) root.innerHTML = '<div class="empty"><span class="spin"></span>Loading settings&#8230;</div>';
     try {
-      const [b, p, a] = await Promise.all([sb.from("booking_settings").select("*").maybeSingle(), sb.from("prospect_settings").select("paused,test_mode,test_recipient,daily_cap,gmail_daily_budget").maybeSingle(), sb.from("admin_settings").select("*").maybeSingle()]);
+      const [b, p, a, t] = await Promise.all([sb.from("booking_settings").select("*").maybeSingle(), sb.from("prospect_settings").select("paused,test_mode,test_recipient,daily_cap,gmail_daily_budget").maybeSingle(), sb.from("admin_settings").select("*").maybeSingle(),
+        sb.rpc("team_list").then((r) => r, () => ({ data: [] }))]);
+      team = ((t && t.data) || []).filter((m) => m.active && m.email);
       if (b.error) throw b.error; if (p.error) throw p.error; if (a.error) throw a.error;
       bs = b.data || {}; ps = p.data || {}; ad = a.data || { digest_enabled: true, digest_time: "07:00", digest_recipients: [] };
       loaded = true;
@@ -65,6 +67,7 @@
         <div class="kv">
           <label for="aca-ssDigestTime">Sent at</label><div><select id="aca-ssDigestTime">${["06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00"].map((t) => '<option value="' + t + '"' + (t5(ad.digest_time) === t ? " selected" : "") + ">" + fmtT(t) + "</option>").join("")}</select> <span class="muted" style="font-size:13px">Eastern</span></div>
           <label>Goes to</label><div class="tags" id="aca-ssRecips">${(ad.digest_recipients || []).map((r) => '<span class="tag">' + esc(r) + '<button type="button" data-rm="' + esc(r) + '" aria-label="Remove ' + esc(r) + '">&times;</button></span>').join("")}<input type="email" id="aca-ssNewRecip" placeholder="Add an address and press Enter" /></div>
+          <label for="aca-ssTeamRecip"></label><div>${team.length ? '<select class="small" id="aca-ssTeamRecip"><option value="">Add someone on the team&#8230;</option>' + team.map((m) => '<option value="' + esc(m.email.toLowerCase()) + '">' + esc(m.name || m.email) + "</option>").join("") + "</select>" : ""} <span class="muted" style="font-size:13px">Each person also gets the notifications they set to Morning email.</span></div>
           <label></label><div><button type="button" class="small" id="aca-ssDigestNow">Send me today's digest now</button> <span class="muted" id="aca-ssDigestMsg" style="font-size:13px"></span></div>
         </div>
 
@@ -93,6 +96,12 @@
       s.addEventListener("keydown", (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); } });
     });
     el("ssRecips").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) b.parentElement.remove(); });
+    const addRecip = (v) => {
+      if ([...el("ssRecips").querySelectorAll("[data-rm]")].some((b) => b.dataset.rm === v)) return;
+      const tag = document.createElement("span"); tag.className = "tag"; tag.innerHTML = esc(v) + '<button type="button" data-rm="' + esc(v) + '" aria-label="Remove ' + esc(v) + '">&times;</button>';
+      el("ssNewRecip").before(tag);
+    };
+    if (el("ssTeamRecip")) el("ssTeamRecip").addEventListener("change", (e) => { if (e.target.value) addRecip(e.target.value); e.target.value = ""; });
     el("ssNewRecip").addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== ",") return;
       e.preventDefault();

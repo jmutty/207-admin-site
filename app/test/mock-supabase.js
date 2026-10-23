@@ -145,7 +145,7 @@
         : [{ key: "help_request", label: "New help request", description: "A parent asked for help finding their access code.", enabled: true },
            { key: "booking_email_failed", label: "Booking email failed", description: "A booking email could not be sent.", enabled: false },
            { key: "sync_failed", label: "GotPhoto sync failing", description: "The GotPhoto sync started failing.", enabled: true }] },
-    push_set_pref: null, push_subscribe: { ok: true }, push_unsubscribe: null, push_test: { ok: true }, push_request_setup: null,
+    push_set_pref: null, push_set_mode: null, push_subscribe: { ok: true }, push_unsubscribe: null, push_test: { ok: true }, push_request_setup: null,
     admin_outbox: [
       { src: "outreach", id: "ob1", at: iso(0.1), to_name: "Island Cheer", to_email: "info@islandcheer.com", org: "Island Cheer & Tumbling", org_id: "44444444-4444-4444-4444-444444444444", subject: "Island Cheer picture day", detail: "Outreach, email 1", status: "needs_review", enrollment_id: "e9" },
       { src: "booking", id: "ob2", at: iso(-1), to_name: "Chris Snowdeal", to_email: "c@x.org", org: "Brewer Travel Basketball Club", booking_id: "b1", subject: "You're booked, start here", detail: "Booking email 1", status: "failed", error: "Gmail refused the send" },
@@ -482,7 +482,7 @@
       Object.assign(W.entries[1], { role_id: "r2", role: "Second shooter", confirm: { status: "pending", reason: "", asked_at: iso(-1), answered_at: null, changed: false } });
       W.crew = { roles, needed: { bk1: 3 }, declined: [{ booking_id: "bk1", user_id: "u5", name: "Alex Assistant", reason: "Dentist", answered_at: iso(-1) }],
         requests: [{ id: "to1", user_id: "u2", first_day: add(sun, 5), last_day: add(sun, 5), start_time: null, end_time: null, note: "Family wedding" }],
-        settings: { crew_confirm_on: true, week_email_auto: false, week_email_dow: 5, week_email_hour: 15 } };
+        settings: { crew_confirm_on: false, week_email_auto: false, week_email_dow: 5, week_email_hour: 15 } };
       RPC.my_day.entries.forEach((e) => { if (e.id === "se2") Object.assign(e, { role: "Second shooter", confirm: { status: "pending", token: "c".repeat(32) } }); });
       RPC.crew_capacity = { team: 3, days: [{ day: add(sun, 2), jobs: 1, needed: 3, on_jobs: 2, off: 0, asked_off: 0 }, { day: add(sun, 4), jobs: 1, needed: 1, on_jobs: 0, off: 1, asked_off: 0 },
         { day: add(sun, 12), jobs: 3, needed: 4, on_jobs: 1, off: 0, asked_off: 1 }] };
