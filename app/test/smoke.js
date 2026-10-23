@@ -317,10 +317,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.isVisible("#aca-bkTeamTimes") && !!(await page.$("#aca-bkOrderBy")) && !!(await page.$("#aca-bkDiscEnds")), "Book a job has team times, order by and discount ends");
     await page.fill("#aca-bkTeamTimes", "9:00 U10 Blue\n9:15 U10 Red");
     await page.$eval("#aca-bkOrderBy", (n) => { n.value = "2026-12-20"; n.dispatchEvent(new Event("change", { bubbles: true })); });
+    check(await page.isChecked("#aca-bkGpAfter") && !(await page.$('#aca-bkGp a[data-gpname]')), "Book a job offers to create the GotPhoto job after booking (no manual link)");
     await page.click('.bk-form button[data-v="save"]');
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_create"));
     await page.waitForSelector("#aca-bkDetail .bk-stages");
     check(page.url().endsWith("#jobs/job/bk1/booking"), "after booking, the new job's page opens (Booking tab)");
+    await page.waitForSelector("#aca-gpcprice", { timeout: 5000 }).catch(() => {});
+    check(!!(await page.$("#aca-gpcprice")), "after booking, the GotPhoto check screen opens");
+    await page.click('.og-modal button[data-v="close"]').catch(() => {});
     check((await lastRpc("booking_create"))[1].p.location === "James F. Doughty Middle School, 143 Fifth St, Bangor, ME 04401", "the picked address is saved as the location");
     const dsv = await lastRpc("booking_director_save");
     check(dsv && dsv[1].p_id === "bk1" && dsv[1].p.team_times === "9:00 U10 Blue\n9:15 U10 Red" && dsv[1].p.order_deadline === "2026-12-20" && dsv[1].p.discount_ends === "", "team times and order date saved with the booking");
