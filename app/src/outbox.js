@@ -3,7 +3,7 @@
   // single emails, partner follow-ups, booking admin emails, makeup notices, hub send-day reminders and the morning digest.
   // Data: admin_outbox() (migration 20261012T01). Actions reuse the pipelines' own RPCs.
   // One Outbox (2026-10-24): the held outreach and follow-up emails ("Outreach to review") show at the top as cards with the
-  // whole email (Orgs.mountHeld), and every row uses the same verbs: Approve and send / Edit / Don't send / Send now.
+  // whole email (Orgs.mountHeld), and every row uses the same verbs: Send now / Add to queue / Edit / Don't send.
   // #partners/outbox/<partner id> shows only that partner (links from a partner page), with a "‹ <partner>" trail back.
   // Outbox.focus(emailId, orgId) opens it on one email (Reviews and Due to rebook use it for "Review it").
   // Old links (#partners/ready, the push notification for outreach to review) open the Outbox.
@@ -70,7 +70,7 @@
     root.innerHTML = `
       <p class="ob-trail hidden" id="aca-obTrail"></p>
       <div class="card">
-        <div class="card-head"><div><h2>Outbox</h2><p>Every email going out: outreach, follow-ups, booking emails, makeups, hub reminders and the morning email. Emails waiting for your OK are at the top with the whole message. Every row has the same actions: approve and send, edit, don't send, send now, resend. Nothing here is a copy; each row is the real scheduled email.</p></div></div>
+        <div class="card-head"><div><h2>Outbox</h2><p>Every email going out: outreach, follow-ups, booking emails, makeups, hub reminders and the morning email. Emails waiting for your OK are at the top with the whole message. Every row has the same actions: send now, add to queue, edit, don&rsquo;t send, resend. Nothing here is a copy; each row is the real scheduled email.</p></div></div>
         <div class="toolbar">
           <div class="chips" id="aca-obChips" role="group" aria-label="Filter">
             <button type="button" data-f="needs" aria-pressed="true">Needs you <span class="tnum" data-c="needs"></span></button>
@@ -236,15 +236,6 @@
     const p = el("obPanel"); p.classList.remove("hidden"); Orgs.measureTop();
     const s = STATUS[r.status] || ["muted", r.status];
     const acts = verbs(r);
-    if (ed && isOutreach(r) && r.status === "needs_review") acts.push('<button type="button" class="primary" data-v="approve">Approve and send</button>');
-    if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) acts.push('<button type="button" data-v="edit">Edit</button><button type="button" data-v="skip">Don’t send</button>');
-    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed", "skipped"].includes(r.status)) acts.push('<button type="button" class="primary" data-v="sendnow">Send now</button>');
-    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed"].includes(r.status)) acts.push('<button type="button" data-v="bskip">Don’t send</button>');
-    if (ed && r.src === "booking" && r.status === "sent") acts.push('<button type="button" data-v="resend">Resend</button>');
-    if (r.src === "booking" && r.booking_id) acts.push('<button type="button" data-v="booking">Open the job</button>');
-    if (r.src === "makeup") acts.push('<button type="button" class="primary" data-v="makeups">Open in Makeups</button>');
-    if (r.src === "hub" && r.booking_id) acts.push('<button type="button" data-v="hub">Open the job</button>');
-    if (r.src === "digest") acts.push('<button type="button" data-v="settings">Morning email settings</button>');
     p.innerHTML = `
       <div class="og-phead"><div class="og-ptop"><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600;line-height:22px">${esc(r.subject || "")}</div>
         <div class="muted" style="font-size:13px">To ${esc(r.to_name || "")}${r.to_email ? " &lt;" + esc(r.to_email) + "&gt;" : ""}${r.org ? " at " + esc(r.org) : ""}. ${esc(r.detail || "")}.</div></div>
@@ -259,7 +250,8 @@
     opt = opt || {};
     const ed = canEdit(r.src === "booking" ? "bookings" : "partners");
     const acts = [];
-    if (ed && isOutreach(r) && r.status === "needs_review") acts.push('<button type="button" class="primary small" data-v="approve">Approve and send</button>');
+    if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) acts.push('<button type="button" class="primary small" data-v="osend">Send now</button>');
+    if (ed && isOutreach(r) && r.status === "needs_review") acts.push('<button type="button" class="small" data-v="approve">Add to queue</button>');
     if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) acts.push('<button type="button" class="small" data-v="edit">Edit</button><button type="button" class="small" data-v="skip">Don’t send</button>');
     if (ed && r.src === "booking" && ["scheduled", "waiting", "failed", "skipped"].includes(r.status)) acts.push('<button type="button" class="primary small" data-v="sendnow">Send now</button>');
     if (ed && r.src === "booking" && ["scheduled", "waiting", "failed"].includes(r.status)) acts.push('<button type="button" class="small" data-v="bskip">Don’t send</button>');
@@ -277,7 +269,10 @@
     if (v === "edit") { Orgs.editEmail(r.id, onEdited); return false; }
     if (v === "approve") {
       const { error } = r.enrollment_id ? await sb.rpc("prospect_approve", { p_enrollment: r.enrollment_id }) : await sb.rpc("prospect_approve_quick", { p_ids: [r.id] });
-      if (error) throw error; toast("Approved. It goes out in the next send window.");
+      if (error) throw error; toast("Added to the queue. It goes out in the next send window.");
+    } else if (v === "osend") {
+      if (r.status !== "needs_review" && !confirm("Send this email now instead of waiting for its time?")) return false;
+      await Orgs.sendNow([r.id]);
     } else if (v === "skip") {
       if (!confirm("Don't send this email? The rest of the sequence carries on without it.")) return false;
       const { error } = await sb.from("prospect_scheduled_emails").update({ status: "skipped" }).eq("id", r.id); if (error) throw error; toast("It won't be sent.");
