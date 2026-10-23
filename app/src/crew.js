@@ -1,5 +1,6 @@
   // ================================================================ STAFF: My jobs, time off, crew confirmations (2026-10-23)
-  // Putting someone on a booked job asks them to confirm it (email + push, a few minutes later). They answer
+  // Putting someone on a job just assigns it. Only with Ask people to confirm turned on (Settings, Scheduling; off by
+  // default since 2026-10-23) does a booked job ask them to confirm it (email + push, a few minutes later). They answer
   // without signing in at #crew/<token> (CrewPublic below), or here on My jobs. Time off: everyone asks for
   // their own on the Time off tab; Time off Edit approves (that puts a Time off bar on the Schedule).
   // CrewPick is the crew picker's data (who is free, roles, drive from home) for the Schedule and Book a job.
@@ -283,8 +284,8 @@
       if (error) { box.innerHTML = '<p class="inline-error">' + esc(error.message) + "</p>"; return; }
       const rows = data.crew.map((c) => "<tr><td><b>" + esc(T.shortName(c.name)) + "</b>" + (c.roles.length ? ' <span class="muted">' + esc(c.roles.join(", ")) + "</span>" : "") + "</td>" +
         "<td>" + c.days.map((d) => esc(T.fmtDay(T.local(d.starts_at).day) + " " + T.fmtTs(d.starts_at) + "–" + T.fmtTs(d.ends_at))).join("<br>") + "</td>" +
-        "<td>" + (c.status ? Crew.chip(c.status) : '<span class="muted">Not asked</span>') + "</td>" +
-        "<td>" + (data.can_edit && data.booking_status === "booked" && c.status !== "confirmed" ? '<button type="button" class="link" data-ask="' + esc(c.user_id) + '">' + (c.status ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</td></tr>").join("");
+        "<td>" + (c.status ? Crew.chip(c.status) : data.confirm_on ? '<span class="muted">Not asked</span>' : "") + "</td>" +
+        "<td>" + (data.confirm_on && data.can_edit && data.booking_status === "booked" && c.status !== "confirmed" ? '<button type="button" class="link" data-ask="' + esc(c.user_id) + '">' + (c.status ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</td></tr>").join("");
       box.innerHTML = '<p class="muted" style="margin:0 0 8px">' + num(data.crew.length) + " of " + num(data.needed) + " needed" + (data.declined.length ? " &middot; Can&#39;t make it: " + data.declined.map((d) => esc(T.shortName(d.name)) + (d.reason ? " (&ldquo;" + esc(d.reason) + "&rdquo;)" : "")).join(", ") : "") + "</p>" +
         (rows ? '<div class="table-wrap"><table><tbody>' + rows + "</tbody></table></div>" : '<p class="empty">Nobody on this job yet. Put people on it from the Schedule.</p>') +
         '<p style="margin-top:10px"><a href="#staff/schedule">Open the Schedule</a></p>';

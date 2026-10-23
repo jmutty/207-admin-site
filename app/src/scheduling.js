@@ -288,7 +288,7 @@
       '<div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
       '<div class="sc-sum hidden" id="aca-scPeak"></div>' +
-      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. Part time and 1099 people with a home address on the Team page start and end at home instead of the studio.</span> People put on a booked job get an email and a notification to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting. Someone who can&#39;t make it comes off the job, and it goes back under Jobs not assigned. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
+      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     // Phones open on a list of today and tomorrow (2026-10-23, Jeremiah's pick); the grids are one tap away.
@@ -409,6 +409,8 @@
     }
 
     // ---------------------------------------------------------------- crew counts
+    // Ask people to confirm (Settings, Scheduling) is off by default: putting someone on a job just assigns it.
+    const confirmOn = () => !!(data && data.crew && data.crew.settings && data.crew.settings.crew_confirm_on === true);
     const neededOf = (bookingId) => num((data.crew.needed || {})[bookingId]) || 1;
     // people on a booking that day
     const staffedCount = (bookingId, d) => new Set(data.entries.filter((e) => e.booking_id === bookingId && T.local(e.starts_at).day <= d && T.local(e.ends_at).day >= d).map((e) => e.user_id)).size;
@@ -746,7 +748,7 @@
     }
 
     // ---------------------------------------------------------------- drive time
-    // With a person, the drive is from where they start: home for Part time / 1099 people with a home address.
+    // With a person, the drive is from where they start: home for anyone with a home address.
     const fromHome = (uid) => !!(data && data.people.some((p) => p.user_id === uid && p.from_home));
     async function lookupDrive(bookingId, userId) {
       const { data: { session } } = await sb.auth.getSession();
@@ -757,7 +759,7 @@
       return j;
     }
     // Wires the drive inputs + "Look up" button inside a modal. getBooking() returns the picked booking id,
-    // getUser() (optional) the person, so a Part time / 1099 person's drive is from their home.
+    // getUser() (optional) the person, so the drive is from their home when they have one.
     function driveControls(m, getBooking, auto, getUser) {
       const msg = m.querySelector(".sc-drivemsg"), btn = m.querySelector('[data-m="drive"]');
       async function go() {
@@ -804,16 +806,16 @@
         (already.length ? '<h3 class="sc-sub">On it</h3><ul class="sc-onit">' + already.map((e) => "<li><b>" + esc(personName(e.user_id)) + "</b>" + (e.role ? " (" + esc(e.role) + ")" : "") + " " + cf(e) +
           ' <span class="s">' + esc(T.fmtTs(e.starts_at)) + "–" + esc(T.fmtTs(e.ends_at)) + ", drive " + num(e.drive_before_min) + "/" + num(e.drive_after_min) + " min" + (e.batch_id ? ", batched" : "") + "</span>" +
           ' <button type="button" class="link" data-m="edit" data-id="' + esc(e.id) + '">change</button>' +
-          (!e.confirm || e.confirm.status !== "confirmed" ? ' <button type="button" class="link" data-m="ask" data-user="' + esc(e.user_id) + '">' + (e.confirm && e.confirm.asked_at ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</li>").join("") + "</ul>" : "") +
+          (confirmOn() && (!e.confirm || e.confirm.status !== "confirmed") ? ' <button type="button" class="link" data-m="ask" data-user="' + esc(e.user_id) + '">' + (e.confirm && e.confirm.asked_at ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</li>").join("") + "</ul>" : "") +
         (no.length ? '<p class="sc-facts"><b>Can&#39;t make it:</b> ' + no.map((x) => esc(x.name) + (x.reason ? ' <span class="muted">(' + esc(x.reason) + ")</span>" : "")).join(", ") + "</p>" : "") +
         '<div class="field"><label>Add people</label><ul class="sc-pick" id="aca-scPick"><li><span></span><span class="muted">Checking who is free&#8230;</span><span></span></li></ul></div>' +
-        (canEdit("openjobs") ? '<p class="sc-note">Nobody free? <a href="#staff/openjobs/' + esc(b.booking_id) + '" data-m="offer">Offer to part-timers</a>: Part time and 1099 people nearby get it in Open jobs.</p>' : "") +
+        (canEdit("openjobs") ? '<p class="sc-note">Not sure who can make it? <a href="#staff/openjobs/' + esc(b.booking_id) + '" data-m="offer">Ask who&#39;s available</a>: ask several people at once, they say if they can make it, and you pick one.</p>' : "") +
         // B8: times, setup and drive are rarely changed here once the Drive & setup defaults are set
         '<details class="sc-fold" id="aca-scTimes"' + (b.start_at ? "" : " open") + '><summary>Times and drive <span class="s" id="aca-scTimesTxt"></span></summary>' +
         '<div class="row2"><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(en) + '" /></div></div>' +
         driveHtml(already[0] && !already[0].batch_id ? already[0].drive_before_min : 30, already[0] && !already[0].batch_id ? already[0].drive_after_min : 30,
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
-        (data.people.some((p) => p.from_home) ? '<p class="sc-note">Part time and 1099 people drive from home: theirs is looked up for each of them when you add them.</p>' : "") + "</details>" +
+        (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home: theirs is looked up for each of them when you add them.</p>' : "") + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
@@ -883,7 +885,7 @@
               clashes += num(r && r.overlaps);
             }
             m.close();
-            toast((who.length === 1 ? "Added to the schedule." : who.length + " people added.") + (data.crew.settings.crew_confirm_on !== false && (!b.status || b.status === "booked") ? " They'll be asked to confirm." : "") + (clashes ? " Heads up: it overlaps other time on their schedule." : ""));
+            toast((who.length === 1 ? "Added to the schedule." : who.length + " people added.") + (confirmOn() && (!b.status || b.status === "booked") ? " They'll be asked to confirm." : "") + (clashes ? " Heads up: it overlaps other time on their schedule." : ""));
             load(); loadAttention();
           } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
         }
@@ -912,7 +914,7 @@
       const m = openModal('<div class="sc-modal"><h2>' + (opts.only === "roles" ? "Crew roles" : opts.only === "emails" ? "Asking the crew and the weekly email" : "Crew settings") + '</h2>' +
         (roles ? '<h3 class="sc-sub">Roles</h3><p class="sc-note">What someone does on a job. Pick each person&#39;s roles on the Team page; the crew picker suggests their first one.</p>' +
         '<ul class="sc-roles" id="aca-scRoles"></ul><div class="sc-drive"><div class="field" style="flex:1"><label for="aca-scRoleNew">New role</label><input type="text" id="aca-scRoleNew" maxlength="40" placeholder="Lighting, Group photos&#8230;" style="width:100%" /></div><button type="button" class="small" data-m="addrole">Add</button></div>' : "") +
-        (mails ? '<h3 class="sc-sub">Asking the crew</h3><label class="sc-chk"><input type="checkbox" id="aca-scCfOn"' + (st.crew_confirm_on !== false ? " checked" : "") + ' /> Ask people to confirm when they&#39;re put on a booked job (email and app notification, 7am to 9pm)</label>' +
+        (mails ? '<h3 class="sc-sub">Asking the crew</h3><label class="sc-chk"><input type="checkbox" id="aca-scCfOn"' + (st.crew_confirm_on === true ? " checked" : "") + ' /> Ask people to confirm when they&#39;re put on a booked job (email and app notification, 7am to 9pm). Off: putting someone on a job just assigns it.</label>' +
         '<h3 class="sc-sub">Weekly schedule email</h3><label class="sc-chk"><input type="checkbox" id="aca-scWkOn"' + (st.week_email_auto ? " checked" : "") + ' /> Email everyone their next week automatically</label>' +
         '<div class="row2"><div class="field"><label for="aca-scWkD">Day</label><select id="aca-scWkD">' + DOWS.map((d, i) => '<option value="' + i + '"' + (i === num(st.week_email_dow == null ? 5 : st.week_email_dow) ? " selected" : "") + ">" + d + "</option>").join("") + "</select></div>" +
         '<div class="field"><label for="aca-scWkH">Time</label><select id="aca-scWkH">' + Array.from({ length: 15 }, (_, i) => i + 6).map((h) => '<option value="' + h + '"' + (h === num(st.week_email_hour == null ? 15 : st.week_email_hour) ? " selected" : "") + ">" + T.fmtMin(h * 60) + "</option>").join("") + "</select></div></div>" : "") +
@@ -1338,7 +1340,7 @@
       try { src = await scheduleData(); } catch (e) { toast(cleanErr(e), true); return; }
       const setupDefault = () => src.setup_default != null ? src.setup_default : 30;
       const teardownDefault = () => src.teardown_default != null ? src.teardown_default : 30;
-      const m = openModal('<div class="sc-modal"><h2>Drive &amp; setup</h2><p>Drive times are measured from the studio to each job&#39;s location (or the organization and town when a booking has no location), using Google Maps. Batched jobs drive job to job. Part time and 1099 people with a home address on the Team page are measured from home.</p>' +
+      const m = openModal('<div class="sc-modal"><h2>Drive &amp; setup</h2><p>Drive times are measured from the studio to each job&#39;s location (or the organization and town when a booking has no location), using Google Maps. Batched jobs drive job to job. Anyone with a home address on the Team page is measured from home instead of the studio.</p>' +
         '<div class="field"><label for="aca-scAddr">Studio address</label><input type="text" id="aca-scAddr" maxlength="300" value="' + esc(src.studio_address || "") + '" placeholder="Search Google Maps or type street, town, state" /><div id="aca-scAddrNote" style="margin-top:4px;font-size:12px;color:var(--muted)"></div></div>' +
         '<div class="row2"><div class="field"><label for="aca-scSuD">Setup before each job (min)</label><input type="number" id="aca-scSuD" min="0" max="240" step="5" value="' + num(setupDefault()) + '" /></div>' +
         '<div class="field"><label for="aca-scTdD">Teardown after each job (min)</label><input type="number" id="aca-scTdD" min="0" max="240" step="5" value="' + num(teardownDefault()) + '" /></div></div>' +
@@ -1373,7 +1375,7 @@
       const { data: d, error } = await sb.rpc("schedule_week", { p_start: fromDay, p_days: Math.min(42, T.daysBetween(fromDay, toDay) + 1) });
       if (error) throw error;
       const days = (d.bookings || []).filter((b) => b.booking_id === bookingId);
-      // the drive from the studio, or from home for Part time / 1099 people with a home address
+      // the drive from the studio, or from home for anyone with a home address
       const driveFor = {};
       for (const uid of days.some((b) => b.start_at) ? userIds : []) {
         const home = (d.people || []).some((p) => p.user_id === uid && p.from_home);

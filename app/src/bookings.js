@@ -1115,7 +1115,7 @@
       const sent = (d.emails || []).filter((e) => e.status === "sent").length;
       const names = (crewNow || []).map((c) => shortNm(c.name));
       const bits = dayMoved ? [
-        names.length ? "the crew on the Schedule (" + esc(names.join(", ")) + ") moves to the new day with the same times, and they're asked to confirm again" : "nobody is on the Schedule for it yet",
+        names.length ? "the crew on the Schedule (" + esc(names.join(", ")) + ") moves to the new day with the same times" : "nobody is on the Schedule for it yet",
         "the Google Calendar event moves",
         unsent ? unsent + " email" + (unsent === 1 ? " that hasn't" : "s that haven't") + " gone out yet " + (unsent === 1 ? "is" : "are") + " rescheduled from the new day" : "no emails are waiting to go out",
         "checklist steps keep their spacing from picture day"] : [

@@ -799,7 +799,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector(".sc-modal .sc-pick input[type=checkbox]");
     // ws/settings: B8 times and drive folded; Offer to part-timers
     check(!(await page.$eval("#aca-scTimes", (d) => d.open)) && (await page.textContent("#aca-scTimesTxt")).includes("drive"), "B8: Times and drive folded, with a one-line summary");
-    check((await page.getAttribute('.sc-modal [data-m="offer"]', "href")).startsWith("#staff/openjobs/bk"), "assign dialog: Offer to part-timers");
+    check((await page.getAttribute('.sc-modal [data-m="offer"]', "href")).startsWith("#staff/openjobs/bk"), "assign dialog: Ask who's available");
     await page.click("#aca-scTimes > summary");
     await page.click('.sc-modal [data-m="drive"]');
     await page.waitForTimeout(150);
@@ -846,9 +846,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(pick.includes("Alex") && pick.includes("Said they can't make it") && pick.includes("Busy") && pick.includes("Posing") && !pick.includes("Sam"), "crew picker: roles, busy, said no; people on it are listed above: " + pick);
     check(await page.$eval(".sc-modal .sc-pick .sc-role", (n) => n.value) === "r3", "their first role is picked");
     check((await page.textContent(".sc-modal .sc-onit")).includes("Confirmed") && (await page.textContent(".sc-modal .sc-onit")).includes("Waiting"), "who is on it, with their answers");
-    await page.click('.sc-modal [data-m="ask"]');
-    await page.waitForTimeout(150);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_ask_now" && c[1].p_booking === "bk1" && c[1].p_user === "u2")), "Ask again sends the ask now");
+    check(!(await page.$('.sc-modal [data-m="ask"]')), "confirming is off: no Ask to confirm, assigning just assigns");
     await page.click('.sc-modal [data-m="cancel"]');
     await page.click("#aca-scGrid .sc-chip.part");
     await page.waitForSelector(".sc-modal .sc-pick .s");
@@ -1612,7 +1610,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "", "#staff/openjobs");
     await page.waitForSelector("#aca-ojPosted .oj-card");
-    check(await visible(page, "#aca-ojOffer"), "Offer a job shown");
+    check(await visible(page, "#aca-ojOffer") && (await page.textContent("#aca-ojOffer")).includes("Ask who"), "Ask who's available shown");
     const posted = await page.textContent("#aca-ojPosted");
     check(posted.includes("Available") && posted.includes("Can\u2019t make it") && posted.includes("Out of town") && posted.includes("No notifications on"), "answers + reasons shown");
     await page.click('#aca-ojPosted [data-pick="u6"]');
