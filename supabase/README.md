@@ -46,6 +46,10 @@ psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023091300_job_gear.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/job_gear_test.sql      # gear lists per job type, copies on booked jobs only, scan/check out for a job, repairs block check-out, past-due push, access; rolls back
 psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023114700_partner_portal.sql
 psql -d shadow -v ON_ERROR_STOP=1    -f tests/partner_portal_test.sql   # portal link, public page (jobs, team times, deliverables, agreement, sales), proofs + rounds, files both ways, storage paths, booked-only email, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141500_timeclock_round_two.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/timeclock_round_two_test.sql   # location, reminders (booked only), midnight clock-out, pay rates, expenses + receipts bucket, overtime warnings, job time, access; rolls back
+psql -d shadow -v ON_ERROR_STOP=1 -1 -f migrations/20261023141600_email_delivery.sql
+psql -d shadow -v ON_ERROR_STOP=1    -f tests/email_delivery_test.sql       # Resend sends recorded by the pg_net trigger, answers + look-ups, bounces, resend, report, access; rolls back
 ```
 
 `tests/team_access_test.sql` must end with `ALL ACCESS TESTS PASSED`. Add checks there for every new

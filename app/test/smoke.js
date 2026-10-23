@@ -43,7 +43,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
   {
     const { page, errors } = await open(browser, port, "");
     const items = await rail(page);
-    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "portal", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team"]), "menu has every page: " + items.join(","));
+    check(JSON.stringify(items) === JSON.stringify(["today", "bookings", "jobs", "hubact", "calc", "pictureday", "seasons", "checklists", "requests", "makeups", "retakes", "searchlog", "orgs", "outbox", "library", "rebook", "reviews", "agreements", "portal", "schedule", "myday", "clock", "clearances", "openjobs", "inventory", "sending", "team", "delivery"]), "menu has every page: " + items.join(","));
     for (const t of items) {
       await page.click(`#aca-nav button[data-tab="${t}"]`);
       await page.waitForTimeout(150);
@@ -1234,11 +1234,16 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval("#aca-panel-clock", (n) => n.classList.contains("active")), "#staff/clock opens the clock");
     check(!(await visible(page, "#aca-viewOnly")), "clock: no view-only notice for staff");
     check((await page.textContent("#aca-tcBody .tc-pick button.mine")).includes("Hampden Academy"), "their scheduled job is listed first and marked");
+    check((await page.textContent("#aca-tcBody")).includes("Your location is saved"), "says the location is saved");
+    check((await page.textContent("#aca-tcBody")).includes("stopped at midnight"), "says a clock was stopped at midnight");
+    await page.context().grantPermissions(["geolocation"]);
+    await page.context().setGeolocation({ latitude: 44.7449, longitude: -68.837, accuracy: 15 });
     await page.fill("#aca-tcNote", "Running late");
     await page.click("#aca-tcBody .tc-pick button.mine");
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(400);
     const ci = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "timeclock_in").pop());
     check(ci && ci[1].p_kind === "job" && ci[1].p_booking === "bk1" && ci[1].p_note === "Running late", "clocks in to the job: " + JSON.stringify(ci && ci[1]));
+    check(ci && ci[1].p_loc && ci[1].p_loc.lat === 44.7449 && ci[1].p_loc.acc === 15, "with the phone's location");
     await page.click('#aca-tcBody [data-in="studio"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_in" && c[1].p_kind === "studio" && c[1].p_booking === null)), "clocks in to Studio");
@@ -1272,6 +1277,22 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('.tc-modal [data-m="save"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "mileage_save" && c[1].p.miles === "8" && c[1].p.note === "Bank deposit")), "adds a trip by hand");
+    await page.click('#aca-pagetabs button[data-tab="expenses"]');
+    await page.waitForSelector("#aca-txBody table");
+    check(!(await shown(page, "#aca-txWhoWrap")) && !(await page.$("#aca-txBody [data-ok]")), "expenses: their own, no approve buttons");
+    check((await page.textContent("#aca-txBody")).includes("Need the receipt"), "a sent-back expense shows why");
+    await page.click('#aca-panel-expenses [data-x="add"]');
+    await page.waitForSelector("#aca-txA");
+    await page.setInputFiles("#aca-txPhoto input[type=file]", path.join(ROOT, "logo.png"));
+    await page.waitForSelector("#aca-txPhoto img");
+    await page.fill("#aca-txA", "23.40");
+    await page.selectOption("#aca-txC", "parking");
+    await page.fill("#aca-txN", "Bangor garage");
+    await page.click('.tc-modal [data-m="save"]');
+    await page.waitForTimeout(300);
+    const xs = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "expense_save").pop());
+    const up = await page.evaluate(() => (window.__writes || []).filter((w) => w[0] === "storage" && w[1] === "upload").pop());
+    check(up && /^u2\//.test(up[2]) && xs && xs[1].p.receipt_path === up[2] && xs[1].p.amount === "23.40" && xs[1].p.category === "parking", "adds an expense with the receipt in their folder: " + JSON.stringify(xs && xs[1].p));
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
@@ -1307,12 +1328,12 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent(".tc-modal")).includes("Not approved yet: Jeremiah M."), "payroll warns about unapproved weeks");
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click('.tc-modal [data-m="csv"]')]);
     const csv = fs.readFileSync(await dl.path(), "utf8");
-    check(/^Name,Email,Type,Period start,Period end,Regular hours,Overtime hours,Total hours,Miles,Mileage pay,Weeks approved\r\nJeremiah Mutty,jmutty@207photo.com,Full time,.*,40\.00,3\.50,43\.50,26\.1,18\.27,0 of 1\r\n/.test(csv), "payroll CSV: " + csv.split("\r\n")[1]);
+    check(/^Name,Email,Type,Period start,Period end,Regular hours,Overtime hours,Total hours,Miles,Mileage pay,Expenses,Est\. wages,Est\. total,Weeks approved\r\nJeremiah Mutty,jmutty@207photo.com,Full time,.*,40\.00,3\.50,43\.50,26\.1,18\.27,12\.75,1078\.75,1109\.77,0 of 1\r\n/.test(csv), "payroll CSV: " + csv.split("\r\n")[1]);
     check(!csv.includes("Riley"), "1099 contractor left out of the payroll CSV");
     check((await page.textContent(".tc-modal")).includes("1099 contractors"), "contractors listed separately");
     const [dlc] = await Promise.all([page.waitForEvent("download"), page.click('.tc-modal [data-m="cont"]')]);
     const csvc = fs.readFileSync(await dlc.path(), "utf8");
-    check(/^Name,Email,Job title,Period start,Period end,Hours,Miles,Mileage pay,Weeks approved\r\nRiley Second,riley@example\.com,Second shooter,.*,5\.00,40\.0,28\.00,1 of 1\r\n$/.test(csvc), "1099 CSV: " + csvc.split("\r\n")[1]);
+    check(/^Name,Email,Job title,Period start,Period end,Hours,Miles,Mileage pay,Expenses,Est\. fees,Est\. total,Weeks approved\r\nRiley Second,riley@example\.com,Second shooter,.*,5\.00,40\.0,28\.00,0\.00,,,1 of 1\r\n$/.test(csvc), "1099 CSV: " + csvc.split("\r\n")[1]);
     await page.click('.tc-modal [data-m="cancel"]');
     await page.click('#aca-panel-timesheets [data-w="settings"]');
     await page.waitForSelector("#aca-tsR");
@@ -1320,6 +1341,25 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('.tc-modal [data-m="save"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_settings_save" && c[1].p_rate === 0.725 && c[1].p_overtime === 40)), "changes the mileage rate");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_settings_save" && c[1].p.gps_on === true && c[1].p.remind_before_min === 15 && c[1].p.ot_warn_hours === 4)), "and keeps the reminder / location / overtime settings");
+    await page.click('#aca-panel-timesheets [data-w="rates"]');
+    await page.waitForSelector("#aca-prtBody table");
+    check((await page.textContent("#aca-prtBody")).includes("$200.00 a day, $120.00 a half day"), "pay rates: day and half-day rate shown");
+    await page.click('.tc-modal [data-m="add"]');
+    await page.waitForSelector("#aca-prtR");
+    await page.selectOption("#aca-prtS", "title");
+    await page.fill("#aca-prtK", "Second shooter");
+    await page.fill("#aca-prtR", "30");
+    await page.click('.modal-wrap:last-child [data-m="save"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_rate_save" && c[1].p.scope === "title" && c[1].p.scope_key === "Second shooter" && c[1].p.rate === "30" && c[1].p.basis === "hourly")), "adds a rate for a job title");
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await page.click('#aca-pagetabs button[data-tab="expenses"]');
+    await page.waitForSelector('#aca-txBody [data-ok="x1"]');
+    await page.click('#aca-txBody [data-ok="x1"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "expense_review" && c[1].p_id === "x1" && c[1].p_status === "approved")), "approves an expense");
     await page.click('#aca-pagetabs button[data-tab="mileage"]');
     await page.waitForSelector("#aca-miBody table");
     await page.click('#aca-panel-mileage [data-v="sched"]');
@@ -1328,6 +1368,34 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const [dl2] = await Promise.all([page.waitForEvent("download"), page.click('#aca-panel-mileage [data-v="csv"]')]);
     const mcsv = fs.readFileSync(await dl2.path(), "utf8");
     check(mcsv.startsWith("Date,Name,Job or where,Address,Miles,Amount,Note,Source") && mcsv.includes("26.1,18.27"), "mileage CSV");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
+  console.log("Email delivery (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#system/delivery");
+    await page.waitForSelector("#aca-emBody tr.em-row");
+    check((await page.$$("#aca-emBody tr.em-row")).length === 6, "every recorded email listed");
+    check((await page.textContent("#aca-emBody")).includes("Invalid `to` field."), "a failure shows Resend's reason");
+    check(await page.isVisible("#aca-emHandled"), "Mark problems handled for Edit");
+    await page.click('#aca-emBody tr.em-row[data-id="5"]');
+    await page.waitForSelector(".modal iframe.em-frame");
+    check(await page.$eval(".modal iframe.em-frame", (f) => f.getAttribute("sandbox") === "" && f.srcdoc.includes("makeup photos")), "the email as sent, in a sandboxed frame");
+    await page.fill("#aca-emTo", "parent2@example.com");
+    await page.click('.modal [data-m="resend"]');
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "email_resend" && c[1].p_id === 5 && c[1].p_to === "parent2@example.com")), "resends to a corrected address");
+    await page.click('#aca-panel-delivery input[value="problems"]', { force: true });
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "email_list" && c[1].p_filter === "problems")), "Problems filter");
+    await page.click('#aca-pagetabs button[data-tab="emailreport"]');
+    await page.waitForSelector("#aca-erBody table");
+    check((await page.textContent("#aca-erBody")).includes("parent@example.com") && (await page.textContent("#aca-erBody")).includes("Picture day"), "report: months, kinds and bounced addresses");
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#today`);
+    await page.waitForTimeout(800);
+    check((await page.textContent("#aca-todayList")).includes("bounced or could not be sent"), "Today: email problems");
+    check((await page.textContent("#aca-todayList")).includes("expense is waiting"), "Today: an expense waiting");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

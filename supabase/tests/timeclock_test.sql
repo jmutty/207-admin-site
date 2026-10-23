@@ -38,10 +38,11 @@ insert into public.team_permissions values ('00000000-0000-0000-0000-0000000000e
 -- b1: a job today with a cached distance (21 km one way = 26.1 mi round trip); b2: a job in September, no distance yet.
 update public.staff_settings set studio_address = '60 Main Rd, N Hampden' where id;
 insert into public.prospect_orgs (id, name, town) values ('00000000-0000-0000-0000-00000000aaa1', 'Test Academy', 'Hampden');
-insert into public.bookings (id, org_id, status, location, picture_day, start_at, end_at, time_set, end_set) values
-  ('00000000-0000-0000-0000-00000000bb01', '00000000-0000-0000-0000-00000000aaa1', 'booked', '89 Western Ave, Hampden ME',
+insert into public.booking_types (key, label, audience) values ('tc_test', 'TC test', 'school') on conflict do nothing;
+insert into public.bookings (id, org_id, type_key, status, location, picture_day, start_at, end_at, time_set, end_set) values
+  ('00000000-0000-0000-0000-00000000bb01', '00000000-0000-0000-0000-00000000aaa1', 'tc_test', 'booked', '89 Western Ave, Hampden ME',
    (now() at time zone 'America/New_York')::date, now() - interval '1 hour', now() + interval '2 hours', true, true),
-  ('00000000-0000-0000-0000-00000000bb02', '00000000-0000-0000-0000-00000000aaa1', 'booked', '1 Far Rd, Bethel ME', '2026-09-10',
+  ('00000000-0000-0000-0000-00000000bb02', '00000000-0000-0000-0000-00000000aaa1', 'tc_test', 'booked', '1 Far Rd, Bethel ME', '2026-09-10',
    '2026-09-10 09:00-04', '2026-09-10 12:00-04', true, true);
 insert into public.drive_time_cache (destination, origin, minutes, meters) values ('89 western ave, hampden me', '60 main rd, n hampden', 23, 21000);
 insert into public.schedule_entries (user_id, kind, booking_id, starts_at, ends_at, drive_before_min, drive_after_min) values
