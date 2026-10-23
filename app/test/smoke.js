@@ -1081,9 +1081,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(page.url().includes("#partners/org/" + BR), "the address is #partners/org/<id>");
     check(await page.$eval('#aca-nav button[data-tab="orgs"]', (b) => b.getAttribute("aria-selected") === "true"), "Partners stays lit in the menu");
     const tabs = await page.$$eval("#aca-opTabs button", (bs) => bs.map((b) => b.dataset.t));
-    check(JSON.stringify(tabs) === JSON.stringify(["overview", "jobs", "sales", "contacts", "emails", "agreements", "history"]), "tabs: " + tabs.join(","));
+    check(JSON.stringify(tabs) === JSON.stringify(["overview", "contacts", "jobs", "sales", "emails", "agreements", "history"]), "tabs: " + tabs.join(","));
     const labels = await page.$$eval("#aca-opTabs button", (bs) => bs.map((b) => b.textContent));
-    check(labels.join("|") === "Overview|Jobs|Sales|Contacts|Emails & hub|Agreement & rebooking|Notes & history", "tab names: " + labels.join("|"));
+    check(labels.join("|") === "Overview|Contacts|Jobs|Sales|Emails & hub|Agreement & rebooking|Notes & history", "tab names: " + labels.join("|"));
     await page.waitForSelector(".op-need, .jp-sec .empty");
     check((await page.textContent("#aca-opBody")).includes("Needs you here"), "overview lists what needs you here");
     check(!!(await page.$(`#aca-opBody a[href="#jobs/job/bk1"]`)) || (await page.textContent("#aca-opBody")).includes("Winter Sports"), "overview shows the next job");
