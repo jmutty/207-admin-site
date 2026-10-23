@@ -712,7 +712,7 @@
     opts = opts || {};
     try { await ensureMeta(); await loadTracking(); } catch (e) { toast(cleanErr(e), true); return; }
     const can = canEdit("bookings");
-    let tk = typeof k === "string" && types.some((t) => t.key === k) ? k : (types[0] || {}).key || "";
+    let tk = typeof k === "string" && (k === "" || types.some((t) => t.key === k)) ? k : (types[0] || {}).key || "";
     let st = [], tp = [];  // working copies for the chosen type: { id?, label, sort, auto?, due_days?, auto_add?, gone? }
     const box = dialog(`<div class="bk-fhead"><h2>Stages &amp; deliverables</h2><button type="button" class="bk-fx" data-v="close" aria-label="Close">\u2715</button></div>
       <div class="bk-sub" style="margin-bottom:10px">Each job type has its own stages and its own saved deliverables. Changes apply from now on: past bookings keep their history and their own copies.</div>

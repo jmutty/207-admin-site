@@ -732,7 +732,7 @@
       opts = opts || {};
       let src;
       try { src = await scheduleData(); } catch (e) { toast(cleanErr(e), true); return; }
-      const st = (src.crew && src.crew.settings) || opts.settings || {};
+      const st = opts.settings || (src.crew && src.crew.settings) || {};
       const roles = opts.only !== "emails", mails = opts.only !== "roles";
       const m = openModal('<div class="sc-modal"><h2>' + (opts.only === "roles" ? "Crew roles" : opts.only === "emails" ? "Asking the crew and the weekly email" : "Crew settings") + '</h2>' +
         (roles ? '<h3 class="sc-sub">Roles</h3><p class="sc-note">What someone does on a job. Pick each person&#39;s roles on the Team page; the crew picker suggests their first one.</p>' +
@@ -742,7 +742,7 @@
         '<div class="row2"><div class="field"><label for="aca-scWkD">Day</label><select id="aca-scWkD">' + DOWS.map((d, i) => '<option value="' + i + '"' + (i === num(st.week_email_dow == null ? 5 : st.week_email_dow) ? " selected" : "") + ">" + d + "</option>").join("") + "</select></div>" +
         '<div class="field"><label for="aca-scWkH">Time</label><select id="aca-scWkH">' + Array.from({ length: 15 }, (_, i) => i + 6).map((h) => '<option value="' + h + '"' + (h === num(st.week_email_hour == null ? 15 : st.week_email_hour) ? " selected" : "") + ">" + T.fmtMin(h * 60) + "</option>").join("") + "</select></div></div>" : "") +
         '<div class="inline-error hidden" id="aca-scMErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button>' + (mails ? '<button type="button" class="primary" data-m="save">Save</button>' : "") + '</div></div>');
-      const reload = () => { if (data) load(); if (opts.onSaved) opts.onSaved(); };
+      const reload = async () => { if (data) await load(); if (opts.onSaved) opts.onSaved(); };
       const list = m.querySelector("#aca-scRoles");
       async function loadRoles() {
         if (!list) return;
@@ -1185,7 +1185,7 @@
           try {
             const { error } = await sb.rpc("schedule_settings_save", { p_studio_address: el("scAddr").value.trim() }); if (error) throw error;
             const { data: r, error: e2 } = await sb.rpc("schedule_setup_save", { p_setup: +el("scSuD").value || 0, p_teardown: +el("scTdD").value || 0, p_apply: el("scSuAll").checked }); if (e2) throw e2;
-            m.close(); toast(num(r && r.changed) ? "Saved. " + num(r.changed) + " job" + (r.changed === 1 ? "" : "s") + " changed." : "Saved."); if (data) load(); if (opts.onSaved) opts.onSaved();
+            m.close(); toast(num(r && r.changed) ? "Saved. " + num(r.changed) + " job" + (r.changed === 1 ? "" : "s") + " changed." : "Saved."); if (data) await load(); if (opts.onSaved) opts.onSaved();
           }
           catch (e) { mErr(cleanErr(e)); t.disabled = false; }
         }

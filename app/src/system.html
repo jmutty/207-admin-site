@@ -46,44 +46,13 @@
         </div>
       </section>
 
-      <!-- ===== Sync log ===== -->
+      <!-- ===== Sync and Sign-in moved to Settings > Company (settings-tabs.html, ws/settings 2026-10-24); old links land here. ===== -->
       <section class="panel" id="aca-panel-health" role="tabpanel">
-        <div class="card">
-          <div class="card-head">
-            <div><h2>Recent sync runs</h2><p>GotPhoto is checked every 5 minutes. A run with nothing new takes a few seconds. A failed run simply retries on the next tick.</p></div>
-            <button class="primary" id="aca-syncNowBtn2">Sync now</button>
-          </div>
-          <div id="aca-syncResult" class="hidden" style="padding:12px 16px 0"></div>
-          <div id="aca-runsError" class="inline-error hidden"></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Trigger</th><th>Started</th><th>Status</th><th class="tnum">Jobs updated</th><th class="tnum">Codes upserted</th><th>Error</th></tr></thead>
-              <tbody id="aca-runsBody"><tr><td colspan="6" class="empty">Loading&#8230;</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head"><div><h2>Data-quality warnings</h2><p>Published jobs missing one or more required match fields. Parents may fail to find their code. Click a job to open it.</p></div></div>
-          <div id="aca-dqError" class="inline-error hidden"></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Job</th><th>Missing fields</th></tr></thead>
-              <tbody id="aca-dqBody"><tr><td colspan="2" class="empty">Loading&#8230;</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+        <div class="card"><div class="card-head"><div><h2>Sync moved</h2><p>It is under Settings, Company now.</p></div><a class="small" href="#system/company">Open Company</a></div></div>
       </section>
-
       <!-- ===== Settings > Sending (rendered by src/settings-sending.js) ===== -->
       <section class="panel" id="aca-panel-sending" role="tabpanel"></section>
 
-      <!-- ===== Settings > Sign-in ===== -->
       <section class="panel" id="aca-panel-signin" role="tabpanel">
-        <div class="card">
-          <div class="card-head">
-            <div><h2>Sign-in security</h2><p>A new browser needs a code emailed to you once; remembered devices skip it for 90 days. Without that step the database refuses admin data, so a stolen password alone is useless.</p></div>
-            <div id="aca-mfaStatus"><span class="pill muted">Checking&#8230;</span></div>
-          </div>
-          <div id="aca-mfaBody" style="padding:12px 16px 16px"></div>
-        </div>
+        <div class="card"><div class="card-head"><div><h2>Sign-in security moved</h2><p>It is under Settings, Company now.</p></div><a class="small" href="#system/company">Open Company</a></div></div>
       </section>

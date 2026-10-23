@@ -203,7 +203,7 @@
     }
     function openStep(s, opts) {
       opts = opts || {};
-      const after = () => { loadSteps(); if (opts.onSaved) opts.onSaved(); };
+      const after = async () => { await loadSteps(); if (opts.onSaved) opts.onSaved(); };
       const isNew = !s;
       s = s || { type_key: opts.type_key || null, title: "", notes: "", anchor: "picture_day", offset_days: -1, assign_to: "crew", user_id: null, priority: "normal",
                  waits_for: null, remind_days: 2, late_days: null, late_user_id: null, partner_email: false, partner_subject: "", partner_body: "" };
