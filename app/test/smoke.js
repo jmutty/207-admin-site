@@ -278,6 +278,16 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     for (let i = 0; i < 36 && !(await page.$('.dp-cal [data-d="2026-12-05"]')); i++) await page.click('.dp-cal [data-m="' + (new Date() < new Date(2026, 11, 5) ? 1 : -1) + '"]');
     await page.click('.dp-cal [data-d="2026-12-05"]');
     check(await page.$eval("#aca-bkDays .bk-d-day", (n) => n.value) === "2026-12-05" && /^\s*12\/5\s*$/.test(await page.textContent("#aca-bkDays .dp-face")), "calendar sets the day");
+    // Ordering dates work themselves out from the day after picture day (sports: +3 / +14 / +30)
+    const od = await page.$eval("#aca-bkOrderBy", (n) => [document.getElementById("aca-bkFreeShip").value, document.getElementById("aca-bkDiscEnds").value, n.value].join(" "));
+    check(od === "2026-12-09 2026-12-20 2027-01-05", "sports order dates from the launch: " + od);
+    check(await page.$eval("#aca-bkLoc", (n) => n.value) === "Brewer Auditorium, 318 Wilson St, Brewer, ME", "location starts at the partner's address");
+    await page.$eval("#aca-bkDiscEnds", (n) => { n.value = "2026-12-22"; n.dispatchEvent(new Event("input", { bubbles: true })); });
+    check(/Typed by hand/.test(await page.textContent("#aca-bkDatesNote")), "typing a date stops the automatic dates");
+    await page.click('#aca-bkDatesNote [data-dirauto]');
+    check(await page.$eval("#aca-bkDiscEnds", (n) => n.value) === "2026-12-20", "Work them out again puts them back");
+    await page.waitForFunction(() => /indoors/.test(document.getElementById("aca-bkShootNote").textContent));
+    check(true, "the Shooting hint says what Automatic comes to");
     await page.fill("#aca-bkDays .bk-dayrow .dp-time >> nth=0", "930");
     await page.keyboard.press("Enter");
     const tm = await page.$eval("#aca-bkDays .bk-dayrow", (r) => [r.querySelector(".bk-d-start").value, r.querySelector(".bk-d-end").value, r.querySelectorAll(".dp-time")[1].value]);
@@ -327,7 +337,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('.og-modal button[data-v="close"]').catch(() => {});
     check((await lastRpc("booking_create"))[1].p.location === "James F. Doughty Middle School, 143 Fifth St, Bangor, ME 04401", "the picked address is saved as the location");
     const dsv = await lastRpc("booking_director_save");
-    check(dsv && dsv[1].p_id === "bk1" && dsv[1].p.team_times === "9:00 U10 Blue\n9:15 U10 Red" && dsv[1].p.order_deadline === "2026-12-20" && dsv[1].p.discount_ends === "", "team times and order date saved with the booking");
+    check(dsv && dsv[1].p_id === "bk1" && dsv[1].p.team_times === "9:00 U10 Blue\n9:15 U10 Red" && dsv[1].p.order_deadline === "2026-12-20" && dsv[1].p.dates_auto === false && dsv[1].p.discount_ends === "2026-12-20", "team times and a typed order date saved with the booking (dates no longer automatic)");
     check(!(await lastRpc("booking_create"))[1].p.team_times, "booking_create gets the same fields as before");
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_deliverables_add"), null, { timeout: 3000 }).catch(() => {});
     const bk = await lastRpc("booking_deliverables_add");

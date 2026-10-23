@@ -466,10 +466,11 @@
         '</div><div><div class="op-side">' +
         (contact ? '<div class="jp-sec" style="margin-bottom:14px"><h3>Main contact</h3><div style="font-size:13.5px"><b>' + esc(cName || contact.email) + "</b>" + (contact.role ? ", " + esc(contact.role) : "") +
           (contact.email ? '<div class="mono" style="overflow-wrap:anywhere">' + esc(contact.email) + "</div>" : "") + (contact.phone ? "<div>" + esc(contact.phone) + "</div>" : "") + "</div></div>" : "") +
+        '<div class="jp-sec jp-onsite" id="aca-opAddr" style="margin-bottom:14px"></div>' +
         '<div class="jp-sec jp-onsite" id="aca-opWifi" style="margin-bottom:14px"></div>' +
         '<div class="jp-sec" style="margin:0"><h3>At a glance</h3><dl class="jp-dl">' + glance.map((g) => "<dt>" + esc(g[0]) + "</dt><dd>" + esc(g[1]) + "</dd>").join("") + "</dl></div>" +
         "</div></div></div>";
-      renderWifi();
+      renderAddress(); renderWifi();
       box.onclick = (e) => {
         const b = e.target.closest("[data-go]"); if (!b) return;
         const g = b.dataset.go, arg = g.slice(g.indexOf(":") + 1);
@@ -484,6 +485,34 @@
         if (g.startsWith("ob:")) return Outbox.focus(arg || null, O.id);
         if (g.startsWith("send:")) { const x = (outbox || []).find((r) => r.id === arg); if (x) { b.disabled = true; emailVerb(x, "sendnow"); } return; }
         if (g.startsWith("tab:")) return goTab(arg);
+      };
+    }
+    // The partner's address (2026-10-24): where we shoot for them. The newest job's place lands here by itself, and
+    // new bookings start with it. Saving here also moves upcoming jobs that still had the old one (org_address_save).
+    function renderAddress(editing) {
+      const box = el("opAddr"); if (!box) return;
+      const can = canEdit("partners") || canEdit("bookings"), has = !!O.address;
+      if (!has && !can) { box.remove(); return; }
+      const head = "<h3>Address" + (can && !editing ? '<button type="button" class="small quiet" data-ad="edit">' + (has ? "Edit" : "Add") + "</button>" : "") + "</h3>";
+      if (editing) {
+        box.innerHTML = head + '<form id="aca-opAdForm"><label for="aca-opAdIn">Where</label><input type="text" id="aca-opAdIn" maxlength="300" value="' + esc(O.address || "") + '" placeholder="Search Google Maps or type it" />' +
+          '<div class="row"><button type="submit" class="small primary">Save</button><button type="button" class="small" data-ad="cancel">Cancel</button></div></form>';
+        if (typeof Places !== "undefined") Places.attach(el("opAdIn"), {});
+        el("opAdIn").focus();
+      } else box.innerHTML = head + (has ? '<div style="font-size:13.5px;overflow-wrap:anywhere">' + esc(O.address) + '</div><p class="oncal">New bookings start here.</p>'
+        : '<p class="muted" style="margin:0;font-size:13px">Not known yet. Add it here, or book a job with a location and it lands here.</p>');
+      box.onclick = (e) => { const t = e.target.closest("[data-ad]"); if (t) renderAddress(t.dataset.ad === "edit"); };
+      const f = el("opAdForm");
+      if (f) f.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = f.querySelector("[type=submit]"); btn.disabled = true;
+        const addr = el("opAdIn").value.trim();
+        const { data, error } = await sb.rpc("org_address_save", { p_org: O.id, p_address: addr });
+        if (error) { btn.disabled = false; toast(cleanErr(error), true); return; }
+        O.address = addr || null;
+        const n = num(data && data.jobs);
+        toast(n ? "Saved. " + n + (n === 1 ? " upcoming job" : " upcoming jobs") + " and the calendar got the new address." : "Saved.");
+        renderAddress();
       };
     }
     // The partner's WiFi (2026-10-24): new bookings start with it, and WiFi saved on a job lands here, so it carries

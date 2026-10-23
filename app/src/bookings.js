@@ -829,6 +829,10 @@
     function renderPreview() {
       renderTitle();
       const pd = firstDay();
+      // ordering dates and the automatic indoors / outdoors follow the type, days and title (director.js)
+      const ds = readDays();
+      DirectorFields.autoDates({ audience: byType(typeKey).audience, lastDay: ds.length ? ds[ds.length - 1].day : "", firstDay: pd, orgId: org ? org.id : "",
+        typeKey, label: [pickedLabel(), el("bkTitle").value.trim()].filter(Boolean).join(" "), bookingId: isNew ? null : d.id });
       const list = steps.filter((s) => seqOf(s.sequence_id) === typeKey);
       const n = [...el("bkContacts").querySelectorAll("input:checked")].length;
       if (!pd || !list.length) { el("bkPrev").innerHTML = '<strong>Emails:</strong> pick a picture day to see the schedule.'; return; }
@@ -878,14 +882,11 @@
       el("bkOrgPick").innerHTML = "<strong>" + esc(o.name) + "</strong> " + orgLinkHtml(o) + ' <button type="button" class="link" data-v="changeorg">change</button>';
       el("bkOrgList").classList.add("hidden");
       if (!el("bkLoc").value) { el("bkLoc").value = o.town || ""; el("bkLoc").dataset.auto = "1"; }
-      // Last time's place, when we have been there before.
-      sb.from("bookings").select("location").eq("org_id", o.id).neq("location", "").order("picture_day", { ascending: false }).limit(1).then(({ data: last }) => {
-        const loc = last && last[0] && last[0].location;
-        if (loc && org === o && (!el("bkLoc").value || el("bkLoc").dataset.auto === "1")) { el("bkLoc").value = loc; el("bkLoc").dataset.auto = "1"; el("bkLocNote").textContent = "Same place as last time."; }
-      }, () => {});
-      // The partner's saved WiFi (last season's), when the boxes are still empty.
-      sb.from("prospect_orgs").select("wifi_network, wifi_password").eq("id", o.id).maybeSingle().then(({ data: w }) => {
-        if (!w || org !== o || el("bkWifi").value || el("bkWifiPw").value) return;
+      // The partner's address (their newest job's place, or set on the partner page) and saved WiFi, when still empty.
+      sb.from("prospect_orgs").select("address, wifi_network, wifi_password").eq("id", o.id).maybeSingle().then(({ data: w }) => {
+        if (!w || org !== o) return;
+        if (w.address && (!el("bkLoc").value || el("bkLoc").dataset.auto === "1")) { el("bkLoc").value = w.address; el("bkLoc").dataset.auto = "1"; el("bkLocNote").textContent = "The partner's address. Change it here if this job is somewhere else."; }
+        if (el("bkWifi").value || el("bkWifiPw").value) return;
         el("bkWifi").value = w.wifi_network || ""; el("bkWifiPw").value = w.wifi_password || "";
       }, () => {});
       const [{ data }, { data: os }] = await Promise.all([
@@ -947,7 +948,7 @@
       }
       if (["aca-bkCode", "aca-bkRetake"].includes(e.target.id) || e.target.classList.contains("bk-d-day") || e.target.classList.contains("bk-d-label")) renderPreview();
       if (e.target.closest && e.target.closest("#aca-bkDays")) renderMoveNote();
-      if (e.target.id === "aca-bkTitle" || e.target.id === "aca-bkKeepOrg") renderTitle();
+      if (e.target.id === "aca-bkTitle" || e.target.id === "aca-bkKeepOrg") renderPreview();
     });
     box.addEventListener("change", (e) => {
       if (e.target.id === "aca-bkGpAfter") { gpAfter = e.target.checked; return; }
@@ -976,7 +977,7 @@
     box.addEventListener("click", async (e) => {
       if (e.target.closest('a[data-v="orglink"]')) { box.close(); return; }
       const lb = e.target.closest("button[data-label]");
-      if (lb) { el("bkLabels").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === lb ? "true" : "false")); renderTitle(); return; }
+      if (lb) { el("bkLabels").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === lb ? "true" : "false")); renderPreview(); return; }
       const b = e.target.closest("button[data-v]"); if (!b) return;
       const v = b.dataset.v;
       if (v === "close") return box.close();
