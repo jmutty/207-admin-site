@@ -12,6 +12,8 @@
 //   POST /sales -> the same, with edit access to Season results (can('results','edit')): invoke
 //                 gotphoto-sales. ?probe=<job id> passes through (field names and numbers of that job's
 //                 first orders, to check how sales are read).
+//   POST /gpjob?booking=<id> -> the same, with edit access to Bookings (can('bookings','edit')): invoke
+//                 gotphoto-jobs for that booking ("Create it in GotPhoto" on a job).
 //   anything else -> 404.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -40,6 +42,8 @@ Deno.serve(async (req) => {
     : url.pathname.endsWith("/sync") ? { name: "sync", module: "galleries", target: "gotphoto-sync?trigger=manual" }
     : url.pathname.endsWith("/sales") ? { name: "sales", module: "results", target: "gotphoto-sales?trigger=manual" +
         (url.searchParams.get("probe") ? "&probe=" + encodeURIComponent(url.searchParams.get("probe")!) : "") }
+    : url.pathname.endsWith("/gpjob") && /^[0-9a-f-]{36}$/i.test(url.searchParams.get("booking") ?? "")
+      ? { name: "gpjob", module: "bookings", target: "gotphoto-jobs?trigger=manual&booking=" + url.searchParams.get("booking") }
     : null;
   if (route) {
     try {
@@ -68,7 +72,7 @@ Deno.serve(async (req) => {
       return new Response(body, { status: resp.status, headers: { ...CORS, "Content-Type": "application/json" } });
     } catch (e) {
       console.error(`admin/${route.name}:`, e);
-      return json({ ok: false, error: route.name === "sync" ? "Sync failed." : "Sales refresh failed." }, 500);
+      return json({ ok: false, error: route.name === "sync" ? "Sync failed." : route.name === "gpjob" ? "Could not reach GotPhoto." : "Sales refresh failed." }, 500);
     }
   }
 

@@ -205,6 +205,13 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.$$("#aca-bkDetail .bk-stages li.done")).length === 2, "earlier stages ticked");
     check((await page.$$('#aca-panel-job button[data-j="edit"]')).length === 1 && !(await page.$('#aca-bkDetail [data-v="edit"]')), "one Edit button: Edit booking in the header");
     check((await page.$$("#aca-bkDetail .bk-gp")).length <= 1, "one GotPhoto create block");
+    check(!(await page.$('#aca-bkDetail a[href*="config_jobs/create"]')), "no link to GotPhoto's retired create page");
+    const gpMake = await page.$('#aca-bkDetail button[data-v="gpmake"]');
+    if (gpMake) {
+      await gpMake.click();
+      await page.waitForTimeout(300);
+      check(await page.evaluate(() => (window.__gpjobCalls || []).some((u) => u.includes("/admin/gpjob?booking=bk1"))), "Create it in GotPhoto now calls admin /gpjob for the booking");
+    }
     await page.click('#aca-bkDetail button[data-next="1"]');
     await page.waitForTimeout(150);
     const mv = await lastRpc("booking_set_stage");
