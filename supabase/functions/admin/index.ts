@@ -14,6 +14,7 @@
 //                 first orders, to check how sales are read).
 //   POST /gpjob?booking=<id> -> the same, with edit access to Bookings (can('bookings','edit')): invoke
 //                 gotphoto-jobs for that booking ("Create it in GotPhoto" on a job).
+//   POST /gplists -> the same check: GotPhoto's price and communication profiles for Settings > Job types.
 //   anything else -> 404.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -44,6 +45,7 @@ Deno.serve(async (req) => {
         (url.searchParams.get("probe") ? "&probe=" + encodeURIComponent(url.searchParams.get("probe")!) : "") }
     : url.pathname.endsWith("/gpjob") && /^[0-9a-f-]{36}$/i.test(url.searchParams.get("booking") ?? "")
       ? { name: "gpjob", module: "bookings", target: "gotphoto-jobs?trigger=manual&booking=" + url.searchParams.get("booking") }
+    : url.pathname.endsWith("/gplists") ? { name: "gplists", module: "bookings", target: "gotphoto-jobs?lists=1" }
     : null;
   if (route) {
     try {
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
       return new Response(body, { status: resp.status, headers: { ...CORS, "Content-Type": "application/json" } });
     } catch (e) {
       console.error(`admin/${route.name}:`, e);
-      return json({ ok: false, error: route.name === "sync" ? "Sync failed." : route.name === "gpjob" ? "Could not reach GotPhoto." : "Sales refresh failed." }, 500);
+      return json({ ok: false, error: route.name === "sync" ? "Sync failed." : route.name.startsWith("gp") ? "Could not reach GotPhoto." : "Sales refresh failed." }, 500);
     }
   }
 

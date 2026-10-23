@@ -789,6 +789,9 @@
       window.__offerDriveCalls = (window.__offerDriveCalls || []).concat([JSON.parse(opts.body)]);
       return new Response(JSON.stringify({ ok: true, asked: 3, stored: 3, missed: 0 }), { status: 200 });
     }
+    if (String(url).includes("/functions/v1/admin/gplists")) {
+      return new Response(JSON.stringify({ ok: true, price_profiles: [{ id: "pp-fall", name: "Fall Sports 2026" }, { id: "pp-spring", name: "Spring Sports 2027" }], communication_profiles: [{ id: "cp1", name: "League emails" }] }), { status: 200 });
+    }
     if (String(url).includes("/functions/v1/admin/gpjob")) {
       window.__gpjobCalls = (window.__gpjobCalls || []).concat([String(url)]);
       return new Response(JSON.stringify({ ok: true, linked: 0, made: [{ booking_id: "bk1", gotphoto_job_id: "9001", name: "Brewer Travel Basketball Club | Winter Sports | 2026" }] }), { status: 200 });

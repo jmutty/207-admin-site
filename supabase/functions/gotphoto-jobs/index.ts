@@ -1,6 +1,6 @@
-// gotphoto-jobs: makes the GotPhoto job for a sports booking through GotPhoto's Admin API (POST /v4/jobs,
+// gotphoto-jobs: makes the GotPhoto job for a booking through GotPhoto's Admin API (POST /v4/jobs,
 // https://developer.gotphoto.com/docs/public-admin-api/103247955f9a2-create-a-job), then links the booking to
-// it once gotphoto-sync has picked the job up. Cron every 5 minutes (`gotphoto-jobs`), and "Create it in
+// it once gotphoto-sync has picked the job up (sports; a school booking still needs its access code typed in). Cron every 5 minutes (`gotphoto-jobs`), and "Create it in
 // GotPhoto" on a job (admin `/gpjob?booking=<id>`).
 //
 // Auth: x-sync-secret = SYNC_TRIGGER_SECRET, like gotphoto-sales. Same GotPhoto login (GP_* env).
@@ -12,6 +12,7 @@
 //      GET /v4/jobs/{id}, POST the new job, record the result (gp_create_done).
 // ?booking=<id> does one booking now, whatever gp_create_settings.auto_enabled says.
 // ?dry=1 builds the jobs it would make and returns them without claiming or creating anything.
+// ?lists=1 returns GotPhoto's price profiles and communication profiles (id + name) for Settings.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const GP_AUTH = "https://auth.getphoto.io/oauth/access_token";
@@ -22,8 +23,9 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TRIGGER_SECRET = Deno.env.get("SYNC_TRIGGER_SECRET")!;
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-// Settings copied from the newest job of the same booking type. Left out on purpose: coupon_id and
-// prepay_code (often one job's own), estimated_subjects and notes (this job's), the dates (shifted below).
+// Settings copied from the newest job of the same GotPhoto job type, unless gp_type_defaults sets them (item.set).
+// Left out on purpose: coupon_id and prepay_code (often one job's own), estimated_subjects and notes (this
+// job's), the dates (set or shifted below).
 const COPY_KEYS = ["job_type_id", "access_type", "password_source", "register_after_password_login", "review_orders_photos",
   "show_photo_name", "can_request_individual_photos", "can_request_group_photos", "can_request_sibling_photos",
   "duration_of_shoot", "price_profile_id", "communication_profile_id", "photographer_goal", "watermark_id", "prepay",
@@ -76,18 +78,21 @@ const addDays = (ymd: string, n: number) => { const d = new Date(ymd + "T12:00:0
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b.slice(0, 10) + "T12:00:00Z") - Date.parse(a.slice(0, 10) + "T12:00:00Z")) / 86_400_000);
 const isDay = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v);
 
-// The POST body: settings from the template, organization bits from the org's job, this booking's name and date.
+// The POST body: settings from the template, organization bits from the org's job, then whatever
+// gp_type_defaults sets (item.set: archive date, price profile, ...), then this booking's name and date.
+// The job type always comes from the template, which is a job of the configured GotPhoto job type.
 function buildJob(item: any, tpl: Record<string, any>, org: Record<string, any> | null): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const k of COPY_KEYS) if (tpl[k] != null && tpl[k] !== "") out[k] = tpl[k];
   if (org) for (const k of ORG_KEYS) if (org[k] != null && org[k] !== "") out[k] = org[k];
-  if (out.job_type_id == null && tpl.job_type && typeof tpl.job_type === "object" && tpl.job_type.id != null) out.job_type_id = tpl.job_type.id;
-  // Dates keep their distance from the shoot (archive 60 days after, prepay deadline 3 days before, ...).
+  if (tpl.job_type && typeof tpl.job_type === "object" && tpl.job_type.id != null) out.job_type_id = tpl.job_type.id;
+  // Deadlines not set below keep their distance from the shoot (prepay deadline 3 days after, ...).
   if (isDay(tpl.shoot)) {
-    for (const k of ["archive", "prepay_deadline", "registration_deadline"]) {
+    for (const k of ["prepay_deadline", "registration_deadline"]) {
       if (isDay(tpl[k])) { const d = addDays(item.shoot, daysBetween(tpl.shoot, tpl[k])); if (d > new Date().toISOString().slice(0, 10)) out[k] = d; }
     }
   }
+  for (const [k, v] of Object.entries(item.set ?? {})) if (v != null) out[k] = v;
   if (out.password_source == null) out.password_source = "manual";
   return {
     ...out,
@@ -102,6 +107,20 @@ function buildJob(item: any, tpl: Record<string, any>, org: Record<string, any> 
 Deno.serve(async (req) => {
   if (!secretMatches(req.headers.get("x-sync-secret"))) return new Response("forbidden", { status: 403 });
   const url = new URL(req.url);
+  if (url.searchParams.get("lists") === "1") {
+    try {
+      const token = await login();
+      const list = async (path: string) => {
+        const resp = await fetch(`${GP_API}/${path}?limit=500&page=1`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(15_000) });
+        if (!resp.ok) throw new Error(`GotPhoto ${resp.status} listing ${path}`);
+        const body = await resp.json();
+        const arr = Array.isArray(body) ? body : body.data ?? [];
+        return arr.map((x: any) => ({ id: String(x.id), name: String(x.name ?? x.id) })).sort((a: any, b: any) => a.name.localeCompare(b.name));
+      };
+      const [price_profiles, communication_profiles] = await Promise.all([list("price_profiles"), list("communication_profiles").catch(() => null)]);
+      return Response.json({ ok: true, price_profiles, communication_profiles });
+    } catch (e) { return Response.json({ ok: false, error: String((e as Error).message ?? e) }, { status: 502 }); }
+  }
   const booking = url.searchParams.get("booking");
   const dry = url.searchParams.get("dry") === "1";
 
@@ -110,7 +129,7 @@ Deno.serve(async (req) => {
   if (qErr) return Response.json({ ok: false, error: `queue: ${qErr.message}` }, { status: 500 });
   const items = (queue ?? []) as any[];
   if (!items.length) {
-    return Response.json({ ok: true, linked, made: [], ...(booking ? { error: "This booking already has a GotPhoto job, is being made, or is not a sports booking." } : {}) });
+    return Response.json({ ok: true, linked, made: [], ...(booking ? { error: "This booking already has a GotPhoto job, or one is being made." } : {}) });
   }
 
   let token: string;
@@ -122,7 +141,7 @@ Deno.serve(async (req) => {
 
   for (const item of items) {
     if (!item.template_job_id) {
-      if (!dry && await claim(item)) await done(item.booking_id, null, "No earlier GotPhoto job of this type to copy settings from. Make this one in GotPhoto.", false);
+      if (!dry && await claim(item)) await done(item.booking_id, null, "No GotPhoto job of this type to copy the job type and settings from yet. Make this one in GotPhoto.", false);
       made.push({ booking_id: item.booking_id, error: "nothing to copy" });
       continue;
     }

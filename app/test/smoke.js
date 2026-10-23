@@ -1883,6 +1883,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const jtx = await page.textContent("#aca-stJt-sports_data");
     check(jtx.includes("Picture day done") && jtx.includes("Team composites") && jtx.includes("Sports with data"), "a job type card: stages, deliverables, its booking emails");
     check(!!(await page.$("#aca-stJt-all")) && !!(await page.$("#aca-stAuto")), "every-job-type card and the auto-track switch");
+    check(jtx.includes("GotPhoto defaults") && jtx.includes("Sport (Other)") && (await page.textContent("#aca-stJt-school")).includes("K-12 School"), "GotPhoto defaults on each job type card");
+    await page.click('#aca-stJt-sports_data [data-st="gpdef"]');
+    await page.waitForFunction(() => { const s = document.querySelector("#aca-stGpprice_profile_fall"); return s && [...s.options].some((o) => o.text === "Fall Sports 2026"); });
+    check(true, "GotPhoto defaults lists the price profiles from GotPhoto");
+    await page.selectOption("#aca-stGpprice_profile_fall", "pp-fall");
+    await page.selectOption("#aca-stGpprepay", "false");
+    await page.click('.modal [data-m="save"]');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "gp_type_defaults_save" && c[1].p_type === "sports_data" && c[1].p.price_profile_fall === "pp-fall" && c[1].p.labels.price_profile_fall === "Fall Sports 2026" && c[1].p.prepay === "false")), "saves the GotPhoto defaults with the profile name");
     await page.click('#aca-stJt-sports_data [data-st="stages"]');
     await page.waitForSelector('#aca-bkJtTypes button[aria-pressed="true"]');
     check(await page.$eval('#aca-bkJtTypes button[aria-pressed="true"]', (b) => b.dataset.jt) === "sports_data", "Stages & deliverables opens on that job type");

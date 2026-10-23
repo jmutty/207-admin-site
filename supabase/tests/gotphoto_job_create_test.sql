@@ -78,5 +78,30 @@ select pg_temp.ok((select gotphoto_job_id from public.bookings where id = '00000
 select pg_temp.ok((select status from public.gp_job_creates where booking_id = '00000000-0000-0000-0000-0000000000b1') = 'linked', 'row says linked');
 select pg_temp.ok(not public.gp_create_claim((select e from q)), 'a linked booking cannot be claimed again');
 
+-- Defaults per job type: archive date, price profile by season, school jobs.
+select pg_temp.ok((select (e->'set'->>'archive')::date from q) = ((now() + interval '41 days')::date + interval '1 month')::date, 'sports: archive one month after the shoot');
+update public.gp_type_defaults set price_profile_id = 'pp-any', price_profile_fall = 'pp-fall', price_profile_winter = 'pp-winter', price_profile_spring = 'pp-spring', prepay_deadline_days = 10
+ where type_key = 'sports_data';
+update public.bookings set picture_day = make_date(extract(year from now())::int + 1, 9, 20) where id = '00000000-0000-0000-0000-0000000000b2';
+select pg_temp.ok((select e->'set'->>'price_profile_id' from jsonb_array_elements(public.gp_create_queue('00000000-0000-0000-0000-0000000000b2')) e) = 'pp-fall', 'a September shoot gets the fall price profile');
+select pg_temp.ok((select (e->'set'->>'prepay_deadline')::date from jsonb_array_elements(public.gp_create_queue('00000000-0000-0000-0000-0000000000b2')) e) = make_date(extract(year from now())::int + 1, 9, 30), 'prepay deadline days after the shoot');
+update public.bookings set picture_day = make_date(extract(year from now())::int + 2, 1, 15) where id = '00000000-0000-0000-0000-0000000000b2';
+select pg_temp.ok((select e->'set'->>'price_profile_id' from jsonb_array_elements(public.gp_create_queue('00000000-0000-0000-0000-0000000000b2')) e) = 'pp-winter', 'a January shoot gets the winter price profile');
+update public.gp_type_defaults set price_profile_winter = null where type_key = 'sports_data';
+select pg_temp.ok((select e->'set'->>'price_profile_id' from jsonb_array_elements(public.gp_create_queue('00000000-0000-0000-0000-0000000000b2')) e) = 'pp-any', 'no winter profile: the any-season one');
+
+insert into public.synced_jobs (gotphoto_job_id, name, internal_name, job_type, access_type, status, shoot_at)
+values ('gpc-school-tpl', 'Gpc Some School | School Photos | 2025-2026', 'JOB90010', 'school_k_12', 'qr_tagging', 'published', now() - interval '20 days');
+insert into public.bookings (id, org_id, type_key, title_label, picture_day, start_at, end_at, status, created_at) values
+  ('00000000-0000-0000-0000-0000000000b4', '00000000-0000-0000-0000-0000000000a2', 'school', 'School Photos', make_date(extract(year from now())::int + 1, 10, 5),
+   now() + interval '60 days', now() + interval '60 days 2 hours', 'booked', now() - interval '1 hour');
+create temp table qs as select e from jsonb_array_elements(public.gp_create_queue('00000000-0000-0000-0000-0000000000b4')) e;
+select pg_temp.ok((select e->>'template_job_id' from qs) = 'gpc-school-tpl', 'school: copies the newest K-12 job');
+select pg_temp.ok((select (e->'set'->>'archive')::date from qs) = make_date(extract(year from now())::int + 2, 6, 1), 'school: archive June 1 after the shoot');
+select pg_temp.ok((select e->>'job_name' from qs) like '% | School Photos | ' || (extract(year from now())::int + 1) || '-' || (extract(year from now())::int + 2), 'school: name carries the school year');
+
+select pg_temp.ok((public.gp_type_defaults_save('sports_nodata', '{"archive_rule": "june_1", "price_profile_spring": "pp-s", "prepay": "false", "labels": {"price_profile_spring": "Spring 2027"}}'::jsonb)->>'price_profile_spring') = 'pp-s', 'save sets a value');
+select pg_temp.ok((select prepay = false and archive_rule = 'june_1' and labels->>'price_profile_spring' = 'Spring 2027' from public.gp_type_defaults where type_key = 'sports_nodata'), 'save stores the rest');
+
 select 'ALL GOTPHOTO JOB CREATE TESTS PASSED';
 rollback;
