@@ -25,6 +25,7 @@
     }
     schoolsList = data || [];
     renderSchools();
+    if (hubActList.length) renderHubActivity();
   }
 
   function renderSchools() {
@@ -110,6 +111,36 @@
   });
 
   // ================= Hub activity =================
+  // #jobs/schools used to be its own page; the school rows (with their access code and retake day) now sit in
+  // Hub activity under the Schools filter, and the old address lands there (2026-10-24).
+  registerPage({ id: "schools", group: "Jobs", section: "jobs", module: "hub", hidden: true, navAs: "hubact",
+                 tabs: [["schools", "Hub activity"]], onShow: () => { setHubFilter("school"); showTab("hubact"); } });
+  function setHubFilter(f) {
+    hubActFilter = f;
+    el("hubactChips").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.f === f ? "true" : "false"));
+  }
+  // A school row from before bookings: edit its dates, code and visibility in a small dialog.
+  function editSchool(id) {
+    const s = schoolsList.find((x) => x.id === id); if (!s) return;
+    const m = openModal('<h2>' + esc(s.name) + "</h2>" +
+      '<div class="field"><label for="aca-hsName">School name</label><input type="text" id="aca-hsName" maxlength="120" value="' + esc(s.name) + '" /></div>' +
+      '<div class="field"><label for="aca-hsPd">Picture day</label><input type="date" id="aca-hsPd" value="' + esc(s.picture_day || "") + '" /></div>' +
+      '<div class="field"><label for="aca-hsRd">Retake day (optional)</label><input type="date" id="aca-hsRd" value="' + esc(s.retake_day || "") + '" /></div>' +
+      '<div class="field"><label for="aca-hsCode">Access code</label><input type="text" id="aca-hsCode" maxlength="40" value="' + esc(s.access_code || "") + '" /></div>' +
+      '<div class="field"><label><input type="checkbox" id="aca-hsActive"' + (s.active ? " checked" : "") + " /> Visible on the hub</label></div>" +
+      '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" id="aca-hsCancel">Cancel</button><button type="button" class="primary" id="aca-hsSave">Save</button></div>');
+    el("hsCancel").addEventListener("click", () => m.close());
+    el("hsSave").addEventListener("click", async () => {
+      const patch = { name: el("hsName").value.trim(), picture_day: el("hsPd").value, access_code: el("hsCode").value.trim(),
+        retake_day: el("hsRd").value || null, active: el("hsActive").checked, updated_at: new Date().toISOString() };
+      if (!patch.name || !patch.picture_day || !patch.access_code) { toast("Name, picture day, and access code are all required.", true); return; }
+      el("hsSave").disabled = true;
+      const { error } = await supabase.from("comm_hub_schools").update(patch).eq("id", id);
+      el("hsSave").disabled = false;
+      if (error) { toast("Could not save: " + error.message, true); return; }
+      m.close(); toast("'" + patch.name + "' saved."); loadSchools();
+    });
+  }
   // Which parent messages each team / school has grabbed on /sportsadmin/ and /schooladmin/.
   // All of it (send dates, statuses, grabs, reminder signups) comes from the admin-only RPC
   // admin_hub_activity(); hub_events and the watcher tables are not readable any other way.
@@ -218,7 +249,7 @@
           '</div>' +
           '<div class="hubact-form-actions"><button type="submit" class="primary">Add contact</button><button type="button" class="js-w-cancel">Cancel</button></div>' +
         '</form>';
-      // Each organization folds on its header; late ones start open, the rest closed, and a click is remembered.
+      // Each partner folds on its header; late ones start open, the rest closed, and a click is remembered.
       const fkey = "aca-hubfold:" + o.hub + ":" + o.org_id;
       let folded = o.late_count === 0; try { const v = localStorage.getItem(fkey); if (v !== null) folded = v === "1"; } catch (_) {}
       return '<div class="hubact-org' + (o.late_count > 0 ? " nudge" : "") + (folded ? " folded" : "") + '" data-fkey="' + esc(fkey) + '">' +
@@ -228,6 +259,7 @@
           '<span class="pill ' + (o.hub === "sports" ? "accent" : "muted") + '">' + (o.hub === "sports" ? "Sports" : "School") + '</span>' +
           '<span class="muted">Picture day ' + hubActDay(o.picture_day) + '</span>' +
           (o.late_count > 0 ? '<span class="pill err">' + num(o.late_count) + " late</span>" : "") +
+          schoolBits(o) +
           '<a href="' + esc(link) + '" target="_blank" rel="noopener" style="font-size:12.5px">open on the hub</a>' +
         '</div>' +
         '<table class="hubact-sends"><tbody>' + (o.sends || []).map(hubActSendRow).join("") + '</tbody></table>' +
@@ -240,12 +272,21 @@
       node.querySelectorAll(".js-w-add, form.hubact-addform").forEach((x) => x.remove());
       const who = node.querySelector(".hubact-who"); if (!who) return;
       const names = (b.contacts || []).map((c) => c.name || c.email).filter(Boolean).join(", ");
+      const nm = node.querySelector(".hubact-head .name");
+      if (nm && b.org_id && typeof orgLink === "function") nm.innerHTML = '<a href="' + esc(orgLink(b.org_id)) + '">' + esc(o.org) + "</a>";
       const note = document.createElement("span"); note.className = "muted"; note.style.cssText = "flex-basis:100%;font-size:12.5px";
       note.innerHTML = "Booked" + (names ? ", reminders go to " + esc(names) : "") + '. <a href="#jobs/bookings/' + esc(b.id) + '">Change contacts on the booking</a>';
       who.appendChild(note);
     });
   }
 
+  // School rows: the access code parents type and the retake day, with Edit for rows that have no booking.
+  function schoolBits(o) {
+    if (o.hub !== "school") return "";
+    const s = schoolsList.find((x) => x.id === o.org_id); if (!s) return "";
+    return '<span class="muted">Access code <span class="mono">' + esc(s.access_code || "none") + "</span>" + (s.retake_day ? " · retakes " + hubActDay(s.retake_day) : "") + (s.active ? "" : " · hidden on the hub") + "</span>" +
+      (hubBookings["school:" + o.org_id] || !canEdit("hub") ? "" : '<button type="button" class="link small js-s-edit" data-sid="' + esc(s.id) + '">Edit</button>');
+  }
   el("hubactChips").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-f]");
     if (!btn) return;
@@ -280,6 +321,7 @@
 
   // Reminder contacts: add / edit / remove (admin-only RPCs; the list re-renders from the server).
   el("hubactBody").addEventListener("click", (e) => {
+    const se = e.target.closest(".js-s-edit"); if (se) { editSchool(se.dataset.sid); return; }
     const head = e.target.closest(".hubact-head"); if (!head || e.target.closest("a")) return;
     const org = head.closest(".hubact-org"); const folded = org.classList.toggle("folded");
     head.querySelector(".hubact-chev").setAttribute("aria-expanded", String(!folded));
