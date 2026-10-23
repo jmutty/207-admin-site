@@ -689,7 +689,7 @@
           <div class="bk-addc hidden" id="aca-bkAddC"><input type="text" id="aca-bkCFirst" placeholder="First" /><input type="text" id="aca-bkCLast" placeholder="Last" /><input type="email" id="aca-bkCEmail" placeholder="email@school.org" /><input type="text" id="aca-bkCRole" placeholder="Role (AD, secretary)" /><button type="button" class="small" data-v="addc">Add</button></div>
           <button type="button" class="link hidden" id="aca-bkAddCBtn" data-v="showaddc">+ Add a contact</button></div>
         <label for="aca-bkCode" class="bk-school">Access code</label>
-        <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Create the job in GotPhoto (link above), then put its code here. Leave empty for now and email 0 waits for it.</span></span>
+        <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Creates the school on 207photo.com/schooladmin. Once the GotPhoto job is made, put its code here. Leave empty for now and email 0 waits for it.</span></span>
         <label for="aca-bkRetake" class="bk-school">Retake day</label><span class="bk-school"><input type="date" id="aca-bkRetake" value="${esc(d.retake_day || "")}" /> <span class="bk-sub">optional</span></span>
         ${DirectorFields.formHtml()}
         <label for="aca-bkWifi">WiFi</label>
@@ -746,6 +746,7 @@
       const ov = el("bkTitle").value.trim(); if (!ov) return "";
       return el("bkKeepOrg").checked && org ? org.name + " \u2022 " + ov : ov;
     }
+    let gpAfter = true, gpOffered = false;
     function renderTitle() {
       const box2 = el("bkTitlePrev"); if (!box2) return;
       const ov = el("bkTitle").value.trim();
@@ -753,8 +754,12 @@
       box2.innerHTML = "On the calendar: <strong>" + esc(t) + "</strong>" + (dayRows.length > 1 ? ' <span class="muted">(each extra day adds its own label after it)</span>' : "");
       const gp = el("bkGp"), day = firstDay();
       if (gp && !isNew) { gp.innerHTML = ""; return; }
-      if (gp) gp.innerHTML = org && day ? gpCreateBlock({ org_name: org.name, title_label: pickedLabel(), type_key: typeKey, type_label: byType(typeKey).label, picture_day: day })
-        : '<div class="bk-sub" style="margin-top:6px">Pick the organization and the day to get the GotPhoto link.</div>';
+      // A new booking: 207 Admin makes the GotPhoto job right after booking, through the check screen (gpCheck).
+      gpOffered = !!(gp && org && day);
+      if (gp) gp.innerHTML = org && day ? '<label class="bk-sub" style="display:flex;gap:6px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="aca-bkGpAfter"' + (gpAfter ? " checked" : "") +
+          ' /><span>Create the GotPhoto job after booking. You check its settings first. It will be named <strong>' +
+          esc(gpJobName({ org_name: org.name, title_override: composedOverride(), title_label: pickedLabel(), type_key: typeKey, type_label: byType(typeKey).label, picture_day: day })) + "</strong>.</span></label>"
+        : '<div class="bk-sub" style="margin-top:6px">Pick the organization and the day, and 207 Admin can create the GotPhoto job after booking.</div>';
     }
     function renderContacts() {
       const list = el("bkContacts");
@@ -945,6 +950,7 @@
       if (e.target.id === "aca-bkTitle" || e.target.id === "aca-bkKeepOrg") renderTitle();
     });
     box.addEventListener("change", (e) => {
+      if (e.target.id === "aca-bkGpAfter") { gpAfter = e.target.checked; return; }
       if (e.target.name === "bkType") {
         typeKey = e.target.value; typeTouched = true;
         box.querySelectorAll(".bk-card").forEach((c) => c.classList.toggle("sel", c.querySelector("input").checked));
@@ -1054,7 +1060,11 @@
           toast((dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event\u2026" :
             "Saved." + (moved ? " The Schedule, the calendar event and the unsent emails move with it." : "")) + crewMsg, !!dlvErr || !!dirErr || /not put|not changed/.test(crewMsg));
           // After booking, the new job's page (its trail leads back to the partner); after an edit, the page you were on.
-          if (isNew) { pollNew = data.id; await load(true); openJob(data.id, "booking"); }
+          if (isNew) {
+            pollNew = data.id; await load(true); openJob(data.id, "booking");
+            // "Create the GotPhoto job after booking" ticked: the check screen opens over the new job.
+            if (gpAfter && gpOffered) { const { data: nb } = await sb.rpc("admin_booking_detail", { p_id: data.id }); if (nb && !nb.gotphoto_job_id) gpCheck(nb); }
+          }
           else { load(true); if (typeof JobPage !== "undefined" && currentTab === "job") JobPage.reload(); }
         } catch (e2) { b.disabled = false; err(cleanErr(e2)); }
       }
