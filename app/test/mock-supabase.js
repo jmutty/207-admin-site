@@ -646,6 +646,35 @@
       est_minutes: null, on_date: new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }), overdue: false, done_at: null, done_by: null, booking_id: "bk3", booking_title: "Island Cheer & Tumbling \u2022 Cheer" });
     RPC.schedule_remove = { ok: true };
   }
+  // ws/director (2026-10-24): the director's picture day page, the booking's team times / order dates, Email statement.
+  {
+    const day = (n) => iso(n).slice(0, 10);
+    const TOK = "d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2";
+    Object.assign(RPC, {
+      booking_director_get: { team_times: "9:00 U10 Blue\n9:15 U10 Red", order_deadline: day(30), discount_ends: day(20),
+        day_link: "https://admin.207photo.com/#day/" + TOK, calendar_link: "https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?t=" + TOK },
+      booking_director_save: { ok: true, day_link: "https://admin.207photo.com/#day/" + TOK },
+      partner_statement_queue: { ok: true, email_id: "m11", to: "csnowdeal75@gmail.com", paid_line: "Check for $380.00 mailed on March 2, 2026 (check #1042)." },
+      booking_public: (/#day\/0{36}/.test(location.hash)) ? { found: false } : {
+        found: true, cancelled: /[?&]daycancel=1\b/.test(location.search), org: "Brewer Travel Basketball Club", audience: "sports", workflow: "families", job: "Winter Sports",
+        picture_day: day(12), days: [{ day: day(12), label: "", start: "5:00 PM", end: "7:00 PM" }], when_line: "Saturday, November 7, 5:00 PM to 7:00 PM", time_set: true,
+        location: "Brewer Auditorium, 318 Wilson St, Brewer, ME", arrival: "4:30 PM",
+        contact: { name: "Jeremiah Mutty", email: "jmutty@207photo.com", phone: "(207) 558-3185" },
+        needs: "A spot about 15 by 15 feet out of direct sun (or a room with an outlet if we're indoors), and someone who can send teams over in order.",
+        weather: "Outdoor shoots move to your backup date or an indoor space. We decide together by 7:00 AM on picture day, and we email and call you either way.",
+        team_times: ["5:00 U10 Blue", "5:15 U10 Red", "5:30 U12 Girls"], roster: "We have your roster. Thank you!",
+        families: ["Nothing to pay on picture day, and no order forms.", "After picture day, every family on your roster gets an email and a text with a link to their own athlete's gallery.", "They order online from that gallery.", "The early-order discount ends Friday, November 27."],
+        order_deadline: day(30), discount_ends: day(20), terms: "Your program gets 10% of online sales (before tax), paid by check after the season.",
+        deliverables: [{ label: "Team composites", done: true, link: "https://www.dropbox.com/sh/x" }, { label: "Coach banner", done: false, link: null }],
+        retake: "Missed picture day? There's no on-location makeup day; families can book a makeup at 207photo.com/makeups.", retake_day: null,
+        hub: "207photo.com/sportsadmin", hub_link: "https://207photo.com/sportsadmin/#job=1",
+        flyer: "A printable flyer, a parent email and a text message are written for you on the hub (207photo.com/sportsadmin). Post the flyer and send the email about a week before picture day.",
+        agreement: { status: "sent", link: "https://admin.207photo.com/#agree/a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2", accepted_at: null },
+        day_link: "https://admin.207photo.com/#day/" + TOK, calendar_link: "https://socluffmclkdljtmiexw.supabase.co/functions/v1/booking-ics?t=" + TOK },
+    });
+    T.booking_settings.day_of_phone = "(207) 558-3185";
+    T.booking_settings.weather_plan = "Outdoor shoots move to your backup date or an indoor space. We decide together by 7:00 AM on picture day, and we email and call you either way.";
+  }
 
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({

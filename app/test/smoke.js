@@ -248,11 +248,18 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const calls = await page.evaluate(() => window.__placeCalls);
     check(calls.length === 2 && calls[0].session && calls[0].session === calls[1].session && calls[1].place_id === "ChIJdoughty0000001", "picking one fetches its address in the same session");
     check(await page.$eval("#aca-bkLoc-places", (n) => n.classList.contains("hidden")) && /google\.com\/maps/.test(await page.$eval("#aca-bkLocNote a", (a) => a.href)), "the list closes and a map link shows");
+    // ws/director: team times and the order dates
+    check(await page.isVisible("#aca-bkTeamTimes") && !!(await page.$("#aca-bkOrderBy")) && !!(await page.$("#aca-bkDiscEnds")), "Book a job has team times, order by and discount ends");
+    await page.fill("#aca-bkTeamTimes", "9:00 U10 Blue\n9:15 U10 Red");
+    await page.$eval("#aca-bkOrderBy", (n) => { n.value = "2026-12-20"; n.dispatchEvent(new Event("change", { bubbles: true })); });
     await page.click('.bk-form button[data-v="save"]');
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_create"));
     await page.waitForSelector("#aca-bkDetail .bk-stages");
     check(page.url().endsWith("#jobs/job/bk1/booking"), "after booking, the new job's page opens (Booking tab)");
     check((await lastRpc("booking_create"))[1].p.location === "James F. Doughty Middle School, 143 Fifth St, Bangor, ME 04401", "the picked address is saved as the location");
+    const dsv = await lastRpc("booking_director_save");
+    check(dsv && dsv[1].p_id === "bk1" && dsv[1].p.team_times === "9:00 U10 Blue\n9:15 U10 Red" && dsv[1].p.order_deadline === "2026-12-20" && dsv[1].p.discount_ends === "", "team times and order date saved with the booking");
+    check(!(await lastRpc("booking_create"))[1].p.team_times, "booking_create gets the same fields as before");
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_deliverables_add"), null, { timeout: 3000 }).catch(() => {});
     const bk = await lastRpc("booking_deliverables_add");
     check(bk && bk[1].p_booking === "bk1" && bk[1].p_items.some((x) => x.template_id === "dt1") && bk[1].p_items.some((x) => x.label === "Coach gift" && x.save), "booking adds the picked deliverables");
@@ -590,6 +597,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const pay = await page.textContent("#aca-panel-payouts");
     check(pay.includes("$760.00 owed on 4 jobs"), "owed total: " + pay.replace(/\s+/g, " ").slice(0, 140));
     check((await page.$$("#aca-panel-payouts .rs-org")).length === 2, "one block per partner owed");
+    await page.click('#aca-panel-payouts .rs-org >> nth=0 >> [data-emailst]');
+    await page.waitForTimeout(200);
+    const est = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "partner_statement_queue").pop());
+    check(est && /picture day statement/.test(est[1].p_subject) && est[1].p_body.includes("{{paid_line}}") && est[1].p_body.includes("your share"), "Email statement drops the statement in the outbox, held");
+    check((await page.textContent("#aca-toast")).includes("held for you"), "says it is held for review");
     await page.click('#aca-panel-payouts [data-payall="r1,r8"]');
     await page.waitForSelector("#aca-rsPayRef");
     await page.fill("#aca-rsPayRef", "1101");
@@ -1287,6 +1299,44 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "agreement_accept" && c[1].p_token === "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2" && c[1].p_name === "Chris Snowdeal")), "accepts with the typed name");
     check((await page.textContent(".ag-done")).includes("Chris Snowdeal"), "says who accepted");
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "fits a phone screen");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Settings > Sending: picture day phone and rain plan (ws/director)");
+  {
+    const { page, errors } = await open(browser, port, "");
+    await page.click('#aca-nav button[data-tab="sending"]');
+    await page.waitForSelector("#aca-ssDayPhone");
+    check(await page.$eval("#aca-ssDayPhone", (n) => n.value) === "(207) 558-3185" && (await page.$eval("#aca-ssWeather", (n) => n.value)).includes("backup date"), "shows the picture day phone and the rain plan");
+    await page.fill("#aca-ssDayPhone", "(207) 555-0100");
+    if (!(await page.$("#aca-ssRecips .tag"))) { await page.fill("#aca-ssNewRecip", "test@207photo.com"); await page.press("#aca-ssNewRecip", "Enter"); }
+    await page.click("#aca-ssSave");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => (window.__writes || []).some((w) => w[0] === "booking_settings" && w[1] === "update" && w[2].day_of_phone === "(207) 555-0100" && "weather_plan" in w[2])), "saves them with the booking sender settings");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Your picture day page (no sign-in, ws/director)");
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html#day/d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2`);
+    await page.waitForSelector("#aca-dayPublic .dyp-when");
+    const txt = await page.textContent("#aca-dayPublic");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_public" && c[1].p_token === "d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2")), "asks for this token only");
+    check(txt.includes("Brewer Travel Basketball Club") && txt.includes("5:00 PM to 7:00 PM") && txt.includes("Brewer Auditorium"), "shows the partner, the time and the place");
+    check(txt.includes("We arrive by 4:30 PM") && txt.includes("(207) 558-3185") && txt.includes("on-site contact"), "day-of: arrival, phone, on-site contact ask");
+    check(txt.includes("5:15 U10 Red") && txt.includes("If the weather is bad"), "team times and the rain plan");
+    check(txt.includes("How it works for families") && txt.includes("no order forms") && txt.includes("10% of online sales"), "families block and the program's terms");
+    check(await page.$eval('#aca-dayPublic a[href="https://www.dropbox.com/sh/x"]', (a) => !!a) && txt.includes("Coach banner"), "delivered files link out, the rest are listed as coming");
+    check(await page.$eval("#aca-dyCal", (a) => a.href.includes("/functions/v1/booking-ics?t=d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2")), "Add to your calendar downloads the .ics");
+    check(await page.$eval('#aca-dayPublic a[href*="#agree/"]', (a) => a.textContent.includes("accept")), "agreement link and status");
+    check(!(await page.isVisible("#aca-loginView")) && !(await page.$("#aca-nav button[data-tab]")) && !(await page.$("#aca-dayPublic input, #aca-dayPublic textarea, #aca-dayPublic form")), "no sign-in, no menu, no forms");
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "fits a phone screen");
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html?daycancel=1#day/d1a2b3c4d5e6f708192a3b4c5d6e7f8091a2`);
+    await page.waitForSelector("#aca-dayPublic .dyp-note");
+    check((await page.textContent("#aca-dayPublic")).includes("was cancelled"), "a cancelled booking says so");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
