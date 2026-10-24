@@ -199,10 +199,11 @@ const b64 = (s: string) => encodeBase64(enc.encode(s));
 const wrap76 = (s: string) => (s.match(/.{1,76}/g) ?? []).join("\r\n");
 const encHeader = (s: string) => /^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`;
 function buildMime(o: {
-  from: string; to: string[]; replyTo: string[]; subject: string; text: string; htmlExtra?: string;
+  from: string; to: string[]; cc?: string[]; replyTo: string[]; subject: string; text: string; htmlExtra?: string;
   messageId: string; inReplyTo?: string | null; attachments: { filename: string; mime: string; b64: string }[];
 }) {
   const h = [`From: ${o.from}`, `To: ${o.to.join(", ")}`];
+  if (o.cc?.length) h.push(`Cc: ${o.cc.join(", ")}`);
   if (o.replyTo.length) h.push(`Reply-To: ${o.replyTo.join(", ")}`);
   h.push(`Subject: ${encHeader(o.subject)}`, `Message-ID: ${o.messageId}`, `Date: ${new Date().toUTCString()}`, "MIME-Version: 1.0");
   if (o.inReplyTo) h.push(`In-Reply-To: ${o.inReplyTo}`, `References: ${o.inReplyTo}`);
@@ -332,13 +333,26 @@ async function sendRow(token: string, row: any, ctx: Ctx | null, s: any, testMod
   if ((s.signature ?? "").trim()) parts.push(s.signature.trim());
   if ((s.footer ?? "").trim()) parts.push(s.footer.trim());
   const to = testMode ? [s.test_recipient] : [contact.email];
+  // People copied in (cc_contact_ids, 2026-10-24: rebook / review / agreement emails). Anyone who bounced or
+  // unsubscribed since is dropped. Test mode sends to the test recipient only.
+  let cc: string[] = [];
+  const ccIds = ((row.cc_contact_ids ?? []) as string[]).filter((id) => id !== row.contact_id);
+  if (ccIds.length && !testMode) {
+    const { data: ccs } = await db.from("prospect_contacts").select("email, bounced_at, unsubscribed_at").in("id", ccIds);
+    const seen = new Set([String(contact.email).trim().toLowerCase()]);
+    for (const c of ccs ?? []) {
+      const e = String(c.email ?? "").trim();
+      if (!e || c.bounced_at || c.unsubscribed_at || seen.has(e.toLowerCase())) continue;
+      seen.add(e.toLowerCase()); cc.push(e);
+    }
+  }
   const atts = [];
   for (const a of (row.attachments ?? []) as { path: string; filename: string }[]) {
     atts.push({ filename: a.filename, mime: a.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream", b64: await loadAttachment(a.path) });
   }
   const pixel = s.track_opens === false ? "" : await openPixel(row.id);
   const raw = buildMime({
-    from: `${encHeader(s.sender_name)} <${s.sender_email}>`, to, replyTo: s.reply_to ?? [],
+    from: `${encHeader(s.sender_name)} <${s.sender_email}>`, to, cc, replyTo: s.reply_to ?? [],
     subject, text: parts.join("\n\n"), htmlExtra: pixel, messageId: `<${crypto.randomUUID()}@207photo.com>`,
     inReplyTo: threaded ? thread.last_message_id : null, attachments: atts,
   });
@@ -348,7 +362,7 @@ async function sendRow(token: string, row: any, ctx: Ctx | null, s: any, testMod
   const now = new Date().toISOString();
   const { data: log } = await db.from("prospect_send_log").insert({
     enrollment_id: row.enrollment_id, thread_id: row.thread_id, scheduled_email_id: row.id, step_no: row.step_no,
-    test_mode: testMode, to_emails: to, cc_emails: [], subject, gmail_message_id: sent.id, gmail_thread_id: sent.threadId, ok: true,
+    test_mode: testMode, to_emails: to, cc_emails: cc, subject, gmail_message_id: sent.id, gmail_thread_id: sent.threadId, ok: true,
   }).select("id").single();
   await db.from("prospect_scheduled_emails").update({
     status: "sent", sent_at: now, test_mode: testMode, gmail_message_id: sent.id, gmail_thread_id: sent.threadId,
@@ -359,7 +373,7 @@ async function sendRow(token: string, row: any, ctx: Ctx | null, s: any, testMod
     thread.gmail_thread_id = sent.threadId; thread.last_message_id = realId ?? thread.last_message_id;
   }
   await db.rpc("prospect_after_send", { p_email: row.id });
-  return { outcome: "sent", step: row.step_no, to, subject };
+  return { outcome: "sent", step: row.step_no, to, cc, subject };
 }
 
 async function run(s: any, opt: { force: boolean; only: string | null; testOrg: string | null; ids: string[] | null }) {

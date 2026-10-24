@@ -238,12 +238,23 @@
     const acts = verbs(r);
     p.innerHTML = `
       <div class="og-phead"><div class="og-ptop"><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600;line-height:22px">${esc(r.subject || "")}</div>
-        <div class="muted" style="font-size:13px">To ${esc(r.to_name || "")}${r.to_email ? " &lt;" + esc(r.to_email) + "&gt;" : ""}${r.org ? " at " + esc(r.org) : ""}. ${esc(r.detail || "")}.</div></div>
+        <div class="muted" style="font-size:13px">To ${esc(r.to_name || "")}${r.to_email ? " &lt;" + esc(r.to_email) + "&gt;" : ""}${r.org ? " at " + esc(r.org) : ""}<span id="aca-obCc"></span>. ${esc(r.detail || "")}.</div></div>
         <button type="button" data-v="close" aria-label="Close">&#10005;</button></div>
         <div class="og-pmeta"><span class="pill ${s[0]}">${esc(s[1])}</span>${r.at ? '<span class="muted">' + esc(fmtWhen(r.at)) + "</span>" : ""}${r.error ? '<span class="muted" style="color:var(--err-fg)">' + esc(r.error) + "</span>" : ""}</div>
         <div class="og-actions">${acts.join("")}</div></div>
       <div class="og-pbody"><div class="ob-h4">The email</div><div class="ob-mail" id="aca-obPreview"><span class="spin"></span>Loading&#8230;</div></div>`;
     loadPreview(r, el("obPreview"));
+    if (isOutreach(r)) loadCc(r);
+  }
+  // People copied in on a partner email (cc_contact_ids, 2026-10-24).
+  async function loadCc(r) {
+    const { data: e } = await sb.from("prospect_scheduled_emails").select("cc_contact_ids").eq("id", r.id).maybeSingle();
+    const ids = (e && e.cc_contact_ids) || [];
+    if (!ids.length) return;
+    const { data: cs } = await sb.from("prospect_contacts").select("first_name, last_name, email").in("id", ids);
+    const n = el("obCc");
+    if (!n || openId !== r.id || !(cs || []).length) return;
+    n.textContent = ", copying " + cs.map((c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email).join(", ");
   }
   // The verbs one email offers, as { v, label, primary } (verbList) or as buttons (verbs, data-v). The partner page's
   // Emails & hub tab shows the same ones (2026-10-24), as one main button and a ... menu (rowActs).
