@@ -1260,6 +1260,7 @@
           ${timelineHtml(d, cById)}
         </div>` };
     const order = inline ? ["contacts", "details", "fus", "emails"] : ["details", "contacts", "emails", "fus", "tl"];
+    const fm = focusMark(panel);
     panel.innerHTML = `
       <div class="og-phead">
         ${inline ? "" : top}
@@ -1281,6 +1282,7 @@
       <div class="og-pbody">
 ${order.map((k) => sec[k]).join("")}
       </div>`;
+    focusBack(panel, fm);
     const town = panel.querySelector('input[data-f="town"]'); if (town) Places.attach(town, { kind: "town" });
   }
 
@@ -1976,14 +1978,26 @@ ${order.map((k) => sec[k]).join("")}
   }
 
   // ---------------------------------------------------------------- panel edits
+  // The change shows at once and the write runs behind it; a failed save puts the old values back (2026-10-24).
   async function saveOrg(patch, quiet) {
-    const id = openId;
-    const { error } = await sb.from("prospect_orgs").update(patch).eq("id", id);
-    if (error) { toast("Not saved: " + cleanErr(error), true); renderPanel(); return false; }
+    const id = openId, o = byId.get(id), before = {};
+    Object.keys(patch).forEach((k) => { before[k] = o[k]; });
+    Object.assign(o, patch);
+    redrawOrg(id);
+    const r = await Saves.run("org:" + id, () => sb.from("prospect_orgs").update(patch).eq("id", id), () => {
+      Object.assign(byId.get(id) || o, before); redrawOrg(id);
+    });
+    if (!r) return false;
     if (!quiet) toast("Saved");
-    await reloadOrg(id);
-    if (openId === id) await loadPanel(id);
+    refreshOrg(id);
     return true;
+  }
+  function redrawOrg(id) { if (openId === id) renderPanel(); render(); }
+  // What the database works out by itself (stage history, client since, the timeline) comes in quietly once the
+  // last save for this partner is done, so a second quick change isn't flipped back by the first one's reload.
+  function refreshOrg(id) {
+    if (Saves.busy("org:" + id)) return;
+    reloadOrg(id).then(() => { if (openId === id && !Saves.busy("org:" + id)) return loadPanel(id); });
   }
   panel.addEventListener("change", async (e) => {
     const t = e.target;
@@ -2034,12 +2048,14 @@ ${order.map((k) => sec[k]).join("")}
     }
     if (t.dataset.role !== undefined) {
       const tr = t.closest("tr[data-cid]"), c = panelData.contacts.find((x) => x.id === tr.dataset.cid), k = t.dataset.role;
-      const roles = { ...(c.service_roles || {}) };
-      if (t.value) roles[k] = t.value; else delete roles[k];
-      const { error } = await sb.from("prospect_contacts").update({ service_roles: roles }).eq("id", c.id);
-      if (error) { toast("Not saved: " + cleanErr(error), true); renderPanel(); return; }
-      toast(t.value === "main" ? `${who(c)} is the ${SERVICE_NAME[k]} main` : t.value === "copy" ? `${who(c)} is copied in on ${SERVICE_NAME[k]}` : `${who(c)} is not involved in ${SERVICE_NAME[k]}`);
-      await reloadOrg(openId); await loadPanel(openId);
+      const roles = { ...(c.service_roles || {}) }, was = c.service_roles, v = t.value, id = openId;
+      if (v) roles[k] = v; else delete roles[k];
+      c.service_roles = roles; renderPanel();
+      const r = await Saves.run("org:" + id, () => sb.from("prospect_contacts").update({ service_roles: roles }).eq("id", c.id),
+        () => { c.service_roles = was; if (openId === id) renderPanel(); });
+      if (!r) return;
+      toast(v === "main" ? `${who(c)} is the ${SERVICE_NAME[k]} main` : v === "copy" ? `${who(c)} is copied in on ${SERVICE_NAME[k]}` : `${who(c)} is not involved in ${SERVICE_NAME[k]}`);
+      refreshOrg(id);
       return;
     }
     if (t.dataset.service) {
@@ -2060,11 +2076,16 @@ ${order.map((k) => sec[k]).join("")}
         v = v.toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { toast("That email doesn't look right", true); renderPanel(); return; }
       }
-      const { error } = await sb.from("prospect_contacts").update({ [f]: v || null }).eq("id", tr.dataset.cid);
-      if (error) { toast("Not saved: " + (/duplicate|unique/i.test(error.message) ? "that email is already on this partner" : cleanErr(error)), true); renderPanel(); return; }
+      const c = panelData.contacts.find((x) => x.id === tr.dataset.cid), was = c ? c[f] : null, id = openId;
+      if (c) c[f] = v || null;
+      const r = await Saves.run("org:" + id, async () => {
+        const res = await sb.from("prospect_contacts").update({ [f]: v || null }).eq("id", tr.dataset.cid);
+        if (res.error && /duplicate|unique/i.test(res.error.message)) res.error = { message: "that email is already on this partner" };
+        return res;
+      }, () => { if (c) c[f] = was; if (openId === id) renderPanel(); });
+      if (!r) return;
       toast("Saved");
-      const c = panelData.contacts.find((x) => x.id === tr.dataset.cid); if (c) c[f] = v || null;
-      if (f === "email") await reloadOrg(openId);
+      if (f === "email") refreshOrg(id);
       return;
     }
     if (t.hasAttribute("data-cact")) {

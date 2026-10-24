@@ -118,13 +118,11 @@
         addTo(v); el("stDgNew").value = "";
       });
       el("stTeBody").querySelectorAll("select[data-deftopic]").forEach((s) => s.addEventListener("change", async () => {
-        const was = (te.topics.find((x) => x.key === s.dataset.deftopic) || {}).default_mode;
-        s.disabled = true;
-        const { error } = await sb.rpc("push_topic_set_default", { p_topic: s.dataset.deftopic, p_mode: s.value });
-        s.disabled = false;
-        if (error) { s.value = was; toast(cleanErr(error), true); return; }
-        te.topics.find((x) => x.key === s.dataset.deftopic).default_mode = s.value;
-        toast("Saved. People who haven't picked their own get " + MODE.find((m) => m[0] === s.value)[1].toLowerCase() + ".");
+        const topic = te.topics.find((x) => x.key === s.dataset.deftopic), was = topic.default_mode, v = s.value;
+        topic.default_mode = v;
+        const r = await Saves.run("deftopic:" + topic.key, () => sb.rpc("push_topic_set_default", { p_topic: topic.key, p_mode: v }), () => { topic.default_mode = was; s.value = was; });
+        if (!r) return;
+        toast("Saved. People who haven't picked their own get " + MODE.find((m) => m[0] === v)[1].toLowerCase() + ".");
       }));
     }
     async function saveDigest(b) {
@@ -262,10 +260,9 @@
           '<div class="st-sec"><h3>Saved deliverables</h3>' + (tpls.filter((d) => !d.type_key).length ? '<div class="st-chips">' + tpls.filter((d) => !d.type_key).map((d) => "<span>" + esc(d.label) + "</span>").join("") + "</div>" : '<p class="st-sum">None saved.</p>') + "</div>" +
           '<div class="st-sec"><h3>Checklist steps</h3>' + stepList(null) + "</div>", btn("stages", "Deliverables", ' data-k=""'));
       el("stAuto").addEventListener("change", async (e) => {
-        const on = e.target.checked; e.target.disabled = true;
-        const { error } = await sb.rpc("booking_set_auto_track", { p_on: on });
-        e.target.disabled = false;
-        if (error) { e.target.checked = !on; toast(cleanErr(error), true); return; }
+        const on = e.target.checked;
+        const r = await Saves.run("auto_track", () => sb.rpc("booking_set_auto_track", { p_on: on }), () => { e.target.checked = !on; });
+        if (!r) return;
         toast(on ? "New GotPhoto jobs are tracked by themselves." : "Auto-track off.");
       });
     }

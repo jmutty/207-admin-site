@@ -169,18 +169,16 @@
       if (e.target.id === "aca-asWho") { who = e.target.value; loadDay(); return; }
       if (e.target.id === "aca-asMailMine") {
         const on = e.target.checked;
-        const { error } = await sb.rpc("day_email_mine", { p_on: on });
-        if (error) { e.target.checked = !on; toast(cleanErr(error), true); return; }
+        const r = await Saves.run("day_email_mine", () => sb.rpc("day_email_mine", { p_on: on }), () => { e.target.checked = !on; });
+        if (!r) return;
         toast(on ? "You'll get your day by email each morning." : "Morning email off for you.");
         return;
       }
       const cb = e.target.closest("[data-task]"); if (!cb) return;
-      cb.disabled = true;
-      try {
-        const { error } = await sb.rpc("assignment_check", { p_task: cb.dataset.task, p_on: cb.dataset.on, p_done: cb.checked });
-        if (error) throw error;
-        loadDay();
-      } catch (err) { cb.checked = !cb.checked; cb.disabled = false; toast(cleanErr(err), true); }
+      // the tick shows now and saves behind it (2026-10-24); the day redraws once the last tick is in
+      const done = cb.checked;
+      const r = await Saves.run("tasks", () => sb.rpc("assignment_check", { p_task: cb.dataset.task, p_on: cb.dataset.on, p_done: done }), () => { cb.checked = !done; });
+      if (r && !Saves.busy("tasks")) loadDay();
     });
 
     // ---------------------------------------------------------------- Tasks (manage)
@@ -279,11 +277,11 @@
     el("asShowDone").addEventListener("change", () => list && renderList());
     el("asTBody").addEventListener("change", async (e) => {
       const c = e.target.closest("input[data-check]"); if (!c) return;
-      c.disabled = true;
-      const { error } = await sb.rpc("assignment_check", { p_task: c.dataset.check, p_on: c.dataset.on, p_done: c.checked });
-      if (error) { toast(cleanErr(error), true); c.checked = !c.checked; c.disabled = false; return; }
-      toast(c.checked ? "Checked off." : "Back on the list.");
-      loadTasks();
+      const done = c.checked;
+      const r = await Saves.run("tasks", () => sb.rpc("assignment_check", { p_task: c.dataset.check, p_on: c.dataset.on, p_done: done }), () => { c.checked = !done; });
+      if (!r) return;
+      toast(done ? "Checked off." : "Back on the list.");
+      if (!Saves.busy("tasks")) loadTasks();
     });
     el("asFilter").addEventListener("change", () => { filter = el("asFilter").value; renderList(); });
     el("asAdd").addEventListener("click", () => openTask(null));
@@ -369,12 +367,9 @@
     const todayBox = el("todayMine");
     if (todayBox) todayBox.addEventListener("change", async (e) => {
       const cb = e.target.closest("[data-task]"); if (!cb) return;
-      cb.disabled = true;
-      try {
-        const { error } = await sb.rpc("assignment_check", { p_task: cb.dataset.task, p_on: cb.dataset.on, p_done: cb.checked });
-        if (error) throw error;
-        loadToday();
-      } catch (err) { cb.checked = !cb.checked; cb.disabled = false; toast(cleanErr(err), true); }
+      const done = cb.checked;
+      const r = await Saves.run("tasks", () => sb.rpc("assignment_check", { p_task: cb.dataset.task, p_on: cb.dataset.on, p_done: done }), () => { cb.checked = !done; });
+      if (r && !Saves.busy("tasks")) loadToday();
     });
 
     return { loadDay, loadTasks, loadToday, openDaily, dailyText };

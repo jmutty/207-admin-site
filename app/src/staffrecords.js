@@ -255,11 +255,12 @@
     el("srOb").addEventListener("change", async (e) => {
       const box = e.target.closest("[data-step]"); if (!box) return;
       const u = box.closest("[data-person]").dataset.person;
-      box.disabled = true;
-      const { data: r, error } = await sb.rpc("staff_onboarding_check", { p_user: u, p_step: box.dataset.step, p_done: box.checked });
-      if (error) { box.checked = !box.checked; box.disabled = false; toast(cleanErr(error), true); return; }
+      const done = box.checked;
+      const res = await Saves.run("onboarding", () => sb.rpc("staff_onboarding_check", { p_user: u, p_step: box.dataset.step, p_done: done }), () => { box.checked = !done; });
+      if (!res) return;
+      const r = res.data;
       if (r && r.finished) toast(((personOf(u) || {}).is_me && !data.can_edit ? "You're" : ((personOf(u) || {}).name || "They") + " is") + " done with onboarding.");
-      refresh();
+      if (!Saves.busy("onboarding")) refresh();
     });
     el("srOb").addEventListener("click", async (e) => {
       const b = e.target.closest("[data-stop]"); if (!b) return;

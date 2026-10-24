@@ -98,10 +98,8 @@
         '<span class="muted">The Today page, by email, around 7am' + (data.enabled === false ? ". It&#8217;s turned off for everyone right now (Settings)." : ".") + "</span></span></label>";
       el("pnDigestOn").addEventListener("change", async (e) => {
         const on = e.target.checked;
-        e.target.disabled = true;
-        const { error: err2 } = await supabase.rpc("me_digest_set", { p_on: on });
-        e.target.disabled = false;
-        if (err2) { e.target.checked = !on; fail(err2); return; }
+        const r = await Saves.run("me_digest", () => supabase.rpc("me_digest_set", { p_on: on }), () => { e.target.checked = !on; });
+        if (!r) return;
         toast(on ? "The morning email will come to you." : "You're off the morning email.");
       });
     }
