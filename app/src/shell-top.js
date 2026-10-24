@@ -134,7 +134,58 @@
     t.classList.toggle("err", isErr);
     t.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+    toastTimer = setTimeout(() => t.classList.remove("show"), isErr ? 6000 : 2600);
+  }
+
+  // ---- edits show first, the save follows (2026-10-24) ----
+  // A changed dropdown, tick or switch shows its new value right away; the database write runs behind it.
+  // Saves.run(scope, write, undo): write() returns a supabase result ({ data, error }); a failed save calls undo()
+  // to put the screen back and says so. Saves in one scope run one after another, so quick clicks land in order;
+  // Saves.busy(scope) tells a caller to hold its reload until the last one is done. Resolves to the result, or null.
+  const Saves = (function () {
+    const queues = new Map(), counts = new Map();
+    const msg = (e) => String((e && (e.message || e.details || e.error)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
+    function run(scope, write, undo) {
+      counts.set(scope, (counts.get(scope) || 0) + 1);
+      const p = (queues.get(scope) || Promise.resolve()).then(async () => {
+        try {
+          const r = await write();
+          if (r && r.error) throw r.error;
+          if (r && r.data && r.data.ok === false) throw new Error(r.data.error || "Not saved");
+          return r || {};
+        } catch (e) {
+          try { if (undo) undo(); } catch (_) {}
+          toast("Not saved: " + msg(e) + ". It's back to how it was.", true);
+          return null;
+        } finally {
+          const n = counts.get(scope) - 1;
+          if (n) counts.set(scope, n); else { counts.delete(scope); queues.delete(scope); }
+        }
+      });
+      queues.set(scope, p);
+      return p;
+    }
+    window.addEventListener("beforeunload", (e) => { if (counts.size) { e.preventDefault(); e.returnValue = ""; } });
+    return { run, busy: (scope) => counts.has(scope) };
+  })();
+  // When a section redraws while someone is in one of its fields (a save finished, fresh data came in), put them back
+  // in the same field with what they had typed: const f = focusMark(box); box.innerHTML = ...; focusBack(box, f).
+  function focusMark(root) {
+    const a = document.activeElement;
+    if (!a || a === root || !root.contains(a) || !/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return null;
+    const attrs = [...a.attributes].filter((x) => x.name === "id" || x.name === "name" || x.name.startsWith("data-"));
+    let sel = a.tagName.toLowerCase() + attrs.map((x) => "[" + x.name + '="' + CSS.escape(x.value) + '"]').join("");
+    const row = a.closest("[data-cid]"); if (row && row !== a) sel = '[data-cid="' + CSS.escape(row.dataset.cid) + '"] ' + sel;
+    const typed = a.tagName !== "SELECT" && a.type !== "checkbox" && a.type !== "radio" && a.value !== a.defaultValue;
+    let s0 = null, s1 = null; try { s0 = a.selectionStart; s1 = a.selectionEnd; } catch (_) {}
+    return { sel, typed, value: a.value, s0, s1 };
+  }
+  function focusBack(root, f) {
+    if (!f) return;
+    const n = root.querySelector(f.sel); if (!n) return;
+    if (f.typed) n.value = f.value;
+    n.focus({ preventScroll: true });
+    try { if (f.s0 != null) n.setSelectionRange(f.s0, f.s1); } catch (_) {}
   }
 
   // ---- auth flow ----

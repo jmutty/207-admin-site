@@ -102,7 +102,7 @@
     { id: "dt3", type_key: "school", label: "Yearbook files", due_days: 30, auto_add: true, sort: 10, archived_at: null },
     { id: "dt4", type_key: null, label: "Thank-you card", due_days: null, auto_add: false, sort: 10, archived_at: null }];
   function q(table) {
-    let single = false, head = false; const filt = [];
+    let single = false, head = false, write = null; const filt = [];
     const res = () => {
       let d = T[table] !== undefined ? T[table] : [];
       if (Array.isArray(d)) d = d.filter((r) => filt.every((f) => f(r)));
@@ -111,13 +111,23 @@
       return { data: head ? null : d, error: null, count: Array.isArray(d) ? d.length : 1 };
     };
     const p = new Proxy({}, { get(_, k) {
-      if (k === "then") return (a, b) => Promise.resolve(res()).then(a, b);
+      // Writes: an update changes the matching rows, so a reload shows it. window.__writeDelay (ms) slows every write and
+      // window.__writeFail (a message) makes it fail, to test edits that show first and save behind (2026-10-24).
+      if (k === "then") return (a, b) => {
+        if (!write) return Promise.resolve(res()).then(a, b);
+        const done = () => {
+          if (window.__writeFail) return { data: null, error: { message: window.__writeFail } };
+          if (write[0] === "update" && Array.isArray(T[table])) T[table].filter((r) => filt.every((f) => f(r))).forEach((r) => Object.assign(r, write[1]));
+          return res();
+        };
+        return new Promise((ok) => setTimeout(() => ok(done()), window.__writeDelay || 0)).then(a, b);
+      };
       if (k === "single" || k === "maybeSingle") return () => { single = true; return p; };
       if (k === "select") return (_c, o) => { if (o && o.head) head = true; return p; };
       if (k === "eq") return (c, v) => { filt.push((r) => r[c] === undefined || r[c] === v); return p; };
       if (k === "in") return (c, v) => { filt.push((r) => v.includes(r[c])); return p; };
       if (k === "ilike") return (c, v) => { const needle = String(v).replace(/%/g, "").toLowerCase(); filt.push((r) => String(r[c] || r.name || "").toLowerCase().includes(needle)); return p; };
-      if (k === "insert" || k === "update" || k === "delete") return (row) => { window.__writes = (window.__writes || []).concat([[table, k, row]]); return p; };
+      if (k === "insert" || k === "update" || k === "delete") return (row) => { window.__writes = (window.__writes || []).concat([[table, k, row]]); write = [k, row]; return p; };
       return () => p;
     } });
     return p;

@@ -1291,6 +1291,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(200);
     const w = await page.evaluate(() => (window.__writes || []).filter((x) => x[0] === "prospect_contacts" && x[1] === "update").pop());
     check(w && w[2].service_roles && w[2].service_roles.school_photos === "main" && w[2].service_roles.portraits === "copy", "changing a dropdown saves that service only: " + JSON.stringify(w && w[2]));
+    // the change sticks now (the mock keeps writes), so put it back before checking who Email someone ticks
+    await page.selectOption('#aca-opBody tr[data-cid="c8"] select[data-role="school_photos"]', "");
+    await page.waitForTimeout(200);
     await page.click('#aca-opBody [data-act="email"]');
     await page.waitForSelector("#aca-ogOoTo");
     const ticked = () => page.$$eval("#aca-ogOoTo input:checked", (xs) => xs.map((x) => x.value).join(","));
@@ -1298,6 +1301,31 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-ogOoSvc button[data-svc="school_photos"]');
     check((await ticked()) === "c7", "About school photos ticks the principal instead");
     await page.evaluate(() => document.querySelectorAll(".modal-wrap, .og-modal-wrap").forEach((n) => n.remove()));
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  console.log("Edits show first, the save follows (owner)");
+  {
+    const BR = "11111111-1111-1111-1111-111111111111";
+    const { page, errors } = await open(browser, port, "", "#partners/org/" + BR + "/contacts");
+    await page.waitForSelector('#aca-opBody select[data-svcst="portraits"]');
+    const pill = () => page.$eval('#aca-opBody select[data-svcst="portraits"]', (x) => x.value + " " + x.closest(".og-svc").className);
+    await page.evaluate(() => { window.__writeDelay = 1500; });
+    await page.selectOption('#aca-opBody select[data-svcst="portraits"]', "client");
+    await page.waitForTimeout(100);
+    check(/^client .*\bok\b/.test(await pill()), "Lead to Client shows right away while the save is still going: " + (await pill()));
+    await page.waitForTimeout(2000);
+    check(/^client .*\bok\b/.test(await pill()), "and stays Client after the save and reload");
+    check(await page.evaluate(() => (window.__writes || []).filter((x) => x[0] === "prospect_orgs").pop()[2].service_status.portraits) === "client", "the database got Client");
+    await page.evaluate(() => { window.__writeDelay = 600; window.__writeFail = "permission denied"; });
+    await page.selectOption('#aca-opBody select[data-svcst="portraits"]', "past_client");
+    await page.waitForTimeout(100);
+    check((await pill()).startsWith("past_client"), "a second change shows right away too");
+    await page.waitForTimeout(1000);
+    check((await pill()).startsWith("client "), "a failed save puts it back: " + (await pill()));
+    const t = await page.textContent("#aca-toast");
+    check(/Not saved: permission denied\. It's back to how it was/.test(t), "and says so: " + t);
+    await page.evaluate(() => { window.__writeDelay = 0; window.__writeFail = null; });
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

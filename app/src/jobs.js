@@ -982,23 +982,23 @@
   el("settingsTree").addEventListener("change", async (e) => {
     const wfSel = e.target.closest(".js-wf-select");
     if (wfSel) {
-      const jobType = wfSel.dataset.type;
-      wfSel.disabled = true;
-      const { error } = await supabase.from("job_type_rules").update({ comm_workflow: wfSel.value }).eq("job_type", jobType);
-      if (error) { wfSel.disabled = false; toast("Could not update " + jobType + ": " + error.message, true); return; }
-      toast(jobType + " jobs now get the " + (wfSel.value === "league" ? "registered-families" : "roster-only") + " copy on the sports hub.");
-      await reloadRulesAndJobs();
+      const jobType = wfSel.dataset.type, v = wfSel.value, rule = rulesByType.get(jobType), was = rule ? rule.comm_workflow : "";
+      const r = await Saves.run("rules", () => supabase.from("job_type_rules").update({ comm_workflow: v }).eq("job_type", jobType), () => { wfSel.value = was; });
+      if (!r) return;
+      toast(jobType + " jobs now get the " + (v === "league" ? "registered-families" : "roster-only") + " copy on the sports hub.");
+      if (!Saves.busy("rules")) await reloadRulesAndJobs();
       return;
     }
     const sel = e.target.closest(".js-cat-select");
     if (!sel) return;
     const jobType = sel.dataset.type;
-    const category_id = sel.value || null;
-    sel.disabled = true;
-    const { error } = await supabase.from("job_type_rules").update({ category_id }).eq("job_type", jobType);
-    if (error) { sel.disabled = false; toast("Could not move " + jobType + ": " + error.message, true); return; }
+    const category_id = sel.value || null, rule = rulesByType.get(jobType), was = rule ? rule.category_id : null;
+    // moves in the tree now and saves behind it (2026-10-24)
+    if (rule) { rule.category_id = category_id; renderSettings(); }
+    const r = await Saves.run("rules", () => supabase.from("job_type_rules").update({ category_id }).eq("job_type", jobType), () => { if (rule) rule.category_id = was; renderSettings(); });
+    if (!r) return;
     toast(jobType + (category_id ? " moved to " + categoriesById.get(category_id).name + "." : " removed from its category."));
-    await reloadRulesAndJobs();
+    if (!Saves.busy("rules")) await reloadRulesAndJobs();
   });
 
   el("settingsTree").addEventListener("click", async (e) => {
@@ -1013,11 +1013,12 @@
       const jobType = sw.dataset.type;
       const rule = rulesByType.get(jobType);
       if (!rule) return;
-      sw.classList.add("busy");
-      const { error } = await supabase.from("job_type_rules").update({ allowed: !rule.allowed }).eq("job_type", jobType);
-      if (error) { sw.classList.remove("busy"); toast("Could not update " + jobType + ": " + error.message, true); return; }
-      toast(jobType + (rule.allowed ? " is now hidden." : " is now findable."));
-      await reloadRulesAndJobs();
+      const allowed = !rule.allowed;
+      rule.allowed = allowed; renderSettings();
+      const r = await Saves.run("rules", () => supabase.from("job_type_rules").update({ allowed }).eq("job_type", jobType), () => { rule.allowed = !allowed; renderSettings(); });
+      if (!r) return;
+      toast(jobType + (allowed ? " is now findable." : " is now hidden."));
+      if (!Saves.busy("rules")) await reloadRulesAndJobs();
       return;
     }
     const catJobs = e.target.closest(".js-cat-jobs");

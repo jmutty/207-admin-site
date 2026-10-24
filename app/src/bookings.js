@@ -1545,18 +1545,20 @@
   function wireHost(h) {
   h.addEventListener("click", async (e) => {
     const sw = e.target.closest('[data-v="hubvis"]'); if (!sw || !detail || !detail.hub_school) return;
-    const on = sw.getAttribute("aria-checked") !== "true";
-    sw.classList.add("busy");
-    const { error } = await sb.from("comm_hub_schools").update({ active: on }).eq("id", detail.hub_school.id);
-    sw.classList.remove("busy");
-    if (error) return toast(cleanErr(error), true);
-    toast(on ? "Shown on the hub." : "Hidden from the hub."); refreshDetail();
+    const on = sw.getAttribute("aria-checked") !== "true", hubId = detail.hub_school.id;
+    // the switch flips now and saves behind it (2026-10-24)
+    const show = (v) => { sw.classList.toggle("on", v); sw.setAttribute("aria-checked", String(v)); const t = sw.nextElementSibling; if (t) t.textContent = v ? "Shown on the hub" : "Hidden from the hub"; };
+    show(on);
+    const r = await Saves.run("hub:" + hubId, () => sb.from("comm_hub_schools").update({ active: on }).eq("id", hubId), () => show(!on));
+    if (!r) return;
+    toast(on ? "Shown on the hub." : "Hidden from the hub."); if (!Saves.busy("hub:" + hubId)) refreshDetail();
   });
   h.addEventListener("change", async (e) => {
     const cb = e.target.closest("input[data-dlv]"); if (!cb || !detail) return;
-    cb.disabled = true;
-    const { data, error } = await sb.rpc("booking_deliverable_update", { p_id: cb.dataset.dlv, p: { status: cb.checked ? "done" : "todo" } });
-    if (error || !data.ok) { cb.disabled = false; cb.checked = !cb.checked; return toast(error ? cleanErr(error) : data.error, true); }
+    // the tick shows now and saves behind it (2026-10-24); the tab redraws once the last tick is in
+    const done = cb.checked;
+    const r = await Saves.run("dlv", () => sb.rpc("booking_deliverable_update", { p_id: cb.dataset.dlv, p: { status: done ? "done" : "todo" } }), () => { cb.checked = !done; });
+    if (!r || Saves.busy("dlv")) return;
     await refreshDetail(); load(true); loadAttention();
   });
   h.addEventListener("click", async (e) => {
