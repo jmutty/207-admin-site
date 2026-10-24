@@ -91,7 +91,7 @@ revoke all on function public.crew_drive_targets_day(uuid, text, date) from publ
 grant execute on function public.crew_drive_targets_day(uuid, text, date) to authenticated;
 
 -- ---------------------------------------------------------------- the Schedule's crew picker: the day's own place
-create or replace function public.crew_options(p_booking uuid, p_day date, p_destination text) returns jsonb
+create or replace function public.crew_options(p_booking uuid, p_day date, p_destination text default null) returns jsonb
 language plpgsql stable security definer set search_path = '' as $function$
 declare v_dest text; v_studio text; v_from timestamptz; v_to timestamptz;
 begin
