@@ -450,6 +450,18 @@
     RPC.schedule_changes_pending = AS_STAFF ? [] : [{ user_id: "u2", name: "Sam Helper", days: [add(sun, 2)], n: 2, has_email: true }, { user_id: "u5", name: "Alex Assistant", days: [add(sun, 4), add(sun, 2)], n: 1, has_email: false }];
     RPC.schedule_changes_preview = { subject: "Your schedule changed: Tue", text: "Hampden Academy 9am-12pm\nTaken off: Editing", html: "" };
     RPC.schedule_changes_send = { ok: true, sent: 1, no_email: 0 };
+    RPC.schedule_view_preview = { start: "2026-10-27", end: "2026-11-09", days: 3, jobs: 3, pending: 1, changed: 1, hours: 17.5,
+      subject: "Your schedule changed: the next two weeks: 3 jobs, 1 to confirm", email: "sam@example.com", has_email: true,
+      agenda: [
+        { day: "2026-10-27", changed: true, gone: "Brewer Youth Soccer", items: [
+          { kind: "job", time: "8:30am - 12:00pm", title: "Hampden Academy \u2022 Fall Sports", place: "Hampden Academy, 89 Western Ave, Hampden", leave: "Leave Home 7:35am", role: "Lead", ask: "pending" },
+          { kind: "studio", time: "1:00pm - 3:00pm", title: "Studio" }] },
+        { day: "2026-10-29", changed: false, items: [
+          { kind: "job", time: "3:30pm - 5:00pm", title: "Midcoast Rec \u2022 Fall Sports", place: "Midcoast Rec, Rockport", leave: "Leave Studio 1:50pm", role: "Assistant", note: "Bring the white backdrop", ask: "confirmed" },
+          { kind: "job", time: "5:00pm - 7:00pm", title: "Maine Coast Storm Hockey \u2022 Winter", place: "Midcoast Rec Center, 535 West St, Rockport", ask: "confirmed" }] },
+        { day: "2026-11-02", changed: false, items: [{ kind: "off", time: "All day", title: "Time off through Tue 11/3" }] }],
+      text: "Hi Sam.", html: "<p>Hi Sam. Here is your schedule for the next two weeks.</p>" };
+    RPC.schedule_view_send = { ok: true, email: "sam@example.com" };
     RPC.staff_cal_link = { ok: true, token: "a".repeat(40) };
     RPC.schedule_attention = { unstaffed: 2 };
     RPC.schedule_save = { ok: true, id: "se9", overlaps: 0 }; RPC.schedule_remove = { ok: true }; RPC.schedule_settings_save = { ok: true }; RPC.schedule_batch_save = { ok: true }; RPC.schedule_setup_save = { ok: true, changed: 0 };
