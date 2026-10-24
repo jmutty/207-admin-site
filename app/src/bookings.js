@@ -166,19 +166,20 @@
   .aca .bk-calbar { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; flex-wrap: wrap; }
   .aca .bk-calbar h3 { margin: 0 6px; font-size: 15px; min-width: 120px; }
   .aca .bk-calbar .grow { flex: 1; } .aca .bk-calbar .bk-sub { font-size: 12.5px; }
-  .aca .bk-cal .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line2); border-radius: 4px; overflow: hidden; }
-  .aca .bk-cal .scm-day { cursor: default; }
-  .aca .bk-cal .scm-day:nth-child(8n+9) { border-left: 1px solid var(--line2); }
-  .aca .bk-cal .scm-day:nth-child(7n+8) { border-left: 0; }
+  .aca .bk-cal .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)) 88px; border: 1px solid var(--line2); border-radius: 4px; overflow: hidden; }
+  .aca .bk-cal.bk-week .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .aca .bk-cal .scm-day { cursor: default; position: relative; }
+  .aca .bk-cal.bk-week .scm-day:nth-child(8n+9) { border-left: 1px solid var(--line2); }
+  .aca .bk-cal.bk-week .scm-day:nth-child(7n+8) { border-left: 0; }
   .aca .bk-cal .scm-dn { cursor: default; }
   .aca .bk-cal button.scm-chip { border-left-color: var(--tc, #2f6db5); background: var(--tb, #e8f0fb); }
   .aca .bk-cal button.scm-chip .tm { flex: none; color: var(--muted); font-size: 11px; }
   .aca .bk-cal button.scm-chip.mk .nm { font-style: italic; }
   .aca .bk-cal button.scm-chip:hover { filter: brightness(.96); }
-  .aca .bk-cal .scm-key i { background: var(--tc); }
+  .aca .bk-cal .scm-key i[style] { background: var(--tc); }
   .aca #aca-panel-bookings.bk-calmode #aca-bkScope [data-scope="past"] { display: none; }
   .aca .bk-cal .scm-day.past { opacity: .55; }
-  .aca .bk-cal.bk-week .scm-day { min-height: 260px; gap: 5px; }
+  .aca .bk-cal.bk-week .scm-day { min-height: 140px; gap: 5px; }
   .aca .bk-cal.bk-week .scm-dn .wd { display: none; }
   .aca .bk-wcard { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; height: auto; padding: 5px 7px; border: 0; border-left: 3px solid var(--tc, #2f6db5); border-radius: 3px; background: var(--tb, #e8f0fb); color: var(--text); text-align: left; font-weight: 400; font-size: 12.5px; line-height: 16px; cursor: pointer; min-width: 0; max-width: 100%; white-space: normal; overflow: hidden; box-sizing: border-box; }
   .aca .bk-wcard:hover { filter: brightness(.96); }
@@ -192,6 +193,71 @@
   .aca .bk-calday { margin-top: 10px; }
   .aca .bk-calday.hidden { display: none; }
   .aca .bk-calday h4 { margin: 0 0 6px; font-size: 13.5px; }
+  /* Review round (2026-10-24): two-line month chips (name, then time / crew / day n of m), the problem dot, the
+     summary line, the day's + menu, after-the-shoot dates, holds, the hover card and the Season view. */
+  .aca .bk-calbar2 { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; margin: 0 0 8px; }
+  .aca .bk-calbar2 .grow { flex: 1; }
+  .aca .bk-calbar2 .bk-tick { display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+  .aca .bk-calbar2 select { width: auto; }
+  .aca .bk-probbtn.on { border-color: var(--err-fg); color: var(--err-fg); background: var(--err-bg); }
+  .aca .bk-calsum { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 13px; }
+  .aca .bk-calsum .bk-sumh { font-weight: 600; margin-right: 4px; }
+  .aca .bk-sumb { height: auto; padding: 2px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 600; background: var(--surface-2); border: 1px solid var(--line2); color: var(--text); }
+  .aca .bk-sumb.bad { color: var(--err-fg); }
+  .aca .bk-sumb.on { background: var(--text); border-color: var(--text); color: var(--surface); }
+  .aca .bk-sumclear { font-size: 12.5px; }
+  .aca .bk-dhead { display: flex; align-items: center; gap: 4px; min-height: 20px; }
+  .aca .bk-dhead .scm-dn { flex: none; }
+  .aca .bk-cal button.scm-dn.link { cursor: pointer; text-decoration: none; }
+  .aca .bk-cal button.scm-dn.link:hover { text-decoration: underline; }
+  .aca .bk-dhead .sc-pill.wx { font-size: 10.5px; padding: 0 5px; line-height: 16px; }
+  .aca .bk-plus { margin-left: auto; width: 20px; height: 20px; min-height: 0; padding: 0; border-radius: 4px; border: 1px solid var(--line2); background: var(--surface); color: var(--muted); font-size: 14px; line-height: 1; opacity: 0; }
+  .aca .scm-day:hover .bk-plus, .aca .bk-plus:focus-visible { opacity: 1; }
+  .aca .bk-plus:hover { color: var(--text); border-color: var(--text); }
+  .aca .bk-plusmenu { position: fixed; z-index: 80; display: flex; flex-direction: column; min-width: 180px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.14); }
+  .aca .bk-plusmenu button { height: auto; padding: 7px 10px; border: 0; background: none; text-align: left; font-weight: 400; color: var(--text); }
+  .aca .bk-plusmenu button:hover { background: var(--surface-2); }
+  .aca .bk-cal button.bk-mchip { flex-direction: column; align-items: stretch; gap: 0; padding: 2px 5px 3px; }
+  .aca .bk-cal button.bk-mchip .nm { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-weight: 600; }
+  .aca .bk-cal button.bk-mchip .mt { display: flex; flex-wrap: wrap; gap: 0 6px; font-size: 11px; color: var(--muted); line-height: 15px; }
+  .aca .bk-cal button.bk-mchip .mt .who { color: var(--text); font-weight: 600; letter-spacing: .02em; }
+  .aca .bk-cal .none { color: var(--err-fg) !important; font-weight: 700; }
+  .aca .bk-pdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #c2412d; margin-right: 4px; vertical-align: 1px; flex: none; }
+  .aca .scm-key i.bk-pdot { width: 9px; height: 9px; margin-right: 5px; border-radius: 50%; background: #c2412d; }
+  .aca .bk-cal .dim { opacity: .3; }
+  .aca .bk-cal .sib { outline: 2px solid var(--tc, var(--accent)); outline-offset: -1px; }
+  .aca .bk-mark { display: block; width: 100%; height: auto; padding: 0 2px; border: 0; background: none; text-align: left; font-size: 11px; line-height: 15px; color: var(--muted); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px dotted var(--line2); }
+  .aca .bk-mark:hover { color: var(--text); }
+  .aca .bk-cal .bk-hold { --hs: color-mix(in srgb, var(--muted) 18%, transparent); background: repeating-linear-gradient(135deg, var(--surface) 0 6px, var(--hs) 6px 9px) !important; border-left: 3px dashed var(--muted) !important; color: var(--text); }
+  .aca .bk-cal .bk-hold.old { opacity: .5; }
+  .aca .bk-cal .bk-hold .nm { font-style: italic; }
+  .aca .bk-holdkey { display: inline-block; width: 12px; height: 10px; margin-right: 5px; vertical-align: -1px; border-left: 2px dashed var(--muted); background: repeating-linear-gradient(135deg, transparent 0 3px, var(--line2) 3px 5px) !important; }
+  .aca .bk-off { font-size: 11px; color: var(--muted); margin-top: auto; padding-top: 2px; }
+  .aca .bk-wcard .sub.who { color: var(--text); font-weight: 600; }
+  .aca .bk-wcard .sub.prob { color: var(--err-fg); }
+  .aca .bk-wcard .sub.wx { color: var(--warn-fg); }
+  .aca .bk-hov { position: fixed; z-index: 70; width: 300px; max-width: calc(100vw - 16px); padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.16); font-size: 13px; }
+  .aca .bk-hov.hidden { display: none; }
+  .aca .bk-hov-h { display: flex; flex-direction: column; margin-bottom: 6px; } .aca .bk-hov-h strong { font-size: 14px; }
+  .aca .bk-hov dl { display: grid; grid-template-columns: 70px 1fr; gap: 3px 8px; margin: 0 0 8px; }
+  .aca .bk-hov dt { color: var(--muted); } .aca .bk-hov dd { margin: 0; overflow-wrap: anywhere; }
+  .aca .bk-hov .late { color: var(--err-fg); font-weight: 600; }
+  .aca .bk-hov .og-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .aca .bk-hov a.btn { display: inline-flex; align-items: center; }
+  .aca .bk-cal.bk-season .scm-grid { display: block; border: 0; }
+  .aca .bk-seas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  .aca .bk-smo h4 { margin: 0 0 6px; font-size: 14px; }
+  .aca .bk-sgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .aca .bk-sh { font-size: 11px; color: var(--muted); text-align: center; }
+  .aca .bk-sday { position: relative; height: 38px; min-height: 0; padding: 3px 4px; border: 1px solid var(--line2); border-radius: 4px; background: var(--surface); display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; font-size: 11px; line-height: 13px; font-weight: 400; color: var(--muted); cursor: pointer; overflow: hidden; }
+  .aca .bk-sday b { font-size: 12px; line-height: 13px; color: inherit; }
+  .aca .bk-sday.l1, .aca .bk-sk.l1 { background: #dbe7f7; color: #1d4f8c; } .aca .bk-sday.l2, .aca .bk-sk.l2 { background: #9fbfe8; color: #12365f; } .aca .bk-sday.l3, .aca .bk-sk.l3 { background: #2f6db5; color: #fff; }
+  .aca .bk-sday.open, .aca .bk-sk.open { box-shadow: inset 0 0 0 2px #2e8b57; }
+  .aca .bk-sday.held { background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgba(0,0,0,.12) 5px 7px); }
+  .aca .bk-sday.past { opacity: .5; } .aca .bk-sday.today { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .aca .bk-sday .bk-pdot { position: absolute; bottom: 4px; right: 4px; margin: 0; }
+  .aca .bk-sk { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--line2); }
+  @media (max-width: 1100px) { .aca .bk-seas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 900px) {
     .aca #aca-bkPanel { position: fixed; top: var(--og-top, 0px); left: 0; right: 0; bottom: 0; width: 100vw; max-width: none; overflow: auto; -webkit-overflow-scrolling: touch; z-index: 60; background: var(--surface); }
     .aca #aca-bkPanel.hidden { display: none; }
@@ -227,6 +293,17 @@
     .aca #aca-panel-bookings .toolbar > .lv-tools { order: 4; flex: 1 0 100%; }
     .aca #aca-panel-bookings .toolbar > .bk-view { order: 3; margin-left: 0; }
     .aca .bk-cal .scm-day { cursor: pointer; }
+    .aca .bk-cal .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .aca .bk-cal .bk-plus, .aca .bk-cal .bk-mark, .aca .bk-cal .bk-dhead .sc-pill, .aca .bk-cal .bk-off { display: none; }
+    .aca .bk-cal.bk-week .bk-mark, .aca .bk-cal.bk-week .bk-off, .aca .bk-calday .bk-mark { display: block; }
+    .aca .bk-cal.bk-week .bk-dhead .sc-pill { display: inline-flex; }
+    .aca .bk-cal button.bk-mchip { padding: 0; }
+    .aca .bk-cal button.bk-mchip .bk-pdot, .aca .bk-cal button.bk-mchip .mt, .aca .bk-cal button.bk-mchip .nm { display: none; }
+    .aca .bk-cal button.bk-mchip:has(.bk-pdot) { box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 3px #c2412d; }
+    .aca .bk-cal button.scm-chip.bk-hold { background: var(--muted) !important; border: 0 !important; }
+    .aca .bk-calbar2 .grow { display: none; }
+    .aca .bk-cal .bk-dhead { flex: 1 0 100%; }
+    .aca .bk-seas { grid-template-columns: 1fr; }
     .aca .bk-cal .scm-day.sel { box-shadow: inset 0 0 0 2px var(--text); }
     .aca .bk-cal button.scm-chip { background: var(--tc, #2f6db5); pointer-events: none; }
     .aca .bk-cal .scm-key .kl { display: inline; }
@@ -276,7 +353,7 @@
     <div class="card">
       <div class="card-head">
         <div><h2>All jobs</h2>
-          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job to open its page. Calendar shows the same jobs by month.</p></div>
+          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job to open its page. Calendar shows the same jobs by month, week or season: who&#39;s on each one (or Nobody on it), a red dot for a problem (hover for details), holds, the dates after the shoot, Google Calendar events and who&#39;s off. The counts above it filter it. Use + on a day to book or hold it; arrow keys move, T jumps to today, M / W / S switch views.</p></div>
         <div class="og-actions bk-tools"><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button>
 </div>
       </div>
@@ -298,7 +375,12 @@
       <div class="bk-cal hidden" id="aca-bkCal">
         <div class="bk-calbar"><button type="button" class="small" data-cal="prev" aria-label="Previous month">&#8249;</button><h3 id="aca-bkCalTitle"></h3><button type="button" class="small" data-cal="next" aria-label="Next month">&#8250;</button>
           <button type="button" class="small" data-cal="today" id="aca-bkCalToday">This month</button><span class="bk-sub" id="aca-bkCalNote"></span><span class="grow"></span>
-          <div class="seg bk-calmode-seg" role="radiogroup" aria-label="Calendar"><label><input type="radio" name="aca-bkCalMode" value="month" checked /><span>Month</span></label><label><input type="radio" name="aca-bkCalMode" value="week" /><span>Week</span></label></div></div>
+          <div class="seg bk-calmode-seg" role="radiogroup" aria-label="Calendar"><label><input type="radio" name="aca-bkCalMode" value="month" checked /><span>Month</span></label><label><input type="radio" name="aca-bkCalMode" value="week" /><span>Week</span></label><label><input type="radio" name="aca-bkCalMode" value="season" /><span>Season</span></label></div></div>
+        <div class="bk-calbar2"><div class="bk-calsum" id="aca-bkCalSum"></div><span class="grow"></span>
+          <button type="button" class="small bk-probbtn" id="aca-bkCalProb" data-focus="problems" aria-pressed="false">Problems only</button>
+          <label class="bk-sub bk-tick"><input type="checkbox" id="aca-bkCalDl" /> Deadlines</label>
+          <label class="bk-sub bk-tick" title="Events on the Google Calendar that aren&#39;t bookings"><input type="checkbox" id="aca-bkCalGc" /> Google Calendar</label>
+          <select id="aca-bkCalColor" class="small" aria-label="Color by"><option value="type">Color by job type</option><option value="stage">Color by stage</option><option value="crew">Color by crew</option></select></div>
         <div class="scm-grid" id="aca-bkCalGrid"></div>
         <div class="bk-calday hidden" id="aca-bkCalDay"></div>
       </div>
@@ -562,116 +644,443 @@
       '<td class="bk-c-mail">' + mailSummary(b) + "</td></tr>").join("");
     Notes.fillLines(body); // each job's newest note (or its partner's) under the name, 2026-10-24
   }
-  // ---- Calendar view (2026-10-24, Jeremiah): the same filtered jobs on a Monday-start month or week, each
-  // picture day (and makeup day) as a chip colored by job type. Display only: a chip opens the job page. The
-  // calendar loads its own days (the whole month or week, past days faded), not the list's Upcoming / Past range.
+  // ---- Calendar view (2026-10-24, Jeremiah): the same filtered jobs on a Monday-start month, week or season, each
+  // picture day (and makeup day) as a chip. Display only: a chip opens the job page. The calendar loads its own days
+  // (the whole month or week, past days faded), not the list's Upcoming / Past range.
   // On phones the month's chips are dots (tap a day for its jobs) and the week is a list of days.
-  let view = "list", calMode = "month", calAnchor = "", calPick = "", calData = { key: "", rows: [] }, calSeq = 0;
-  try { if (localStorage.getItem("aca-bk-view") === "cal") view = "cal"; if (localStorage.getItem("aca-bk-calmode") === "week") calMode = "week"; } catch (_e) { /* private mode */ }
+  // Review round (2026-10-24, items A-S): each chip says who's on it (or "Nobody on it"), a red dot marks a problem,
+  // busy days fold to "+N more", multi-day jobs say "Day 1 of 3", a hover card has the details, Color by (type,
+  // stage, crew), after-the-shoot dates, Google Calendar events, a summary line, weather, who's off, holds and a
+  // Season view. Crew, weather, time off and Google Calendar come from schedule_week (people who can see the
+  // Schedule); holds from job_holds_list (migration 20261025170000_job_holds.sql).
+  let view = "list", calMode = "month", calAnchor = "", calPick = "", calData = { key: "", rows: [], sched: null, holds: [] }, calSeq = 0;
+  let calColor = "type", calFocus = "", calDeadlines = true, calGcal = true;
+  try { if (localStorage.getItem("aca-bk-view") === "cal") view = "cal"; const cm = localStorage.getItem("aca-bk-calmode"); if (cm === "week" || cm === "season") calMode = cm;
+    const cc = localStorage.getItem("aca-bk-calcolor"); if (["type", "stage", "crew"].includes(cc)) calColor = cc;
+    calDeadlines = localStorage.getItem("aca-bk-caldl") !== "0"; calGcal = localStorage.getItem("aca-bk-calgcal") !== "0"; } catch (_e) { /* private mode */ }
   // The month or week on screen and the scope chip last through a reload of this window (sessionStorage), so leaving
   // for a job and coming back, even by the menu or a refresh, lands on the same view. A new window starts on today.
   try { const ss = JSON.parse(sessionStorage.getItem("aca-bk-where") || "{}"); if (/^\d{4}-\d{2}-\d{2}$/.test(ss.anchor || "")) calAnchor = ss.anchor;
     if (["upcoming", "past", "owed", "cancelled"].includes(ss.scope)) { scope = ss.scope; el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x.dataset.scope === scope ? "true" : "false")); } } catch (_e) { /* private mode */ }
   const saveWhere = () => { try { sessionStorage.setItem("aca-bk-where", JSON.stringify({ anchor: calAnchor, scope })); } catch (_e) { /* private mode */ } };
+  const pref = (k, v) => { try { localStorage.setItem(k, v); } catch (_e) { /* private mode */ } };
   document.querySelector('#aca-panel-bookings input[name="aca-bkView"][value="' + view + '"]').checked = true;
   document.querySelector('#aca-bkCal input[name="aca-bkCalMode"][value="' + calMode + '"]').checked = true;
+  el("bkCalColor").value = calColor; el("bkCalDl").checked = calDeadlines; el("bkCalGc").checked = calGcal;
   const TYPE_COLORS = [["#2f6db5", "#e8f0fb"], ["#2e8b57", "#e6f4ec"], ["#bf4a1f", "#fbebe4"], ["#7a4fb5", "#f0e9fa"], ["#b07a00", "#fdf6e3"], ["#1f8a99", "#e3f4f6"], ["#8a8580", "#f1efec"]];
   const typeColor = (k) => { const i = types.findIndex((t) => t.key === k); return TYPE_COLORS[(i < 0 ? TYPE_COLORS.length - 1 : i) % TYPE_COLORS.length]; };
+  // Color by stage: where the job is after picture day. Stages are per job type, so the color follows what ticks them.
+  const STAGE_COLORS = { booked: ["#2f6db5", "#e8f0fb", "Booked"], picture_day: ["#1f8a99", "#e3f4f6", "Shot"], photos_uploaded: ["#7a4fb5", "#f0e9fa", "Photos up"],
+    gallery_live: ["#2e8b57", "#e6f4ec", "Gallery live"], deliverables_done: ["#8a8580", "#f1efec", "All delivered"], other: ["#b07a00", "#fdf6e3", "Other step"] };
+  const CREW_COLORS = { none: ["#c2412d", "#fbe9e6", "Nobody on it"], short: ["#b07a00", "#fdf6e3", "Short of people"], ok: ["#2f6db5", "#e8f0fb", "Covered"], na: ["#8a8580", "#f1efec", "Not tracked"] };
   const calNarrow = () => window.matchMedia("(max-width: 760px)").matches;
-  // Each job's days on the calendar: [{ day, start, makeup, label }], one per picture day plus its makeup day.
+  const canHover = () => window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const seesSchedule = () => canSee("scheduling");
+  // Each job's days on the calendar: [{ day, start, makeup, label, n, of }], one per picture day plus its makeup day.
   function calDays(b) {
     const ds = (b.days && b.days.length ? b.days : [{ day: b.picture_day, start_at: b.start_at, sort: 0 }]).filter((x) => x.day);
-    const out = ds.map((x) => ({ day: x.day, start: (x.sort === 0 ? (b.time_set !== false ? b.start_at : null) : x.start_at) || null, label: x.label || "", loc: x.location || b.location || "" }));
-    if (b.makeup && b.makeup.day) out.push({ day: b.makeup.day, start: b.makeup.start_at || null, makeup: true, loc: b.location || "" });
+    const out = ds.map((x, i) => ({ day: x.day, start: (x.sort === 0 ? (b.time_set !== false ? b.start_at : null) : x.start_at) || null, label: x.label || "", loc: x.location || b.location || "", n: i + 1, of: ds.length }));
+    if (b.makeup && b.makeup.day) out.push({ day: b.makeup.day, start: b.makeup.start_at || null, makeup: true, loc: b.location || "", n: 1, of: 1 });
     return out;
   }
-  // The days on screen: a month's whole weeks, or one week.
+  // The days on screen: a month's whole weeks, one week, or four whole months (Season).
   function calRange() {
     const T = StaffTime;
     if (!calAnchor) calAnchor = T.today();
     if (calMode === "week") { const s0 = T.weekStart(calAnchor); return { start: s0, end: T.addDays(s0, 6) }; }
-    const first = calAnchor.slice(0, 8) + "01", next = new Date(first + "T12:00:00Z"); next.setUTCMonth(next.getUTCMonth() + 1);
+    const first = calAnchor.slice(0, 8) + "01", next = new Date(first + "T12:00:00Z"); next.setUTCMonth(next.getUTCMonth() + (calMode === "season" ? 4 : 1));
     const last = T.addDays(next.toISOString().slice(0, 10), -1);
+    if (calMode === "season") return { start: first, end: last };
     return { start: T.weekStart(first), end: T.addDays(T.weekStart(last), 6) };
   }
-  // admin_bookings filters on the first picture day, so it reaches a month back for multi-day jobs and makeup days.
+  // admin_bookings filters on the first picture day, so it reaches two months back for multi-day jobs, makeup days and
+  // the dates after the shoot (launch, discounts, gallery closing).
   async function loadCal(r) {
-    const key = r.start + ":" + r.end, my = ++calSeq;
+    const key = calMode + ":" + r.start + ":" + r.end, my = ++calSeq, T = StaffTime;
     try {
       await ensureMeta();
-      const from = StaffTime.addDays(r.start, -31), none = Promise.resolve({ data: [] });
-      const [{ data, error }, prog, wf] = await Promise.all([sb.rpc("admin_bookings", { p_from: from, p_to: r.end }), sb.rpc("admin_booking_progress", { p_from: from, p_to: r.end }),
-        canSee("workflows") ? sb.rpc("workflow_jobs", { p_from: from }).then((x) => x, () => ({ data: [] })) : none]);
+      const from = T.addDays(r.start, -62), none = Promise.resolve({ data: [] }), span = T.daysBetween(r.start, r.end) + 1;
+      const [{ data, error }, prog, wf, sc, hd] = await Promise.all([sb.rpc("admin_bookings", { p_from: from, p_to: r.end }), sb.rpc("admin_booking_progress", { p_from: from, p_to: r.end }),
+        canSee("workflows") ? sb.rpc("workflow_jobs", { p_from: from }).then((x) => x, () => ({ data: [] })) : none,
+        seesSchedule() ? schedRange(r.start, span) : Promise.resolve({ data: null }),
+        sb.rpc("job_holds_list", { p_from: r.start, p_to: r.end }).then((x) => x, () => ({ data: [] }))]);
       if (error) throw error;
       if (my !== calSeq) return;
       const pm = {}; (prog.data || []).forEach((x) => { pm[x.booking_id] = x; });
       (Array.isArray(wf.data) ? wf.data : []).forEach((x) => { checklist[x.booking_id] = x; });
-      calData = { key, rows: (data || []).map((b) => Object.assign(b, { progress: pm[b.id] || null })) };
+      calData = { key, rows: (data || []).map((b) => Object.assign(b, { progress: pm[b.id] || null })), sched: sc && sc.data && !sc.error ? sc.data : null, holds: Array.isArray(hd.data) ? hd.data : [] };
       if (view === "cal") renderCal();
-    } catch (e) { if (my === calSeq) { calData = { key, rows: [] }; showError("bkErr", cleanErr(e)); } }
+    } catch (e) { if (my === calSeq) { calData = { key, rows: [], sched: null, holds: [] }; showError("bkErr", cleanErr(e)); } }
   }
+  // schedule_week takes at most 42 days, so a Season asks in pieces and joins them.
+  async function schedRange(start, span) {
+    const parts = []; for (let o = 0; o < span; o += 42) parts.push(sb.rpc("schedule_week", { p_start: StaffTime.addDays(start, o), p_days: Math.min(42, span - o) }).then((x) => x, () => ({ error: true })));
+    const got = await Promise.all(parts);
+    if (got.some((x) => x.error || !x.data)) return { data: null };
+    const d = Object.assign({}, got[0].data, { crew: { needed: {} } });
+    ["entries", "calendar", "bookings"].forEach((k) => { const seen = new Set(); d[k] = [].concat(...got.map((x) => x.data[k] || [])).filter((e) => { const id = e.id || e.event_id || (e.booking_id + e.day); if (seen.has(id)) return false; seen.add(id); return true; }); });
+    got.forEach((x) => Object.assign(d.crew.needed, ((x.data.crew || {}).needed) || {}));
+    return { data: d };
+  }
+  // ---- what each chip knows, from the Schedule's week data
+  const sched = () => calData.sched;
+  const personName = (uid) => { const s = sched(); const p = s && (s.people || []).find((x) => x.user_id === uid); return p ? StaffTime.shortName(p.name) : "?"; };
+  const initials = (uid) => { const n = String(personName(uid)).split(/\s+/); return (n[0] || "?")[0] + (n[1] ? n[1][0] : ""); };
+  // Who's on a job that day, and how many it needs. null when the Schedule isn't loaded (or can't be seen).
+  function crewOf(b, x) {
+    const s = sched(); if (!s || b.status !== "booked") return null;
+    const T = StaffTime, d = x.day;
+    const on = [...new Set((s.entries || []).filter((e) => e.kind === "job" && e.booking_id === b.id && T.local(e.starts_at).day <= d && T.local(e.ends_at).day >= d).map((e) => e.user_id))];
+    const need = num(((s.crew || {}).needed || {})[b.id]) || 1;
+    return { on, need, state: !on.length ? "none" : on.length < need ? "short" : "ok" };
+  }
+  // Weather for an outdoor job, when the forecast check has looked (it looks 1 to 3 days out).
+  function wxOf(b, d) {
+    const s = sched(); if (!s || b.shoot_setting === "indoors") return null;
+    const r = (s.bookings || []).find((x) => x.booking_id === b.id && x.day === d), w = r && r.weather; if (!w) return null;
+    const parts = [w.pop >= 20 ? "Rain " + num(w.pop) + "%" : "", w.gust > 25 ? "Gusts " + num(w.gust) + " mph" : ""].filter(Boolean);
+    return parts.length ? { text: parts.join(", "), bad: !!w.bad } : null;
+  }
+  // Everything wrong with a job on a day, in plain words. Same checks as the list (and the Schedule for crew).
+  function problemsOf(b, x, crew, today) {
+    if (b.status === "cancelled" || b.status === "tracked") return [];
+    const out = [], ahead = x.day >= today, p = b.progress || {}, c = checklist[b.id];
+    if (ahead && !x.start && !x.makeup) out.push("Time not set");
+    if (!(b.contacts || []).length) out.push("No contact");
+    if (num(b.emails_failed)) out.push(num(b.emails_failed) + " email" + (num(b.emails_failed) === 1 ? "" : "s") + " failed");
+    const cs = { error: "Calendar error", moved: "Moved in Google", missing: "Missing in Google" }[b.calendar_status]; if (cs) out.push(cs);
+    if (c && num(c.overdue_count)) out.push("Checklist: " + num(c.overdue_count) + " late");
+    if (num(p.overdue)) out.push(num(p.overdue) + " deliverable" + (num(p.overdue) === 1 ? "" : "s") + " overdue");
+    if (ahead && crew && crew.state === "none") out.push("Nobody on it");
+    else if (ahead && crew && crew.state === "short") out.push("Needs " + (crew.need - crew.on.length) + " more " + (crew.need - crew.on.length === 1 ? "person" : "people"));
+    return out;
+  }
+  function stageKey(b) {
+    if (b.status === "tracked") return "deliverables_done";
+    const s = stageOf((b.progress || {}).stage_id); if (!s) return "booked";
+    return STAGE_COLORS[s.auto] ? s.auto : "other";
+  }
+  function colorOf(it) {
+    if (calColor === "stage") return STAGE_COLORS[stageKey(it.b)];
+    if (calColor === "crew") return CREW_COLORS[it.crew ? it.crew.state : "na"];
+    return typeColor(it.b.type_key);
+  }
+  // Google Calendar events that aren't bookings, not time off, and nobody has been put on yet (as on the Schedule).
+  function gcalOn(d) {
+    const s = sched(); if (!s || !calGcal) return [];
+    return (s.calendar || []).filter((c) => !c.off_user && !(s.entries || []).some((e) => e.gcal_event_id === c.event_id) && d >= c.start_date && d <= c.end_date);
+  }
+  // Who's off that day: time off on the Schedule (half a day or more) and "Ryan Off" events on the Google Calendar.
+  function offOn(d) {
+    const s = sched(); if (!s) return [];
+    const T = StaffTime, ds = new Date(T.toIso(d, "00:00")).getTime(), de = new Date(T.toIso(T.addDays(d, 1), "00:00")).getTime();
+    const ids = new Set((s.entries || []).filter((e) => e.kind === "off" && Math.min(de, new Date(e.ends_at).getTime()) - Math.max(ds, new Date(e.starts_at).getTime()) >= 4 * 36e5).map((e) => e.user_id));
+    (s.calendar || []).forEach((c) => { if (c.off_user && d >= c.start_date && d <= c.end_date) ids.add(c.off_user); });
+    return [...ids].map(personName).map((n) => n.split(/\s+/)[0]);
+  }
+  // After the shoot: launch (day after the last picture day), free shipping and 20% off ending, gallery closing, the
+  // next deliverable due. One line each, on its day.
+  function marksOf(b) {
+    if (b.status === "cancelled" || b.status === "tracked") return [];
+    const ds = calDays(b).filter((x) => !x.makeup).map((x) => x.day).sort(), last = ds[ds.length - 1]; if (!last) return [];
+    const nm = b.org_name || b.title, out = [{ day: StaffTime.addDays(last, 1), what: "Launch" }];
+    if (b.free_ship_ends) out.push({ day: b.free_ship_ends, what: "Free shipping ends" });
+    if (b.discount_ends) out.push({ day: b.discount_ends, what: "20% off ends" });
+    if (b.order_deadline) out.push({ day: b.order_deadline, what: "Gallery closes" });
+    const p = b.progress || {}; if (num(p.deliverables_open) && p.next_due) out.push({ day: p.next_due, what: "Due" });
+    return out.map((m) => Object.assign(m, { b, text: m.what + ": " + nm }));
+  }
+  const holdName = (h) => h.org_name || h.label || "Hold";
+  const holdOld = (h, today) => h.hold_until && h.hold_until < today;
+  const canHold = () => canEdit("bookings");
+  // The items on screen, by day, with the filters applied.
+  function calModel(r, today) {
+    const list = filterRows(calData.key === calMode + ":" + r.start + ":" + r.end ? calData.rows : rows, scope === "upcoming" || scope === "past" ? "all" : scope);
+    const byDay = {}, marks = {}, used = new Set();
+    list.forEach((b) => {
+      calDays(b).forEach((x) => { if (x.day >= r.start && x.day <= r.end) {
+        const crew = crewOf(b, x), it = { b, x, crew };
+        it.probs = problemsOf(b, x, crew, today); it.color = colorOf(it);
+        (byDay[x.day] = byDay[x.day] || []).push(it); used.add(calColor === "type" ? b.type_key : calColor === "stage" ? stageKey(b) : crew ? crew.state : "na"); } });
+      if (calDeadlines && scope !== "cancelled") marksOf(b).forEach((m) => { if (m.day >= r.start && m.day <= r.end) (marks[m.day] = marks[m.day] || []).push(m); });
+    });
+    Object.values(byDay).forEach((a) => a.sort((p, q) => String(p.x.start || "~").localeCompare(String(q.x.start || "~")) || p.b.title.localeCompare(q.b.title)));
+    const holds = {}; if (scope !== "cancelled" && scope !== "owed") calData.holds.forEach((h) => { (holds[h.day] = holds[h.day] || []).push(h); });
+    return { byDay, marks, holds, used };
+  }
+  // Does an item match the summary filter picked (the rest fade)?
+  const focusHit = (it) => !calFocus || (calFocus === "problems" ? it.probs.length > 0 : calFocus === "nobody" ? !!(it.crew && it.crew.state === "none" && it.x.day >= StaffTime.today()) : calFocus === "makeup" ? !!it.x.makeup : false);
+  const nameOf = (b, x) => (x.makeup ? "Makeup: " : "") + b.title + (x.label ? " (" + x.label + ")" : "");
+  const whoText = (it, long) => !it.crew ? "" : it.crew.on.length ? (long ? it.crew.on.map(personName).join(", ") : it.crew.on.map(initials).join(" ")) + (it.crew.state === "short" ? " (needs " + it.crew.need + ")" : "") : "Nobody on it";
+  const dayOf = (x, long) => x.of > 1 ? (long ? "Day " + x.n + " of " + x.of : x.n + "/" + x.of) : x.makeup ? (long ? "Makeup day" : "") : "";
+  const timeOf = (x) => (x.start ? Fmt.time(x.start).replace(":00", "") : "");
+  function chip(it) {
+    const { b, x } = it, [tc, tb] = it.color, who = whoText(it), dn = dayOf(x);
+    const meta = [timeOf(x) ? '<span class="tm">' + esc(timeOf(x)) + "</span>" : "", who ? '<span class="' + (it.crew && it.crew.state === "none" && x.day >= StaffTime.today() ? "none" : "who") + '">' + esc(who) + "</span>" : "", dn ? "<span>" + esc(dn) + "</span>" : ""].filter(Boolean).join("");
+    return '<button type="button" class="scm-chip bk-mchip' + (x.makeup ? " mk" : "") + (focusHit(it) ? "" : " dim") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" data-jday="' + esc(x.day) + '" aria-label="' + esc(nameOf(b, x) + (it.probs.length ? ". " + it.probs.join(", ") : "")) + '"' + (canHover() ? "" : ' title="' + esc(tipOf(it)) + '"') + ">" +
+      '<span class="nm">' + (it.probs.length ? '<i class="bk-pdot" aria-hidden="true"></i>' : "") + esc(nameOf(b, x)) + "</span>" + (meta ? '<span class="mt">' + meta + "</span>" : "") + "</button>";
+  }
+  // A week's (and a phone day's) card: time, the job, its type and place, who's on it and what's wrong, all on view.
+  function card(it) {
+    const { b, x } = it, [tc, tb] = it.color, who = whoText(it, true), wx = wxOf(b, x.day);
+    return '<button type="button" class="bk-wcard' + (x.makeup ? " mk" : "") + (focusHit(it) ? "" : " dim") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" data-jday="' + esc(x.day) + '"' + (canHover() ? "" : ' title="' + esc(tipOf(it)) + '"') + ">" +
+      '<span class="tm">' + esc(x.start ? Fmt.time(x.start) : "Time not set") + (dayOf(x, true) ? " · " + esc(dayOf(x, true)) : "") + "</span><strong>" + (it.probs.length ? '<i class="bk-pdot" aria-hidden="true"></i>' : "") + esc(nameOf(b, x)) + "</strong>" +
+      '<span class="sub">' + esc([calColor === "type" ? "" : b.type_label, x.loc].filter(Boolean).join(" · ") || b.type_label || "") + "</span>" +
+      (who ? '<span class="sub ' + (it.crew.state === "none" && x.day >= StaffTime.today() ? "none" : "who") + '">' + esc(who) + "</span>" : "") +
+      (wx ? '<span class="sub wx">' + esc(wx.text) + "</span>" : "") +
+      (it.probs.filter((t) => !who || !/^(Nobody on it|Needs \d)/.test(t)).length ? '<span class="sub prob">' + esc(it.probs.filter((t) => !who || !/^(Nobody on it|Needs \d)/.test(t)).join(", ")) + "</span>" : "") + "</button>";
+  }
+  const tipOf = (it) => [nameOf(it.b, it.x), it.b.type_label, it.x.start ? Fmt.time(it.x.start) : "Time not set", it.x.loc, whoText(it, true), dayOf(it.x, true), it.probs.join(", ")].filter(Boolean).join("\n");
+  const holdChip = (h, today, big) => '<button type="button" class="' + (big ? "bk-wcard " : "scm-chip ") + "bk-hold" + (holdOld(h, today) ? " old" : "") + (calFocus && calFocus !== "holds" ? " dim" : "") + '" data-hold="' + esc(h.id) + '" title="' + esc("Hold: " + holdName(h) + (h.hold_until ? "\nHeld until " + Fmt.day(h.hold_until) + (holdOld(h, today) ? " (expired)" : "") : "") + (h.note ? "\n" + h.note : "")) + '">' +
+    (big ? '<span class="tm">Hold' + (h.hold_until ? (holdOld(h, today) ? ", expired " : " until ") + esc(Fmt.day(h.hold_until)) : "") + "</span><strong>" + esc(holdName(h)) + "</strong>" + (h.note ? '<span class="sub">' + esc(h.note) + "</span>" : "")
+      : '<span class="nm">Hold: ' + esc(holdName(h)) + "</span>") + "</button>";
+  const gcalChip = (c, d, big) => '<button type="button" class="' + (big ? "bk-wcard " : "scm-chip ") + "gcal bk-gc" + (calFocus ? " dim" : "") + '" data-gcal="' + esc(c.event_id) + '" data-day="' + esc(d) + '" title="' + esc("Google Calendar (not a booking): " + c.summary) + '">' +
+    (big ? '<span class="tm">' + esc(c.all_day || !c.start_at ? "All day" : Fmt.time(c.start_at)) + " · Google Calendar</span><strong>" + esc(c.summary) + "</strong>" : '<span class="nm">' + esc(c.summary) + "</span>") + "</button>";
+  const markLine = (m) => '<button type="button" class="bk-mark' + (calFocus ? " dim" : "") + '" data-job="' + esc(m.b.id) + '" title="' + esc(m.text + " (" + Fmt.day(m.day) + ")") + '">' + esc(m.text) + "</button>";
+
   function renderCal() {
-    const T = StaffTime, today = T.today(), r = calRange(), key = r.start + ":" + r.end, week = calMode === "week";
+    const T = StaffTime, today = T.today(), r = calRange(), key = calMode + ":" + r.start + ":" + r.end, week = calMode === "week", season = calMode === "season";
     const ready = calData.key === key;
     if (!ready) loadCal(r);
-    const list = filterRows(ready ? calData.rows : rows, scope === "upcoming" || scope === "past" ? "all" : scope);
-    el("bkCal").classList.toggle("bk-week", week);
-    el("bkCalTitle").textContent = week ? "Week of " + Fmt.day(r.start)
-      : new Date(calAnchor.slice(0, 7) + "-15T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long" }) + (calAnchor.slice(0, 4) === today.slice(0, 4) ? "" : " " + calAnchor.slice(0, 4));
+    hideHover();
+    el("bkCal").classList.toggle("bk-week", week); el("bkCal").classList.toggle("bk-season", season);
+    const mName = (ym, yr) => new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: yr ? "long" : "short" });
+    const yr = (ym) => (ym.slice(0, 4) === today.slice(0, 4) ? "" : " " + ym.slice(0, 4));
+    el("bkCalTitle").textContent = week ? "Week of " + Fmt.day(r.start) : season ? mName(r.start.slice(0, 7)) + " to " + mName(r.end.slice(0, 7)) + yr(r.end.slice(0, 7)) : mName(calAnchor.slice(0, 7), true) + yr(calAnchor.slice(0, 7));
     el("bkCalToday").textContent = week ? "This week" : "This month";
-    el("bkCalNote").textContent = ready ? (scope === "owed" ? "Jobs that still owe deliverables." : scope === "cancelled" ? "Cancelled jobs." : "") : "Loading\u2026";
-    const byDay = {}, used = new Set();
-    list.forEach((b) => calDays(b).forEach((x) => { if (x.day >= r.start && x.day <= r.end) { (byDay[x.day] = byDay[x.day] || []).push({ b, x }); used.add(b.type_key); } }));
-    Object.values(byDay).forEach((a) => a.sort((p, q) => String(p.x.start || "~").localeCompare(String(q.x.start || "~")) || p.b.title.localeCompare(q.b.title)));
-    const name = (b, x) => (x.makeup ? "Makeup: " : "") + b.title + (x.label ? " (" + x.label + ")" : "");
-    const tip = (b, x) => name(b, x) + "\n" + (b.type_label || "") + "\n" + (x.start ? Fmt.time(x.start) : "Time not set") + (x.loc ? "\n" + x.loc : "");
-    const chip = ({ b, x }) => { const [tc, tb] = typeColor(b.type_key);
-      return '<button type="button" class="scm-chip' + (x.makeup ? " mk" : "") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" title="' + esc(tip(b, x)) + '">' +
-        '<span class="nm">' + esc(name(b, x)) + "</span>" + (x.start ? '<span class="tm">' + esc(Fmt.time(x.start).replace(":00", "")) + "</span>" : "") + "</button>"; };
-    // A week's card: time, the job, its type and place, all on view.
-    const card = ({ b, x }) => { const [tc, tb] = typeColor(b.type_key);
-      return '<button type="button" class="bk-wcard' + (x.makeup ? " mk" : "") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" title="' + esc(tip(b, x)) + '">' +
-        '<span class="tm">' + esc(x.start ? Fmt.time(x.start) : "Time not set") + "</span><strong>" + esc(name(b, x)) + "</strong>" +
-        '<span class="sub">' + esc([b.type_label, x.loc].filter(Boolean).join(" \u00b7 ")) + "</span></button>"; };
+    el("bkCalNote").textContent = ready ? (scope === "owed" ? "Jobs that still owe deliverables." : scope === "cancelled" ? "Cancelled jobs." : "") : "Loading…";
+    el("bkCal").querySelectorAll("[data-cal=prev],[data-cal=next]").forEach((b) => b.setAttribute("aria-label", (b.dataset.cal === "prev" ? "Previous " : "Next ") + (week ? "week" : season ? "four months" : "month")));
+    const m = calModel(r, today);
+    renderSummary(m, r, today);
+    if (season) { renderSeason(m, r, today); return; }
     const days = []; for (let d = r.start; d <= r.end; d = T.addDays(d, 1)) days.push(d);
-    let h = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w, i) => '<div class="scm-h">' + w + (week ? " " + esc(Fmt.day(days[i])) : "") + "</div>").join("");
-    days.forEach((d) => {
-      const items = byDay[d] || [];
-      h += '<div class="scm-day' + (!week && d.slice(0, 7) !== calAnchor.slice(0, 7) ? " other" : "") + (d < today ? " past" : "") + (d === today ? " today" : "") + (!week && d === calPick ? " sel" : "") + '" data-calday="' + esc(d) + '">' +
-        '<span class="scm-dn">' + (week ? '<span class="wd">' + esc(T.fmtDay(d, { calendar: true })) + "</span>" : esc(Fmt.day(d))) + (d === today ? " <span>Today</span>" : "") + "</span>" +
-        (week ? (items.length ? items.map(card).join("") : '<span class="bk-wnone">No jobs</span>') : items.map(chip).join("")) + "</div>";
-    });
-    const keyTypes = types.filter((t) => used.has(t.key));
-    h += '<div class="scm-key">' + keyTypes.map((t) => '<span><i style="--tc:' + typeColor(t.key)[0] + '"></i>' + esc(t.label) + "</span>").join("") +
-      '<span class="kl">' + (!week && calNarrow() ? "Tap a day to see its jobs" : "Click a job to open it") + "</span></div>";
+    const plus = (d) => '<button type="button" class="bk-plus" data-plus="' + esc(d) + '" aria-label="' + esc("Book or hold " + Fmt.day(d)) + '" title="Book a job or hold this day">+</button>';
+    const MAXC = calNarrow() ? 99 : 4;
+    let h = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w, i) => '<div class="scm-h">' + w + (week ? " " + esc(Fmt.day(days[i])) : "") + "</div>").join("") + (week ? "" : '<div class="scm-h scm-wt">Week</div>');
+    for (let w = 0; w < days.length; w += 7) {
+      const wSet = new Set(); let wNone = 0, wProb = 0;
+      days.slice(w, w + 7).forEach((d) => {
+        const items = m.byDay[d] || [], gc = gcalOn(d), hs = m.holds[d] || [], mk = m.marks[d] || [], off = offOn(d);
+        items.forEach((it) => { if (!it.x.makeup) wSet.add(it.b.id); if (it.crew && it.crew.state === "none" && d >= today) wNone++; if (it.probs.length) wProb++; });
+        const wx = items.map((it) => wxOf(it.b, d)).filter(Boolean)[0];
+        const head = '<span class="bk-dhead">' + (week ? '<span class="scm-dn"><span class="wd">' + esc(T.fmtDay(d, { calendar: true })) + "</span>" + (d === today ? " <span>Today</span>" : "") + "</span>"
+          : '<button type="button" class="scm-dn link" data-weekof="' + esc(d) + '" aria-label="' + esc("Open the week of " + Fmt.day(d)) + '">' + esc(Fmt.day(d)) + (d === today ? " <span>Today</span>" : "") + "</button>") +
+          (wx ? '<span class="sc-pill wx' + (wx.bad ? " bad" : "") + '" title="Forecast for the outdoor job">' + esc(wx.text) + "</span>" : "") + (canEdit("bookings") ? plus(d) : "") + "</span>";
+        let body;
+        if (week) body = items.map(card).concat(hs.map((x) => holdChip(x, today, true)), gc.map((c) => gcalChip(c, d, true))).join("") + mk.map(markLine).join("");
+        else {
+          const all = items.map(chip).concat(hs.map((x) => holdChip(x, today)), gc.map((c) => gcalChip(c, d))), more = all.length - MAXC;
+          body = all.slice(0, more > 0 ? MAXC - 1 : MAXC).join("") + (more > 0 ? '<button type="button" class="scm-more link" data-weekof="' + esc(d) + '">+' + num(more + 1) + " more</button>" : "") +
+            mk.slice(0, 2).map(markLine).join("") + (mk.length > 2 ? '<button type="button" class="bk-mark link" data-weekof="' + esc(d) + '">+' + (mk.length - 2) + " more dates</button>" : "");
+        }
+        h += '<div class="scm-day' + (!week && d.slice(0, 7) !== calAnchor.slice(0, 7) ? " other" : "") + (d < today ? " past" : "") + (d === today ? " today" : "") + (!week && d === calPick ? " sel" : "") + '" data-calday="' + esc(d) + '">' +
+          head + body + (off.length ? '<span class="scm-off bk-off" title="' + esc("Off: " + off.join(", ")) + '">Off: ' + esc(off.join(", ")) + "</span>" : "") + "</div>";
+      });
+      if (!week) h += '<button type="button" class="scm-wt link" data-weekof="' + esc(days[w]) + '" title="Open this week"><b>' + num(wSet.size) + " job" + (wSet.size === 1 ? "" : "s") + "</b>" +
+        (wNone ? '<span class="bad">' + num(wNone) + " nobody on</span>" : "") + (wProb ? '<span class="bad">' + num(wProb) + " problem" + (wProb === 1 ? "" : "s") + "</span>" : "") + "</button>";
+    }
+    h += keyHtml(m, week && calNarrow() ? "" : !week && calNarrow() ? "Tap a day to see its jobs" : "Click a job to open it");
     el("bkCalGrid").innerHTML = h;
-    // Phones, month: the picked day's jobs under the month.
-    const dayBox = el("bkCalDay"), show = !week && calPick, picked = show && byDay[calPick];
+    // Phones, month: the picked day's jobs under the month, with Book / Hold for that day.
+    const dayBox = el("bkCalDay"), show = !week && calPick, picked = show && m.byDay[calPick];
     dayBox.classList.toggle("hidden", !show);
-    if (show) dayBox.innerHTML = "<h4>" + esc(T.fmtDay(calPick, { calendar: true })) + "</h4>" + (picked ? picked.map(card).join("") : '<p class="bk-sub">No jobs this day.</p>');
+    if (show) dayBox.innerHTML = "<h4>" + esc(T.fmtDay(calPick, { calendar: true })) + "</h4>" + (picked ? picked.map(card).join("") : '<p class="bk-sub">No jobs this day.</p>') +
+      (m.holds[calPick] || []).map((x) => holdChip(x, today, true)).join("") + gcalOn(calPick).map((c) => gcalChip(c, calPick, true)).join("") + (m.marks[calPick] || []).map(markLine).join("") +
+      (offOn(calPick).length ? '<p class="bk-sub">Off: ' + esc(offOn(calPick).join(", ")) + "</p>" : "") +
+      (canEdit("bookings") ? '<div class="og-actions" style="margin-top:8px"><button type="button" class="small" data-book="' + esc(calPick) + '">Book a job on ' + esc(Fmt.day(calPick)) + '</button><button type="button" class="small" data-holdnew="' + esc(calPick) + '">Hold ' + esc(Fmt.day(calPick)) + "</button></div>" : "");
+  }
+  function keyHtml(m, note) {
+    const pal = calColor === "stage" ? STAGE_COLORS : calColor === "crew" ? CREW_COLORS : null;
+    const keys = pal ? Object.keys(pal).filter((k) => m.used.has(k)).map((k) => [pal[k][0], pal[k][2]]) : types.filter((t) => m.used.has(t.key)).map((t) => [typeColor(t.key)[0], t.label]);
+    return '<div class="scm-key">' + keys.map(([c, t]) => '<span><i style="--tc:' + c + '"></i>' + esc(t) + "</span>").join("") +
+      '<span><i class="bk-pdot" aria-hidden="true"></i>Has a problem</span>' + (calData.holds.length ? '<span><i class="bk-holdkey"></i>Hold</span>' : "") + (note ? '<span class="kl">' + esc(note) + "</span>" : "") + "</div>";
+  }
+  // "November: 23 jobs, 3 nobody on, 2 problems, 4 makeup days, 1 hold". Each count filters the calendar (the rest fade).
+  function renderSummary(m, r, today) {
+    const inView = (d) => calMode !== "month" || d.slice(0, 7) === calAnchor.slice(0, 7);
+    const jobs = new Set(), probs = new Set(); let none = 0, mk = 0, holds = 0, open = 0;
+    Object.keys(m.byDay).filter(inView).forEach((d) => m.byDay[d].forEach((it) => { if (it.x.makeup) mk++; else jobs.add(it.b.id); if (it.crew && it.crew.state === "none" && d >= today) none++; if (it.probs.length) probs.add(it.b.id); }));
+    Object.keys(m.holds).filter(inView).forEach((d) => { holds += m.holds[d].length; });
+    if (calMode === "season") for (let d = r.start; d <= r.end; d = StaffTime.addDays(d, 1)) if (d >= today && StaffTime.dow(d) === 6 && !(m.byDay[d] || []).length && !(m.holds[d] || []).length) open++;
+    const b = (k, n, label, bad) => n ? '<button type="button" class="bk-sumb' + (bad ? " bad" : "") + (calFocus === k ? " on" : "") + '" data-focus="' + k + '" aria-pressed="' + (calFocus === k) + '">' + num(n) + " " + esc(label) + "</button>" : "";
+    el("bkCalSum").innerHTML = '<span class="bk-sumh">' + esc(calMode === "week" ? "This week" : calMode === "season" ? "These months" : el("bkCalTitle").textContent) + ": " + num(jobs.size) + " job" + (jobs.size === 1 ? "" : "s") + "</span>" +
+      b("nobody", none, none === 1 ? "day nobody on" : "days nobody on", true) + b("problems", probs.size, probs.size === 1 ? "job with a problem" : "jobs with problems", true) + b("makeup", mk, mk === 1 ? "makeup day" : "makeup days") + b("holds", holds, holds === 1 ? "hold" : "holds") +
+      (calMode === "season" ? '<span class="bk-sub">' + num(open) + " open Saturday" + (open === 1 ? "" : "s") + ' ahead · <a href="https://calendar.207photo.com/" target="_blank" rel="noopener">public dates page</a></span>' : "") +
+      (calFocus ? '<button type="button" class="link bk-sumclear" data-focus="">Show everything</button>' : "");
+    el("bkCalProb").setAttribute("aria-pressed", String(calFocus === "problems")); el("bkCalProb").classList.toggle("on", calFocus === "problems");
+  }
+  // Season: four months at a glance. Each day is shaded by how many jobs it has; a Saturday with nothing on it ahead
+  // is outlined green (open to book). Click a day for its week.
+  function renderSeason(m, r, today) {
+    const T = StaffTime; let h = "";
+    for (let mo = r.start; mo <= r.end; mo = T.addDays(T.addDays(mo, 32).slice(0, 8) + "01", 0)) {
+      const ym = mo.slice(0, 7), first = ym + "-01", start = T.weekStart(first);
+      const end = T.addDays(T.addDays(first, 32).slice(0, 8) + "01", -1);
+      h += '<div class="bk-smo"><h4>' + esc(new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long" })) + "</h4><div class=\"bk-sgrid\">" + ["M", "T", "W", "T", "F", "S", "S"].map((x) => "<span class=\"bk-sh\">" + x + "</span>").join("");
+      for (let d = start; d <= T.addDays(T.weekStart(end), 6); d = T.addDays(d, 1)) {
+        if (d.slice(0, 7) !== ym) { h += "<span></span>"; continue; }
+        const items = (m.byDay[d] || []).filter(focusHit), hs = m.holds[d] || [], n = items.length, bad = items.some((it) => it.probs.length);
+        const tip = Fmt.day(d) + (n ? "\n" + items.map((it) => nameOf(it.b, it.x)).join("\n") : "\nNo jobs") + (hs.length ? "\n" + hs.map((x) => "Hold: " + holdName(x)).join("\n") : "");
+        h += '<button type="button" class="bk-sday l' + Math.min(n, 3) + (hs.length ? " held" : "") + (d < today ? " past" : "") + (d === today ? " today" : "") + (!n && !hs.length && d >= today && T.dow(d) === 6 ? " open" : "") + '" data-weekof="' + esc(d) + '" title="' + esc(tip) + '">' +
+          '<span>' + esc(String(+d.slice(8))) + "</span>" + (n ? "<b>" + n + "</b>" : "") + (bad ? '<i class="bk-pdot"></i>' : "") + "</button>";
+      }
+      h += "</div></div>";
+    }
+    el("bkCalGrid").innerHTML = '<div class="bk-seas">' + h + '</div><div class="scm-key"><span><i class="bk-sk l1"></i>1 job</span><span><i class="bk-sk l2"></i>2</span><span><i class="bk-sk l3"></i>3 or more</span><span><i class="bk-sk open"></i>Open Saturday</span><span><i class="bk-holdkey"></i>Hold</span><span><i class="bk-pdot"></i>Has a problem</span><span class="kl">Click a day for its week</span></div>';
+    el("bkCalDay").classList.add("hidden");
+  }
+
+  // ---- hover card (G): time, place, crew, stage, problems, contact, latest note, and quick links. Desktop only.
+  const hov = document.createElement("div"); hov.className = "bk-hov hidden"; hov.id = "aca-bkHover"; hov.setAttribute("role", "dialog"); hov.setAttribute("aria-label", "Job details");
+  document.querySelector(".aca").appendChild(hov);
+  let hovTimer = 0, hovOut = 0, hovFor = null;
+  function hideHover() { clearTimeout(hovTimer); clearTimeout(hovOut); hov.classList.add("hidden"); hovFor = null; }
+  function findItem(id, d) { const b = calData.rows.find((x) => x.id === id) || rows.find((x) => x.id === id); if (!b) return null; const x = calDays(b).find((y) => y.day === d) || calDays(b)[0]; const crew = crewOf(b, x); return { b, x, crew, probs: problemsOf(b, x, crew, StaffTime.today()) }; }
+  function showHover(btn) {
+    const it = findItem(btn.dataset.job, btn.dataset.jday); if (!it) return;
+    const { b, x } = it, st = stageOf((b.progress || {}).stage_id), c = (b.contacts || [])[0], wx = wxOf(b, x.day), row = (k, v) => v ? "<dt>" + esc(k) + "</dt><dd>" + v + "</dd>" : "";
+    hov.innerHTML = '<div class="bk-hov-h"><strong>' + esc(nameOf(b, x)) + '</strong><span class="bk-sub">' + esc(b.type_label || "") + "</span></div><dl>" +
+      row(x.makeup ? "Makeup" : (calDays(b).filter((y) => !y.makeup).length > 1 ? "Days" : "When"), esc(Fmt.days(b)) + (x.of > 1 ? " (this is day " + x.n + " of " + x.of + ")" : "")) +
+      row("Time", esc(x.start ? Fmt.time(x.start) : "Not set")) + row("Where", esc(x.loc)) +
+      (it.crew ? row("Crew", it.crew.on.length ? esc(it.crew.on.map(personName).join(", ")) + (it.crew.state === "short" ? ' <span class="late">needs ' + it.crew.need + "</span>" : "") : '<span class="late">Nobody on it</span>') : "") +
+      row("Stage", st ? esc(st.label) : b.status === "tracked" ? "Tracking only" : "") + row("Contact", c ? esc(c.name || c.email) + (c.name && c.email ? ' <span class="bk-sub">' + esc(c.email) + "</span>" : "") : "") +
+      row("Weather", wx ? esc(wx.text) : "") + row("Problems", it.probs.length ? '<span class="late">' + esc(it.probs.join(", ")) + "</span>" : "") +
+      '</dl><span class="nt-line nt-wrap" data-nt-job="' + esc(b.id) + '"></span><div class="og-actions"><button type="button" class="small primary" data-hv="open">Open job</button>' +
+      (b.gotphoto_job_id ? '<a class="btn small" href="' + esc(gpJobUrl(b.gotphoto_job_id)) + '" target="_blank" rel="noopener">Open in GotPhoto</a>' : "") +
+      (seesSchedule() && typeof Schedule !== "undefined" && b.status === "booked" ? '<button type="button" class="small" data-hv="sched">Open in Schedule</button>' : "") + "</div>";
+    hovFor = { id: b.id, day: x.day };
+    hov.classList.remove("hidden");
+    if (typeof Notes !== "undefined") Notes.fillLines(hov);
+    const rc = btn.getBoundingClientRect(), hw = hov.offsetWidth, hh = hov.offsetHeight;
+    let left = rc.right + 8; if (left + hw > window.innerWidth - 8) left = Math.max(8, rc.left - hw - 8);
+    const top = Math.max(8, Math.min(rc.top, window.innerHeight - hh - 8));
+    hov.style.left = left + "px"; hov.style.top = top + "px";
+  }
+  hov.addEventListener("mouseenter", () => clearTimeout(hovOut));
+  hov.addEventListener("mouseleave", () => { hovOut = setTimeout(hideHover, 200); });
+  hov.addEventListener("click", (e) => {
+    const v = e.target.closest("[data-hv]"); if (!v || !hovFor) return;
+    const f = hovFor; hideHover();
+    if (v.dataset.hv === "open") openJob(f.id); else Schedule.showJob(f.id, f.day);
+  });
+  el("bkCal").addEventListener("mouseover", (e) => {
+    const j = e.target.closest("[data-job][data-jday]");
+    // F: hovering one day of a multi-day job lights up its other days
+    const sib = e.target.closest("[data-job]");
+    el("bkCal").querySelectorAll(".sib").forEach((n) => { if (!sib || n.dataset.job !== sib.dataset.job) n.classList.remove("sib"); });
+    if (sib) el("bkCal").querySelectorAll('[data-job="' + sib.dataset.job + '"]').forEach((n) => { if (n !== sib) n.classList.add("sib"); });
+    if (!j || !canHover()) return;
+    clearTimeout(hovOut); clearTimeout(hovTimer);
+    if (hovFor && hovFor.id === j.dataset.job && hovFor.day === j.dataset.jday) return;
+    hovTimer = setTimeout(() => showHover(j), 300);
+  });
+  el("bkCal").addEventListener("mouseout", (e) => {
+    const j = e.target.closest("[data-job]"); if (!j || j.contains(e.relatedTarget)) return;
+    clearTimeout(hovTimer); hovOut = setTimeout(hideHover, 200);
+    if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest("[data-job]")) el("bkCal").querySelectorAll(".sib").forEach((n) => n.classList.remove("sib"));
+  });
+  window.addEventListener("scroll", () => { if (hovFor) hideHover(); }, { passive: true });
+
+  // ---- holds (S): a day penciled in for a partner before it's booked
+  function openHold(h, day) {
+    if (!canHold()) { if (h) toast("Hold: " + holdName(h) + (h.note ? ". " + h.note : "")); return; }
+    const isNew = !h; let org = h && h.org_id ? { id: h.org_id, name: h.org_name, town: h.org_town } : null;
+    const box = dialog('<h2>' + (isNew ? "Hold a day" : "Hold") + '</h2><p class="bk-sub">A hold keeps a day for a partner before it’s booked. It shows striped on the Jobs calendar so the day isn’t given away twice. Nothing is emailed and nothing goes on the Google Calendar.</p>' +
+      '<div class="og-grid"><label>Partner</label><div><div id="aca-hdOrg"></div><div class="bk-orgs hidden" id="aca-hdOrgList"></div></div>' +
+      '<label for="aca-hdLabel">Or a label</label><input type="text" id="aca-hdLabel" value="' + esc(h ? h.label : "") + '" placeholder="e.g. Camden Hills spring sports" />' +
+      '<label for="aca-hdDay">Day</label><input type="date" id="aca-hdDay" value="' + esc(h ? h.day : day || "") + '" />' +
+      '<label for="aca-hdUntil">Hold until</label><div><input type="date" id="aca-hdUntil" value="' + esc(h && h.hold_until ? h.hold_until : "") + '" /> <span class="bk-sub">optional; after it the hold shows as expired</span></div>' +
+      '<label for="aca-hdNote">Note</label><textarea id="aca-hdNote" rows="2">' + esc(h ? h.note : "") + "</textarea></div>" +
+      '<div id="aca-hdErr" class="inline-error hidden"></div><div class="og-actions" style="margin-top:12px"><button type="button" class="primary" data-v="save">' + (isNew ? "Hold this day" : "Save") + "</button>" +
+      (isNew ? "" : '<button type="button" data-v="book">Book it</button><button type="button" data-v="release">Let it go</button>') + '<button type="button" class="link" data-v="close">Cancel</button></div>');
+    const drawOrg = () => { el("hdOrg").innerHTML = org ? "<strong>" + esc(org.name) + "</strong>" + (org.town ? ' <span class="bk-sub">' + esc(org.town) + "</span>" : "") + ' <button type="button" class="link" data-v="chorg">change</button>'
+      : '<input type="text" id="aca-hdOrgQ" placeholder="Type the league or school name (optional)" autocomplete="off" style="width:100%" />'; };
+    drawOrg();
+    let qSeq = 0;
+    box.addEventListener("input", async (e) => {
+      if (e.target.id !== "aca-hdOrgQ") return;
+      const q = e.target.value.trim(), my = ++qSeq, list = el("hdOrgList");
+      if (q.length < 2) { list.classList.add("hidden"); return; }
+      const { data } = await sb.from("prospect_orgs").select("id, name, town").is("merged_into", null).ilike("search_text", "%" + q.replace(/[%_]/g, "") + "%").order("name").limit(10);
+      if (my !== qSeq) return;
+      list.innerHTML = (data || []).map((o) => '<button type="button" class="link" data-org="' + esc(o.id) + '" data-name="' + esc(o.name) + '" data-town="' + esc(o.town || "") + '">' + esc(o.name) + (o.town ? ' <span class="bk-sub">' + esc(o.town) + "</span>" : "") + "</button>").join("") || '<span class="bk-sub">No partner by that name. Use a label instead.</span>';
+      list.classList.remove("hidden");
+    });
+    box.addEventListener("click", async (e) => {
+      const o = e.target.closest("[data-org]");
+      if (o) { org = { id: o.dataset.org, name: o.dataset.name, town: o.dataset.town }; el("hdOrgList").classList.add("hidden"); drawOrg(); return; }
+      const b = e.target.closest("[data-v]"); if (!b) return;
+      const v = b.dataset.v, err = (m) => { el("hdErr").textContent = m; el("hdErr").classList.remove("hidden"); };
+      if (v === "close") { box.close(); return; }
+      if (v === "chorg") { org = null; drawOrg(); el("hdOrgQ").focus(); return; }
+      if (v === "book") { box.close(); openForm(null, org, h.day, h.id); return; }
+      b.disabled = true;
+      try {
+        if (v === "release") { const { error } = await sb.rpc("job_hold_release", { p_id: h.id }); if (error) throw error; toast("Hold let go"); }
+        else {
+          const dayV = el("hdDay").value; if (!dayV) { b.disabled = false; err("Pick the day."); return; }
+          const { error } = await sb.rpc("job_hold_save", { p_id: h ? h.id : null, p_org: org ? org.id : null, p_label: el("hdLabel").value, p_day: dayV, p_until: el("hdUntil").value || null, p_note: el("hdNote").value });
+          if (error) throw error; toast(isNew ? "Day held" : "Hold saved");
+        }
+        box.close(); calData.key = ""; renderCal();
+      } catch (ex) { b.disabled = false; err(/job_hold/.test(String(ex.message)) ? "Holds aren’t switched on yet (the database change hasn’t gone live)." : cleanErr(ex)); }
+    });
+    setTimeout(() => { const q = el("hdOrgQ"); if (q) q.focus(); }, 50);
+  }
+  // The "+" on a day: Book a job on it, or hold it.
+  function plusMenu(btn) {
+    const d = btn.dataset.plus; closePlus();
+    const m = document.createElement("div"); m.className = "bk-plusmenu"; m.id = "aca-bkPlusMenu";
+    m.innerHTML = '<button type="button" data-book="' + esc(d) + '">Book a job on ' + esc(Fmt.day(d)) + "</button>" + (canHold() ? '<button type="button" data-holdnew="' + esc(d) + '">Hold ' + esc(Fmt.day(d)) + "</button>" : "");
+    document.querySelector(".aca").appendChild(m);
+    const rc = btn.getBoundingClientRect(); m.style.top = (rc.bottom + 4) + "px"; m.style.left = Math.max(8, Math.min(rc.left, window.innerWidth - m.offsetWidth - 8)) + "px";
+    m.addEventListener("click", (e) => { const t = e.target.closest("button"); if (!t) return; closePlus(); if (t.dataset.book) openForm(null, null, t.dataset.book); else openHold(null, t.dataset.holdnew); });
+    setTimeout(() => document.addEventListener("click", closePlus, { once: true }), 0);
+  }
+  function closePlus() { const m = document.getElementById("aca-bkPlusMenu"); if (m) m.remove(); }
+
+  function setMode(mode) {
+    calMode = mode; calPick = "";
+    document.querySelector('#aca-bkCal input[name="aca-bkCalMode"][value="' + mode + '"]').checked = true;
+    pref("aca-bk-calmode", calMode); renderCal();
+  }
+  function step(dir) {
+    const T = StaffTime;
+    if (dir === "today") calAnchor = T.today();
+    else if (calMode === "week") calAnchor = T.addDays(T.weekStart(calAnchor), dir === "next" ? 7 : -7);
+    else { const d = new Date(calAnchor.slice(0, 8) + "15T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + (dir === "next" ? 1 : -1) * (calMode === "season" ? 4 : 1)); calAnchor = d.toISOString().slice(0, 10); }
+    calPick = ""; saveWhere(); renderCal();
   }
   document.querySelector("#aca-panel-bookings .bk-view").addEventListener("change", (e) => {
-    view = e.target.value; calPick = "";
-    try { localStorage.setItem("aca-bk-view", view); } catch (_e) { /* private mode */ }
+    view = e.target.value; calPick = ""; hideHover();
+    pref("aca-bk-view", view);
     render();
   });
-  el("bkCal").querySelector(".bk-calmode-seg").addEventListener("change", (e) => {
-    calMode = e.target.value; calPick = "";
-    try { localStorage.setItem("aca-bk-calmode", calMode); } catch (_e) { /* private mode */ }
-    renderCal();
-  });
+  el("bkCal").querySelector(".bk-calmode-seg").addEventListener("change", (e) => setMode(e.target.value));
+  el("bkCalColor").addEventListener("change", (e) => { calColor = e.target.value; pref("aca-bk-calcolor", calColor); renderCal(); });
+  el("bkCalDl").addEventListener("change", (e) => { calDeadlines = e.target.checked; pref("aca-bk-caldl", calDeadlines ? "1" : "0"); renderCal(); });
+  el("bkCalGc").addEventListener("change", (e) => { calGcal = e.target.checked; pref("aca-bk-calgcal", calGcal ? "1" : "0"); renderCal(); });
   el("bkCal").addEventListener("click", (e) => {
-    const j = e.target.closest("[data-job]"); if (j) { openJob(j.dataset.job); return; }
-    const a = e.target.closest("button[data-cal]");
-    if (a) {
-      const T = StaffTime;
-      if (a.dataset.cal === "today") calAnchor = T.today();
-      else if (calMode === "week") calAnchor = T.addDays(T.weekStart(calAnchor), a.dataset.cal === "next" ? 7 : -7);
-      else { const d = new Date(calAnchor.slice(0, 8) + "15T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + (a.dataset.cal === "next" ? 1 : -1)); calAnchor = d.toISOString().slice(0, 10); }
-      calPick = ""; saveWhere(); renderCal(); return;
-    }
+    const f = e.target.closest("[data-focus]"); if (f) { calFocus = calFocus === f.dataset.focus ? "" : f.dataset.focus; renderCal(); return; }
+    const p = e.target.closest("[data-plus]"); if (p) { e.stopPropagation(); plusMenu(p); return; }
+    const bk = e.target.closest("[data-book]"); if (bk) { openForm(null, null, bk.dataset.book); return; }
+    const hn = e.target.closest("[data-holdnew]"); if (hn) { openHold(null, hn.dataset.holdnew); return; }
+    const ho = e.target.closest("[data-hold]"); if (ho) { const h = calData.holds.find((x) => x.id === ho.dataset.hold); if (h) openHold(h); return; }
+    const gc = e.target.closest("[data-gcal]"); if (gc) { if (seesSchedule() && typeof Schedule !== "undefined") Schedule.showJob(null, gc.dataset.day); return; }
+    const j = e.target.closest("[data-job]"); if (j) { hideHover(); openJob(j.dataset.job); return; }
+    const a = e.target.closest("button[data-cal]"); if (a) { step(a.dataset.cal); return; }
+    const wk = e.target.closest("[data-weekof]"); if (wk && !(calMode === "month" && calNarrow() && wk.classList.contains("scm-dn"))) { calAnchor = wk.dataset.weekof; saveWhere(); setMode("week"); return; }
     const day = e.target.closest("[data-calday]");
     if (day && calMode === "month" && calNarrow()) { calPick = calPick === day.dataset.calday ? "" : day.dataset.calday; renderCal(); }
+  });
+  // Keyboard (Q): left / right for the previous or next month or week, T for today, M / W / S to switch.
+  document.addEventListener("keydown", (e) => {
+    if (view !== "cal" || e.metaKey || e.ctrlKey || e.altKey || !el("bkCal").offsetParent || document.querySelector(".og-modal-wrap")) return;
+    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    const k = e.key.toLowerCase();
+    if (e.key === "ArrowLeft") step("prev"); else if (e.key === "ArrowRight") step("next"); else if (k === "t") step("today");
+    else if (k === "m") setMode("month"); else if (k === "w") setMode("week"); else if (k === "s") setMode("season"); else if (e.key === "Escape") { hideHover(); closePlus(); } else return;
+    e.preventDefault();
   });
   el("bkSearch").addEventListener("input", render);
   el("bkType").addEventListener("change", render);
@@ -860,7 +1269,9 @@
 
   // ---- Book a job / Edit booking
   // presetOrg ({ id, name, town }): Book a job from an organization's page starts with it picked (2026-10-23).
-  async function openForm(existing, presetOrg) {
+  // presetDay: the Jobs calendar's "Book a job on 11/14" fills the first day. fromHold: the hold being booked, let go
+  // (marked as this booking) once the job is saved (2026-10-24).
+  async function openForm(existing, presetOrg, presetDay, fromHold) {
     try { await ensureMeta(); } catch (e) { toast(cleanErr(e), true); return; }
     const isNew = !existing;
     const d = existing || {};
@@ -937,7 +1348,7 @@
     const err = (m) => { el("bkFormErr").textContent = m; el("bkFormErr").classList.remove("hidden"); };
     // One or more days. Day rows come from the booking's days (edit) or one blank row (new). Times optional.
     const hhmmOf = (iso) => (iso ? new Date(iso).toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }) : "");
-    const dayRows = isNew ? [{ day: "", start_time: "", end_time: "", label: "" }]
+    const dayRows = isNew ? [{ day: presetDay || "", start_time: "", end_time: "", label: "" }]
       : ((d.days || []).length ? d.days : [{ day: d.picture_day, start_at: d.start_at, end_at: d.end_at, sort: 0 }]).map((x) => ({
           day: x.day, start_time: (x.sort === 0 ? d.time_set !== false : !!x.start_at) ? hhmmOf(x.start_at) : "",
           end_time: (x.sort === 0 ? d.end_set !== false : !!x.end_at) ? hhmmOf(x.end_at) : "", label: x.label || "", location: x.location || "" }));
@@ -1270,6 +1681,7 @@
         try {
           const { data, error } = isNew ? await sb.rpc("booking_create", { p }) : await sb.rpc("booking_update", { p_id: d.id, p });
           if (error) throw error;
+          if (isNew && fromHold && data && data.id) sb.rpc("job_hold_release", { p_id: fromHold, p_booking: data.id }).then(() => { calData.key = ""; }, () => {});
           const typed = isNew ? el("bkFDlvNew").value.trim() : "";
           const ticked = el("bkCrew") && crewReady ? [...el("bkCrew").querySelectorAll(".bk-crew:checked")].map((x) => x.value) : [];
           // New: everyone ticked goes on. Edit: the ticked people who weren't on it go on, the unticked come off.
