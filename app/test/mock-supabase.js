@@ -847,6 +847,18 @@
         '<script>window.__pwn = 1<\/script><img src="x" onerror="window.__pwn = 2"><a href="javascript:window.__pwn=3">link text</a><table class="ab-table ab-w190"><tbody><tr><td class="ab-b">School or SAU</td><td class="ab-b">Hancock Grammar School</td></tr></tbody></table></div>' };
     Object.defineProperty(RPC, "agreement_public", { enumerable: true, get() { return /#agree\/b1b2/.test(location.hash) ? built : plain; } });
   }
+  // Roster in GotPhoto (2026-10-24): bk1 is past its roster deadline, bk2 (school) has its student data due, bk3 has its roster in.
+  // ?rosterin=1 puts bk1's roster in.
+  {
+    const day = (n) => iso(n).slice(0, 10), find = (id) => RPC.admin_bookings.find((x) => x.id === id) || {};
+    const late = { state: "late", names: 0, loaded_at: null, due: day(-2), days_out: 12, school: false };
+    const inn = { state: "in", names: 84, loaded_at: iso(-3), due: day(-2), days_out: 12, school: false };
+    find("bk1").roster = /[?&]rosterin=1\b/.test(location.search) ? inn : late;
+    find("bk2").roster = { state: "due", names: null, loaded_at: null, due: day(11), days_out: 25, school: true };
+    find("bk3").roster = { state: "in", names: 46, loaded_at: iso(-6), due: day(-11), days_out: 3, school: false };
+    RPC.booking_roster = find("bk1").roster;
+    RPC.booking_run_roster_only = { ok: true };
+  }
   // ws/partners (2026-10-24): booking "Don't send", the Brewer booking carries GotPhoto job "1" (help request links),
   // ?clients=1 makes Brewer a client (the Partners list opens on Clients).
   {

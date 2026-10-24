@@ -136,6 +136,11 @@
     .aca .jp-booknote { max-width: 760px; margin: 0 0 18px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 0 6px 6px 0; }
     .aca .jp-booknote h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
     .aca .jp-booknote div { white-space: pre-wrap; font-size: 14px; overflow-wrap: anywhere; }
+    .aca .jp-stages li.jp-rli::before { content: none; } .aca .jp-stage1 .roster-tag { margin-left: 8px; }
+    .aca .jp-rcard { max-width: 980px; margin: 0 0 16px; padding: 12px 14px; border-radius: 6px; border: 1px solid var(--err-fg); background: var(--err-bg); }
+    .aca .jp-rcard.due { border-color: transparent; background: var(--warn-bg); padding: 10px 14px; }
+    .aca .jp-rcard h3 { margin: 0 0 4px; font-size: 16px; color: var(--err-fg); } .aca .jp-rcard.due h3 { font-size: 14px; color: var(--warn-fg); }
+    .aca .jp-rcard p { margin: 0; font-size: 13.5px; } .aca .jp-rcard .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     .aca .jp-latest { max-width: 980px; margin: 0 0 20px; padding: 10px 14px 12px; background: var(--warn-bg); border-radius: 6px; }
     .aca .jp-latest .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
     .aca .jp-latest .hd h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--head); }
@@ -294,9 +299,10 @@
         '<div class="acts">' + (c.bookings_edit && b.status === "booked" && typeof Bookings !== "undefined" ? '<button type="button" class="small primary" data-j="edit">Edit booking</button>' : "") +
         (canMail() ? '<button type="button" class="small" data-j="email">Email</button>' : "") +
         '<span class="jp-dl-menu"><button type="button" class="small" data-j="dl">Download &#9662;</button></span></div></div>' +
-        (J.stages && J.stages.length ? '<ul class="jp-stages">' + J.stages.map((s) => '<li class="' + (s.reached ? "on" : "") + (J.stage && J.stage.label === s.label ? " cur" : "") + '">' + esc(s.label) + "</li>").join("") + "</ul>" +
+        (J.stages && J.stages.length ? '<ul class="jp-stages">' + J.stages.map((s) => '<li class="' + (s.reached ? "on" : "") + (J.stage && J.stage.label === s.label ? " cur" : "") + '">' + esc(s.label) + "</li>").join("") +
+          '<li class="jp-rli jp-roster"></li></ul>' +
           // On a phone the row of stages is one line: "In production, 3 of 6".
-          '<p class="jp-stage1">' + stageLine() + "</p>" : "") +
+          '<p class="jp-stage1">' + stageLine() + '<span class="jp-roster"></span></p>' : '<p class="jp-roster" style="margin:4px 0 14px"></p>') +
         '<div class="jp-tabs" role="tablist" id="aca-jpTabs"></div><div id="aca-jpBody"></div>';
       if (el("jpBack")) el("jpBack").onclick = (e) => { e.preventDefault(); if (canSee("bookings")) showTab("bookings"); else history.back(); };
       root().querySelector(".jp-head").addEventListener("click", onHeadClick);
@@ -305,6 +311,61 @@
         return '<button type="button" role="tab" data-t="' + esc(t.id) + '">' + esc(t.label) + (n ? '<span class="n">' + num(n) + "</span>" : "") + "</button>";
       }).join("");
       el("jpTabs").addEventListener("click", (e) => { const t = e.target.closest("button[data-t]"); if (t) pick(t.dataset.t); });
+      paintRoster();
+    }
+
+    // Roster in GotPhoto (2026-10-24): the tag on the status line on every tab, and on Overview a card while it's missing
+    // (red past the deadline, two weeks before picture day; a quieter line while it's due) or a Roster line under The job.
+    // booking_roster (migration 20261025180000) is read once per page load; Roster in shell-top.js words it.
+    async function paintRoster() {
+      const b = J.booking, my = J;
+      if (b.status !== "booked") return;
+      if (my.roster === undefined) {
+        my.roster = null;
+        const { data } = await sb.rpc("booking_roster", { p_booking: b.id });
+        if (J !== my) return;
+        my.roster = data || null;
+      }
+      const r = my.roster;
+      root().querySelectorAll(".jp-roster").forEach((n) => { n.innerHTML = Roster.tag(r); });
+      const card = el("jpRosterCard"), fact = el("jpRosterFact");
+      if (fact) {
+        const w = Roster.words(r);
+        fact.innerHTML = w ? "<dt>" + (r.school ? "Student data" : "Roster") + "</dt><dd>" + Roster.tag(r) + (r.state === "in" && r.loaded_at ? ' <span class="muted">loaded ' + esc(Fmt.day(r.loaded_at)) + "</span>" : "") + "</dd>" : "";
+      }
+      if (!card) return;
+      if (!r || (r.state !== "late" && r.state !== "due")) { card.innerHTML = ""; return; }
+      const what = r.school ? "student data file" : "roster";
+      const pday = b.picture_day ? Fmt.day(b.picture_day) : "picture day";
+      const mail = canMail() ? '<button type="button" class="small' + (r.state === "late" ? " primary" : "") + '" data-r="mail">Email for it</button>' : "";
+      const gp = b.gotphoto_job_id && !r.school ? '<button type="button" class="small" data-r="gp">Open in GotPhoto</button>' : "";
+      const only = b.type_key === "sports_data" && J.can.bookings_edit ? '<button type="button" class="small" data-r="only">Run it as Roster Only</button>' : "";
+      card.innerHTML = r.state === "late"
+        ? '<div class="jp-rcard"><h3>No ' + what + " in GotPhoto yet</h3><p>Picture day is " + esc(pday) + (r.days_out > 1 ? ", " + r.days_out + " days out," : r.days_out === 1 ? ", tomorrow," : ", today,") +
+          " and the " + what + " was due " + esc(Fmt.day(r.due)) + ". " + (r.school ? "Parents can't find their photos without it." : "Families can't find their photos by name without it" + (b.type_key === "sports_data" ? ", and we can't email parents directly." : ".")) + "</p>" +
+          '<div class="acts">' + mail + gp + only + "</div></div>"
+        : '<div class="jp-rcard due"><h3>' + (r.school ? "Student data" : "Roster") + " due " + esc(Fmt.day(r.due)) + "</h3><p>Not in GotPhoto yet. It's due two weeks before picture day.</p>" +
+          (mail || gp ? '<div class="acts">' + mail + gp + "</div>" : "") + "</div>";
+      card.onclick = async (e) => {
+        const t = e.target.closest("button[data-r]"); if (!t) return;
+        if (t.dataset.r === "mail") return emailContacts(t, rosterAsk(b, r));
+        if (t.dataset.r === "gp") return window.open("https://app.gotphoto.com/config_jobs_settings/index/" + encodeURIComponent(b.gotphoto_job_id), "_blank", "noopener");
+        if (!confirm("Keep the date and run it as Roster Only? The email series switches to Roster Only and stops asking for parent emails.")) return;
+        t.disabled = true;
+        const { error } = await sb.rpc("booking_run_roster_only", { p_booking: b.id });
+        if (error) { t.disabled = false; toast(cleanErr(error), true); return; }
+        toast("Running as Roster Only.");
+        load(b.id, curTab);
+      };
+    }
+    // The prefilled ask for the roster (Email for it). Plain words; they can edit it before it goes.
+    function rosterAsk(b, r) {
+      const day = b.picture_day ? Fmt.day(b.picture_day) : "picture day";
+      if (r.school) return { subject: "Student data for picture day " + Fmt.day(b.picture_day),
+        body: "Hi,\n\nCould you send us the student data file for picture day on " + day + "? Parents use it to find their child's photos, so we need it loaded before picture day.\n\nThank you!" };
+      return { subject: "Roster for picture day " + Fmt.day(b.picture_day),
+        body: "Hi,\n\nCould you send us your roster for picture day on " + day + "? A spreadsheet with each athlete's first and last name and team works best" +
+          (b.type_key === "sports_data" ? ", plus a parent email for each if you have them" : "") + ". Families find their photos by name, so we need it loaded before picture day.\n\nThank you!" };
     }
 
     function onHeadClick(e) {
@@ -356,10 +417,10 @@
       const contacts = J.contacts || [];
       // Remove takes someone off this job's emails (2026-10-23); Edit booking adds people.
       const rm = c.bookings_edit && b.status === "booked" && contacts.length > 1;
-      box.innerHTML = '<div class="jp-latest" id="aca-jpLatest"></div><div class="jp-grid"><div>' +
+      box.innerHTML = '<div id="aca-jpRosterCard"></div><div class="jp-latest" id="aca-jpLatest"></div><div class="jp-grid"><div>' +
         '<div class="jp-sec jp-onsite" id="aca-jpOnsite"></div>' + '<div class="jp-sec jp-onsite" id="aca-jpMakeup"></div>' +
         '<div class="jp-sec"><h3>The job</h3><dl class="jp-dl">' + facts.map((f) => "<dt>" + esc(f[0]) + "</dt><dd>" + esc(f[1] || "\u2014") + "</dd>").join("") +
-        "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="' + orgLink(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + "</dd></dl></div>" +
+        "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="' + orgLink(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + '</dd><div id="aca-jpRosterFact" style="display:contents"></div></dl></div>' +
         (contacts.length ? '<div class="jp-sec"><h3>Who gets the emails</h3><ul class="jp-rows">' + contacts.map((p) => "<li><span>" + esc(p.name || p.email || "") +
           (p.role ? ' <span class="muted">' + esc(p.role) + "</span>" : "") + '</span><span class="r">' + esc([p.email, p.phone].filter(Boolean).join(" \u00b7 ")) +
           (rm && p.contact_id ? ' <button type="button" class="small quiet" data-rmc="' + esc(p.contact_id) + '" data-who="' + esc(p.name || p.email || "") + '">Remove</button>' : "") + "</span></li>").join("") + "</ul></div>" : "") +
@@ -375,6 +436,7 @@
       renderOnsite(b);
       renderMakeup(b);
       renderLatest(b);
+      paintRoster();
       box.onchange = async (e) => {
         if (e.target.id !== "aca-jpEditor") return;
         const sel = e.target; sel.disabled = true;
@@ -412,14 +474,14 @@
     // (Orgs.emailPeople). The emails go out from Gmail like "Email someone" (prospect-sender), are listed under
     // "Emails from this job" on Overview and land in History. RPCs job_email_send, job_emails (migration 20261024151700).
     const canMail = () => J && J.booking.status !== "cancelled" && (J.contacts || []).length > 0 && (canEdit("bookings") || canEdit("partners")) && typeof Orgs !== "undefined";
-    async function emailContacts(btn) {
+    async function emailContacts(btn, pre) {
       const b = J.booking;
       if (btn) btn.disabled = true;
       const { data, error } = await sb.rpc("job_emails", { p_booking: b.id });
       if (btn) btn.disabled = false;
       if (error) { toast(cleanErr(error), true); return; }
       const sent = await Orgs.emailPeople({
-        title: "Email about " + b.title, subject: b.title,
+        title: "Email about " + b.title, subject: (pre && pre.subject) || b.title, body: pre && pre.body,
         people: (data.contacts || []).map((c) => ({ id: c.id, name: c.name, email: c.email, role: c.role, why: c.why })),
         send: async (ids, subject, body, now) => {
           const r = await sb.rpc("job_email_send", { p_booking: b.id, p_contacts: ids, p_subject: subject, p_body: body, p_now: now });

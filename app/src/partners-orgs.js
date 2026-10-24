@@ -1848,7 +1848,7 @@ ${order.map((k) => sec[k]).join("")}
         <label for="aca-ogJeSubj">Subject</label><input type="text" id="aca-ogJeSubj" value="${esc(opts.subject || "")}" />
       </div>
       ${snippetPicker("ogJeBody")}
-      <textarea id="aca-ogJeBody" class="og-edbody" placeholder="Hi &hellip;"></textarea>
+      <textarea id="aca-ogJeBody" class="og-edbody" placeholder="Hi &hellip;">${esc(opts.body || "")}</textarea>
       <p class="og-sub" style="white-space:normal;margin:4px 0 12px">${esc(SIG_NOTE)} Each person gets their own email. <strong>Send now</strong> sends it right away. <strong>Add to queue</strong> sends it in the next send window.</p>
       <div id="aca-ogJeErr" class="inline-error hidden" style="margin:0 0 12px"></div>
       <div class="og-actions"><button type="button" class="primary" data-v="now">Send now</button><button type="button" data-v="queue">Add to queue</button><button type="button" data-v="close">Cancel</button></div>`, true);

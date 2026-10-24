@@ -53,7 +53,8 @@
         mine = data || [];
       } catch (_e) { mine = []; }
       Object.entries(KIND_KEY).forEach(([kind, key]) => {
-        const rows = mine.filter((f) => f.kind === kind);
+        // No roster shows on Today as its own line from the roster tag (bookings.js rosterLate), so not twice.
+        const rows = kind === "roster" ? [] : mine.filter((f) => f.kind === kind);
         const seen = new Set();
         const jobs = rows.filter((f) => !seen.has(f.booking_id) && seen.add(f.booking_id)).map((f) => ({ id: f.booking_id, title: f.org || "A job", day: f.picture_day, tab: "hub" }));
         setAttention(key, jobs.length, rows.length ? rows[0].title : "", "bookings", "warn", null, jobs);
