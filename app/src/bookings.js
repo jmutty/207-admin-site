@@ -355,6 +355,12 @@
   async function load(force) {
     if (loaded && !force && currentTabIs()) { render(); return; }
     clearError("bkErr");
+    // The list as last seen on this device draws at once (Snap); the fresh rows replace it when they differ.
+    const sk = "bookings:" + scope, snap = loaded ? null : Snap.get(sk), stamp = Saves.stamp(), my = ++loadSeq;
+    if (snap && Array.isArray(snap.rows)) {
+      rows = snap.rows; checklist = snap.checklist || {}; seqType = snap.seqType || {}; if (!stagesAll.length) stagesAll = snap.stages || [];
+      try { render(); } catch (_e) { /* an old copy that no longer fits: wait for the fresh one */ }
+    }
     try {
       await ensureMeta();
       const { data: seqs } = await sb.from("booking_sequences").select("id, type_key");
@@ -369,14 +375,22 @@
       if (error) throw error;
       const pm = {}; (prog.data || []).forEach((x) => { pm[x.booking_id] = x; });
       checklist = {}; (Array.isArray(wf.data) ? wf.data : []).forEach((x) => { checklist[x.booking_id] = x; });
-      rows = (data || []).map((b) => Object.assign(b, { progress: pm[b.id] || null }));
+      const fresh = (data || []).map((b) => Object.assign(b, { progress: pm[b.id] || null }));
+      if (my !== loadSeq) return;
+      const changed = Snap.put(sk, { rows: fresh, checklist, seqType, stages: stagesAll });
+      if (snap && Saves.stamp() !== stamp) { loaded = true; return; } // an edit started meanwhile: the screen is newer
+      rows = fresh;
       loaded = true;
-      render();
+      if (changed || !snap) render();
       // Old links (emails, notifications, bookmarks) to #jobs/bookings/<id> open the job page's Booking tab.
       const seg = location.hash.replace(/^#/, "").split("/");
       if (seg[0] === "jobs" && seg[1] === "bookings" && seg[2]) openJob(seg[2], "booking", true);
-    } catch (e) { showError("bkErr", cleanErr(e)); el("bkBody").innerHTML = '<tr><td colspan="5" class="empty">Could not load bookings.</td></tr>'; }
+    } catch (e) {
+      if (snap && Array.isArray(snap.rows)) return; // offline or a hiccup: keep showing the last copy
+      showError("bkErr", cleanErr(e)); el("bkBody").innerHTML = '<tr><td colspan="5" class="empty">Could not load bookings.</td></tr>';
+    }
   }
+  let loadSeq = 0;
   const currentTabIs = () => el("panel-bookings").classList.contains("active");
 
   // The list's time line: one day's time, or a multi-day job's shared time "each day" (otherwise "times vary by day")
@@ -507,7 +521,7 @@
       const ymd = (d) => d.toLocaleDateString("en-CA", { timeZone: TZ });
       const today = ymd(new Date()), in7 = ymd(new Date(Date.now() + 7 * 864e5)), in21 = ymd(new Date(Date.now() + 21 * 864e5));
       const { data } = await sb.rpc("admin_bookings", { p_from: ymd(new Date(Date.now() - 30 * 864e5)), p_to: null });
-      const add = (k, b) => (out[k] = out[k] || []).push({ id: b.id, title: b.org_name ? b.org_name + (b.title_label ? " · " + b.title_label : "") : b.title, day: b.picture_day });
+      const add = (k, b) => (out[k] = out[k] || []).push({ id: b.id, title: b.title || b.org_name, day: b.picture_day });
       (data || []).filter((b) => b.status === "booked").forEach((b) => {
         const day = String(b.picture_day || ""), ahead = day >= today;
         const rest = num(b.emails_waiting) - num(b.emails_waiting_time) - num(b.emails_waiting_coaches) - num(b.emails_waiting_gallery);

@@ -521,11 +521,9 @@
       clearError("scErr");
       const { start, days: span } = rangeFor(view, anchor);
       fillJump();
-      try {
-        // The list shows the anchor day and the next one, which can be the Monday after this week.
-        const { data: d, error } = await sb.rpc("schedule_week", { p_start: start, p_days: span });
-        if (error) throw error;
-        if (my !== loading) return;
+      // The week as last seen on this device draws at once (Snap); the fresh copy replaces it when it differs.
+      const sk = "sched:" + start + ":" + span, snap = Snap.get(sk), stamp = Saves.stamp();
+      const shape = (d) => {
         // B3: a copy, so the "X Off" bars below are never pushed into the RPC result itself
         data = Object.assign({}, d, { start, span, entries: (d.entries || []).slice() });
         data.crew = Object.assign({ roles: [], needed: {}, declined: [], requests: [], settings: {} }, d.crew || {});
@@ -537,12 +535,21 @@
         (d.calendar || []).filter((c) => c.off_user).forEach((c) => data.entries.push({ id: "gcal:" + c.event_id, user_id: c.off_user, kind: "off", booking_id: null,
           starts_at: c.all_day || !c.start_at ? T.toIso(c.start_date, "00:00") : c.start_at, ends_at: c.all_day || !c.end_at ? T.toIso(T.addDays(c.end_date, 1), "00:00") : c.end_at,
           drive_before_min: 0, drive_after_min: 0, title: c.summary, note: "", gcal: c }));
-        render();
+      };
+      if (snap && snap.entries) { try { shape(snap); render(); } catch (_e) { /* an old copy that no longer fits: wait for the fresh one */ } }
+      try {
+        // The list shows the anchor day and the next one, which can be the Monday after this week.
+        const { data: d, error } = await sb.rpc("schedule_week", { p_start: start, p_days: span });
+        if (error) throw error;
+        if (my !== loading) return;
+        const changed = Snap.put(sk, d);
+        if (!snap || (changed && Saves.stamp() === stamp)) { shape(JSON.parse(JSON.stringify(d))); render(); }
         loadPeak();
         openPending();
         loadChanges();
       } catch (e) {
         if (my !== loading) return;
+        if (snap && snap.entries) return; // offline or a hiccup: keep showing the last copy
         showError("scErr", "Could not load the schedule: " + cleanErr(e));
       }
     }

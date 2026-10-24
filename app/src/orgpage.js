@@ -173,7 +173,8 @@
     const trailA = (href, text, style) => '<a href="' + esc(href) + '" data-trail="1"' + (style ? ' style="' + style + '"' : "") + ">" + text + "</a>";
 
     // ---------------------------------------------------------------- data, loaded once per partner and shared by the tabs
-    // Each loader returns this partner's rows from the page-wide RPC (or [] without access).
+    // Each loader returns this partner's rows from the page-wide RPC (or [] without access). Results, rebooking and the
+    // outbox are asked for this partner only (p_org, speed 2026-10-24); the filters below stay as a second check.
     function data(key) {
       if (cache[key]) return cache[key];
       const id = O.id, name = (O.name || "").toLowerCase();
@@ -190,13 +191,13 @@
         },
         results: async () => {
           if (!canSee("results")) return { jobs: [], terms: null };
-          const [j, p] = await Promise.all([sb.rpc("results_jobs"), sb.rpc("results_partners")]);
+          const [j, p] = await Promise.all([sb.rpc("results_jobs_for", { p_org: id }), sb.rpc("results_partners")]);
           if (j.error) throw j.error;
           return { jobs: (j.data || []).filter((x) => x.org_id === id), terms: ((p && p.data) || []).find((x) => x.id === id) || null };
         },
         rebook: async () => {
           if (!canSee("partners")) return null;
-          const { data: d } = await sb.rpc("partner_rebook_list");
+          const { data: d } = await sb.rpc("partner_rebook_list_for", { p_org: id });
           return (d || []).find((x) => x.org_id === id) || null;
         },
         reviews: async () => {
@@ -212,7 +213,7 @@
         },
         outbox: async () => {
           if (!canSee("partners")) return [];
-          const [{ data: d, error }, bks] = await Promise.all([sb.rpc("admin_outbox"), data("bookings")]);
+          const [{ data: d, error }, bks] = await Promise.all([sb.rpc("admin_outbox_for", { p_org: id }), data("bookings")]);
           if (error) throw error;
           const ids = new Set(bks.map((b) => b.id));
           return (d || []).filter((x) => x.org_id === id || (x.booking_id && ids.has(x.booking_id)) || (!x.org_id && (x.org || "").toLowerCase() === name));
@@ -266,8 +267,25 @@
         },
       }[key];
       // A failing area shows its own error; the rest of the page still works.
-      cache[key] = run().catch((e) => { cache[key] = null; throw e; });
-      return cache[key];
+      // The last copy (Snap) answers at once; when the fresh rows differ the tab is drawn again with them.
+      // Not right after a fix made here (refresh()): then the tab waits for the fresh rows.
+      const sk = "org:" + id + ":" + key, snap = fresh.has(key) ? null : Snap.get(sk), stamp = Saves.stamp();
+      fresh.delete(key);
+      const p = run().then((v) => {
+        if (!O || O.id !== id || cache[key] !== shown) return v;
+        if (Snap.put(sk, v) && snap !== null && Saves.stamp() === stamp) { cache[key] = Promise.resolve(v); repaint(); }
+        return v;
+      }, (e) => { if (snap === null && cache[key] === shown) cache[key] = null; throw e; });
+      const shown = snap !== null ? Promise.resolve(snap) : p;
+      if (snap !== null) p.catch(() => {});
+      cache[key] = shown;
+      return shown;
+    }
+    const fresh = new Set();
+    let repaintQ = false;
+    function repaint() {
+      if (repaintQ) return; repaintQ = true;
+      requestAnimationFrame(() => { repaintQ = false; if (!O || currentTab !== "org" || Saves.any()) return; const box = el("opBody"); const f = focusMark(box); pick(curTab); focusBack(box, f); });
     }
     const quiet = (p) => p.catch(() => null);
     // Everything we did for them: booked jobs, plus GotPhoto jobs matched to them that have no booking (older seasons).
@@ -307,15 +325,19 @@
     // Moving from one partner to another (a link on this page) doesn't change the app tab.
     window.addEventListener("hashchange", () => setTimeout(() => { if (/^#partners\/org\//.test(location.hash) && currentTab === "org") show(); }, 0));
 
+    // The partner as last seen on this device shows at once (Snap), tabs included; fresh rows replace it when they differ.
     async function load(id, tab) {
-      const my = ++seq;
+      const my = ++seq, stamp = Saves.stamp(), snap = Snap.get("orgp:" + id);
       loadingId = id;
       Orgs.unembed();
-      root().innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>';
-      const { data: row, error } = await sb.from("prospect_orgs").select("*").eq("id", id).maybeSingle();
+      if (snap && snap.row && snap.row.id) { O = snap.row; G = snap.G || { parent: null, members: [] }; cache = {}; renderShell(); pick(tab || "overview"); }
+      else root().innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>';
+      const { data: row, error } = await (Early.take("org:" + id) || sb.from("prospect_orgs").select("*").eq("id", id).maybeSingle());
       if (my !== seq) return;
       loadingId = null;
+      if (error && snap && error.code !== "42501") return; // offline or a hiccup: keep showing the last copy
       if (error || !row) {
+        Snap.drop("orgp:" + id);
         root().innerHTML = '<div class="inline-error">' + esc(error ? (error.code === "42501" ? "You don't have access to partners. Ask Jeremiah to add the area on the Team page." : cleanErr(error)) : "That partner doesn't exist any more.") + "</div>";
         return;
       }
@@ -323,10 +345,12 @@
         row.parent_id ? sb.from("prospect_orgs").select("id,name,audience").eq("id", row.parent_id).maybeSingle() : Promise.resolve({ data: null }),
         sb.from("prospect_orgs").select(MEMBER_COLS).eq("parent_id", id).is("merged_into", null).order("name")]);
       if (my !== seq) return;
-      O = row; cache = {};
-      G = { parent: (par && par.data) || null, members: (mem && mem.data) || [] };
-      renderShell();
-      pick(tab || "overview");
+      const g = { parent: (par && par.data) || null, members: (mem && mem.data) || [] };
+      if (snap && Saves.stamp() !== stamp) return; // an edit started meanwhile: the screen is newer
+      if (!Snap.put("orgp:" + id, { row, G: g }) && snap) return;
+      O = row; G = g;
+      if (!snap) cache = {};
+      const f = focusMark(root()); renderShell(); pick(snap ? curTab : tab || "overview"); focusBack(root(), f);
     }
 
     function renderShell() {
@@ -477,7 +501,7 @@
 
     // ---------------------------------------------------------------- groups (2026-10-24)
     // Draws the page again after a link changed, on the same tab when it still exists.
-    function reloadHere() { const id = O.id, t = curTab; O = null; load(id, t); safe(() => Orgs.reload()); }
+    function reloadHere() { const id = O.id, t = curTab; O = null; Snap.drop("orgp:" + id); Snap.dropAll("org:" + id + ":"); load(id, t); safe(() => Orgs.reload()); }
     async function setParent(ids, parentId) {
       const { error } = await sb.from("prospect_orgs").update({ parent_id: parentId }).in("id", ids);
       if (error) throw error;
@@ -632,7 +656,7 @@
     }
     const goTab = (id) => pick(id);
     // After a fix made on this page: drop the cached rows and draw the tab again.
-    function refresh(keys) { (keys || Object.keys(cache)).forEach((k) => { delete cache[k]; }); if (O && currentTab === "org") pick(curTab); }
+    function refresh(keys) { (keys || Object.keys(cache)).forEach((k) => { delete cache[k]; fresh.add(k); }); if (O && currentTab === "org") pick(curTab); }
     const loading = (box) => { box.innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>'; };
 
     // The shared actions behind buttons on several tabs. Resolves when done.
@@ -706,13 +730,15 @@
         G.members.length ? [cap(word()), G.members.length + " (" + G.members.filter((x) => x.stage === "client" || x.stage === "booked").length + " clients)"] : null,
         !(ags || []).some((a) => a.status === "accepted") && covering ? ["Agreement", "Covered by " + G.parent.name + "'s"] : null,
       ].filter(Boolean);
-      const others = (acts || []).filter((a) => a.kind !== "note"); // notes are in the box at the top
+      // notes are in the box at the top; what the system wrote (contacts found in Gmail and the like) stays on Notes & history
+      const others = (acts || []).filter((a) => a.kind !== "note" && a.kind !== "system_note");
       const cName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "";
       // Coming up (2026-10-24 tidy): the date on the left, then the job, where, and how it's going, each on its own line.
       // The partner's name is left off the job name here since we're on their page; a member's job (on a group's page) starts with the member's name.
       const jobCard = (b) => {
         const t = b.start_at && typeof Fmt.time === "function" ? safe(() => Fmt.time(b.start_at)) : "";
-        const name = b.title_label || String(b.title || "Job").replace(new RegExp("\\s*\u2022\\s*" + O.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"), "") || "Job";
+        const on = O.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const name = b.title_label || String(b.title || "Job").replace(new RegExp("^" + on + "\\s*\u2022\\s*|\\s*\u2022\\s*" + on + "$"), "") || "Job";
         const how = [b.stage ? b.stage : b.status === "tracked" ? "Tracking only" : "", b.status === "booked" && num(b.emails_total) ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" \u00b7 ");
         return '<a class="op-job" href="' + jobLink(b.id) + '"><span class="d">' + esc(Fmt.days(b)) + (t ? "<small>" + esc(t) + "</small>" : "") + '</span><span><span class="h">' + (b.org_id && b.org_id !== O.id ? esc(b.org_name || "") + ": " : "") + esc(name) + "</span>" +
           (b.location ? '<span class="s">' + esc(b.location) + "</span>" : "") + (how ? '<span class="s">' + esc(how) + "</span>" : "") + "</span></a>";
@@ -818,7 +844,8 @@
     }
     // Plain words for every activity kind; one we don't know yet still reads as a sentence-case label.
     const KIND = { email_sent: "Email sent", history_email: "Earlier email", reply: "Reply", note: "Note", followup_set: "Follow-up set", followup_done: "Follow-up done",
-      stage: "Stage changed", stage_change: "Stage changed", call: "Call", bounce: "Bounced", unsubscribe: "Unsubscribed", open: "Opened an email", email_opened: "Opened an email" };
+      stage: "Stage changed", stage_change: "Stage changed", call: "Call", bounce: "Bounced", unsubscribe: "Unsubscribed", open: "Opened an email", email_opened: "Opened an email",
+      merge: "Merged", system_note: "Added by the system" };
     function kindName(k) { const s = String(k || "").replace(/_/g, " ").trim(); return KIND[k] || (s ? s[0].toUpperCase() + s.slice(1) : "Activity"); }
     function actText(a) {
       const k = kindName(a.kind);

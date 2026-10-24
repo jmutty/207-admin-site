@@ -101,6 +101,8 @@
     { id: "dt2", type_key: "sports_data", label: "Banner proofs", due_days: 14, auto_add: false, sort: 20, archived_at: null },
     { id: "dt3", type_key: "school", label: "Yearbook files", due_days: 30, auto_add: true, sort: 10, archived_at: null },
     { id: "dt4", type_key: null, label: "Thank-you card", due_days: null, auto_add: false, sort: 10, archived_at: null }];
+  // ?slow=<ms> (speed, 2026-10-24): every read waits that long, to test pages drawn from the last-seen copy (Snap).
+  const SLOW = +((/[?&]slow=(\d+)/.exec(location.search) || [])[1] || 0);
   function q(table) {
     let single = false, head = false, write = null; const filt = [];
     const res = () => {
@@ -114,7 +116,7 @@
       // Writes: an update changes the matching rows, so a reload shows it. window.__writeDelay (ms) slows every write and
       // window.__writeFail (a message) makes it fail, to test edits that show first and save behind (2026-10-24).
       if (k === "then") return (a, b) => {
-        if (!write) return Promise.resolve(res()).then(a, b);
+        if (!write) return new Promise((ok) => setTimeout(() => ok(res()), SLOW)).then(a, b);
         const done = () => {
           if (window.__writeFail) return { data: null, error: { message: window.__writeFail } };
           if (write[0] === "update" && Array.isArray(T[table])) T[table].filter((r) => filt.every((f) => f(r))).forEach((r) => Object.assign(r, write[1]));
@@ -872,12 +874,17 @@
   if (RPC.time_off_list && RPC.time_off_list.team[0]) RPC.time_off_list.team[0].jobs.forEach((j) => { j.booking_id = "bk5"; }); // B7: jobs carry booking_id
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
-    auth: { getSession: async () => ({ data: { session: /[?&]signedout=1\b/.test(location.search) ? null : { user: { email: "test@207photo.com" }, access_token: "x" } } }), // ws/shell: ?signedout=1 shows sign-in
+    auth: { getSession: async () => ({ data: { session: /[?&]signedout=1\b/.test(location.search) ? null : { user: { id: "u1", email: "test@207photo.com" }, access_token: "x" } } }), // ws/shell: ?signedout=1 shows sign-in
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({}),
             updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }),
             // ws/shell (2026-10-24): Forgot password on the sign-in form
             resetPasswordForEmail: async (email, o) => (window.__writes = (window.__writes || []).concat([["auth", "resetPasswordForEmail", email, o && o.redirectTo]]), { data: {}, error: null }) },
-    from: q, storage, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: typeof RPC[n] === "function" ? RPC[n](a || {}) : RPC[n] !== undefined ? RPC[n] : [], error: null }),
+    from: q, storage, rpc: async (n, a) => {
+      window.__rpcCalls.push([n, a]);
+      if (SLOW && !/^(admin_session_ok|my_access)$/.test(n)) await new Promise((ok) => setTimeout(ok, SLOW));
+      if (/^(admin_outbox|partner_rebook_list|results_jobs)_for$/.test(n)) n = n.slice(0, -4); // the partner page's one-partner versions
+      return { data: typeof RPC[n] === "function" ? RPC[n](a || {}) : RPC[n] !== undefined ? RPC[n] : [], error: null };
+    },
   }) };
   // Edge functions: the Team page's account actions.
   const realFetch = window.fetch;

@@ -14,8 +14,12 @@ docs/ADDING-A-MODULE.md            how to add a new area (scheduling, time clock
 
 - **Hosting.** Cloudflare Pages project `207-admin` (direct upload, not connected to GitHub) serves `index.html`. To change it, zip the files inside `site/` and upload them (Create deployment -> Production).
   `index.html` loads supabase-js and then `loader.js`, which
-  pulls the current app bundle from Supabase Storage (`admin-app/207-admin.js`). Deploying the app
-  never needs a change here.
+  asks `admin-app/current.json` (never cached) for the current build and loads that versioned file
+  (`admin-app/v/207-admin.<hash>.js`, cached for a year and kept on the device by `sw.js`). Deploying
+  the app never needs a change here. The old address (`admin-app/207-admin.js`) is still uploaded too.
+- **Last-seen pages.** Today, All jobs, a job, Partners, a partner and Schedule keep a copy of what they last
+  loaded in the browser (`Snap` in `app/src/shell-top.js`), draw it at once and swap in fresh rows. Per person;
+  Sign out clears it. Tests: `app/test/snap.js`, `app/test/loader.js`.
   `_redirects` sends the short email links (`/go/<code>`) to the `go` edge function, which logs the click and redirects.
 - **Security.** The browser holds only the public anon key. All data access goes through Postgres
   row-level security and `SECURITY DEFINER` RPCs, under the signed-in person's own Supabase Auth
