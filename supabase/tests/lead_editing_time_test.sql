@@ -1,4 +1,4 @@
--- Tests for 20261025040000_lead_editing_time (editing time for the Lead). Run against a NON-production copy of the
+-- Tests for 20261025040000_lead_editing_time and 20261025050000_editing_lead_without_role (editing time for the Lead). Run against a NON-production copy of the
 -- schema after the migration, inside a transaction that is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/lead_editing_time_test.sql
 -- "ALL LEAD EDITING TESTS PASSED" at the end means every check held.
@@ -85,6 +85,21 @@ values ('00000000-0000-0000-0000-00000000ee04', '00000000-0000-0000-0000-0000000
         '2027-04-07 08:00-04', '2027-04-07 14:00-04', 30, 30, 60, 60, (select lead from ids));
 select pg_temp.ok((select starts_at = '2027-04-08 08:00-04' and ends_at = '2027-04-08 11:30-04' from public.schedule_entries where edit_for = '00000000-0000-0000-0000-00000000ee04'), 'over 8 hours that day: next morning');
 select pg_temp.ok(public.edit_day_min('00000000-0000-0000-0000-0000000000e7', '2027-04-07', null) = 540, 'day minutes count drive, setup and teardown');
+
+-- nobody marked Lead (20261025050000): the first person on the job that day counts as the Lead
+insert into public.schedule_entries (id, user_id, kind, booking_id, starts_at, ends_at)
+values ('00000000-0000-0000-0000-00000000ee05', '00000000-0000-0000-0000-0000000000e7', 'job', '00000000-0000-0000-0000-00000000eb01', '2027-05-05 16:15-04', '2027-05-05 18:45-04'),
+       ('00000000-0000-0000-0000-00000000ee06', '00000000-0000-0000-0000-0000000000e8', 'job', '00000000-0000-0000-0000-00000000eb01', '2027-05-05 16:15-04', '2027-05-05 18:45-04');
+select pg_temp.ok(exists (select 1 from public.schedule_entries where edit_for = '00000000-0000-0000-0000-00000000ee05')
+                  and not exists (select 1 from public.schedule_entries where edit_for = '00000000-0000-0000-0000-00000000ee06'), 'no Lead marked: the first person on the job gets it');
+update public.schedule_entries set role_id = (select lead from ids) where id = '00000000-0000-0000-0000-00000000ee06';
+select pg_temp.ok(not exists (select 1 from public.schedule_entries where edit_for = '00000000-0000-0000-0000-00000000ee05')
+                  and exists (select 1 from public.schedule_entries where edit_for = '00000000-0000-0000-0000-00000000ee06'), 'someone marked Lead: it moves to them');
+delete from public.schedule_entries where id = '00000000-0000-0000-0000-00000000ee06';
+select pg_temp.ok(exists (select 1 from public.schedule_entries where edit_for = '00000000-0000-0000-0000-00000000ee05'), 'Lead taken off: back to the first person');
+update public.bookings set status = 'tracked' where id = '00000000-0000-0000-0000-00000000eb01';
+select pg_temp.ok(exists (select 1 from public.schedule_entries where edit_for = '00000000-0000-0000-0000-00000000ee05'), 'track-only jobs keep their editing time');
+update public.bookings set status = 'booked' where id = '00000000-0000-0000-0000-00000000eb01';
 
 -- job bar removed: editing goes with it; past jobs get nothing new
 delete from public.schedule_entries where id = '00000000-0000-0000-0000-00000000ee02';
