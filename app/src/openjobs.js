@@ -75,6 +75,13 @@
       if (!days || !days.length) return "No days left";
       return days.map((d) => T.fmtDay(d.day) + ", " + (d.start_at ? T.fmtTs(d.start_at) + "–" + T.fmtTs(d.end_at) : "time not set yet")).join("; ");
     }
+    // A job whose days are at different places (2026-10-24): each day on its own line with its place, and with
+    // drives (an offer to me) the drive from home to it. One place: the days, then the place, then the drive.
+    function whereHtml(o, link, drives) {
+      if (!o.places_differ) return "<b>" + esc(daysText(o.days)) + "</b>" + (o.location ? "<br>" + (link ? mapLink(o.location) : esc(o.location)) : "");
+      return (o.days || []).map((d) => "<b>" + esc(daysText([d])) + "</b>" + (d.place ? " at " + (link ? mapLink(d.place) : esc(d.place)) : "") +
+        (drives && d.drive_min != null ? " (about " + num(d.drive_min) + " min drive from home)" : "")).join("<br>") || "<b>No days left</b>";
+    }
     const spotsText = (o) => (o.spots === 1 ? (o.taken ? "Filled" : "1 person needed") : o.taken + " of " + o.spots + " picked") + (num(o.yes) ? " \u00b7 " + num(o.yes) + " available" : "");
 
     // ---------------------------------------------------------------- load
@@ -117,8 +124,8 @@
         // The title opens the job's page while the offer is open or once they're on it (2026-10-24).
         const canOpen = o.booking_id && typeof jobLink === "function" && ((o.status === "open" && me.answer !== "declined") || picked);
         return '<div class="oj-card' + (open ? "" : " done") + '" data-offer="' + esc(o.id) + '"><h4>' + (canOpen ? '<a href="' + esc(jobLink(o.booking_id)) + '">' + esc(o.title) + "</a>" : esc(o.title)) + tag + "</h4>" +
-          '<p class="oj-facts"><b>' + esc(daysText(o.days)) + "</b>" + (o.location ? "<br>" + mapLink(o.location) : "") +
-          (me.drive_min != null ? "<br>About " + num(me.drive_min) + " min drive from home" : "") + (o.pay ? "<br>Pay: " + esc(o.pay) : "") +
+          '<p class="oj-facts">' + whereHtml(o, true, true) +
+          (me.drive_min != null && !o.places_differ ? "<br>About " + num(me.drive_min) + " min drive from home" : "") + (o.pay ? "<br>Pay: " + esc(o.pay) : "") +
           (o.spots > 1 ? "<br>" + esc(spotsText(o)) : "") + "</p>" +
           (o.note ? '<p class="oj-note">' + esc(o.note) + "</p>" : "") +
           (me.answer === "declined" && me.reason ? '<p class="oj-facts">You said: ' + esc(me.reason) + "</p>" : "") +
@@ -184,7 +191,7 @@
       try { const { data } = await sb.rpc("team_list"); (data || []).forEach((p) => { if (p.email) emails[p.user_id] = p.email; }); } catch (_e) { /* no email links */ }
     }
     const mailto = (to, o) => "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent("Job offer: " + o.title) +
-      "&body=" + encodeURIComponent("Hi,\n\nAre you available for this job?\n\n" + o.title + "\n" + daysText(o.days) + (o.location ? "\n" + o.location : "") + (o.pay ? "\nPay: " + o.pay : "") +
+      "&body=" + encodeURIComponent("Hi,\n\nAre you available for this job?\n\n" + o.title + "\n" + (o.places_differ ? (o.days || []).map((d) => daysText([d]) + (d.place ? " at " + d.place : "")).join("\n") : daysText(o.days) + (o.location ? "\n" + o.location : "")) + (o.pay ? "\nPay: " + o.pay : "") +
         (o.note ? "\n\n" + o.note : "") + "\n\nReply to this email, or answer it in 207 Admin under Open jobs.\n\nThanks!");
     function renderPosted(offers) {
       if (!offers.length) { el("ojPosted").innerHTML = '<p class="empty">Nothing asked yet. Use Ask who&#39;s available on a booked job: the people you pick say if they can make it, and you pick one.</p>'; return; }
@@ -203,7 +210,7 @@
             (r.reason ? '<span class="s">&ldquo;' + esc(r.reason) + "&rdquo;</span>" : "") + (r.answered_at ? '<span class="s">' + esc(fmtAgo(r.answered_at)) + "</span>" : "") + "</li>";
         }).join("");
         return '<div class="oj-card' + (live ? "" : " done") + '"><h4>' + esc(o.title) + state + "</h4>" +
-          '<p class="oj-facts"><b>' + esc(daysText(o.days)) + "</b>" + (o.location ? "<br>" + esc(o.location) : "") + "<br>" + esc(spotsText(o)) +
+          '<p class="oj-facts">' + whereHtml(o, false, false) + "<br>" + esc(spotsText(o)) +
           (o.pay ? " &middot; Pay: " + esc(o.pay) : "") + " &middot; Sent " + esc(fmtAgo(o.created_at)) + (o.created_by ? " by " + esc(T.shortName(o.created_by)) : "") + "</p>" +
           (o.note ? '<p class="oj-note">' + esc(o.note) + "</p>" : "") + '<ul class="oj-who">' + who + "</ul>" +
           (live ? '<div class="oj-acts"><button type="button" class="small" data-again="' + esc(o.booking_id) + '">Ask more people</button><button type="button" class="small" data-close="' + esc(o.id) + '">Close</button></div>' : "") +
@@ -258,7 +265,7 @@
       }
       function renderCands(d, driveNote) {
         const b = d.booking;
-        el("ojJobFacts").innerHTML = esc(daysText(b.days)) + (b.location ? "<br>" + esc(b.location) : "") + (driveNote ? '<br><span class="oj-tag warn">' + esc(driveNote) + "</span>" : "");
+        el("ojJobFacts").innerHTML = whereHtml(b, false, false) + (driveNote ? '<br><span class="oj-tag warn">' + esc(driveNote) + "</span>" : "");
         const ppl = d.people || [];
         if (!ppl.length) { el("ojCands").innerHTML = '<p class="empty">Nobody on the team yet.</p>'; return; }
         el("ojCands").innerHTML = '<ul class="oj-pick">' + ppl.map((p) => {
@@ -268,7 +275,10 @@
           if (p.busy && p.busy.length) flags.push('<span class="oj-tag warn">Busy ' + esc(p.busy.map((x) => T.fmtDay(x, { month: undefined, day: undefined })).join(", ")) + "</span>");
           if (!p.has_access) flags.push('<span class="oj-tag err">No Open jobs access</span>');
           else if (!p.has_device) flags.push('<span class="oj-tag">Email only</span>');
-          const drive = !p.home_set ? "No home address" : p.drive_min == null ? "Drive unknown" : p.drive_min + " min drive" + (p.in_range ? "" : " (farther than their " + p.max_drive_min + " min)");
+          // days at different places: each day's drive, and the longest decides "farther than"
+          const each = p.drives && p.drives.length > 1 ? p.drives.map((x) => (x.drive_min == null ? "?" : x.drive_min) + " min to " + String(x.place || "").split(",")[0]).join(", ") : "";
+          const drive = !p.home_set ? "No home address" : p.drive_min == null ? (each ? "Drive unknown for some days (" + each + ")" : "Drive unknown")
+            : (each ? each : p.drive_min + " min drive") + (p.in_range ? "" : " (farther than their " + p.max_drive_min + " min)");
           const pre = p.part_time !== false && p.in_range && !p.on_job && !p.offered && !(p.busy && p.busy.length) && p.has_access;
           return '<li><label><input type="checkbox" class="oj-cand" value="' + esc(p.user_id) + '"' + (pre ? " checked" : "") + (p.has_access ? "" : " disabled") + " /><span>" +
             esc(T.shortName(p.name)) + flags.join("") + '<span class="s">' + esc(drive) + "</span></span></label></li>";

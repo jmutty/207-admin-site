@@ -594,7 +594,10 @@
     const offer = (id, extra) => Object.assign({ id, booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", location: "89 Western Ave, Hampden ME", booking_status: "booked",
       spots: 1, note: "Bring the white backdrop.", pay: "$150 flat", status: "open", created_at: iso(-0.1), created_by: "Jeremiah Mutty", taken: 0,
       days: [{ day: add(today, 3), start_at: at(add(today, 3), "09:00"), end_at: at(add(today, 3), "12:00") }] }, extra);
-    RPC.openjobs_mine = { me: "u6", offers: [offer("of1", { mine: { drive_min: 35, answer: null, answered_at: null, reason: "" } }),
+    // of1's two days are at two places (2026-10-24): each day carries its place and the drive from home to it
+    RPC.openjobs_mine = { me: "u6", offers: [offer("of1", { places_differ: true, mine: { drive_min: 50, answer: null, answered_at: null, reason: "" },
+        days: [{ day: add(today, 3), start_at: at(add(today, 3), "09:00"), end_at: at(add(today, 3), "12:00"), place: "89 Western Ave, Hampden ME", drive_min: 35 },
+          { day: add(today, 4), start_at: at(add(today, 4), "09:00"), end_at: at(add(today, 4), "12:00"), place: "Reeds Brook Middle School, Hampden ME", drive_min: 50 }] }),
       offer("of2", { booking_id: "bk2", title: "Brewer Travel Basketball \u2022 Winter Sports", status: "filled", spots: 2, taken: 2, pay: "", note: "", mine: { drive_min: 50, answer: "declined", answered_at: iso(-1), reason: "Busy" } })] };
     RPC.openjobs_answer = { ok: true, answer: "accepted", scheduled: 1, untimed: 0 };
     RPC.openjobs_attention = { waiting: 1, no_takers: AS_PART ? 0 : 1 };
@@ -604,8 +607,10 @@
       { user_id: "u8", name: "Casey Third", drive_min: null, notified: false, seen_at: null, answer: null, answered_at: null, reason: "" }] })];
     RPC.openjobs_upcoming = [{ booking_id: "bk1", title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", first_day: add(today, 3), days: 1, location: "89 Western Ave, Hampden ME", crew: 1, open_offers: 1 },
       { booking_id: "bk2", title: "Brewer Travel Basketball \u2022 Winter Sports", type_label: "Sports", first_day: add(today, 5), days: 2, location: "", crew: 0, open_offers: 0 }];
-    RPC.openjobs_candidates = { booking: { booking_id: "bk2", title: "Brewer Travel Basketball \u2022 Winter Sports", location: "Brewer, Maine", days: [{ day: add(today, 5), start_at: at(add(today, 5), "16:00"), end_at: at(add(today, 5), "19:00") }, { day: add(today, 6), start_at: null, end_at: null }] },
-      people: [{ user_id: "u6", name: "Pat Parttime", home_set: true, max_drive_min: 60, drive_min: 35, meters: 40000, in_range: true, has_access: true, has_device: true, on_job: false, offered: false, busy: [] },
+    RPC.openjobs_candidates = { booking: { booking_id: "bk2", title: "Brewer Travel Basketball \u2022 Winter Sports", location: "Brewer, Maine", places_differ: true,
+        days: [{ day: add(today, 5), start_at: at(add(today, 5), "16:00"), end_at: at(add(today, 5), "19:00"), place: "Brewer, Maine" }, { day: add(today, 6), start_at: null, end_at: null, place: "Brewer Auditorium, Brewer ME" }] },
+      people: [{ user_id: "u6", name: "Pat Parttime", home_set: true, max_drive_min: 60, drive_min: 38, meters: 40000, in_range: true, has_access: true, has_device: true, on_job: false, offered: false, busy: [],
+          drives: [{ day: add(today, 5), place: "Brewer, Maine", drive_min: 35 }, { day: add(today, 6), place: "Brewer Auditorium, Brewer ME", drive_min: 38 }] },
         { user_id: "u7", name: "Riley Second", home_set: true, max_drive_min: 45, drive_min: 40, meters: 50000, in_range: true, has_access: true, has_device: false, on_job: false, offered: false, busy: [add(today, 5)] },
         { user_id: "u8", name: "Casey Third", home_set: true, max_drive_min: 30, drive_min: 70, meters: 90000, in_range: false, has_access: true, has_device: true, on_job: false, offered: false, busy: [] },
         { user_id: "u9", name: "Dana Nohome", home_set: false, max_drive_min: 60, drive_min: null, meters: null, in_range: false, has_access: false, has_device: false, on_job: false, offered: false, busy: [] }] };

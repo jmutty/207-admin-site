@@ -235,12 +235,12 @@
   const CrewPick = (function () {
     const T = StaffTime;
     const FN_URL = SUPABASE_URL + "/functions/v1/offer-drive";
-    async function fill(bookingId, destination) {
+    async function fill(bookingId, destination, day) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       try {
         await fetch(FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "crew", booking_id: bookingId || undefined, destination: destination || undefined }) });
+          body: JSON.stringify({ mode: "crew", booking_id: bookingId || undefined, destination: destination || undefined, day: day || undefined }) });
       } catch (_e) { /* drive times stay unknown */ }
     }
     async function options(bookingId, day, destination) {
@@ -248,7 +248,7 @@
       let { data, error } = await call();
       if (error) throw error;
       if (data.destination && (data.people.some((p) => p.has_home && p.home_min == null) || data.studio_min == null)) {
-        await fill(bookingId, destination);
+        await fill(bookingId, destination, day);
         ({ data, error } = await call());
         if (error) throw error;
       }
