@@ -73,6 +73,51 @@ async function roadPath(pts: { lat: number; lng: number }[]): Promise<string | n
   return (await r.json())?.routes?.[0]?.polyline?.encodedPolyline ?? null;
 }
 
+// Google's encoded polyline format, so a long road line can be thinned to fit the picture's URL.
+function decodePoly(enc: string): [number, number][] {
+  const pts: [number, number][] = [];
+  let i = 0, lat = 0, lng = 0;
+  while (i < enc.length) {
+    for (const k of [0, 1]) {
+      let shift = 0, res = 0, b: number;
+      do { b = enc.charCodeAt(i++) - 63; res |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20 && i < enc.length);
+      const d = res & 1 ? ~(res >> 1) : res >> 1;
+      if (k === 0) lat += d; else lng += d;
+    }
+    pts.push([lat / 1e5, lng / 1e5]);
+  }
+  return pts;
+}
+function encodePoly(pts: [number, number][]): string {
+  let out = "", pLat = 0, pLng = 0;
+  const one = (v: number) => { v = v < 0 ? ~(v << 1) : v << 1; while (v >= 0x20) { out += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; } out += String.fromCharCode(v + 63); };
+  for (const [a, o] of pts) { const la = Math.round(a * 1e5), lo = Math.round(o * 1e5); one(la - pLat); one(lo - pLng); pLat = la; pLng = lo; }
+  return out;
+}
+// Fewer points (Douglas-Peucker, widening the tolerance) until the line's URL-encoded size fits the budget.
+function thinPoly(enc: string, budget: number): string | null {
+  const pts = decodePoly(enc);
+  const size = (e: string) => encodeURIComponent(e).length;
+  if (size(enc) <= budget) return enc;
+  const keep = (tol: number) => {
+    const mark = new Uint8Array(pts.length); mark[0] = mark[pts.length - 1] = 1;
+    const stack: [number, number][] = [[0, pts.length - 1]];
+    while (stack.length) {
+      const [a, b] = stack.pop()!; let best = -1, far = tol;
+      const [ax, ay] = pts[a], [bx, by] = pts[b], dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+      for (let j = a + 1; j < b; j++) {
+        // a day's loop starts and ends at home: measure from that point, not from a line
+        const d = len < 1e-9 ? Math.hypot(pts[j][0] - ax, pts[j][1] - ay) : Math.abs(dx * (pts[j][1] - ay) - dy * (pts[j][0] - ax)) / len;
+        if (d > far) { far = d; best = j; }
+      }
+      if (best > 0) { mark[best] = 1; stack.push([a, best], [best, b]); }
+    }
+    return encodePoly(pts.filter((_, j) => mark[j]));
+  };
+  for (let tol = 0.0005; tol < 0.2; tol *= 1.6) { const e = keep(tol); if (size(e) <= budget) return e; }
+  return null;
+}
+
 function b64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let s = "";
@@ -133,11 +178,17 @@ Deno.serve(async (req) => {
       const enc = await roadPath(ids.map((s: string) => coord.get(s)!)).catch(() => null);
       return { road: enc ? color + "enc:" + enc : null, straight: color + ids.map((s: string) => at.get(s)).join("|") };
     }));
-    // Google takes up to about 16k characters of URL; long road lines fall back to straight ones
-    for (const p of paths) {
-      if (!p) continue;
-      u.searchParams.append("path", p.road && u.toString().length + p.road.length * 1.3 < 15000 ? p.road : p.straight);
-    }
+    // Google takes up to about 16k characters of URL: road lines share what's left, thinned to fit (a long day's
+    // road line from Google can be 12k characters or more); a line that still won't fit is drawn straight.
+    const live = paths.filter(Boolean) as { road: string | null; straight: string }[];
+    let room = 15000 - u.toString().length - 200;
+    live.forEach((p, i) => {
+      const share = Math.floor(room / (live.length - i));
+      const enc = p.road ? thinPoly(p.road.slice(p.road.indexOf("enc:") + 4), share - 60) : null;
+      const v = enc ? p.road!.slice(0, p.road!.indexOf("enc:") + 4) + enc : p.straight;
+      u.searchParams.append("path", v);
+      room -= encodeURIComponent(v).length + 6;
+    });
     u.searchParams.set("key", MAPS_KEY);
     const g = await fetch(u.toString());
     const type = g.headers.get("content-type") ?? "";
