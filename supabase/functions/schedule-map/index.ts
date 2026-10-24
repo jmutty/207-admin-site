@@ -57,7 +57,8 @@ async function geocode(q: string): Promise<{ lat: number; lng: number } | null> 
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const COLOR = /^[0-9a-f]{6}$/i;
-const ID = /^(studio|(job|home):[0-9a-f-]{36})$/i;
+// a picture day somewhere else than the rest of its job is its own pin: job:<booking>:<day>
+const ID = /^(studio|(job|home):[0-9a-f-]{36}|job:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2})$/i;
 const LABEL = /^[A-Z0-9]$/;
 
 // The road a route takes (Routes API, the same one drive-time uses), as an encoded polyline for the picture.

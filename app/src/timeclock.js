@@ -548,14 +548,15 @@
     async function fillMissing() {
       const missing = ml.trips.filter((t) => t.miles == null && t.booking_id && !t.locked);
       if (!missing.length) return;
-      const ask = [...new Set(missing.filter((t) => t.est_miles == null).map((t) => t.booking_id))].filter((b) => !lookedUp.has(b)).slice(0, 6);
+      // booking|day: a picture day can be somewhere else than the rest of its job (2026-10-24)
+      const ask = [...new Set(missing.filter((t) => t.est_miles == null).map((t) => t.booking_id + "|" + t.day))].filter((b) => !lookedUp.has(b)).slice(0, 6);
       if (ask.length && ml.studio_address) {
         const { data: s } = await sb.auth.getSession();
         const token = s && s.session && s.session.access_token;
         await Promise.all(ask.map(async (b) => {
           lookedUp.add(b);
           try {
-            const r = await fetch(DRIVE_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: b }) });
+            const r = await fetch(DRIVE_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: b.split("|")[0], day: b.split("|")[1] }) });
             const j = await r.json().catch(() => ({}));
             if (!j.ok) lookupErr[b] = j.error || "No distance.";
           } catch (e) { lookupErr[b] = "Could not reach Google Maps."; }
@@ -580,7 +581,7 @@
           trips.map((t) => '<tr class="tc-row" data-trip="' + esc(t.id) + '"><td style="white-space:nowrap">' + esc(T.fmtDay(t.day)) + "</td>" + (all ? "<td>" + esc(T.shortName(t.name)) + "</td>" : "") +
             "<td>" + esc(t.job_title || t.note) + (t.location ? '<span class="s" style="display:block;color:var(--muted);font-size:12px">' + esc(t.location) + "</span>" : "") + "</td>" +
             '<td class="tc-num">' + (t.miles != null ? mi(t.miles) + (t.auto ? "" : '<span class="tc-tag ok" title="Typed in">typed</span>') : t.est_miles != null ? mi(t.est_miles) + '<span class="tc-tag">est.</span>'
-              : '<span class="tc-tag" title="' + esc(lookupErr[t.booking_id] || "") + '">' + (lookupErr[t.booking_id] ? "no distance" : "looking up\u2026") + "</span>") + (t.locked ? ' <span class="pill ok" title="Week approved"></span>' : "") + "</td>" +
+              : '<span class="tc-tag" title="' + esc(lookupErr[t.booking_id + "|" + t.day] || "") + '">' + (lookupErr[t.booking_id + "|" + t.day] ? "no distance" : "looking up\u2026") + "</span>") + (t.locked ? ' <span class="pill ok" title="Week approved"></span>' : "") + "</td>" +
             '<td class="tc-hide-sm">' + (t.job_title ? esc(t.note) : "") + "</td></tr>").join("") + "</tbody></table></div>" : "");
     }
     milesRoot.addEventListener("click", async (ev) => {

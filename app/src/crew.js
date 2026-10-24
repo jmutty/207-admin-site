@@ -91,10 +91,13 @@
       } catch (e) { showError("crErr", "Could not load your jobs: " + cleanErr(e)); }
       loadAttention();
     }
+    // A job whose days are at different places (2026-10-24) shows each day's place under it; otherwise one "where".
+    const placesDiffer = (days) => new Set((days || []).map((d) => d.location || "")).size > 1;
     function renderMine() {
       if (!mine.length) { el("crMine").innerHTML = '<p class="empty">You are not on any jobs in the next two months.</p>'; return; }
       el("crMine").innerHTML = mine.map((j) => '<div class="cr-card' + (j.status === "confirmed" ? " done" : "") + '"><h4>' + titleLink(j.booking_id, j.title) + chip(j.status) + "</h4>" +
-        '<p class="cr-facts">' + j.days.map((d) => "<b>" + esc(dayLine(d, j.from_home)) + "</b>" + (d.note ? "<br>" + esc(d.note) : "")).join("<br>") + (j.location ? "<br>" + mapLink(j.location) : "") +
+        '<p class="cr-facts">' + j.days.map((d) => "<b>" + esc(dayLine(d, j.from_home)) + "</b>" + (placesDiffer(j.days) && d.location ? "<br>" + mapLink(d.location) : "") + (d.note ? "<br>" + esc(d.note) : "")).join("<br>") +
+          (!placesDiffer(j.days) && ((j.days[0] && j.days[0].location) || j.location) ? "<br>" + mapLink((j.days[0] && j.days[0].location) || j.location) : "") +
         // "Checklist: 2 open, 1 late" (their own steps on this job)
         (num(j.checklist_open) ? '<br><a href="' + esc(jobHref(j.booking_id, "checklist")) + '">Checklist: ' + num(j.checklist_open) + " open" + (num(j.checklist_late) ? ', <span style="color:var(--err-fg);font-weight:600">' + num(j.checklist_late) + " late</span>" : "") + "</a>" : "") + "</p>" +
         (j.token && j.status !== "declined" ? '<div class="cr-acts">' + (j.status !== "confirmed" ? '<button type="button" class="primary" data-yes="' + esc(j.token) + '">Confirm</button>' : "") +
@@ -372,9 +375,11 @@
     }
     function renderBody(msg, intent) {
       let h = top(D.title) + "<p>Hi " + esc(D.name) + ". " + (D.changed && D.status === "pending" ? "The time changed on this job. Can you still make it?" : "You&#8217;re on the schedule for this job.") + "</p>";
+      const differ = new Set((D.days || []).map((d) => d.location || "")).size > 1, gmap = (w) => '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(w) + '" target="_blank" rel="noopener">' + esc(w) + "</a>";
       h += D.days.map((d) => '<div class="crp-day"><div class="t">' + esc(fmtDay(d.starts_at)) + "<br>" + esc(fmtTime(d.starts_at)) + " – " + esc(fmtTime(d.ends_at)) + "</div>" +
-        '<div class="s">' + [d.role ? "Your role: " + esc(d.role) : "", d.drive_before_min ? (D.from_home ? "Leave home by " : "Leave the studio by ") + esc(fmtTime(new Date(new Date(d.starts_at) - d.drive_before_min * 6e4))) : "", d.note ? esc(d.note) : ""].filter(Boolean).join("<br>") + "</div></div>").join("");
-      if (D.location) h += '<p>Where: <a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(D.location) + '" target="_blank" rel="noopener">' + esc(D.location) + "</a></p>";
+        '<div class="s">' + [differ && d.location ? "Where: " + gmap(d.location) : "", d.role ? "Your role: " + esc(d.role) : "", d.drive_before_min ? (D.from_home ? "Leave home by " : "Leave the studio by ") + esc(fmtTime(new Date(new Date(d.starts_at) - d.drive_before_min * 6e4))) : "", d.note ? esc(d.note) : ""].filter(Boolean).join("<br>") + "</div></div>").join("");
+      const where = (D.days[0] && D.days[0].location) || D.location;
+      if (where && !differ) h += "<p>Where: " + gmap(where) + "</p>";
       if (D.crew && D.crew.length) h += '<p style="margin:8px 0;color:var(--muted)">Also on it: ' + D.crew.map((c) => esc(c.name) + (c.role ? " (" + esc(c.role) + ")" : "")).join(", ") + "</p>";
       if (msg) h += msg;
       if (D.cancelled) { box.innerHTML = h + '<div class="note">This job was cancelled. Nothing to do.</div>'; return; }

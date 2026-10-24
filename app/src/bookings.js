@@ -694,7 +694,7 @@
         <label>Picture day${(d.days || []).length > 1 ? "s" : ""}</label>
         <div><div class="bk-dayhead" aria-hidden="true"><span>Day</span><span class="t">Start</span><span class="to"></span><span class="t">End</span><span>Label</span></div><div id="aca-bkDays"></div>
           <button type="button" class="link" data-v="addday" style="margin-top:6px">+ Add another day</button>
-          <div class="bk-sub" style="margin-top:4px">Times can wait: emails that mention one hold until it is set. Label a day only when each day is a different group.</div>
+          <div class="bk-sub" style="margin-top:4px">Times can wait: emails that mention one hold until it is set. Label a day only when each day is a different group. With more than one day, each day can be somewhere else: leave "Where" blank when it's at the Location.</div>
           <div class="bk-move-note hidden" id="aca-bkMoveNote" role="status"></div></div>
         <label>Calendar title</label>
         <div><div class="bk-chips" id="aca-bkLabels"></div>
@@ -742,19 +742,24 @@
     const dayRows = isNew ? [{ day: "", start_time: "", end_time: "", label: "" }]
       : ((d.days || []).length ? d.days : [{ day: d.picture_day, start_at: d.start_at, end_at: d.end_at, sort: 0 }]).map((x) => ({
           day: x.day, start_time: (x.sort === 0 ? d.time_set !== false : !!x.start_at) ? hhmmOf(x.start_at) : "",
-          end_time: (x.sort === 0 ? d.end_set !== false : !!x.end_at) ? hhmmOf(x.end_at) : "", label: x.label || "" }));
+          end_time: (x.sort === 0 ? d.end_set !== false : !!x.end_at) ? hhmmOf(x.end_at) : "", label: x.label || "", location: x.location || "" }));
     function renderDays() {
       el("bkDays").innerHTML = dayRows.map((r, i) => '<div class="bk-dayrow" data-i="' + i + '" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
         '<input type="date" class="bk-d-day" value="' + esc(r.day || "") + '" aria-label="Day ' + (i + 1) + '" /> ' +
         '<input type="time" class="bk-d-start" value="' + esc(r.start_time || "") + '" step="300" aria-label="Start" /> <span class="bk-sub">to</span> ' +
         '<input type="time" class="bk-d-end" value="' + esc(r.end_time || "") + '" step="300" aria-label="End" data-dp-after=".bk-d-start" /> ' +
         '<input type="text" class="bk-d-label" value="' + esc(r.label || "") + '" placeholder="' + (dayRows.length > 1 ? "Which teams this day" : "Label (optional)") + '" maxlength="60" style="flex:1 1 160px;min-width:120px" />' +
-        (dayRows.length > 1 ? '<button type="button" class="small quiet" data-v="rmday" data-i="' + i + '" aria-label="Remove day ' + (i + 1) + '">&times;</button>' : "") + "</div>").join("");
+        (dayRows.length > 1 ? '<button type="button" class="small quiet" data-v="rmday" data-i="' + i + '" aria-label="Remove day ' + (i + 1) + '">&times;</button>' +
+          // Each day can be somewhere else (2026-10-24); blank is the job's Location. It goes on that day's calendar event.
+          '<div class="bk-d-locw" style="flex:1 1 100%;min-width:0"><input type="text" class="bk-d-loc" value="' + esc(r.location || "") + '" placeholder="Where: same as the Location below" aria-label="Where on day ' + (i + 1) + '" style="width:100%" /></div>' : "") + "</div>").join("");
+      el("bkDays").querySelectorAll(".bk-d-loc").forEach((x) => Places.attach(x));
     }
     function readDays() {
       const out = [];
       el("bkDays").querySelectorAll(".bk-dayrow").forEach((row, i) => {
-        const r = { day: row.querySelector(".bk-d-day").value, start_time: row.querySelector(".bk-d-start").value, end_time: row.querySelector(".bk-d-end").value, label: row.querySelector(".bk-d-label").value.trim() };
+        const loc = row.querySelector(".bk-d-loc");
+        const r = { day: row.querySelector(".bk-d-day").value, start_time: row.querySelector(".bk-d-start").value, end_time: row.querySelector(".bk-d-end").value, label: row.querySelector(".bk-d-label").value.trim(),
+          location: loc ? loc.value.trim() : "" };
         dayRows[i] = r; if (r.day) out.push(r);
       });
       return out.sort((a, b2) => a.day.localeCompare(b2.day));
@@ -1015,7 +1020,7 @@
       if (v === "close") return box.close();
       if (v === "prevfold") { const open = el("bkPrev").classList.toggle("folded") === false; b.setAttribute("aria-expanded", String(open)); try { localStorage.setItem("aca-bkformmail", open ? "open" : "closed"); } catch (e2) {} return; }
       if (v === "copyname") { try { await navigator.clipboard.writeText(b.dataset.name); b.textContent = "copied"; setTimeout(() => { b.textContent = "copy"; }, 1500); } catch (er) { toast("Couldn't copy: " + b.dataset.name, true); } return; }
-      if (v === "addday") { readDays(); dayRows.push({ day: "", start_time: "", end_time: "", label: "" }); renderDays(); return; }
+      if (v === "addday") { readDays(); dayRows.push({ day: "", start_time: "", end_time: "", label: "", location: "" }); renderDays(); return; }
       if (v === "rmday") { const i = Number(b.dataset.i); if (dayRows.length > 1) { readDays(); dayRows.splice(i, 1); renderDays(); renderPreview(); renderMoveNote(); } return; }
       if (v === "changeorg") { org = null; contacts = []; chosen.clear(); el("bkOrgPick").innerHTML = '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'; renderContacts(); el("bkOrgQ").focus(); return; }
       if (v === "fdlvadd") {
