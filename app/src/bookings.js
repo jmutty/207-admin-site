@@ -568,6 +568,11 @@
   // On phones the month's chips are dots (tap a day for its jobs) and the week is a list of days.
   let view = "list", calMode = "month", calAnchor = "", calPick = "", calData = { key: "", rows: [] }, calSeq = 0;
   try { if (localStorage.getItem("aca-bk-view") === "cal") view = "cal"; if (localStorage.getItem("aca-bk-calmode") === "week") calMode = "week"; } catch (_e) { /* private mode */ }
+  // The month or week on screen and the scope chip last through a reload of this window (sessionStorage), so leaving
+  // for a job and coming back, even by the menu or a refresh, lands on the same view. A new window starts on today.
+  try { const ss = JSON.parse(sessionStorage.getItem("aca-bk-where") || "{}"); if (/^\d{4}-\d{2}-\d{2}$/.test(ss.anchor || "")) calAnchor = ss.anchor;
+    if (["upcoming", "past", "owed", "cancelled"].includes(ss.scope)) { scope = ss.scope; el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x.dataset.scope === scope ? "true" : "false")); } } catch (_e) { /* private mode */ }
+  const saveWhere = () => { try { sessionStorage.setItem("aca-bk-where", JSON.stringify({ anchor: calAnchor, scope })); } catch (_e) { /* private mode */ } };
   document.querySelector('#aca-panel-bookings input[name="aca-bkView"][value="' + view + '"]').checked = true;
   document.querySelector('#aca-bkCal input[name="aca-bkCalMode"][value="' + calMode + '"]').checked = true;
   const TYPE_COLORS = [["#2f6db5", "#e8f0fb"], ["#2e8b57", "#e6f4ec"], ["#bf4a1f", "#fbebe4"], ["#7a4fb5", "#f0e9fa"], ["#b07a00", "#fdf6e3"], ["#1f8a99", "#e3f4f6"], ["#8a8580", "#f1efec"]];
@@ -663,7 +668,7 @@
       if (a.dataset.cal === "today") calAnchor = T.today();
       else if (calMode === "week") calAnchor = T.addDays(T.weekStart(calAnchor), a.dataset.cal === "next" ? 7 : -7);
       else { const d = new Date(calAnchor.slice(0, 8) + "15T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + (a.dataset.cal === "next" ? 1 : -1)); calAnchor = d.toISOString().slice(0, 10); }
-      calPick = ""; renderCal(); return;
+      calPick = ""; saveWhere(); renderCal(); return;
     }
     const day = e.target.closest("[data-calday]");
     if (day && calMode === "month" && calNarrow()) { calPick = calPick === day.dataset.calday ? "" : day.dataset.calday; renderCal(); }
@@ -678,7 +683,7 @@
 
   el("bkScope").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-scope]"); if (!b) return;
-    scope = b.dataset.scope; calPick = "";
+    scope = b.dataset.scope; calPick = ""; saveWhere();
     el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
     load(true);
   });

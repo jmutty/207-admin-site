@@ -706,6 +706,13 @@
   // Rail on narrow screens: a drawer behind the menu button.
   function closeRail() { el("shell").classList.remove("railopen"); }
   el("menuBtn").addEventListener("click", () => el("shell").classList.toggle("railopen"));
+  // Back / forward buttons in the top bar. Every page and job is its own #hash, so the browser's history does the
+  // work. Browsers with the Navigation API say whether there is anywhere to go; elsewhere both stay on.
+  el("navBack").addEventListener("click", () => history.back());
+  el("navFwd").addEventListener("click", () => history.forward());
+  const navState = () => { const n = window.navigation; if (!n || typeof n.canGoBack !== "boolean") return; el("navBack").disabled = !n.canGoBack; el("navFwd").disabled = !n.canGoForward; };
+  if (window.navigation && window.navigation.addEventListener) window.navigation.addEventListener("currententrychange", navState);
+  window.addEventListener("hashchange", navState); navState();
   el("railbg").addEventListener("click", closeRail);
   // Account menu
   el("whoBtn").addEventListener("click", (e) => { e.stopPropagation(); const m = el("whoMenu"); m.classList.toggle("hidden"); el("whoBtn").setAttribute("aria-expanded", String(!m.classList.contains("hidden"))); });
