@@ -22,7 +22,7 @@ curl -sS -o /dev/null -X POST "https://$REF.supabase.co/storage/v1/bucket" \
 # Allow the home-screen icons too (2026-09-27). PUT updates an existing bucket's settings.
 curl -sS -o /dev/null -X PUT "https://$REF.supabase.co/storage/v1/bucket/admin-app" \
   -K <(printf '%s' "$AUTH") -H "Content-Type: application/json" \
-  -d '{"public":true,"file_size_limit":2097152,"allowed_mime_types":["application/javascript","text/javascript","image/png"]}' || true
+  -d '{"public":true,"file_size_limit":2097152,"allowed_mime_types":["application/javascript","text/javascript","image/png","application/json"]}' || true
 # Home-screen icons (assets/*.png), referenced by the app for "Add to Home Screen".
 for f in assets/*.png; do
   curl -fsS -o /dev/null -X POST "https://$REF.supabase.co/storage/v1/object/admin-app/icons/$(basename "$f")" \
@@ -39,6 +39,20 @@ curl -fsS -o /dev/null -X POST "https://$REF.supabase.co/storage/v1/object/admin
   -K <(printf '%s' "$AUTH") -H "x-upsert: true" \
   -H "Content-Type: application/javascript" -H "cache-control: max-age=60" \
   --data-binary @dist/207-admin.js
+# Speed (2026-10-24): the same build under its versioned name (kept by phones for a year: it never changes), then
+# current.json, which points site/loader.js at it and is never cached. current.json goes last, so nobody is pointed
+# at a file that isn't there yet.
+VERSIONED=$(python3 -c 'import json; print(json.load(open("dist/current.json"))["js"])')
+curl -fsS -o /dev/null -X POST "https://$REF.supabase.co/storage/v1/object/admin-app/$VERSIONED" \
+  -K <(printf '%s' "$AUTH") -H "x-upsert: true" \
+  -H "Content-Type: application/javascript" -H "cache-control: public, max-age=31536000, immutable" \
+  --data-binary @"dist/${VERSIONED#v/}"
+curl -fsS -o /dev/null -X POST "https://$REF.supabase.co/storage/v1/object/admin-app/current.json" \
+  -K <(printf '%s' "$AUTH") -H "x-upsert: true" \
+  -H "Content-Type: application/json" -H "cache-control: no-cache, max-age=0" \
+  --data-binary @dist/current.json
 echo "Uploaded. Live check:"
 LIVE=$(curl -fsS "https://$REF.supabase.co/storage/v1/object/public/admin-app/207-admin.js?nc=$(date +%s)")
 if [ "$LIVE" = "$(cat dist/207-admin.js)" ]; then echo "OK: hosted file matches this build ($(wc -c < dist/207-admin.js | tr -d ' ') bytes)"; else echo "WARN: hosted file differs from build (CDN may still be updating)"; fi
+CUR=$(curl -fsS "https://$REF.supabase.co/storage/v1/object/public/admin-app/current.json?nc=$(date +%s)" || true)
+if [ "$CUR" = "$(cat dist/current.json)" ]; then echo "OK: current.json points at $VERSIONED"; else echo "WARN: current.json differs from build ($CUR)"; fi

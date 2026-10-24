@@ -242,22 +242,29 @@
     // Moving from one job to another (a link inside a job page, a notification) doesn't change the app tab.
     window.addEventListener("hashchange", () => setTimeout(() => { if (/^#jobs\/job\//.test(location.hash) && currentTab === "job") show(); }, 0));
 
+    // The job as it was last seen on this device shows at once (Snap); the fresh copy replaces it if anything changed.
     async function load(id, tab) {
-      const my = ++seq;
+      const my = ++seq, stamp = Saves.stamp(), snap = Snap.get("job:" + id);
       loadingId = id;
-      root().innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>';
-      const { data, error } = await sb.rpc("job_get", { p_booking: id });
+      if (snap && snap.booking) { J = snap; people = null; renderShell(); pick(tab || "overview"); }
+      else root().innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>';
+      const { data, error } = await (Early.take("job:" + id) || sb.rpc("job_get", { p_booking: id }));
       if (my !== seq) return;
       loadingId = null;
+      if (error && snap && error.code !== "42501") return; // offline or a hiccup: keep showing the last copy
       if (error || !data) {
+        Snap.drop("job:" + id);
         root().innerHTML = '<div class="inline-error">' + esc(error ? (error.code === "42501" ? "You don't have access to this job. " + askWho("Ask", "to add the area on the Team page.") : cleanErr(error)) : "That job doesn't exist any more.") + "</div>";
         return;
       }
+      // An edit started while this was loading: the screen is newer than these rows (the save reloads them itself).
+      if (snap && Saves.stamp() !== stamp) return;
+      if (!Snap.put("job:" + id, data) && snap) return;
       J = data; people = null;
-      renderShell();
-      pick(tab || "overview");
+      redraw(snap ? curTab : tab || "overview");
     }
-    const reload = async () => { const { data } = await sb.rpc("job_get", { p_booking: J.booking.id }); if (data) { J = data; renderShell(); pick(curTab); } };
+    function redraw(tab) { const f = focusMark(root()); renderShell(); pick(tab); focusBack(root(), f); }
+    const reload = async () => { const { data } = await sb.rpc("job_get", { p_booking: J.booking.id }); if (data) { Snap.put("job:" + data.booking.id, data); J = data; renderShell(); pick(curTab); } };
 
     function dayLine(b) {
       const days = (J.days || []).length > 1 ? J.days : null;

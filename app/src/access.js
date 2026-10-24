@@ -9,9 +9,10 @@
   function canEdit(m) { return !m || ACCESS.is_admin || ACCESS.modules[m] === "edit"; }
   const canSeeAny = (ms) => ms.some(canSee);
 
-  async function loadAccess(session) {
+  // accessP: a my_access call already under way (afterSignIn starts it next to the device check).
+  async function loadAccess(session, accessP) {
     const email = (session && session.user && session.user.email) || "";
-    const { data, error } = await supabase.rpc("my_access");
+    const { data, error } = await (accessP || supabase.rpc("my_access"));
     if (error && (error.code === "PGRST202" || /could not find the function/i.test(error.message || ""))) {
       // Database from before the Team migration: only full admins could sign in at all.
       ACCESS = { is_admin: true, modules: {}, name: "", email, must_change_password: false };
