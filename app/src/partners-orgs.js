@@ -1981,7 +1981,9 @@ ${order.map((k) => sec[k]).join("")}
     const { error } = await sb.from("prospect_orgs").update(patch).eq("id", id);
     if (error) { toast("Not saved: " + cleanErr(error), true); renderPanel(); return false; }
     if (!quiet) toast("Saved");
+    const before = (byId.get(id) || {}).name;
     await reloadOrg(id);
+    if (patch.name && patch.name !== before) window.dispatchEvent(new CustomEvent("aca:partner-renamed", { detail: { id, name: patch.name, old: before } }));
     if (openId === id) await loadPanel(id);
     return true;
   }
@@ -2353,5 +2355,5 @@ ${order.map((k) => sec[k]).join("")}
   }
 
   return { load: () => load(false), reload: () => load(true), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, sendNow, emailPeople, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
-    embed, unembed, get: (id) => byId.get(id) || null, stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
+    embed, unembed, get: (id) => byId.get(id) || null, changed: (id) => reloadOrg(id), stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
   })();

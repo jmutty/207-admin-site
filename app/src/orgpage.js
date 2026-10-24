@@ -49,6 +49,9 @@
     const css = `
     .aca .op-trail { margin: 0 0 8px; font-size: 13px; color: var(--muted); } .aca .op-trail a { color: var(--muted); }
     .aca .op-backtrail { margin: 0 0 10px; }
+    .aca .jp-head h2 .op-rename { margin-left: 6px; vertical-align: 3px; }
+    .aca .op-rn { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .aca .op-rn input { font-size: 18px; font-weight: 600; min-width: min(420px, 70vw); }
     .aca .op-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--muted); font-size: 13.5px; margin-top: 4px; }
     .aca .op-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px 40px; }
     .aca .op-need { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -265,17 +268,49 @@
       const stCls = { client: "ok", booked: "ok", talking: "ok", contacting: "accent", not_now: "warn", do_not_contact: "err" }[O.stage] || "muted";
       root().innerHTML =
         '<p class="op-trail"><a href="#partners/orgs">Partners</a></p>' +
-        '<div class="jp-head"><div><h2>' + esc(O.name) + '</h2><div class="op-meta"><span class="pill ' + stCls + '">' + esc(Orgs.stageName(O.stage)) +
+        '<div class="jp-head"><div><h2>' + esc(O.name) + (canEdit("partners") && !O.merged_into ? ' <button type="button" class="small quiet op-rename" data-o="rename" title="Change the partner\'s name">Rename</button>' : "") + '</h2><div class="op-meta"><span class="pill ' + stCls + '">' + esc(Orgs.stageName(O.stage)) +
         (O.client_since && (O.stage === "client" || O.stage === "booked") ? " since " + esc(String(O.client_since).slice(0, 4)) : "") + "</span>" +
         facts.map((f) => "<span>" + esc(f) + "</span>").join("") + (O.website ? '<a href="' + esc(/^https?:/.test(O.website) ? O.website : "https://" + O.website) + '" target="_blank" rel="noopener">website</a>' : "") + "</div></div>" +
         '<div class="acts">' + (O.merged_into ? "" : (canEdit("partners") ? '<button type="button" class="small" data-o="merge">Merge into&#8230;</button>' : "") +
           (canEdit("bookings") ? '<button type="button" class="small primary" data-o="book">Book a job for them</button>' : "")) + "</div></div>" +
         (O.merged_into ? '<p class="op-merged">This partner was merged into another one, and everything moved there. <a href="' + esc(orgLink(O.merged_into)) + '">Open the partner we kept</a></p>' : "") +
         '<div class="jp-tabs" role="tablist" id="aca-opTabs"></div><div id="aca-opBody"></div>';
-      root().querySelector(".jp-head").addEventListener("click", (e) => { if (e.target.closest('[data-o="book"]')) bookHere(); if (e.target.closest('[data-o="merge"]')) mergeInto(); });
+      root().querySelector(".jp-head").addEventListener("click", (e) => { if (e.target.closest('[data-o="book"]')) bookHere(); if (e.target.closest('[data-o="merge"]')) mergeInto(); if (e.target.closest('[data-o="rename"]')) renameStart(); });
       el("opTabs").innerHTML = tabs().map((t) => '<button type="button" role="tab" data-t="' + esc(t.id) + '">' + esc(t.label) + "</button>").join("");
       el("opTabs").addEventListener("click", (e) => { const t = e.target.closest("button[data-t]"); if (t) pick(t.dataset.t); });
     }
+    // Rename (2026-10-24): the name is the page heading, so it's changed right there. Enter saves, Esc puts it back.
+    function renameStart() {
+      const h = root().querySelector(".jp-head h2");
+      h.innerHTML = '<span class="op-rn"><input type="text" id="aca-opName" value="' + esc(O.name) + '" aria-label="Partner name" />' +
+        '<button type="button" class="small primary" data-rn="save">Save</button><button type="button" class="small" data-rn="cancel">Cancel</button></span>';
+      const inp = el("opName"); inp.focus(); inp.select();
+      const cancel = () => renderHead();
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); renameSave(); } else if (e.key === "Escape") cancel(); });
+      h.querySelector('[data-rn="save"]').addEventListener("click", renameSave);
+      h.querySelector('[data-rn="cancel"]').addEventListener("click", cancel);
+    }
+    async function renameSave() {
+      const inp = el("opName"), v = inp.value.trim();
+      if (!v) return toast("A partner needs a name.", true);
+      if (v === O.name) return renderHead();
+      inp.disabled = true;
+      const { data, error } = await sb.from("prospect_orgs").update({ name: v, name_known: true }).eq("id", O.id).select("*").maybeSingle();
+      if (error || !data) { inp.disabled = false; return toast("Not saved: " + (error ? cleanErr(error) : "you can't edit partners"), true); }
+      toast("Renamed to " + v + ".");
+      O = { ...data, name: v, name_known: true }; renderHead(); Orgs.changed(O.id);
+    }
+    // Draws the shell again for a new name but keeps the open tab (the tabs' own text uses the name too).
+    function renderHead() { renderShell(); pick(curTab); }
+    // A name changed from Edit details on Contacts updates the heading too.
+    window.addEventListener("aca:partner-renamed", (e) => {
+      if (!O || !e.detail || e.detail.id !== O.id) return;
+      O = { ...O, name: e.detail.name };
+      const h = root().querySelector(".jp-head h2");
+      if (h && h.firstChild && h.firstChild.nodeType === 3) h.firstChild.nodeValue = O.name;
+      const intro = el("opBody") && el("opBody").querySelector(".op-intro");
+      if (intro && curTab === "contacts") intro.textContent = intro.textContent.replace(e.detail.old, O.name);
+    });
     function current() { return O ? { id: O.id, name: O.name, town: O.town } : null; }
     // Book a job opens over this page; saving opens the new job's page, whose trail leads back here (2026-10-24).
     function bookHere() { const o = current(); Bookings.openNew(o); }
