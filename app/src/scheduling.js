@@ -128,7 +128,7 @@
     .aca .sc-chip.none small::after { content: " \\00b7  nobody on it"; color: var(--accent); font-weight: 600; }
     .aca .sc-chip.tracked { border-left-color: var(--faint); opacity: .8; }
     .aca .sc-chip.gcal { border-left-color: #8a8580; }
-    .aca .sc-chip.sel, .aca .scl-item.sel { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface-2); }
+    .aca .sc-chip.sel, .aca .scl-item.sel, .aca button.scm-chip.sel, .aca button.scc-card.sel { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface-2); }
     .aca .sc-pickmany { border: 0; background: none; padding: 0; margin-left: 6px; color: var(--accent); font-size: 11.5px; font-weight: 600; cursor: pointer; text-decoration: underline; }
     .aca .sc-bulk { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 40; display: flex; gap: 10px; align-items: center; padding: 10px 14px;
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; max-width: calc(100vw - 32px); flex-wrap: wrap; }
@@ -236,6 +236,10 @@
     .aca .scl-free { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
     .aca .sc-islist .sc-scroll { border: 0; background: transparent; overflow: visible; }
     .aca .sc-islist .sc-bar #aca-scJump, .aca .sc-islist .sc-keybtn, .aca .sc-islist .sc-legend, .aca .sc-islist .sc-bar button[data-v="weekmail"] { display: none; }
+    .aca .sc-more { margin-top: 14px; }
+    .aca .sc-more > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+    .aca .sc-more[open] > summary { margin-bottom: 4px; }
+    .aca .sc-islist .sc-more { display: none; }
     .aca .sc-help { font-size: 12.5px; color: var(--muted); margin: 10px 0 12px; }
     .aca .sc-help summary { cursor: pointer; font-weight: 600; }
     .aca .sc-help p { margin: 6px 0 0; line-height: 19px; }
@@ -266,14 +270,16 @@
     .aca .sc-edge.end, .aca .sc-edge.near { transform: none; padding: 0 0 0 2px; }
     .aca .sc-now { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--accent); z-index: 2; pointer-events: none; }
     .aca .sc-main { display: block; }
-    .aca .sc-withmap .sc-main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: start; }
-    .aca .sc-map { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); position: sticky; top: 8px; font-size: 13px; overflow: hidden; }
+    /* the map sits under the schedule, as wide as it (Jeremiah 2026-10-24) */
+    .aca .sc-map { margin-top: 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-size: 13px; overflow: hidden; }
+    .aca .sc-mapbody { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+    .aca .sc-mapside { border-left: 1px solid var(--line2); min-width: 0; }
     .aca .sc-maphd { padding: 8px 10px; border-bottom: 1px solid var(--line2); }
     .aca .sc-mapimg, .aca .sc-mapsvg { display: block; width: 100%; height: auto; }
     .aca .sc-maperr { padding: 0 10px; color: #8a6100; }
     .aca .sc-routes { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 10px 0; font-size: 12.5px; }
     .aca .sc-routes i { display: inline-block; width: 12px; height: 4px; border-radius: 2px; margin-right: 5px; vertical-align: 2px; }
-    .aca .sc-maplist { list-style: none; margin: 0; padding: 6px 10px 10px; max-height: 260px; overflow: auto; }
+    .aca .sc-maplist { list-style: none; margin: 0; padding: 6px 10px 10px; max-height: 520px; overflow: auto; }
     .aca .sc-maplist li { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; line-height: 17px; }
     .aca .sc-maplist .pin { flex: none; width: 18px; height: 18px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; text-align: center; line-height: 18px; }
     .aca .sc-maplist small { display: block; color: var(--muted); font-size: 12px; }
@@ -367,14 +373,14 @@
       .aca .sc-b { height: 28px; line-height: 28px; }
       .aca .sc-bar2 { gap: 6px 12px; }
       .aca .sc-wide, .aca .sc-mapopt, .aca .sc-colopt { display: none !important; }
-      .aca .sc-withmap .sc-main { display: block; }
-      .aca .sc-withmap .sc-map { margin-top: 10px; position: static; }
+      .aca .sc-mapbody { grid-template-columns: 1fr; }
+      .aca .sc-mapside { border-left: 0; border-top: 1px solid var(--line2); }
       .aca .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
       .aca .scm-wt, .aca .scm-h.scm-wt, .aca .scm-off, .aca .scm-day .sc-pill, .aca .scm-more { display: none !important; }
       .aca .scm-day { min-height: 58px; padding: 3px; gap: 2px; flex-direction: row; flex-wrap: wrap; align-content: flex-start; }
       .aca .scm-dn { flex: 1 0 100%; font-size: 12px; }
       .aca .scm-dn span { display: none; }
-      .aca .scm-key span:last-child { display: none; }
+      .aca .scm-key .kl { display: none; }
       .aca button.scm-chip { flex: none; width: 9px; height: 9px; min-height: 0; min-width: 0; padding: 0; border: 0 !important; border-radius: 50%; background: #2f6db5; }
       .aca button.scm-chip.need { background: #c2412d; } .aca button.scm-chip.wait { background: #b07a00; } .aca button.scm-chip.gcal { background: #8a8580; }
       .aca button.scm-chip .nm, .aca button.scm-chip .who { display: none; }
@@ -421,8 +427,10 @@
       '<p class="sc-swipe hidden" id="aca-scSwipe">Swipe sideways for more days &rsaquo;</p>' +
       '<div class="sc-main"><div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
       '<aside class="sc-map hidden" id="aca-scMap" aria-label="Map"></aside></div>' +
+      // Rarely needed (Jeremiah 2026-10-24): folded until opened; the 8 weeks view opens it for Busiest days.
+      '<details class="sc-more" id="aca-scMore"><summary>Hours scheduled and busiest days</summary>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
-      '<div class="sc-sum hidden" id="aca-scPeak"></div>' +
+      '<div class="sc-sum hidden" id="aca-scPeak"></div></details>' +
       '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the 207 Photo Booking Google Calendar that aren&#39;t bookings show under From Google Calendar (bookings are never shown twice), and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off. Untick Google Calendar to hide them.</p>' +
         '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">Changes to people&#39;s schedules from today on are saved up under Send changes: each person gets one email with their changed days when you send.</span> Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
 
@@ -439,6 +447,8 @@
     const pref = (k, dflt) => { try { const v = localStorage.getItem("aca-sc-" + k); return v == null ? dflt : v; } catch (_e) { return dflt; } };
     const setPref = (k, v) => { try { localStorage.setItem("aca-sc-" + k, String(v)); } catch (_e) { /* private mode */ } };
     let gcalOn = pref("gcal", "1") === "1", mapOn = pref("map", "0") === "1", colorBy = pref("color", "kind"), scaleOn = pref("scale", "0") === "1", needOnly = false, probOpen = false;
+    el("scMore").open = pref("more", "0") === "1";
+    el("scMore").addEventListener("toggle", () => { if (view !== "weeks8") setPref("more", el("scMore").open ? 1 : 0); });
     el("scScale").checked = scaleOn; el("scGcal").checked = gcalOn; el("scMapOn").checked = mapOn; el("scColor").value = colorBy;
     // The days each view loads: a week (the list needs the next day too), two weeks, or the whole weeks of a month.
     function rangeFor(v, a) {
@@ -585,6 +595,7 @@
 
     // ---------------------------------------------------------------- render
     function render() {
+      if (root.classList.contains("sc-w8")) el("scMore").open = pref("more", "0") === "1";
       root.classList.remove("sc-w8");
       root.classList.toggle("sc-islist", view === "list");
       renderChrome();
@@ -901,7 +912,8 @@
       if (st) sub.push('<span class="st ' + st.cls + '">' + esc(st.text) + "</span>");
       const tip = (allDay ? (e.kind === "asked" ? "Asked for time off" : "Time off") : T.fmtTs(e.starts_at) + "–" + T.fmtTs(e.ends_at)) + " " + (isJob ? e.booking_title : title) +
         (isJob && e.drive_before_min ? "\nLeave " + T.fmtTs(outAt(e)) + ", back " + T.fmtTs(backAt(e)) : "") + (e.note ? "\n" + e.note : "") + (editable() && isJob ? "\nRight-click or press and hold to batch" : "");
-      return '<button type="button" class="scc-card scc-' + esc(e.kind) + (e.booking_status === "cancelled" ? " cancelled" : "") + (waitOnly && !(cf === "pending") ? " dim" : "") + '" data-entry="' + esc(e.id) + '"' +
+      return '<button type="button" class="scc-card scc-' + esc(e.kind) + (e.booking_status === "cancelled" ? " cancelled" : "") + (waitOnly && !(cf === "pending") ? " dim" : "") + (b ? selCls(b, d) : "") + '" data-entry="' + esc(e.id) + '"' +
+        (b ? ' data-bk="' + esc(b.booking_id) + '" data-day="' + esc(d) + '"' : "") +
         (col ? ' style="--cc:' + col + '"' : "") + ' title="' + esc(tip) + '">' +
         (allDay ? "" : '<span class="t">' + esc(T.fmtTs(e.starts_at) + "–" + T.fmtTs(e.ends_at)) + "</span>") + '<span class="n">' + esc(title) + "</span>" +
         (sub.length ? '<span class="d">' + sub.join(" ") + "</span>" : "") + "</button>";
@@ -987,7 +999,7 @@
           const chips = shown.map((b) => {
             const on = [...new Set(data.entries.filter((e) => e.kind === "job" && e.booking_id === b.booking_id && T.local(e.starts_at).day === d).map((e) => e.user_id))];
             const s = st(b), wx = wxOf(b);
-            return '<button type="button" class="scm-chip ' + s + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.start_at ? "\n" + T.fmtTs(b.start_at) + (b.end_at ? "–" + T.fmtTs(b.end_at) : "") : "\nTime not set yet") +
+            return '<button type="button" class="scm-chip ' + s + selCls(b, d) + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.start_at ? "\n" + T.fmtTs(b.start_at) + (b.end_at ? "–" + T.fmtTs(b.end_at) : "") : "\nTime not set yet") +
               "\n" + (on.length ? "On it: " + on.map(personName).join(", ") : "Nobody on it yet") + (s === "need" && on.length ? " (needs " + neededOf(b.booking_id) + ")" : "") + (wx ? "\n" + wx.text : "")) + '">' +
               '<span class="nm">' + esc(shortTitle(b.title)) + "</span>" + (s === "need" ? '<span class="who">' + (on.length ? num(on.length) + " of " + num(neededOf(b.booking_id)) : "needs " + num(neededOf(b.booking_id))) + "</span>" : '<span class="who">' + esc(on.map(initials).join(" ")) + (s === "wait" ? " ?" : "") + "</span>") + "</button>";
           });
@@ -1003,7 +1015,7 @@
         });
         h += '<button type="button" class="scm-wt link" data-mweek="' + esc(week[0]) + '" title="Open this week"><b>' + num(wJobs) + " job" + (wJobs === 1 ? "" : "s") + "</b>" + fmtH(wHrs) + " h" + (wNeed ? '<span class="bad">' + num(wNeed) + " need people</span>" : "") + "</button>";
       }
-      grid.innerHTML = h + '<div class="scm-key"><span><i class="need"></i>Needs people</span>' + (confirmOn() ? '<span><i class="wait"></i>Someone hasn&#39;t answered</span>' : "") + '<span><i class="ok"></i>Covered</span>' + (gcalOn ? '<span><i class="gcal"></i>Google Calendar</span>' : "") + "<span>Letters are who&#39;s on it</span></div>";
+      grid.innerHTML = h + '<div class="scm-key"><span><i class="need"></i>Needs people</span>' + (confirmOn() ? '<span><i class="wait"></i>Someone hasn&#39;t answered</span>' : "") + '<span><i class="ok"></i>Covered</span>' + (gcalOn ? '<span><i class="gcal"></i>Google Calendar</span>' : "") + "<span class=\"kl\">Letters are who&#39;s on it</span>" + (editable() ? "<span><span class=\"kl\">Ctrl-click (&#8984;-click on a Mac) jobs to assign several at once</span>" + pickManyBtn() + "</span>" : "") + "</div>";
     }
 
     // ---- problems: what needs a look, from today on, in what's loaded
@@ -1089,7 +1101,7 @@
         const { data: { session } } = await sb.auth.getSession();
         if (!session) throw new Error("Signed out.");
         const r = await fetch(MAP_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" },
-          body: JSON.stringify({ start: plan.start, days: plan.days, image: true, size: "600x460", markers: plan.markers, routes: plan.routes.map(({ color, stops }) => ({ color, stops })) }) });
+          body: JSON.stringify({ start: plan.start, days: plan.days, image: true, size: "640x400", markers: plan.markers, routes: plan.routes.map(({ color, stops }) => ({ color, stops })) }) });
         const j = await r.json().catch(() => ({}));
         if (my !== mapSeq) return;
         if (!j.ok) throw new Error(j.error || "HTTP " + r.status);
@@ -1111,7 +1123,7 @@
         if (pts.length) {
           const lat = pts.map((p) => p.lat), lng = pts.map((p) => p.lng), k = Math.cos(44.5 * Math.PI / 180);
           const x0 = Math.min(...lng), x1 = Math.max(...lng), y0 = Math.min(...lat), y1 = Math.max(...lat);
-          const W = 300, H = 230, pad = 22, sx = (x1 - x0) * k || 0.01, sy = (y1 - y0) || 0.01, sc = Math.min((W - 2 * pad) / sx, (H - 2 * pad) / sy);
+          const W = 640, H = 400, pad = 30, sx = (x1 - x0) * k || 0.01, sy = (y1 - y0) || 0.01, sc = Math.min((W - 2 * pad) / sx, (H - 2 * pad) / sy);
           const X = (p) => (pad + ((p.lng - x0) * k) * sc + (W - 2 * pad - sx * sc) / 2).toFixed(1), Y = (p) => (H - pad - (p.lat - y0) * sc - (H - 2 * pad - sy * sc) / 2).toFixed(1);
           let svg = "";
           plan.routes.forEach((r) => { const s = r.stops.map((id) => at.get(id)).filter(Boolean); if (s.length > 1) svg += '<polyline points="' + s.map((p) => X(p) + "," + Y(p)).join(" ") + '" fill="none" stroke="#' + r.color + '" stroke-width="2.5" stroke-dasharray="5 3" />'; });
@@ -1130,9 +1142,10 @@
           '<small>' + (on.length ? esc(on.map(personName).join(", ")) : "nobody yet") + (at.has(id) ? "" : " &middot; not on the map") + "</small></span></li>";
       }).join("");
       const routes = plan.routes.map((r) => { const u = gdir(r.stops); return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener"><i style="background:#' + r.color + '"></i>' + esc(personName(r.user_id)) + "&#39;s route</a>" : ""; }).filter(Boolean).join("");
-      box.innerHTML = '<div class="sc-maphd"><b>Map</b> <span class="muted">' + esc(title) + "</span></div>" + (pic || '<p class="sc-note" style="padding:0 10px">' + (plan.ids.length ? "Looking up where the jobs are&#8230; check back in a minute." : "No jobs on these days.") + "</p>") +
-        (res.map_error ? '<p class="sc-note sc-maperr">' + esc(res.map_error) + "</p>" : "") +
-        (routes ? '<div class="sc-routes">' + routes + "</div>" : "") + (list ? '<ol class="sc-maplist">' + list + "</ol>" : "");
+      box.innerHTML = '<div class="sc-maphd"><b>Map</b> <span class="muted">' + esc(title) + "</span></div>" +
+        '<div class="sc-mapbody"><div class="sc-mappic">' + (pic || '<p class="sc-note" style="padding:0 10px">' + (plan.ids.length ? "Looking up where the jobs are&#8230; check back in a minute." : "No jobs on these days.") + "</p>") + "</div>" +
+        '<div class="sc-mapside">' + (res.map_error ? '<p class="sc-note sc-maperr">' + esc(res.map_error) + "</p>" : "") +
+        (routes ? '<div class="sc-routes">' + routes + "</div>" : "") + (list ? '<ol class="sc-maplist">' + list + "</ol>" : "") + "</div></div>";
     }
 
     // ---- send changes: one email per person with their changed days
@@ -1213,13 +1226,15 @@
       if (e.target.closest("[data-bulkmode]")) { bulkMode = !bulkMode; render(); return; }
       if (e.target.closest("[data-bulkclear]")) { bulk.clear(); bulkMode = false; render(); bulkBar(); return; }
       if (e.target.closest("[data-bulkgo]")) { openBulkAssign(); return; }
-      const pk0 = e.target.closest(".sc-jobs [data-booking], .scl-open [data-booking]");
+      // Jobs not assigned, plus (2026-10-24, Jeremiah) any job card in week / 2 weeks and any job in the month,
+      // so jobs that already have people can be picked too.
+      const pk0 = e.target.closest(".sc-jobs [data-booking], .scl-open [data-booking], .scm-chip[data-booking], .scc-card[data-bk]");
       if (pk0 && editable() && (bulkMode || e.ctrlKey || e.metaKey || e.shiftKey)) {
         e.preventDefault();
-        const k = bulkKey(pk0.dataset.booking, pk0.dataset.day);
-        const b = data.bookings.find((x) => x.booking_id === pk0.dataset.booking && x.day === pk0.dataset.day);
+        const id = pk0.dataset.booking || pk0.dataset.bk, k = bulkKey(id, pk0.dataset.day);
+        const b = data.bookings.find((x) => x.booking_id === id && x.day === pk0.dataset.day);
         if (bulk.has(k)) bulk.delete(k); else if (b) bulk.set(k, Object.assign({}, b, { on: data.entries.filter((x) => x.kind === "job" && x.booking_id === b.booking_id && T.local(x.starts_at).day === b.day).map((x) => x.user_id) }));
-        pk0.classList.toggle("sel", bulk.has(k));
+        root.querySelectorAll('[data-day="' + pk0.dataset.day + '"]').forEach((n) => { if ((n.dataset.booking || n.dataset.bk) === id && (n.matches(".sc-chip, .scl-item, .scm-chip, .scc-card"))) n.classList.toggle("sel", bulk.has(k)); });
         bulkBar();
         return;
       }
@@ -1319,6 +1334,8 @@
       const my = ++loading;
       clearError("scErr");
       root.classList.add("sc-w8");
+      root.classList.remove("sc-islist");
+      el("scMore").open = true;
       el("scTitle").textContent = "Next 8 weeks";
       const box = el("scWeeks"), wk0 = T.weekStart(T.today()), today = T.today();
       if (!box.children.length) box.innerHTML = '<p class="empty" style="padding:16px">Loading&#8230;</p>';
