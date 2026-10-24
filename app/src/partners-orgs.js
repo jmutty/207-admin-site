@@ -746,7 +746,7 @@
       return `<tr class="og-row${o.id === openId ? " open" : ""}" data-id="${esc(o.id)}">
         <td class="c-ck"><input type="checkbox" class="og-ck" ${selected.has(o.id) ? "checked" : ""} aria-label="Select ${esc(o.name)}" /></td>
         <td class="c-org"><div class="og-name" title="${esc(o.name)}">${esc(o.name)}${flags}</div><div class="og-sub og-dsk">${esc(sub)}</div>
-          <div class="og-sub og-mob">${esc(mmeta || sub)}</div></td>
+          <div class="og-sub og-mob">${esc(mmeta || sub)}</div><span class="nt-line" data-nt-org="${esc(o.id)}"></span></td>
         <td class="c-stage">${stagePill(o.stage, o)}</td>
         <td class="c-sports"><div class="og-cell" title="${esc((o.sports || []).join(", "))}">${esc((o.sports || []).join(", ")) || '<span class="muted">&mdash;</span>'}</div><div class="og-sub" title="${esc(monthsText(o) ? "Shoots: " + monthsText(o) : "")}">${esc(monthsText(o) || (o.seasons || []).join(", "))}</div></td>
         <td class="c-town"><div class="og-cell">${o.county ? esc(o.county) : '<span class="muted">&mdash;</span>'}</div>${o.town ? `<div class="og-sub" title="${esc(o.town)}">${esc(o.town)}</div>` : ""}</td>
@@ -757,6 +757,7 @@
         <td class="og-cell c-res">${esc(o.last_result || "")}</td>`}
         <td class="c-next">${nextCell(o)}</td></tr>`;
     }).join("") : `<tr><td colspan="9" class="empty">${loaded ? emptyText() : "Loading&hellip;"}</td></tr>`;
+    Notes.fillLines(el("ogBody")); // each partner's newest note under the name, 2026-10-24
     el("ogMoreWrap").classList.toggle("hidden", list.length <= shown);
     el("ogMore").textContent = `Show ${Math.min(PAGE, list.length - shown)} more`;
     el("ogAll").checked = rows.length > 0 && rows.every((o) => selected.has(o.id));

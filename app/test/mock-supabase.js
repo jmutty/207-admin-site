@@ -406,6 +406,15 @@
       job_people: [{ user_id: "u2", name: "Sam Helper", crew: true }, { user_id: "u1", name: "Jeremiah Mutty", crew: false }],
       job_notes_list: [{ id: 1, author_name: "Jeremiah Mutty", body: "Parking is behind the gym. @Sam Helper bring the blue backdrop.", created_at: iso(-1), edited_at: null, mine: true, can_remove: true,
                          mentions: [{ user_id: "u2", name: "Sam Helper" }] }],
+      // Notes everywhere (2026-10-24): bk1 has a job note; Brewer Travel (1111...) has a partner note.
+      notes_peek: (a) => {
+        const jobs = {}, orgs = {}, B = { bk1: "11111111-1111-1111-1111-111111111111", bk2: "22222222-2222-2222-2222-222222222222", bk3: "44444444-4444-4444-4444-444444444444" };
+        (a.p_bookings || []).forEach((id) => { jobs[id] = { org_id: B[id] || "11111111-1111-1111-1111-111111111111", count: id === "bk1" ? 1 : 0,
+          latest: id === "bk1" ? [{ author_name: "Jeremiah Mutty", body: "Parking is behind the gym. @Sam Helper bring the blue backdrop.", created_at: iso(-1) }] : [] }; });
+        const want = new Set((a.p_orgs || []).concat(Object.values(jobs).map((j) => j.org_id)));
+        if (want.has("11111111-1111-1111-1111-111111111111")) orgs["11111111-1111-1111-1111-111111111111"] = { count: 1, latest: [{ author_name: "Jeremiah Mutty", body: "Met Chris at the fall tourney. Wants spring dates too.", created_at: iso(-2) }] };
+        return { jobs, orgs };
+      },
       job_note_add: { ok: true, id: 2 }, job_note_edit: { ok: true }, job_note_remove: { ok: true }, job_onsite_save: { ok: true, calendar: true }, org_wifi_save: { ok: true, jobs: 1 },
       history_get: [{ at: iso(-0.1), who: "Jeremiah Mutty", tbl: "bookings", action: "changed", changes: { location: ["Brewer High", "Brewer Rec Center"] } },
                     { at: iso(-0.2), who: "Jeremiah Mutty", tbl: "schedule_entries", action: "added", changes: { user_id: [null, "u2"], starts_at: [null, at("08:30")] } },
@@ -837,7 +846,7 @@
             updateUser: async (u) => (window.__writes = (window.__writes || []).concat([["auth", "updateUser", Object.keys(u)]]), { data: {}, error: null }),
             // ws/shell (2026-10-24): Forgot password on the sign-in form
             resetPasswordForEmail: async (email, o) => (window.__writes = (window.__writes || []).concat([["auth", "resetPasswordForEmail", email, o && o.redirectTo]]), { data: {}, error: null }) },
-    from: q, storage, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: RPC[n] !== undefined ? RPC[n] : [], error: null }),
+    from: q, storage, rpc: async (n, a) => (window.__rpcCalls.push([n, a]), { data: typeof RPC[n] === "function" ? RPC[n](a || {}) : RPC[n] !== undefined ? RPC[n] : [], error: null }),
   }) };
   // Edge functions: the Team page's account actions.
   const realFetch = window.fetch;
