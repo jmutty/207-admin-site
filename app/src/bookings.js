@@ -159,6 +159,28 @@
   .aca .bk-form .og-grid > label.bk-card { padding-top: 10px; }
   .aca .bk-form .bk-dayhead { display: flex; gap: 6px; font-size: 11.5px; color: var(--muted); margin: 0 0 2px; }
   .aca .bk-form .bk-dayhead span:first-child { width: 150px; } .aca .bk-form .bk-dayhead span.t { width: 108px; } .aca .bk-form .bk-dayhead span.to { width: 14px; }
+  /* Calendar view on All jobs (2026-10-24): display only, the Schedule's month look (scm-* classes from
+     scheduling.js), Monday start, the list's own filters. A job opens its page; nothing to assign here. */
+  .aca .bk-view { flex: none; margin-left: auto; }
+  .aca .bk-cal.hidden, .aca .bk-listwrap.hidden { display: none; }
+  .aca .bk-calbar { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; flex-wrap: wrap; }
+  .aca .bk-calbar h3 { margin: 0 6px; font-size: 15px; min-width: 120px; }
+  .aca .bk-calbar .grow { flex: 1; } .aca .bk-calbar .bk-sub { font-size: 12.5px; }
+  .aca .bk-cal .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line2); border-radius: 4px; overflow: hidden; }
+  .aca .bk-cal .scm-day { cursor: default; }
+  .aca .bk-cal .scm-day:nth-child(8n+9) { border-left: 1px solid var(--line2); }
+  .aca .bk-cal .scm-day:nth-child(7n+8) { border-left: 0; }
+  .aca .bk-cal .scm-dn { cursor: default; }
+  .aca .bk-cal button.scm-chip { border-left-color: var(--tc, #2f6db5); background: var(--tb, #e8f0fb); }
+  .aca .bk-cal button.scm-chip .tm { flex: none; color: var(--muted); font-size: 11px; }
+  .aca .bk-cal button.scm-chip.mk .nm { font-style: italic; }
+  .aca .bk-cal button.scm-chip:hover { filter: brightness(.96); }
+  .aca .bk-cal .scm-key i { background: var(--tc); }
+  .aca .bk-calday { margin-top: 10px; }
+  .aca .bk-calday.hidden { display: none; }
+  .aca .bk-calday h4 { margin: 0 0 6px; font-size: 13.5px; }
+  .aca .bk-calday button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; height: auto; text-align: left; padding: 10px 12px; border: 0; border-left: 3px solid var(--tc, #2f6db5); border-radius: 0; background: var(--surface); border-bottom: 1px solid var(--line2); font-weight: 400; }
+  .aca .bk-calday button strong { font-weight: 600; } .aca .bk-calday button span { font-size: 12.5px; color: var(--muted); }
   @media (max-width: 900px) {
     .aca #aca-bkPanel { position: fixed; top: var(--og-top, 0px); left: 0; right: 0; bottom: 0; width: 100vw; max-width: none; overflow: auto; -webkit-overflow-scrolling: touch; z-index: 60; background: var(--surface); }
     .aca #aca-bkPanel.hidden { display: none; }
@@ -192,6 +214,14 @@
     .aca #aca-panel-bookings .toolbar > .bk-chips { order: 5; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
     .aca #aca-panel-bookings .toolbar > .bk-chips button { flex: none; }
     .aca #aca-panel-bookings .toolbar > .lv-tools { order: 4; flex: 1 0 100%; }
+    .aca #aca-panel-bookings .toolbar > .bk-view { order: 3; margin-left: 0; }
+    .aca .bk-cal .scm-day { cursor: pointer; }
+    .aca .bk-cal .scm-day.sel { box-shadow: inset 0 0 0 2px var(--text); }
+    .aca .bk-cal button.scm-chip { background: var(--tc, #2f6db5); pointer-events: none; }
+    .aca .bk-cal .scm-key .kl { display: inline; }
+    .aca .bk-cal button.scm-chip .tm { display: none; }
+    .aca .bk-calbar .grow { display: none; } .aca .bk-calbar h3 { min-width: 0; flex: 1; }
+    .aca .bk-calbar #aca-bkCalNote { order: 5; flex: 1 0 100%; }
     .aca #aca-panel-bookings .card-head .bk-tools > button.primary { min-height: 44px; flex: 1 1 auto; }
     .aca .bk-tab .bk-stages { display: none; } .aca .bk-tab .bk-stages.open { display: grid; }
     .aca .bk-tab .bk-stage1 { display: flex; }
@@ -225,7 +255,7 @@
     <div class="card">
       <div class="card-head">
         <div><h2>All jobs</h2>
-          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job for a quick look, then Open for its page: stage, deliverables, emails, crew and checklist.</p></div>
+          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job to open its page. Calendar shows the same jobs by month.</p></div>
         <div class="og-actions bk-tools"><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button>
 </div>
       </div>
@@ -241,9 +271,16 @@
           <button type="button" data-scope="owed" aria-pressed="false">Still owed</button>
           <button type="button" data-scope="cancelled" aria-pressed="false">Cancelled</button>
         </div>
+        <div class="seg bk-view" role="radiogroup" aria-label="Show as"><label><input type="radio" name="aca-bkView" value="list" checked /><span>List</span></label><label><input type="radio" name="aca-bkView" value="cal" /><span>Calendar</span></label></div>
       </div>
       <div id="aca-bkErr" class="inline-error hidden"></div>
-      <div class="table-wrap"><table class="bk-table"><thead><tr><th class="bk-c-when">When</th><th class="bk-c-job">Job</th><th class="bk-c-stage">Stage</th><th class="bk-c-who">Contacts</th><th class="bk-c-mail">Emails</th></tr></thead>
+      <div class="bk-cal hidden" id="aca-bkCal">
+        <div class="bk-calbar"><button type="button" class="small" data-cal="prev" aria-label="Previous month">&#8249;</button><h3 id="aca-bkCalTitle"></h3><button type="button" class="small" data-cal="next" aria-label="Next month">&#8250;</button>
+          <button type="button" class="small" data-cal="today">This month</button><span class="grow"></span><span class="bk-sub" id="aca-bkCalNote"></span></div>
+        <div class="scm-grid" id="aca-bkCalGrid"></div>
+        <div class="bk-calday hidden" id="aca-bkCalDay"></div>
+      </div>
+      <div class="table-wrap bk-listwrap"><table class="bk-table"><thead><tr><th class="bk-c-when">When</th><th class="bk-c-job">Job</th><th class="bk-c-stage">Stage</th><th class="bk-c-who">Contacts</th><th class="bk-c-mail">Emails</th></tr></thead>
         <tbody id="aca-bkBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div>
     </div>
     <div class="og-panel hidden" id="aca-bkPanel" aria-label="Booking details"></div>`;
@@ -476,6 +513,8 @@
     else if (sk === ":checklate") list = list.filter((b) => checklist[b.id] && num(checklist[b.id].overdue_count) > 0);
     else if (sk) list = list.filter((b) => (stageOf(prog(b).stage_id) || {}).label === sk);
     if (q) list = list.filter((b) => (b.org_name + " " + b.title + " " + (b.org_town || "")).toLowerCase().includes(q));
+    el("bkCal").classList.toggle("hidden", view !== "cal"); document.querySelector("#aca-panel-bookings .bk-listwrap").classList.toggle("hidden", view === "cal");
+    if (view === "cal") { renderCal(list); return; }
     const body = el("bkBody");
     if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty">' + (scope === "upcoming" && !sk ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : scope === "owed" ? "Nothing owed. Every deliverable is done or skipped." : "Nothing here.") + "</td></tr>"; return; }
     const who = (b) => { const cs = b.contacts || [];
@@ -492,6 +531,73 @@
       '<td class="bk-c-mail">' + mailSummary(b) + "</td></tr>").join("");
     Notes.fillLines(body); // each job's newest note (or its partner's) under the name, 2026-10-24
   }
+  // ---- Calendar view (2026-10-24, Jeremiah): the same filtered jobs on a Monday-start month, each picture day
+  // (and makeup day) as a chip colored by job type. Display only: a chip opens the job page. On phones the chips
+  // are dots and tapping a day lists its jobs under the month.
+  let view = "list", calMonth = "", calPick = "";
+  try { if (localStorage.getItem("aca-bk-view") === "cal") view = "cal"; } catch (_e) { /* private mode */ }
+  document.querySelector('#aca-panel-bookings input[name="aca-bkView"][value="' + view + '"]').checked = true;
+  const TYPE_COLORS = [["#2f6db5", "#e8f0fb"], ["#2e8b57", "#e6f4ec"], ["#bf4a1f", "#fbebe4"], ["#7a4fb5", "#f0e9fa"], ["#b07a00", "#fdf6e3"], ["#1f8a99", "#e3f4f6"], ["#8a8580", "#f1efec"]];
+  const typeColor = (k) => { const i = types.findIndex((t) => t.key === k); return TYPE_COLORS[(i < 0 ? TYPE_COLORS.length - 1 : i) % TYPE_COLORS.length]; };
+  const calNarrow = () => window.matchMedia("(max-width: 760px)").matches;
+  // Each job's days on the calendar: [{ day, start, makeup }], one per picture day plus its makeup day.
+  function calDays(b) {
+    const ds = (b.days && b.days.length ? b.days : [{ day: b.picture_day, start_at: b.start_at, sort: 0 }]).filter((x) => x.day);
+    const out = ds.map((x) => ({ day: x.day, start: (x.sort === 0 ? (b.time_set !== false ? b.start_at : null) : x.start_at) || null, label: x.label || "" }));
+    if (b.makeup && b.makeup.day) out.push({ day: b.makeup.day, start: b.makeup.start_at || null, makeup: true });
+    return out;
+  }
+  function renderCal(list) {
+    const T = StaffTime, today = T.today();
+    if (!calMonth) calMonth = (scope === "past" ? T.addDays(today, -1) : today).slice(0, 7);
+    const first = calMonth + "-01", start = T.weekStart(first);
+    const next = new Date(first + "T12:00:00Z"); next.setUTCMonth(next.getUTCMonth() + 1);
+    const last = T.addDays(next.toISOString().slice(0, 10), -1), end = T.addDays(T.weekStart(last), 6);
+    const mName = new Date(first + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long" });
+    el("bkCalTitle").textContent = mName + (calMonth.slice(0, 4) === today.slice(0, 4) ? "" : " " + calMonth.slice(0, 4));
+    // Which days the list loaded, so an empty stretch says why.
+    el("bkCalNote").textContent = scope === "upcoming" && first <= today && start < today ? "Earlier days are under Past 60 days."
+      : scope === "upcoming" ? "" : scope === "past" ? "Showing the past 60 days." : scope === "owed" ? "Jobs that still owe deliverables." : "Cancelled jobs.";
+    const byDay = {}, used = new Set();
+    list.forEach((b) => calDays(b).forEach((x) => { if (x.day >= start && x.day <= end) { (byDay[x.day] = byDay[x.day] || []).push({ b, x }); used.add(b.type_key); } }));
+    Object.values(byDay).forEach((a) => a.sort((p, q) => String(p.x.start || "~").localeCompare(String(q.x.start || "~")) || p.b.title.localeCompare(q.b.title)));
+    const chip = ({ b, x }) => { const [tc, tb] = typeColor(b.type_key);
+      const tip = b.title + "\n" + (b.type_label || "") + (x.makeup ? " (makeup day)" : x.label ? " (" + x.label + ")" : "") + "\n" + (x.start ? Fmt.time(x.start) : "Time not set") + (b.location ? "\n" + b.location : "");
+      return '<button type="button" class="scm-chip' + (x.makeup ? " mk" : "") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" title="' + esc(tip) + '">' +
+        '<span class="nm">' + esc((x.makeup ? "Makeup: " : "") + b.title) + "</span>" + (x.start ? '<span class="tm">' + esc(Fmt.time(x.start).replace(":00", "")) + "</span>" : "") + "</button>"; };
+    let h = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w) => '<div class="scm-h">' + w + "</div>").join("");
+    for (let d = start; d <= end; d = T.addDays(d, 1)) {
+      const items = byDay[d] || [];
+      h += '<div class="scm-day' + (d.slice(0, 7) !== calMonth ? " other" : "") + (d < today ? " past" : "") + (d === today ? " today" : "") + (d === calPick ? " sel" : "") + '" data-calday="' + esc(d) + '">' +
+        '<span class="scm-dn">' + esc(Fmt.day(d)) + (d === today ? " <span>Today</span>" : "") + "</span>" + items.map(chip).join("") + "</div>";
+    }
+    const keyTypes = types.filter((t) => used.has(t.key));
+    h += '<div class="scm-key">' + keyTypes.map((t) => '<span><i style="--tc:' + typeColor(t.key)[0] + '"></i>' + esc(t.label) + "</span>").join("") +
+      '<span class="kl">' + (calNarrow() ? "Tap a day to see its jobs" : "Click a job to open it") + "</span></div>";
+    el("bkCalGrid").innerHTML = h;
+    // Phones: the picked day's jobs under the month.
+    const dayBox = el("bkCalDay"), picked = calPick && byDay[calPick] ? byDay[calPick] : null;
+    dayBox.classList.toggle("hidden", !calPick);
+    if (calPick) dayBox.innerHTML = "<h4>" + esc(T.fmtDay(calPick, { calendar: true })) + "</h4>" + (picked ? picked.map(({ b, x }) => '<button type="button" data-job="' + esc(b.id) + '" style="--tc:' + typeColor(b.type_key)[0] + '"><strong>' + esc((x.makeup ? "Makeup: " : "") + b.title) + "</strong><span>" +
+      esc([x.start ? Fmt.time(x.start) : "Time not set", b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + "</span></button>").join("") : '<p class="bk-sub">No jobs this day.</p>');
+  }
+  document.querySelector("#aca-panel-bookings .bk-view").addEventListener("change", (e) => {
+    view = e.target.value; calPick = "";
+    try { localStorage.setItem("aca-bk-view", view); } catch (_e) { /* private mode */ }
+    render();
+  });
+  el("bkCal").addEventListener("click", (e) => {
+    const j = e.target.closest("[data-job]"); if (j) { openJob(j.dataset.job); return; }
+    const a = e.target.closest("button[data-cal]");
+    if (a) {
+      const d = new Date(calMonth + "-15T12:00:00Z");
+      if (a.dataset.cal === "today") calMonth = StaffTime.today().slice(0, 7);
+      else { d.setUTCMonth(d.getUTCMonth() + (a.dataset.cal === "next" ? 1 : -1)); calMonth = d.toISOString().slice(0, 7); }
+      calPick = ""; render(); return;
+    }
+    const day = e.target.closest("[data-calday]");
+    if (day && calNarrow()) { calPick = calPick === day.dataset.calday ? "" : day.dataset.calday; render(); }
+  });
   el("bkSearch").addEventListener("input", render);
   el("bkType").addEventListener("change", render);
   el("bkStage").addEventListener("change", render);
@@ -502,7 +608,7 @@
 
   el("bkScope").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-scope]"); if (!b) return;
-    scope = b.dataset.scope;
+    scope = b.dataset.scope; calMonth = ""; calPick = "";
     el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
     load(true);
   });
