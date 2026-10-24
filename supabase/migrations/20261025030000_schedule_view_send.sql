@@ -11,13 +11,14 @@ declare
   v_end date := v_start + 13;
   v_agenda jsonb := '[]'; v_items jsonb; v_txt text[] := '{}'; v_htm text[] := '{}'; v_lines text[]; v_cards text[];
   v_min numeric := 0; v_jobs int := 0; v_pending int := 0; v_changed int := 0; v_name text;
+  v_confirm boolean := public.crew_confirm_on();  -- confirm marks and buttons only while crew confirmations are on
   d date; r record; v_title text; v_time text; v_sub text; v_leave text; v_btn text; v_chg boolean; v_gone text; v_color text;
 begin
   for d in select generate_series(v_start, v_end, interval '1 day')::date loop
     v_items := '[]'; v_lines := '{}'; v_cards := '{}';
     for r in select e.*, case when e.booking_id is not null then public.schedule_booking_title(e.booking_id) end as btitle,
                     case when e.booking_id is not null then public.schedule_destination(e.booking_id) end as bloc,
-                    ro.label as role, a.status as ask, a.token
+                    ro.label as role, case when v_confirm then a.status end as ask, a.token
                from public.schedule_entries e
                left join public.bookings b on b.id = e.booking_id
                left join public.crew_roles ro on ro.id = e.role_id

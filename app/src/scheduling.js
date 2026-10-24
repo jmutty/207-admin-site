@@ -1209,8 +1209,8 @@
       const wd = (iso) => { const p = String(iso).split("-"); return WD[new Date(+p[0], p[1] - 1, +p[2]).getDay()]; };
       const item = (it) => {
         const sub = [it.place, it.leave, it.role, it.note].filter(Boolean).map(esc);
-        if (it.ask === "confirmed") sub.push('<span class="ok">Confirmed</span>');
-        if (it.ask === "pending") sub.push('<span class="wait">Waiting to confirm</span>');
+        if (confirmOn() && it.ask === "confirmed") sub.push('<span class="ok">Confirmed</span>');
+        if (confirmOn() && it.ask === "pending") sub.push('<span class="wait">Waiting to confirm</span>');
         return '<div class="sc-vwitem k-' + esc(it.kind || "work") + '"><div class="t">' + esc(it.time) + '</div><div class="n">' + esc(it.title) + "</div>" +
           (sub.length ? '<div class="d">' + sub.join(" \u00b7 ") + "</div>" : "") + "</div>";
       };
@@ -1227,7 +1227,7 @@
         info.innerHTML = "<span>" + esc(md(d.start) + " to " + md(d.end)) + "</span>" +
           '<span class="p">' + num(d.jobs) + " job" + (d.jobs === 1 ? "" : "s") + "</span>" +
           '<span class="p">' + num(d.hours) + " hour" + (d.hours === 1 ? "" : "s") + "</span>" +
-          (d.pending ? '<span class="p amber">' + num(d.pending) + " to confirm</span>" : "") +
+          (d.pending && confirmOn() ? '<span class="p amber">' + num(d.pending) + " to confirm</span>" : "") +
           (d.changed ? '<span class="p amber">' + num(d.changed) + " changed day" + (d.changed === 1 ? "" : "s") + "</span>" : "") +
           '<span class="to">' + (d.has_email ? "To: " + esc(d.email) : '<b class="sc-bad">No email address on the Team page.</b>') + "</span>";
         box.innerHTML = '<div class="sc-vwlist">' + (agenda.length ? agenda.map((g) =>
