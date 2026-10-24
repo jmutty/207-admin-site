@@ -768,7 +768,7 @@
           }
           h += '<div class="sc-cell' + (editable() || isMine(p.user_id) ? " edit" : "") + (view === "day" ? " grid" : "") + (d === today && view === "week" ? " today" : "") + '" data-person="' + esc(p.user_id) + '" data-day="' + esc(d) + '" style="min-height:' + (n * 26 + (edge ? 30 : 18)) + 'px">' + bars + edge +
             (dh > 0 ? '<span class="sc-dh' + (dh >= T.LUNCH_AFTER_H ? " sc-lunch" : "") + '"' + (dh >= T.LUNCH_AFTER_H ? ' title="6 hours or more: plan a lunch break"' : "") + ">" + fmtH(dh) + " h" + (dh >= T.LUNCH_AFTER_H ? " &middot; lunch" : "") + "</span>" : "") +
-            (tc ? '<a class="sc-tasks" href="#staff/myday" title="Tasks due">' + num(tc.n) + " task" + (tc.n === 1 ? "" : "s") + "</a>" : "") + "</div>";
+            (tc ? '<a class="sc-tasks" href="#staff/myday/' + d + '" title="Open My day for ' + T.fmtDay(d) + '">' + num(tc.n) + " task" + (tc.n === 1 ? "" : "s") + "</a>" : "") + "</div>";
         });
       });
       grid.innerHTML = h;
@@ -998,7 +998,7 @@
           return '<div class="sc-cell scc-cell' + (editable() || isMine(p.user_id) ? " edit" : "") + (d === today ? " today" : "") + '" data-person="' + esc(p.user_id) + '" data-day="' + esc(d) + '">' +
             list.map((e) => cardFor(e, d)).join("") +
             ((dh > 0 || tc) ? '<span class="scc-foot">' + (dh > 0 ? '<span class="' + (dh >= T.LUNCH_AFTER_H ? "sc-lunch" : "") + '">' + fmtH(dh) + " h" + (dh >= T.LUNCH_AFTER_H ? " &middot; lunch" : "") + "</span>" : "") +
-              (tc ? ' <a class="sc-tasks2" href="#staff/myday" title="Tasks due">' + num(tc.n) + " task" + (tc.n === 1 ? "" : "s") + "</a>" : "") + "</span>" : "") + "</div>";
+              (tc ? ' <a class="sc-tasks2" href="#staff/myday/' + d + '" title="Open My day for ' + T.fmtDay(d) + '">' + num(tc.n) + " task" + (tc.n === 1 ? "" : "s") + "</a>" : "") + "</span>" : "") + "</div>";
         }), "", tot);
       });
       grid.innerHTML = h;

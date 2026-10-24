@@ -63,7 +63,11 @@
     let day = null, who = "me", people = [];
     const defaultDay = () => (T.local(Date.now()).min >= 18 * 60 ? T.addDays(T.today(), 1) : T.today());
 
+    window.addEventListener("hashchange", () => { if (/^#staff\/myday\/\d{4}-\d{2}-\d{2}$/.test(location.hash)) setTimeout(loadDay, 0); });
     async function loadDay() {
+      // The Schedule's "N tasks" link opens that day: #staff/myday/2026-10-23 (2026-10-24)
+      const linked = /^#staff\/myday\/(\d{4}-\d{2}-\d{2})$/.exec(location.hash);
+      if (linked) { day = linked[1]; history.replaceState(null, "", "#staff/myday"); }
       if (!day) day = defaultDay();
       clearError("asErr");
       const t = T.today();

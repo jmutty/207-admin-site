@@ -800,6 +800,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-scGrid .sc-jobs [data-booking="bk3"]', { modifiers: ["Control"] });
     check(!(await page.$(".modal")) && (await page.$$("#aca-scGrid .sel")).length >= 2 && (await page.textContent("#aca-scBulk")).includes("2 jobs picked"), "Ctrl-click a job card and an open job: both picked");
     await page.click("[data-bulkclear]");
+    check(await page.$$eval("a.sc-tasks, a.sc-tasks2", (as) => as.length > 0 && as.every((a) => /^#staff\/myday\/\d{4}-\d{2}-\d{2}$/.test(a.getAttribute("href")))), "the Schedule's task counts link to that day on My day");
     // View schedule: pick a person, see their next two weeks as they'd get it, send it
     await page.waitForSelector("#aca-scChg:not(.hidden)");
     check((await page.textContent("#aca-scChg")).includes("View schedule (2 changed)"), "View schedule says how many people have changes");
@@ -1060,6 +1061,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "assignment_check" && c[1].p_done === true)), "checks a task off");
     check((await page.textContent("#aca-asBody")).includes("Second shooter") && await page.$eval('#aca-asBody a.pill[href^="#crew/"]', (n) => n.textContent === "Confirm"), "my day: role and a Confirm link");
+    await page.evaluate(() => { location.hash = "#staff/myday/2026-01-05"; });
+    await page.waitForFunction(() => (document.querySelector("#aca-asTitle") || {}).textContent.includes("1/5"));
+    check(await page.evaluate(() => location.hash === "#staff/myday"), "a task-count link opens My day on that day");
+    await page.click('#aca-panel-myday [data-v="today"]');
+    await page.waitForSelector("#aca-asBody .as-task");
     // Tasks
     await page.click('#aca-nav button[data-tab="tasks"]');
     await page.waitForSelector("#aca-asTBody tr.as-row");
