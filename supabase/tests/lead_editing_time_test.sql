@@ -1,4 +1,4 @@
--- Tests for 20261025030000_lead_editing_time (editing time for the Lead). Run against a NON-production copy of the
+-- Tests for 20261025040000_lead_editing_time (editing time for the Lead). Run against a NON-production copy of the
 -- schema after the migration, inside a transaction that is rolled back:
 --   psql -d shadow -v ON_ERROR_STOP=1 -f supabase/tests/lead_editing_time_test.sql
 -- "ALL LEAD EDITING TESTS PASSED" at the end means every check held.
