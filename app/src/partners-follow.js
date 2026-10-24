@@ -34,6 +34,7 @@
   .aca .pf-rcpts { border: 1px solid var(--line2); border-radius: 6px; max-height: 240px; overflow: auto; }
   .aca .pf-rcpt { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid var(--line2); }
   .aca .pf-rcpt:last-child { border-bottom: 0; }
+  .aca .pf-rcpts + .pf-help { margin-top: 6px; }
   .aca .pf-rcpt.off .pf-rcpt-who { opacity: .6; }
   .aca .pf-rcpt-who { min-width: 0; font-size: 14px; line-height: 20px; }
   .aca .pf-rcpt-who .pf-sub { display: inline; white-space: normal; }
@@ -60,7 +61,7 @@
   .aca .ag-done { padding: 12px 14px; border-radius: 4px; background: var(--surface-2); margin: 0 0 12px; font-size: 14.5px; line-height: 21px; }
   .aca .ag-check { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; font-size: 14px; line-height: 20px; }
   .aca .ag-check input { margin-top: 3px; }
-  @media (max-width: 700px) { .aca .pf-rcpt { flex-direction: column; align-items: stretch; } .aca .pf-seg { align-self: flex-start; } }
+  @media (max-width: 700px) { .aca .pf-rcpts { max-height: none; } .aca .pf-rcpt { flex-direction: column; align-items: stretch; } .aca .pf-seg { align-self: flex-start; } }
   @media (max-width: 700px) { .aca .pf-row2, .aca .pf-row3 { grid-template-columns: 1fr; } .aca .pf-acts { justify-content: flex-start; } }
   /* 2026-10-23: the three lists are rows on a grid (not tables). One main button per row; the rest sit in a ... menu. Phones get a card. */
   .aca .pf-list { border-top: 1px solid var(--border); }
