@@ -272,28 +272,45 @@
   setTimeout(() => {
     try {
       if (typeof registerJobTab !== "function") return;
-      registerJobTab({ id: "crew", label: "Crew", module: "scheduling", order: 15, render: (booking, box) => CrewTab.render(booking, box) });
+      registerJobTab({ id: "crew", label: "Crew", module: "scheduling", order: 15, render: (booking, box, J) => CrewTab.render(booking, box, J) });
     } catch (_e) { /* no job page in this build */ }
   }, 0);
   const CrewTab = (function () {
     const T = StaffTime;
-    async function render(booking, box) {
+    // Grouped by shoot day (2026-10-24, Jeremiah: two people on different days read as "2 of 1 needed"): each day
+    // of the job (makeup days included) has its own people and its own "X of Y needed".
+    async function render(booking, box, J) {
       const id = booking && (booking.id || booking.booking_id);
       box.innerHTML = '<p class="empty">Loading&#8230;</p>';
       const { data, error } = await supabase.rpc("crew_for_booking", { p_booking: id });
       if (error) { box.innerHTML = '<p class="inline-error">' + esc(error.message) + "</p>"; return; }
-      const rows = data.crew.map((c) => "<tr><td><b>" + esc(T.shortName(c.name)) + "</b>" + (c.roles.length ? ' <span class="muted">' + esc(c.roles.join(", ")) + "</span>" : "") + "</td>" +
-        "<td>" + c.days.map((d) => esc(T.fmtDay(T.local(d.starts_at).day) + " " + T.fmtTs(d.starts_at) + "–" + T.fmtTs(d.ends_at))).join("<br>") + "</td>" +
+      const days = ((J && J.days && J.days.length ? J.days : booking && booking.picture_day ? [{ day: String(booking.picture_day).slice(0, 10) }] : [])).map((d) => ({ day: d.day, label: d.label || "" }));
+      const slots = [];
+      data.crew.forEach((c) => c.days.forEach((d) => {
+        const day = T.local(d.starts_at).day;
+        if (!days.some((x) => x.day === day)) days.push({ day, label: "" });
+        slots.push({ c, d, day });
+      }));
+      days.sort((a, b) => a.day.localeCompare(b.day));
+      const row = ({ c, d }) => "<tr><td><b>" + esc(T.shortName(c.name)) + "</b>" + (c.roles.length ? ' <span class="muted">' + esc(c.roles.join(", ")) + "</span>" : "") + "</td>" +
+        "<td>" + esc(T.fmtTs(d.starts_at) + "–" + T.fmtTs(d.ends_at)) + "</td>" +
         "<td>" + (c.status ? Crew.chip(c.status) : data.confirm_on ? '<span class="muted">Not asked</span>' : "") + "</td>" +
-        "<td>" + (data.confirm_on && data.can_edit && data.booking_status === "booked" && c.status !== "confirmed" ? '<button type="button" class="link" data-ask="' + esc(c.user_id) + '">' + (c.status ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</td></tr>").join("");
-      box.innerHTML = '<p class="muted" style="margin:0 0 8px">' + num(data.crew.length) + " of " + num(data.needed) + " needed" + (data.declined.length ? " &middot; Can&#39;t make it: " + data.declined.map((d) => esc(T.shortName(d.name)) + (d.reason ? " (&ldquo;" + esc(d.reason) + "&rdquo;)" : "")).join(", ") : "") + "</p>" +
-        (rows ? '<div class="table-wrap"><table><tbody>' + rows + "</tbody></table></div>" : '<p class="empty">Nobody on this job yet. Put people on it from the Schedule.</p>') +
+        "<td>" + (data.confirm_on && data.can_edit && data.booking_status === "booked" && c.status !== "confirmed" ? '<button type="button" class="link" data-ask="' + esc(c.user_id) + '">' + (c.status ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</td></tr>";
+      const sections = days.map((x) => {
+        const on = slots.filter((s) => s.day === x.day);
+        const n = new Set(on.map((s) => s.c.user_id)).size;
+        return '<h3 class="cr-day" style="margin:14px 0 6px;font-size:14px">' + esc(T.fmtDay(x.day)) + (x.label ? " (" + esc(x.label) + ")" : "") +
+          ' <span class="muted" style="font-weight:400">&middot; ' + num(n) + " of " + num(data.needed) + " needed</span></h3>" +
+          (on.length ? '<div class="table-wrap"><table><tbody>' + on.map(row).join("") + "</tbody></table></div>" : '<p class="empty" style="margin:0">Nobody on this day yet.</p>');
+      }).join("");
+      box.innerHTML = (data.declined.length ? '<p class="muted" style="margin:0 0 8px">Can&#39;t make it: ' + data.declined.map((d) => esc(T.shortName(d.name)) + (d.reason ? " (&ldquo;" + esc(d.reason) + "&rdquo;)" : "")).join(", ") + "</p>" : "") +
+        (sections || '<p class="empty">Nobody on this job yet. Put people on it from the Schedule.</p>') +
         '<p style="margin-top:10px"><a href="#staff/schedule">Open the Schedule</a></p>';
       box.querySelectorAll("[data-ask]").forEach((b) => b.addEventListener("click", async () => {
         b.disabled = true;
         const { error: e2 } = await supabase.rpc("crew_ask_now", { p_booking: id, p_user: b.dataset.ask });
         if (e2) toast(String(e2.message).replace(/^P0001:\s*/, ""), true); else toast("Sent.");
-        render(booking, box);
+        render(booking, box, J);
       }));
     }
     return { render };
