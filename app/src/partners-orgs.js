@@ -483,9 +483,13 @@
   async function load(force) {
     if (loading) return loading;
     if (loaded && !force) { render(); return; }
+    // The list as last seen on this device draws at once (Snap); the fresh rows replace it when they differ.
+    const snap = loaded ? null : Snap.get("orgs");
+    if (snap && Array.isArray(snap[0])) { try { applyLoad(snap); } catch (_e) { /* an old copy that no longer fits: wait for the fresh one */ } }
+    const stamp = Saves.stamp();
     loading = (async () => {
       try {
-        const [rows, contacts, fus, held, sets, views, rc] = await Promise.all([
+        const res = await Promise.all([
           fetchAll(() => sb.from("prospect_orgs").select(ORG_COLS).is("merged_into", null).order("name")),  // merged duplicates stay out
           fetchAll(() => sb.from("prospect_contacts").select("org_id,first_name,last_name,email,is_primary,created_at,bounced_at,unsubscribed_at,stopped_at").order("id")),
           fetchAll(() => sb.from("prospect_followups").select("org_id,due_on").eq("status", "open").order("id")),
@@ -494,39 +498,47 @@
           sb.from("prospect_saved_views").select("id,name,config,sort_order").order("sort_order").order("created_at"),
           sb.rpc("prospect_roles_to_check"),
         ]);
-        roleCheck = new Set(((rc && rc.data) || []).map((r) => (typeof r === "string" ? r : r.prospect_roles_to_check)));
-        orgs = rows;
-        byId = new Map(orgs.map((o) => [o.id, o]));
-        contactStats = new Map();
-        contacts.forEach((c) => addContactStat(c));
-        followDue = new Map();
-        fus.forEach((f) => { if (f.org_id && (!followDue.has(f.org_id) || f.due_on < followDue.get(f.org_id))) followDue.set(f.org_id, f.due_on); });
-        readyOrgs = new Set(((held && held.data) || []).map((r) => r.org_id));
-        cooldownMonths = (sets && sets.data && sets.data.cooldown_months) || 6;
-        savedViews = (views && views.data) || [];
-        const sp = new Set();
-        orgs.forEach((o) => (o.sports || []).forEach((s) => sp.add(s)));
-        ["baseball", "basketball", "cheer", "cross country", "field hockey", "football", "gymnastics", "hockey", "lacrosse", "skiing",
-          "soccer", "softball", "swimming", "track", "volleyball", "wrestling"].forEach((s) => sp.add(s));
-        sportList = [...sp].sort();
-        loaded = true;
-        el("ogErr").classList.add("hidden");
-        fillSelects();
-        fillTowns();
-        render();
-        if (initialOpen && !openId && byId.has(initialOpen) && !load.didInitial) { load.didInitial = true; openOrg(initialOpen); }
-        if (!load.didGroup) {
-          load.didGroup = true; const g = groupInHash();
-          // Admins open on the Clients view once there are clients (2026-10-24); a group in the address still wins
-          if (g) setGroup(g, true);
-          else if (ACCESS.is_admin && !/orgs\/everyone/i.test(location.hash) && orgs.some((o) => GROUP_OF.clients[2].includes(o.stage))) setGroup("clients", true);
-        }
+        // Only what the screen uses, so a supabase reply's extras don't make every copy look changed.
+        const keep = res.map((r, i) => (i < 3 ? r : { data: r && r.data }));
+        if (snap && loaded && Saves.stamp() !== stamp) return; // an edit started meanwhile: the screen is newer than these rows
+        if (!Snap.put("orgs", keep) && snap && loaded) return;
+        applyLoad(keep);
       } catch (e) {
+        if (snap && loaded) return; // offline or a hiccup: keep showing the last copy
         el("ogErr").textContent = "Could not load partners: " + cleanErr(e);
         el("ogErr").classList.remove("hidden");
       } finally { loading = null; }
     })();
     return loading;
+  }
+  function applyLoad([rows, contacts, fus, held, sets, views, rc]) {
+    roleCheck = new Set(((rc && rc.data) || []).map((r) => (typeof r === "string" ? r : r.prospect_roles_to_check)));
+    orgs = rows;
+    byId = new Map(orgs.map((o) => [o.id, o]));
+    contactStats = new Map();
+    contacts.forEach((c) => addContactStat(c));
+    followDue = new Map();
+    fus.forEach((f) => { if (f.org_id && (!followDue.has(f.org_id) || f.due_on < followDue.get(f.org_id))) followDue.set(f.org_id, f.due_on); });
+    readyOrgs = new Set(((held && held.data) || []).map((r) => r.org_id));
+    cooldownMonths = (sets && sets.data && sets.data.cooldown_months) || 6;
+    savedViews = (views && views.data) || [];
+    const sp = new Set();
+    orgs.forEach((o) => (o.sports || []).forEach((s) => sp.add(s)));
+    ["baseball", "basketball", "cheer", "cross country", "field hockey", "football", "gymnastics", "hockey", "lacrosse", "skiing",
+      "soccer", "softball", "swimming", "track", "volleyball", "wrestling"].forEach((s) => sp.add(s));
+    sportList = [...sp].sort();
+    loaded = true;
+    el("ogErr").classList.add("hidden");
+    fillSelects();
+    fillTowns();
+    render();
+    if (initialOpen && !openId && byId.has(initialOpen) && !load.didInitial) { load.didInitial = true; openOrg(initialOpen); }
+    if (!load.didGroup) {
+      load.didGroup = true; const g = groupInHash();
+      // Admins open on the Clients view once there are clients (2026-10-24); a group in the address still wins
+      if (g) setGroup(g, true);
+      else if (ACCESS.is_admin && !/orgs\/everyone/i.test(location.hash) && orgs.some((o) => GROUP_OF.clients[2].includes(o.stage))) setGroup("clients", true);
+    }
   }
   function addContactStat(c) {
     const s = contactStats.get(c.org_id) || { n: 0, bounced: 0, unsub: 0, mains: [], first: null };

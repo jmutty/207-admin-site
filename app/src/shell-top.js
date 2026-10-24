@@ -174,8 +174,10 @@
   // Saves.busy(scope) tells a caller to hold its reload until the last one is done. Resolves to the result, or null.
   const Saves = (function () {
     const queues = new Map(), counts = new Map();
+    let stamps = 0;
     const msg = (e) => String((e && (e.message || e.details || e.error)) || e || "Something went wrong").replace(/^P0001:\s*/, "");
     function run(scope, write, undo) {
+      stamps++;
       counts.set(scope, (counts.get(scope) || 0) + 1);
       const p = (queues.get(scope) || Promise.resolve()).then(async () => {
         try {
@@ -196,7 +198,52 @@
       return p;
     }
     window.addEventListener("beforeunload", (e) => { if (counts.size) { e.preventDefault(); e.returnValue = ""; } });
-    return { run, busy: (scope) => counts.has(scope) };
+    // stamp() changes with every save started, so a page that began loading before an edit can tell its rows are older.
+    return { run, busy: (scope) => counts.has(scope), any: () => counts.size > 0, stamp: () => stamps };
+  })();
+
+  // ---- last-seen data (speed, 2026-10-24) ----
+  // A page keeps a copy of what it last loaded on this device, draws it at once the next time it opens, and swaps in
+  // the fresh rows when they arrive (only when they differ). Per signed-in person; signing out clears every copy.
+  // Snap.get(key) -> the copy or null; Snap.put(key, data) stores it and says whether it changed. Fresh is used when
+  // Saves.stamp() moved during the load (an edit started meanwhile): the copy would be older than the screen.
+  const Snap = (function () {
+    const P = "aca-snap:";
+    let who = "";
+    const mem = new Map(); // key -> JSON string
+    const full = (key) => P + who + ":" + key;
+    function get(key) {
+      if (!who) return null;
+      let s = mem.get(key);
+      if (s === undefined) { try { const v = localStorage.getItem(full(key)); s = v === null ? null : v.slice(v.indexOf("|") + 1); } catch (_) { s = null; } mem.set(key, s); }
+      if (s === null) return null;
+      try { return JSON.parse(s); } catch (_) { return null; }
+    }
+    function put(key, data) {
+      if (!who) return true;
+      let s; try { s = JSON.stringify(data === undefined ? null : data); } catch (_) { return true; }
+      const changed = mem.get(key) !== s;
+      mem.set(key, s);
+      if (changed) {
+        const v = Date.now() + "|" + s;
+        try { localStorage.setItem(full(key), v); } catch (_) { prune(); try { localStorage.setItem(full(key), v); } catch (_e) { /* too big for this browser: memory only */ } }
+      }
+      return changed;
+    }
+    function drop(key) { mem.delete(key); try { localStorage.removeItem(full(key)); } catch (_) {} }
+    function keys() { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(P)) out.push(k); } } catch (_) {} return out; }
+    // Out of room: forget the older half of the copies (oldest first by when they were saved).
+    function prune() {
+      const ks = keys().map((k) => { let t = 0; try { t = +String(localStorage.getItem(k)).split("|")[0] || 0; } catch (_) {} return [k, t]; }).sort((a, b) => a[1] - b[1]);
+      ks.slice(0, Math.max(1, Math.ceil(ks.length / 2))).forEach(([k]) => { try { localStorage.removeItem(k); } catch (_) {} });
+    }
+    function clear() { mem.clear(); keys().forEach((k) => { try { localStorage.removeItem(k); } catch (_) {} }); }
+    // Copies left by someone else who signed in on this device go when a different person signs in.
+    function user(id) {
+      who = id || "";
+      try { const last = localStorage.getItem(P + "who"); if (last && last !== who) clear(); localStorage.setItem(P + "who", who); } catch (_) {}
+    }
+    return { get, put, drop, clear, user };
   })();
   // When a section redraws while someone is in one of its fields (a save finished, fresh data came in), put them back
   // in the same field with what they had typed: const f = focusMark(box); box.innerHTML = ...; focusBack(box, f).
@@ -255,10 +302,14 @@
     return os + " · " + br;
   }
   async function afterSignIn(session) {
+    // Who they are and what they may use is asked for alongside the device check, not after it (speed, 2026-10-24).
+    // It is only used once the check passes.
+    const accessP = Promise.resolve(supabase.rpc("my_access")); // a real promise: a query builder re-sends on every await
+    accessP.catch(() => {});
     try {
       const { data: ok, error } = await supabase.rpc("admin_session_ok");
       if (error) throw error;
-      if (ok) { showDashboard(session); return; }
+      if (ok) { showDashboard(session, accessP); return; }
       const tok = deviceToken();
       if (tok) {
         const { data: used } = await supabase.rpc("admin_use_device", { p_token: tok });
@@ -325,17 +376,19 @@
   el("codeResend").addEventListener("click", () => sendCode(false));
   el("codeCancel").addEventListener("click", async () => { await supabase.auth.signOut(); location.reload(); });
 
-  async function showDashboard(session) {
+  async function showDashboard(session, accessP) {
     el("loginView").classList.add("hidden");
     el("dashView").classList.remove("hidden");
+    Snap.user(session && session.user && session.user.id);
     // Which modules this person may use (access.js). Everything below only loads what they can see.
-    await loadAccess(session);
+    await loadAccess(session, accessP);
     renderRail();
     applyAccessChrome();
-    // Categories + rules first: the Jobs table's "why" column needs them.
-    if (canSeeAny(["galleries", "findmyphotos"])) await ensureRules();
-    if (canSeeAny(["galleries", "findmyphotos", "parents"])) loadJobs();
+    // Categories + rules before the gallery list (its "why" column needs them), but Today doesn't wait for them.
+    const rulesP = canSeeAny(["galleries", "findmyphotos"]) ? ensureRules() : Promise.resolve();
+    if (canSeeAny(["galleries", "findmyphotos", "parents"])) rulesP.catch(() => {}).then(() => loadJobs());
     if (canSee("findmyphotos")) loadBlocks();
+    restoreToday();
     // Everything Today summarizes. Today shows "Checking..." until these settle.
     todayFirst = Promise.all(todayLoaders(true)).catch(() => {}).then(markUnchecked);
     foldHelp();
@@ -396,6 +449,7 @@
   });
 
   el("signOutBtn").addEventListener("click", async () => {
+    Snap.clear();
     await supabase.auth.signOut();
     location.reload();
   });
@@ -794,7 +848,9 @@
       n.textContent = v ? v.n : ""; n.className = "n" + (v && v.bad ? " bad" : "");
     });
     const items = attentionKeys().filter((k) => attention[k] && attention[k].count).map((k) => attention[k]);
-    const pending = attentionKeys().filter((k) => !attention[k]).length;
+    // A line still showing from the last visit (Snap) counts as not checked yet.
+    const pending = attentionKeys().filter((k) => !attention[k] || attention[k].snap).length;
+    if (!pending) saveToday(items);
     const total = items.reduce((n, a) => n + a.count, 0);
     const todayBadge = el("nav-today");
     if (!todayBadge) return;
@@ -848,6 +904,25 @@
     if (a && a.onGo) a.onGo();
   });
 
+  // Last-seen Today (speed, 2026-10-24): the list and Coming up from the last visit show at once, with "Still checking",
+  // and each line is replaced as its own check comes back. Saved once every check has answered.
+  let upFresh = false, todaySaveT = null;
+  function restoreToday() {
+    const s = Snap.get("today");
+    if (!s) return;
+    (s.items || []).forEach((a) => { if (a && a.key && !attention[a.key] && ATTENTION_ORDER.includes(a.key) && canSee(ATTENTION_MODULE[a.key])) attention[a.key] = Object.assign(a, { snap: true }); });
+    if (s.up && canSee("bookings") && !upFresh) { el("todayUp").innerHTML = s.up; nextUp = s.next || null; }
+    renderAttention();
+  }
+  function saveToday(items) {
+    clearTimeout(todaySaveT);
+    todaySaveT = setTimeout(() => {
+      const keep = items.filter((a) => !a.unchecked).map((a) => ({ key: a.key, count: a.count, label: a.label, tab: a.tab, level: a.level, jobs: a.jobs }));
+      const prev = Snap.get("today") || {};
+      Snap.put("today", { items: keep, up: upFresh ? el("todayUp").innerHTML : prev.up, next: upFresh ? nextUp : prev.next });
+    }, 500);
+  }
+
   // The lead sentence: "Two things are broken, seven are waiting on you, and the next picture day is Thursday with X."
   // For someone without full access it separates their own things from the office's: "Seven things need the office; two are yours."
   let nextUp = null; // from Bookings: [{picture_day, org, title, start, status}]
@@ -897,6 +972,7 @@
         return '<div class="today-up" data-booking="' + esc(b.id) + '"><div class="d">' + esc(Fmt.day(b.picture_day)) + '</div>' +
           '<div>' + esc(b.org_name || b.title || "") + '<div class="s">' + esc([b.type_label, b.location].filter(Boolean).join(", ")) + "</div>" + more + st + "</div></div>";
       }).join("") + '<p><a href="#jobs/bookings">All jobs</a></p>' : "<p>No picture days booked in the next 60 days. <a href=\"#jobs/bookings\">Book a job</a></p>";
+      upFresh = true;
     } catch (e) {
       el("todayUp").innerHTML = '<p class="muted">Could not load bookings.</p>';
     }
@@ -950,7 +1026,7 @@
     followups: "prospect follow-ups", prospects: "outreach to review", hubLate: "hub activity", requests: "help requests",
     makeups: "makeups", retakesNew: "retake requests", retakeDayTomorrow: "retake requests", dataQuality: "gallery search fields", syncFailed: "sync status" };
   function markUnchecked() {
-    const missing = attentionKeys().filter((k) => !attention[k] || attention[k].unchecked);
+    const missing = attentionKeys().filter((k) => !attention[k] || attention[k].unchecked || attention[k].snap);
     el("todayUnchecked").textContent = missing.length
       ? "Could not check " + missing.map((k) => ATTENTION_NAMES[k]).join(", ") + ". Open that page to see the error."
       : "";

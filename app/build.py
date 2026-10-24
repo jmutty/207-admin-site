@@ -59,6 +59,15 @@ bundle = ("/* 207 Admin -- built by admin-page/build.py. Do not edit; edit admin
 os.makedirs("dist", exist_ok=True)
 open("dist/207-admin.js", "w").write(bundle)
 subprocess.run(["node", "--check", "dist/207-admin.js"], check=True)
+# Speed (2026-10-24): the same file under a name that changes with its content, so phones keep it until the next
+# deploy (cached for a year; site/sw.js keeps it too), and current.json names it (never cached). site/loader.js
+# reads current.json and loads that file. dist/207-admin.js stays for the old loader.
+import hashlib
+for old in os.listdir("dist"):
+    if re.match(r"207-admin\.[0-9a-f]{12}\.js$", old): os.remove(os.path.join("dist", old))
+VERSIONED = "207-admin." + hashlib.sha256(bundle.encode()).hexdigest()[:12] + ".js"
+open("dist/" + VERSIONED, "w").write(bundle)
+open("dist/current.json", "w").write(json.dumps({"js": "v/" + VERSIONED}) + "\n")
 
 # 4. The Elementor loader (paste once; only changes if the file URL or supabase-js changes).
 loader = f"""<!-- 207 ADMIN (loader). The app is hosted at {APP_URL}
@@ -77,4 +86,4 @@ loader = f"""<!-- 207 ADMIN (loader). The app is hosted at {APP_URL}
 if re.search(r"[&<>]", loader.split("<script>")[1].split("</script>")[0]):
     sys.exit("FAIL: loader script contains characters WordPress may mangle")
 open("wordpress-embed.html", "w").write(loader)
-print(f"OK: dist/207-admin.js {len(bundle)//1024} KB, loader {len(loader)} bytes, {len(ids)} panels")
+print(f"OK: dist/207-admin.js {len(bundle)//1024} KB (v/{VERSIONED}), loader {len(loader)} bytes, {len(ids)} panels")

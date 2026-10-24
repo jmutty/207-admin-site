@@ -210,8 +210,25 @@
         },
       }[key];
       // A failing area shows its own error; the rest of the page still works.
-      cache[key] = run().catch((e) => { cache[key] = null; throw e; });
-      return cache[key];
+      // The last copy (Snap) answers at once; when the fresh rows differ the tab is drawn again with them.
+      // Not right after a fix made here (refresh()): then the tab waits for the fresh rows.
+      const sk = "org:" + id + ":" + key, snap = fresh.has(key) ? null : Snap.get(sk), stamp = Saves.stamp();
+      fresh.delete(key);
+      const p = run().then((v) => {
+        if (!O || O.id !== id || cache[key] !== shown) return v;
+        if (Snap.put(sk, v) && snap !== null && Saves.stamp() === stamp) { cache[key] = Promise.resolve(v); repaint(); }
+        return v;
+      }, (e) => { if (snap === null && cache[key] === shown) cache[key] = null; throw e; });
+      const shown = snap !== null ? Promise.resolve(snap) : p;
+      if (snap !== null) p.catch(() => {});
+      cache[key] = shown;
+      return shown;
+    }
+    const fresh = new Set();
+    let repaintQ = false;
+    function repaint() {
+      if (repaintQ) return; repaintQ = true;
+      requestAnimationFrame(() => { repaintQ = false; if (!O || currentTab !== "org" || Saves.any()) return; const box = el("opBody"); const f = focusMark(box); pick(curTab); focusBack(box, f); });
     }
     const quiet = (p) => p.catch(() => null);
     // Everything we did for them: booked jobs, plus GotPhoto jobs matched to them that have no booking (older seasons).
@@ -250,21 +267,27 @@
     // Moving from one partner to another (a link on this page) doesn't change the app tab.
     window.addEventListener("hashchange", () => setTimeout(() => { if (/^#partners\/org\//.test(location.hash) && currentTab === "org") show(); }, 0));
 
+    // The partner as last seen on this device shows at once (Snap), tabs included; fresh rows replace it when they differ.
     async function load(id, tab) {
-      const my = ++seq;
+      const my = ++seq, stamp = Saves.stamp(), snap = Snap.get("org:" + id);
       loadingId = id;
       Orgs.unembed();
-      root().innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>';
+      if (snap && snap.id) { O = snap; cache = {}; renderShell(); pick(tab || "overview"); }
+      else root().innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>';
       const { data: row, error } = await sb.from("prospect_orgs").select("*").eq("id", id).maybeSingle();
       if (my !== seq) return;
       loadingId = null;
+      if (error && snap && error.code !== "42501") return; // offline or a hiccup: keep showing the last copy
       if (error || !row) {
+        Snap.drop("org:" + id);
         root().innerHTML = '<div class="inline-error">' + esc(error ? (error.code === "42501" ? "You don't have access to partners. Ask Jeremiah to add the area on the Team page." : cleanErr(error)) : "That partner doesn't exist any more.") + "</div>";
         return;
       }
-      O = row; cache = {};
-      renderShell();
-      pick(tab || "overview");
+      if (snap && Saves.stamp() !== stamp) return; // an edit started meanwhile: the screen is newer
+      if (!Snap.put("org:" + id, row) && snap) return;
+      O = row;
+      if (!snap) cache = {};
+      const f = focusMark(root()); renderShell(); pick(snap ? curTab : tab || "overview"); focusBack(root(), f);
     }
 
     function renderShell() {
@@ -426,7 +449,7 @@
     }
     const goTab = (id) => pick(id);
     // After a fix made on this page: drop the cached rows and draw the tab again.
-    function refresh(keys) { (keys || Object.keys(cache)).forEach((k) => { delete cache[k]; }); if (O && currentTab === "org") pick(curTab); }
+    function refresh(keys) { (keys || Object.keys(cache)).forEach((k) => { delete cache[k]; fresh.add(k); }); if (O && currentTab === "org") pick(curTab); }
     const loading = (box) => { box.innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>'; };
 
     // The shared actions behind buttons on several tabs. Resolves when done.
