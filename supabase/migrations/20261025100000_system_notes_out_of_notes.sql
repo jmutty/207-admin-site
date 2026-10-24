@@ -11,6 +11,12 @@
 -- From here on partner_merge() writes kind 'merge', so merges never land in the notes again. Notes people type in
 -- the app stay kind 'note'.
 
+-- The two new kinds are allowed alongside the old ones.
+alter table public.prospect_activities drop constraint if exists prospect_activities_kind_check;
+alter table public.prospect_activities add constraint prospect_activities_kind_check check (kind = any (array[
+  'email_sent', 'reply', 'bounce', 'unsubscribe', 'note', 'stage_change', 'followup_set', 'followup_done', 'history_email',
+  'open', 'click', 'merge', 'system_note']));
+
 update public.prospect_activities set kind = 'merge'
  where kind = 'note' and (body like 'Merged in "%' or body like 'Merged into "%');
 
