@@ -258,6 +258,10 @@
     .aca .sc-problems ul { margin: 6px 0 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; }
     .aca .sc-problems li { padding: 3px 0; line-height: 18px; }
     .aca .sc-problems li button.link { font-weight: 600; padding: 0; height: auto; margin-right: 4px; }
+    .aca .sc-problems li button.sc-pdis, .aca .sc-problems button.sc-pshow { font-weight: 400; font-size: 12px; color: var(--muted); margin: 0 0 0 6px; padding: 0; height: auto; }
+    .aca .sc-problems li button.sc-pdis:hover, .aca .sc-problems button.sc-pshow:hover { color: var(--text); text-decoration: underline; }
+    .aca .sc-problems ul.sc-pgone { border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 4px; }
+    .aca .sc-problems li.off { color: var(--muted); }
     .aca .sc-pills { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
     .aca .sc-pill { display: inline-block; font-size: 11px; font-weight: 600; line-height: 16px; padding: 0 6px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
     .aca .sc-pill.quiet { font-weight: 400; color: var(--faint); }
@@ -463,7 +467,7 @@
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
       '<div class="sc-sum hidden" id="aca-scPeak"></div></details>' +
       '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the 207 Photo Booking Google Calendar that aren&#39;t bookings show under From Google Calendar (bookings are never shown twice), and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off. Untick Google Calendar to hide them.</p>' +
-        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">View schedule shows the email a person would get with their next two weeks (days that changed since they were last told are marked) and sends it to them from there.</span> Each job&#39;s Lead (or its Editor, picked on the job page) gets Flex time for editing (an hour for the first hour of shooting, 30 minutes for each hour after), due 24 hours after the shoot. It goes right after they get home if there&#39;s room before 9pm and their day stays at 8 hours or less, otherwise the next morning after a 12 hour break; they can move it. Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
+        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Dismiss one that is a non-issue and it stops counting for everyone; it comes back on its own if the thing behind it changes (a longer drive, a renamed event), and Show dismissed lists them with Bring back. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">View schedule shows the email a person would get with their next two weeks (days that changed since they were last told are marked) and sends it to them from there.</span> Each job&#39;s Lead (or its Editor, picked on the job page) gets Flex time for editing (an hour for the first hour of shooting, 30 minutes for each hour after), due 24 hours after the shoot. It goes right after they get home if there&#39;s room before 9pm and their day stays at 8 hours or less, otherwise the next morning after a 12 hour break; they can move it. Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     // Phones open on a list of today and tomorrow (2026-10-23, Jeremiah's pick); the grids are one tap away.
@@ -1101,16 +1105,35 @@
     const dueAt = (e) => e.edit_due ? T.fmtDay(T.local(e.edit_due).day) + " " + T.fmtTs(e.edit_due) : "";
     const pastDue = (e) => !!e.edit_due && new Date(e.ends_at) > new Date(e.edit_due);
     const dueTip = (e) => e.edit_due ? "\nDue " + dueAt(e) + (pastDue(e) ? " (this ends after it’s due)" : "") : "";
+    // Dismissed problems (2026-10-24): known by day + words, so a change to the thing behind one brings it back.
+    const isDismissed = (x) => (data && data.dismissed || []).some((d) => d.day === x.day && d.text === x.text);
+    let showDismissed = false;
     function renderProblems() {
-      const list = problems(), btn = el("scProbBtn"), box = el("scProblems");
+      const all = problems(), list = all.filter((x) => !isDismissed(x)), gone = all.filter(isDismissed), btn = el("scProbBtn"), box = el("scProblems");
       btn.textContent = list.length ? list.length + " problem" + (list.length === 1 ? "" : "s") : "No problems";
       btn.classList.toggle("bad", list.length > 0);
       btn.classList.toggle("hidden", view === "weeks8");
-      btn.setAttribute("aria-expanded", String(probOpen && list.length > 0));
-      box.classList.toggle("hidden", !probOpen || !list.length || view === "weeks8");
-      if (!probOpen || !list.length) return;
-      box.innerHTML = '<div class="sc-probhd"><b>Things to look at</b> <span class="muted">from today on, ' + (view === "month" ? "this month" : view === "day" ? "this day" : view === "list" ? "these days" : "on screen") + "</span></div><ul>" +
-        list.map((x) => '<li><button type="button" class="link" data-pday="' + esc(x.day) + '"' + (x.booking ? ' data-pbook="' + esc(x.booking) + '"' : "") + ">" + esc(T.fmtDay(x.day, { calendar: true })) + "</button> " + esc(x.text) + "</li>").join("") + "</ul>";
+      const open = probOpen && (list.length > 0 || gone.length > 0) && view !== "weeks8";
+      btn.setAttribute("aria-expanded", String(open));
+      box.classList.toggle("hidden", !open);
+      if (!open) return;
+      const ed = editable();
+      const row = (x, off) => '<li' + (off ? ' class="off"' : "") + '><button type="button" class="link" data-pday="' + esc(x.day) + '"' + (x.booking ? ' data-pbook="' + esc(x.booking) + '"' : "") + ">" + esc(T.fmtDay(x.day, { calendar: true })) + "</button> " + esc(x.text) +
+        (ed ? ' <button type="button" class="link sc-pdis" data-pdis="' + (off ? "0" : "1") + '" data-day="' + esc(x.day) + '" data-text="' + esc(x.text) + '">' + (off ? "Bring back" : "Dismiss") + "</button>" : "") + "</li>";
+      box.innerHTML = '<div class="sc-probhd"><b>Things to look at</b> <span class="muted">from today on, ' + (view === "month" ? "this month" : view === "day" ? "this day" : view === "list" ? "these days" : "on screen") + "</span>" +
+        (gone.length ? ' <button type="button" class="link sc-pshow" data-pshow="1">' + (showDismissed ? "Hide" : "Show") + " " + gone.length + " dismissed</button>" : "") + "</div>" +
+        (list.length ? "<ul>" + list.map((x) => row(x, false)).join("") + "</ul>" : '<p class="sc-note">Nothing left to look at.</p>') +
+        (showDismissed && gone.length ? '<ul class="sc-pgone">' + gone.map((x) => row(x, true)).join("") + "</ul>" : "");
+    }
+    async function dismissProblem(b) {
+      const on = b.dataset.pdis === "1", day = b.dataset.day, text = b.dataset.text;
+      b.disabled = true;
+      const { error } = await sb.rpc("schedule_problem_dismiss", { p_day: day, p_text: text, p_on: on });
+      b.disabled = false;
+      if (error) return toast(cleanErr(error), true);
+      const rest = (data.dismissed || []).filter((d) => !(d.day === day && d.text === text));
+      data.dismissed = on ? rest.concat([{ day, text }]) : rest;
+      renderProblems();
     }
 
     // ---- map beside the day and week
@@ -1346,6 +1369,9 @@
       if (w8) { anchor = w8.dataset.w8week; highlight = null; setView("week"); window.scrollTo(0, 0); return; }
       const w8b = e.target.closest("[data-w8b]");
       if (w8b) { anchor = highlight = w8b.dataset.day; pendingAssign = { id: w8b.dataset.w8b, day: w8b.dataset.day }; setView("week"); window.scrollTo(0, 0); return; }
+      const pdis = e.target.closest("[data-pdis]");
+      if (pdis) { dismissProblem(pdis); return; }
+      if (e.target.closest("[data-pshow]")) { showDismissed = !showDismissed; renderProblems(); return; }
       const pd = e.target.closest("[data-pday]");
       if (pd) {
         const b = pd.dataset.pbook && data.bookings.find((x) => x.booking_id === pd.dataset.pbook && x.day === pd.dataset.pday);
