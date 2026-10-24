@@ -754,12 +754,16 @@
 
   // Help (2026-10-24): who to ask, by name, with a phone and email people can copy (help_contacts).
   // askWho("Ask", "to add the area on the Team page.") -> "Ask Jeremiah to add the area on the Team page."
+  // Jeremiah (2026-10-24): Help lists only him, for everyone, not every full-access person.
+  const HELP_EMAIL = "jmutty@207photo.com";
   let HELP = [];
   async function loadHelpContacts() {
     try {
       const { data, error } = await supabase.rpc("help_contacts");
       if (error) throw error;
-      HELP = Array.isArray(data) ? data : [];
+      const all = Array.isArray(data) ? data : [];
+      const me = all.filter((h) => (h.email || "").toLowerCase() === HELP_EMAIL);
+      HELP = me.length ? me : all.slice(0, 1);
     } catch (_e) { HELP = []; }
     const box = el("whoHelp"); if (!box) return;
     const others = HELP.filter((h) => (h.email || "").toLowerCase() !== (ACCESS.email || "").toLowerCase());
