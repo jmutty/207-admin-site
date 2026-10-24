@@ -1498,7 +1498,7 @@
         '<div class="row2"><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(en) + '" /></div></div>' +
         driveHtml(already[0] && !already[0].batch_id ? already[0].drive_before_min : 30, already[0] && !already[0].batch_id ? already[0].drive_after_min : 30,
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
-        (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home: theirs is looked up for each of them when you add them.</p>' : "") + "</details>" +
+        (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home. Ticking one person shows their drive here; with several ticked, each gets their own.</p>' : "") + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
@@ -1519,14 +1519,34 @@
           (line ? '<span class="s ' + lvl + '">' + esc(line) + "</span>" : "") + "</span>" + roleSel(first, "sc-role") + "</li>";
       }).join("") || '<li><span></span><span class="muted">Everyone is already on it.</span><span></span></li>';
       const free = data.people.filter((p) => !already.some((e) => e.user_id === p.user_id)).map((p) => Object.assign({}, p, { roles: p.roles || [] }));
+      // The drive boxes follow who is ticked (2026-10-24, Jeremiah: "Drive time isn't changing when I choose"):
+      // one person from home shows their own minutes; several list each person's.
+      const homeMin = {};
+      const msgEl = m.querySelector(".sc-drivemsg");
+      function followPick() {
+        const ids = [...pick.querySelectorAll("input:checked")].map((x) => x.value);
+        const home = ids.filter((id) => fromHome(id) && homeMin[id] != null);
+        if (!home.length) return;
+        if (ids.length === 1) {
+          const mins = round5(homeMin[ids[0]]);
+          m.querySelector(".sc-db").value = mins; m.querySelector(".sc-da").value = mins;
+          msgEl.textContent = personName(ids[0]) + ": " + homeMin[ids[0]] + " min from home. Rounded up to " + mins + ".";
+        } else {
+          msgEl.textContent = "Each person gets their own drive: " + ids.map((id) => personName(id) + " " + (home.includes(id) ? round5(homeMin[id]) + " min from home" : "uses the minutes above")).join(", ") + ".";
+        }
+        timesTxt();
+      }
+      pick.addEventListener("change", followPick);
       CrewPick.options(b.booking_id, b.day).then((cp) => {
         const byId = new Map(cp.people.map((p) => [p.user_id, p]));
+        cp.people.forEach((p) => { if (p.home_min != null) homeMin[p.user_id] = p.home_min; });
         const rank = (p) => (p.off ? 3 : p.declined ? 2 : p.asked_off || (p.busy || []).length ? 1 : 0);
         const list = free.map((p) => Object.assign({}, byId.get(p.user_id) || { roles: p.roles, busy: [] }, { name: p.name, user_id: p.user_id }))
           .sort((x, y) => rank(x) - rank(y) || (x.home_min == null ? 1e4 : x.home_min) - (y.home_min == null ? 1e4 : y.home_min) || x.name.localeCompare(y.name));
         const was = new Set([...pick.querySelectorAll("input:checked")].map((x) => x.value));
         pick.innerHTML = rows(list, cp);
         pick.querySelectorAll("input[type=checkbox]").forEach((x) => { x.checked = was.has(x.value); });
+        followPick();
       }).catch(() => { pick.innerHTML = rows(free, null); });
       const needIn = el("scNeed"), need0 = needIn.value;
       async function saveNeed() {

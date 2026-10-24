@@ -932,6 +932,16 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const cs = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_needed_set" && c[1].p_booking === "bk1" && c[1].p_needed === 4)), "people needed saves");
     check(cs.length === 1 && cs[0].user_id === "u5" && cs[0].role_id === "r3", "puts them on with their role: " + JSON.stringify(cs));
+    // The drive boxes follow who is ticked: one person from home shows their own minutes
+    await page.waitForSelector(".modal-wrap", { state: "detached" }).catch(() => {});
+    await page.click('.sc-jobs [data-booking="bk4"]');
+    await page.waitForSelector('.sc-modal .sc-pick input[value="u2"]');
+    await page.waitForTimeout(100);
+    await page.check('.sc-modal .sc-pick input[value="u2"]');
+    check((await page.inputValue(".sc-modal .sc-db")) === "45" && (await page.textContent(".sc-modal .sc-drivemsg")).includes("41 min from home"), "ticking someone who drives from home shows their drive: " + (await page.inputValue(".sc-modal .sc-db")));
+    await page.check('.sc-modal .sc-pick input[value="u1"]');
+    check((await page.textContent(".sc-modal .sc-drivemsg")).includes("Each person gets their own drive"), "several ticked: each gets their own");
+    await page.click('.sc-modal [data-m="cancel"]');
     // Bulk assign: Ctrl-click several jobs, then put the same person on all of them
     const openIds = await page.$$eval(".sc-jobs .sc-chip[data-booking]", (xs) => [...new Set(xs.map((x) => x.dataset.booking))].filter((x) => x !== "bk3").slice(0, 2));
     for (const id of openIds) await page.click('.sc-jobs [data-booking="' + id + '"]', { modifiers: ["Control"] });
