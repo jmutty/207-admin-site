@@ -107,6 +107,11 @@
   .aca button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   .aca button.primary:hover:not(:disabled) { background: var(--accent-hover); }
   .aca button.small { height: 28px; padding: 0 10px; font-size: 13px; }
+  .aca .ra { display: flex; gap: 6px; justify-content: flex-end; align-items: center; white-space: nowrap; }
+  .aca .ra-more { width: 30px; padding: 0; justify-content: center; font-size: 17px; letter-spacing: 1px; }
+  .aca .ra-menu { position: fixed; z-index: 60; min-width: 170px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+  .aca .ra-menu button { display: flex; width: 100%; text-align: left; border: 0; background: transparent; height: auto; padding: 8px 10px; font-weight: 400; border-radius: 4px; }
+  .aca .ra-menu button:hover:not(:disabled) { background: var(--surface-2); }
   .aca button.link, .aca button.quiet { border-color: transparent; background: transparent; color: var(--muted); padding: 0 8px; }
   .aca button.link { padding: 0; height: auto; font-weight: 400; color: var(--text); }
   .aca button.link:hover:not(:disabled) { background: transparent; text-decoration: underline; text-decoration-color: var(--accent); }

@@ -95,8 +95,9 @@
   .aca .bk-facts { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; font-size: 13px; }
   .aca .bk-facts > span:nth-child(odd) { color: var(--muted); font-size: 12.5px; }
   .aca .bk-emails td { padding: 7px 8px; font-size: 12.5px; vertical-align: top; }
-  .aca .bk-emails td.bk-act { white-space: nowrap; }
-  .aca .bk-emails td.bk-act button { margin-left: 4px; }
+  .aca .bk-emails td.bk-act { width: 1%; white-space: nowrap; padding-top: 4px; }
+  .aca .bk-emails tr.bk-mrow { cursor: pointer; }
+  .aca .bk-emails tr.bk-mrow:hover td { background: var(--surface-2); }
   .aca .bk-mail { font-size: 14px; line-height: 1.55; max-width: 640px; }
   .aca .bk-mail p { margin: 0 0 12px; } .aca .bk-mail ul { margin: 0 0 12px 20px; padding: 0; } .aca .bk-mail blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--surface-2); }
   .aca .bk-mail-head { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
@@ -215,7 +216,7 @@
     .aca .bk-cards { grid-template-columns: 1fr; }
     .aca .bk-addc { grid-template-columns: 1fr 1fr; }
     .aca .bk-facts { grid-template-columns: 1fr; }
-    .aca .bk-emails td.bk-act { white-space: normal; } .aca .bk-emails td.bk-act button { min-height: 40px; margin: 2px 4px 2px 0; }
+    .aca .bk-emails td.bk-act .ra-more { width: 44px; }
   }`;
   const styleTag = document.createElement("style"); styleTag.textContent = css; document.head.appendChild(styleTag);
 
@@ -1355,14 +1356,13 @@
         (live && can ? ' <button type="button" class="small quiet" data-v="whorm" data-cid="' + esc(c.id) + '" data-who="' + esc(c.name || c.email || "") + '">Remove</button>' : "") + "</div>").join("") || '<span class="pill err">Nobody to email</span>') +
         (live && can ? '<div class="bk-sub" style="margin-top:4px">Add people with Edit booking at the top.</div>' : "") + "</div>"]);
       parts.push(["emails", `<div class="bk-sec bk-mailsec${mailFolded ? " folded" : ""}"><h3><button type="button" class="bk-mailtog" data-v="mailfold" aria-expanded="${!mailFolded}"><span class="sl-chev"></span> Emails</button> <span class="bk-sub">${mailSummary(b)}</span></h3>
-        <div class="table-wrap bk-mailbody"><table class="bk-emails"><tbody>${emails.map((e, i) => '<tr><td><strong>' + esc((i + 1) + ". " + (e.label || "")) + ((b.days || []).length > 1 && e.day_index != null && b.days[e.day_index] ? " (" + esc(fmtDay(b.days[e.day_index].day)) + (b.days[e.day_index].label ? ", " + esc(b.days[e.day_index].label) : "") + ")" : "") + '</strong>' + (e.kind === "hub" ? ' <span class="pill accent">Hub</span>' : e.kind === "coach" ? ' <span class="pill accent">Coach</span>' : "") + (e.is_resend ? ' <span class="pill muted">resend</span>' : "") +
+        <div class="table-wrap bk-mailbody"><table class="bk-emails"><tbody>${emails.map((e, i) => '<tr class="bk-mrow" title="Click to read the email"><td><strong>' + esc((i + 1) + ". " + (e.label || "")) + ((b.days || []).length > 1 && e.day_index != null && b.days[e.day_index] ? " (" + esc(fmtDay(b.days[e.day_index].day)) + (b.days[e.day_index].label ? ", " + esc(b.days[e.day_index].label) : "") + ")" : "") + '</strong>' + (e.kind === "hub" ? ' <span class="pill accent">Hub</span>' : e.kind === "coach" ? ' <span class="pill accent">Coach</span>' : "") + (e.is_resend ? ' <span class="pill muted">resend</span>' : "") +
           '<div class="bk-sub">to ' + (e.kind === "coach" ? esc((e.to_emails || []).join(", ") || "the coaches on file (none yet)") : esc(e.to_name || "") + " " + esc(e.to_email || "")) + ((e.cc_emails || []).length ? ' <span class="muted">cc ' + esc((e.cc_emails || []).join(", ")) + "</span>" : "") + "</div>" +
           (e.status === "sent" ? '<div class="bk-sub">sent ' + esc(fmtWhen(e.sent_at)) + "</div>" : e.send_at && e.status === "scheduled" ? '<div class="bk-sub">' + esc(fmtWhen(e.send_at)) + "</div>" : "") +
           (e.reason && e.status !== "sent" ? '<div class="bk-sub">' + esc(e.reason) + "</div>" : "") + (e.error ? '<div class="bk-sub" style="color:var(--err-fg)">' + esc(e.error) + "</div>" : "") + "</td>" +
           "<td>" + statusPill(e) + "</td>" +
-          '<td class="bk-act"><button type="button" class="small" data-em="' + esc(e.id) + '" data-v="preview">Preview</button>' +
-          (live && can && ["scheduled", "waiting", "failed", "skipped"].includes(e.status) ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="sendnow">Send now</button>' : "") +
-          (live && can && e.status === "sent" ? '<button type="button" class="small" data-em="' + esc(e.id) + '" data-v="resend">Resend</button>' : "") + "</td></tr>").join("") || '<tr><td class="empty">No emails.</td></tr>'}</tbody></table></div>
+          '<td class="bk-act">' + rowActs(live && can && ["scheduled", "waiting", "failed", "skipped"].includes(e.status) ? { v: "sendnow", label: "Send now", primary: e.status === "failed", attrs: ' data-em="' + esc(e.id) + '"' } :
+            live && can && e.status === "sent" ? { v: "resend", label: "Resend", attrs: ' data-em="' + esc(e.id) + '"' } : null, [{ v: "preview", label: "Preview", attrs: ' data-em="' + esc(e.id) + '"' }]) + "</td></tr>").join("") || '<tr><td class="empty">No emails.</td></tr>'}</tbody></table></div>
       </div>`]);
     }
     // Sections other modules add (team times and the like), each after the one it names.
@@ -1560,6 +1560,11 @@
     const r = await Saves.run("dlv", () => sb.rpc("booking_deliverable_update", { p_id: cb.dataset.dlv, p: { status: done ? "done" : "todo" } }), () => { cb.checked = !done; });
     if (!r || Saves.busy("dlv")) return;
     await refreshDetail(); load(true); loadAttention();
+  });
+  // A click anywhere on an email row (not on its buttons) opens the preview, like its ... menu's Preview.
+  h.addEventListener("click", (e) => {
+    const tr = e.target.closest("tr.bk-mrow"); if (!tr || e.target.closest("button, a, .ra") || String(window.getSelection() || "")) return;
+    const p = tr.querySelector('button[data-v="preview"]'); if (p) p.click();
   });
   h.addEventListener("click", async (e) => {
     const b = e.target.closest("button[data-v]"); if (!b) return;
