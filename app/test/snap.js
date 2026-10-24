@@ -65,6 +65,24 @@ const PAGES = [
     await page.close();
   }
 
+  console.log("A job starts loading when the pointer rests on its row");
+  {
+    const page = await ctx.newPage(); watch(page);
+    await page.goto(url("?slow=1500", "#jobs/bookings"));
+    await page.waitForSelector("#aca-bkBody tr[data-id]");
+    await page.waitForTimeout(1800);
+    const jobs = () => page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "job_get").length);
+    const before = await jobs();
+    await page.hover("#aca-bkBody tr[data-id]");
+    await page.waitForTimeout(300);
+    check((await jobs()) === before + 1, "hovering a row asks for the job (" + before + " -> " + (await jobs()) + ")");
+    await page.click("#aca-bkBody tr[data-id] td:nth-child(2)");
+    await page.waitForTimeout(2000);
+    check((await jobs()) === before + 1, "opening it uses that answer, no second ask (" + (await jobs()) + ")");
+    check(/Overview/.test(await page.$eval("#aca-panel-job", (n) => n.innerText)), "the job page is up");
+    await page.close();
+  }
+
   console.log("Another person on this device never sees the copies");
   {
     const page = await ctx.newPage(); watch(page);

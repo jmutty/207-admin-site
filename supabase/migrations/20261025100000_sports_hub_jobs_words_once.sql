@@ -1,4 +1,4 @@
--- Speed, part two (2026-10-24): after 20261025070000 the view still took ~0.75 s, nearly all of it in
+-- Speed, part two (2026-10-24): after 20261025070000_sports_hub_jobs_faster the view still took ~0.75 s, nearly all of it in
 -- sports_hub_tokens(), which ran ~4,000 times (for every job x calendar event pair: the title words twice and the
 -- type-part words four times). Each job's and each calendar title's words are now worked out once (win, ev), and
 -- sports_hub_type_part() is spelled out on those words. Same columns, rows and order.

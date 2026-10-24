@@ -245,6 +245,32 @@
     }
     return { get, put, drop, clear, user };
   })();
+  // Early (speed, 2026-10-24): a job or partner starts loading the moment a finger or the pointer lands on its link or
+  // row, so the page has its answer by the time the click opens it. Early.take(key) hands over an answer under 15 s old.
+  const Early = (function () {
+    const got = new Map(), FRESH = 15000;
+    function start(key, fn) {
+      const g = got.get(key);
+      if (g && Date.now() - g.t < FRESH) return;
+      const p = Promise.resolve(fn()); p.catch(() => {});
+      got.set(key, { t: Date.now(), p });
+    }
+    function take(key) { const g = got.get(key); got.delete(key); return g && Date.now() - g.t < FRESH ? g.p : null; }
+    const JOB = 'a[href^="#jobs/job/"], #aca-bkBody tr[data-id], #aca-todayList [data-job], #aca-todayUp [data-booking]';
+    const ORG = 'a[href^="#partners/org/"], #aca-ogBody tr.og-row[data-id]';
+    function onPoint(e) {
+      const t = e.target && e.target.closest ? e.target : null; if (!t) return;
+      const j = t.closest(JOB), o = !j && t.closest(ORG);
+      const idOf = (n, re) => (n.tagName === "A" ? decodeURIComponent((re.exec(n.getAttribute("href")) || [])[1] || "") : n.dataset.id || n.dataset.job || n.dataset.booking || "");
+      if (j) { const id = idOf(j, /^#jobs\/job\/([^/]+)/); if (id) start("job:" + id, () => supabase.rpc("job_get", { p_booking: id })); }
+      if (o && canSee("partners")) { const id = idOf(o, /^#partners\/org\/([^/]+)/); if (id) start("org:" + id, () => supabase.from("prospect_orgs").select("*").eq("id", id).maybeSingle()); }
+    }
+    // A tap or press starts at once; the pointer passing over a list only once it rests on a row for a moment.
+    let hover = null;
+    document.addEventListener("pointerdown", onPoint, true);
+    document.addEventListener("mouseover", (e) => { clearTimeout(hover); hover = setTimeout(() => onPoint(e), 120); }, true);
+    return { take };
+  })();
   // When a section redraws while someone is in one of its fields (a save finished, fresh data came in), put them back
   // in the same field with what they had typed: const f = focusMark(box); box.innerHTML = ...; focusBack(box, f).
   function focusMark(root) {

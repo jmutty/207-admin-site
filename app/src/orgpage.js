@@ -149,7 +149,8 @@
     const trailA = (href, text, style) => '<a href="' + esc(href) + '" data-trail="1"' + (style ? ' style="' + style + '"' : "") + ">" + text + "</a>";
 
     // ---------------------------------------------------------------- data, loaded once per partner and shared by the tabs
-    // Each loader returns this partner's rows from the page-wide RPC (or [] without access).
+    // Each loader returns this partner's rows from the page-wide RPC (or [] without access). Results, rebooking and the
+    // outbox are asked for this partner only (p_org, speed 2026-10-24); the filters below stay as a second check.
     function data(key) {
       if (cache[key]) return cache[key];
       const id = O.id, name = (O.name || "").toLowerCase();
@@ -166,13 +167,13 @@
         },
         results: async () => {
           if (!canSee("results")) return { jobs: [], terms: null };
-          const [j, p] = await Promise.all([sb.rpc("results_jobs"), sb.rpc("results_partners")]);
+          const [j, p] = await Promise.all([sb.rpc("results_jobs", { p_org: id }), sb.rpc("results_partners")]);
           if (j.error) throw j.error;
           return { jobs: (j.data || []).filter((x) => x.org_id === id), terms: ((p && p.data) || []).find((x) => x.id === id) || null };
         },
         rebook: async () => {
           if (!canSee("partners")) return null;
-          const { data: d } = await sb.rpc("partner_rebook_list");
+          const { data: d } = await sb.rpc("partner_rebook_list", { p_org: id });
           return (d || []).find((x) => x.org_id === id) || null;
         },
         reviews: async () => {
@@ -188,7 +189,7 @@
         },
         outbox: async () => {
           if (!canSee("partners")) return [];
-          const [{ data: d, error }, bks] = await Promise.all([sb.rpc("admin_outbox"), data("bookings")]);
+          const [{ data: d, error }, bks] = await Promise.all([sb.rpc("admin_outbox", { p_org: id }), data("bookings")]);
           if (error) throw error;
           const ids = new Set(bks.map((b) => b.id));
           return (d || []).filter((x) => x.org_id === id || (x.booking_id && ids.has(x.booking_id)) || (!x.org_id && (x.org || "").toLowerCase() === name));
@@ -274,7 +275,7 @@
       Orgs.unembed();
       if (snap && snap.id) { O = snap; cache = {}; renderShell(); pick(tab || "overview"); }
       else root().innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>';
-      const { data: row, error } = await sb.from("prospect_orgs").select("*").eq("id", id).maybeSingle();
+      const { data: row, error } = await (Early.take("org:" + id) || sb.from("prospect_orgs").select("*").eq("id", id).maybeSingle());
       if (my !== seq) return;
       loadingId = null;
       if (error && snap && error.code !== "42501") return; // offline or a hiccup: keep showing the last copy

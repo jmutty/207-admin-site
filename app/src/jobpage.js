@@ -247,7 +247,7 @@
       loadingId = id;
       if (snap && snap.booking) { J = snap; people = null; renderShell(); pick(tab || "overview"); }
       else root().innerHTML = '<div class="empty"><span class="spin"></span>Loading&#8230;</div>';
-      const { data, error } = await sb.rpc("job_get", { p_booking: id });
+      const { data, error } = await (Early.take("job:" + id) || sb.rpc("job_get", { p_booking: id }));
       if (my !== seq) return;
       loadingId = null;
       if (error && snap && error.code !== "42501") return; // offline or a hiccup: keep showing the last copy
