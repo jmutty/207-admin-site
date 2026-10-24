@@ -713,7 +713,8 @@
       // The partner's name is left off the job name here since we're on their page; a member's job (on a group's page) starts with the member's name.
       const jobCard = (b) => {
         const t = b.start_at && typeof Fmt.time === "function" ? safe(() => Fmt.time(b.start_at)) : "";
-        const name = b.title_label || String(b.title || "Job").replace(new RegExp("\\s*\u2022\\s*" + O.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"), "") || "Job";
+        const on = O.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const name = b.title_label || String(b.title || "Job").replace(new RegExp("^" + on + "\\s*\u2022\\s*|\\s*\u2022\\s*" + on + "$"), "") || "Job";
         const how = [b.stage ? b.stage : b.status === "tracked" ? "Tracking only" : "", b.status === "booked" && num(b.emails_total) ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" \u00b7 ");
         return '<a class="op-job" href="' + jobLink(b.id) + '"><span class="d">' + esc(Fmt.days(b)) + (t ? "<small>" + esc(t) + "</small>" : "") + '</span><span><span class="h">' + (b.org_id && b.org_id !== O.id ? esc(b.org_name || "") + ": " : "") + esc(name) + "</span>" +
           (b.location ? '<span class="s">' + esc(b.location) + "</span>" : "") + (how ? '<span class="s">' + esc(how) + "</span>" : "") + "</span></a>";
