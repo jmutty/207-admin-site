@@ -239,6 +239,103 @@
     .aca .sc-help { font-size: 12.5px; color: var(--muted); margin: 10px 0 12px; }
     .aca .sc-help summary { cursor: pointer; font-weight: 600; }
     .aca .sc-help p { margin: 6px 0 0; line-height: 19px; }
+    /* Schedule views (2026-10-24): options row, pills, cards (week / 2 weeks), month, problems, map */
+    .aca .sc-bar2 { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; margin: -4px 0 10px; font-size: 13px; }
+    .aca .sc-bar2 .grow { flex: 1; }
+    .aca .sc-opt { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; font-size: 13px; white-space: nowrap; cursor: pointer; }
+    .aca .sc-opt input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
+    .aca .sc-opt select { height: 28px; font-size: 12.5px; padding: 0 6px; }
+    .aca .sc-opt .s { color: var(--faint); font-size: 12px; }
+    .aca .sc-probbtn.bad { border-color: var(--err-fg); color: var(--err-fg); font-weight: 600; }
+    .aca .sc-w8 .sc-bar2 > :not(.sc-calbtn), .aca .sc-w8 .sc-map, .aca .sc-w8 #aca-scProblems, .aca .sc-w8 #aca-scColKey { display: none !important; }
+    .aca .sc-colkey { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin: -4px 0 8px; }
+    .aca .sc-colkey i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+    .aca .sc-problems { border: 1px solid var(--border); border-left: 3px solid var(--err-fg); border-radius: 4px; background: var(--surface); padding: 8px 12px; margin: 0 0 10px; font-size: 13px; }
+    .aca .sc-problems ul { margin: 6px 0 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; }
+    .aca .sc-problems li { padding: 3px 0; line-height: 18px; }
+    .aca .sc-problems li button.link { font-weight: 600; padding: 0; height: auto; margin-right: 4px; }
+    .aca .sc-pills { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+    .aca .sc-pill { display: inline-block; font-size: 11px; font-weight: 600; line-height: 16px; padding: 0 6px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+    .aca .sc-pill.quiet { font-weight: 400; color: var(--faint); }
+    .aca .sc-pill.bad { background: var(--err-bg); border-color: transparent; color: var(--err-fg); }
+    .aca .sc-pill.wx { background: #e8f0fb; border-color: transparent; color: #24528a; }
+    .aca .sc-wx { color: #24528a; }
+    .aca .sc-st { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: 0; background: #fff; }
+    .aca .sc-st.on { background: #4cd07a; box-shadow: 0 0 0 1px #fff; } .aca .sc-st.done { background: #c9d4e2; } .aca .sc-st.late { background: #ff6b5a; box-shadow: 0 0 0 1px #fff; }
+    .aca .sc-edge { position: absolute; bottom: 3px; transform: translateX(-100%); font-size: 11px; color: var(--muted); white-space: nowrap; padding-right: 2px; }
+    .aca .sc-edge.end, .aca .sc-edge.near { transform: none; padding: 0 0 0 2px; }
+    .aca .sc-now { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--accent); z-index: 2; pointer-events: none; }
+    .aca .sc-main { display: block; }
+    .aca .sc-withmap .sc-main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: start; }
+    .aca .sc-map { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); position: sticky; top: 8px; font-size: 13px; overflow: hidden; }
+    .aca .sc-maphd { padding: 8px 10px; border-bottom: 1px solid var(--line2); }
+    .aca .sc-mapimg, .aca .sc-mapsvg { display: block; width: 100%; height: auto; }
+    .aca .sc-maperr { padding: 0 10px; color: #8a6100; }
+    .aca .sc-routes { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 10px 0; font-size: 12.5px; }
+    .aca .sc-routes i { display: inline-block; width: 12px; height: 4px; border-radius: 2px; margin-right: 5px; vertical-align: 2px; }
+    .aca .sc-maplist { list-style: none; margin: 0; padding: 6px 10px 10px; max-height: 260px; overflow: auto; }
+    .aca .sc-maplist li { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; line-height: 17px; }
+    .aca .sc-maplist .pin { flex: none; width: 18px; height: 18px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; text-align: center; line-height: 18px; }
+    .aca .sc-maplist small { display: block; color: var(--muted); font-size: 12px; }
+    .aca .scc-grid { display: grid; grid-template-columns: 150px repeat(var(--cols), minmax(118px, 1fr)) 92px; min-width: calc(242px + var(--cols) * 118px); }
+    .aca .scc-grid.two { grid-template-columns: 130px repeat(var(--cols), minmax(84px, 1fr)) 84px; min-width: calc(214px + var(--cols) * 84px); }
+    .aca .scc-grid > div { border-bottom: 1px solid var(--line2); border-left: 1px solid var(--line2); min-width: 0; }
+    .aca .scc-name { position: sticky; left: 0; z-index: 3; background: var(--surface); border-left: 0 !important; padding: 8px 10px; font-size: 13px; }
+    .aca .scc-name b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .aca .scc-name .sc-hrs, .aca .scc-tot .sc-hrs { display: block; font-size: 12px; color: var(--muted); }
+    .aca .scc-tot { padding: 8px; font-size: 12.5px; text-align: right; }
+    .aca .scc-hrow { background: var(--surface-2); font-weight: 600; }
+    .aca .scc-head { padding: 6px 8px; font-size: 12.5px; font-weight: 600; background: var(--surface-2); }
+    .aca .scc-head.today { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+    .aca .scc-head.hl { background: var(--accent-soft, #e6f0fb); box-shadow: inset 0 0 0 2px var(--accent); }
+    .aca .scc-head button.link { font-weight: 600; font-size: 12.5px; padding: 0; height: auto; }
+    .aca .scc-lane { padding: 5px; display: flex; flex-direction: column; gap: 4px; background: var(--surface-2); }
+    .aca .scc-cell { padding: 4px; display: flex; flex-direction: column; gap: 4px; min-height: 52px; }
+    .aca .scc-cell.today { background: #fffaf4; }
+    .aca button.scc-card { --cc: #2f6db5; display: block; width: 100%; height: auto; text-align: left; white-space: normal; padding: 3px 6px 4px; border: 0; border-left: 4px solid var(--cc); border-radius: 3px;
+      background: color-mix(in srgb, var(--cc) 12%, var(--surface)); color: var(--text); font-size: 12px; line-height: 15px; font-weight: 400; cursor: pointer; }
+    .aca button.scc-card .t { display: block; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .aca button.scc-card .n { display: block; font-weight: 600; overflow-wrap: anywhere; }
+    .aca button.scc-card .d { display: block; font-size: 11px; color: var(--muted); }
+    .aca button.scc-card .d .dr { color: #8a6100; } .aca button.scc-card .d .dr.far { color: var(--err-fg); font-weight: 600; }
+    .aca button.scc-card .d .ok { color: var(--ok-fg); } .aca button.scc-card .d .wait { color: #b07a00; }
+    .aca button.scc-card .d .wx { color: #24528a; }
+    .aca button.scc-card .d .st.on { color: var(--ok-fg); font-weight: 600; } .aca button.scc-card .d .st.late { color: var(--err-fg); font-weight: 600; }
+    .aca button.scc-card.scc-studio { --cc: #7b5cc4; } .aca button.scc-card.scc-admin { --cc: #3f8f5a; } .aca button.scc-card.scc-flex { --cc: #1f8a84; } .aca button.scc-card.scc-work { --cc: #6b7a8f; }
+    .aca button.scc-card.scc-off, .aca button.scc-card.scc-asked { --cc: #a39d93; background: repeating-linear-gradient(135deg, #ece8e1 0 6px, #f5f2ec 6px 12px); color: var(--muted); }
+    .aca button.scc-card.scc-asked { border-left-style: dashed; }
+    .aca button.scc-card.cancelled .n { text-decoration: line-through; }
+    .aca button.scc-card.dim { opacity: .3; }
+    .aca .scc-foot { font-size: 11px; color: var(--muted); margin-top: auto; }
+    .aca .scc-grid.two .scc-card .d, .aca .scc-grid.two .scc-head .sc-pills .sc-pill.quiet { display: none; }
+    .aca .scm-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)) 96px; }
+    .aca .scm-h { padding: 6px 8px; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line2); }
+    .aca .scm-day { min-height: 104px; padding: 4px 5px 6px; border-bottom: 1px solid var(--line2); border-left: 1px solid var(--line2); display: flex; flex-direction: column; gap: 3px; cursor: pointer; min-width: 0; }
+    .aca .scm-day:nth-child(8n+9) { border-left: 0; }
+    .aca .scm-day.other { background: var(--surface-2); } .aca .scm-day.other .scm-dn { color: var(--faint); }
+    .aca .scm-day.past { opacity: .7; }
+    .aca .scm-day.today { box-shadow: inset 0 0 0 2px var(--accent); }
+    .aca .scm-dn { font-weight: 600; font-size: 12.5px; padding: 0; height: auto; text-align: left; color: var(--text); }
+    .aca .scm-dn span { color: var(--accent); font-size: 11px; }
+    .aca button.scm-chip { display: flex; gap: 4px; justify-content: space-between; width: 100%; height: auto; padding: 1px 5px; border: 0; border-left: 3px solid #2f6db5; border-radius: 2px; background: #e8f0fb; color: var(--text); font-size: 11.5px; line-height: 16px; font-weight: 400; text-align: left; cursor: pointer; min-width: 0; }
+    .aca button.scm-chip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .aca button.scm-chip .who { flex: none; color: var(--muted); font-size: 11px; }
+    .aca button.scm-chip.need { border-left-color: #c2412d; background: var(--err-bg); } .aca button.scm-chip.need .who { color: var(--err-fg); font-weight: 600; }
+    .aca button.scm-chip.wait { border-left-color: #b07a00; background: #fdf6e3; }
+    .aca button.scm-chip.gcal { border-left-color: #8a8580; background: var(--surface); border-top: 1px dashed var(--border); border-right: 1px dashed var(--border); border-bottom: 1px dashed var(--border); color: var(--muted); }
+    .aca .scm-more { font-size: 11.5px; padding: 0; height: auto; text-align: left; }
+    .aca .scm-off { font-size: 11px; color: var(--faint); margin-top: auto; }
+    .aca .scm-day .sc-pill.wx { align-self: flex-start; }
+    .aca .scm-wt { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 8px; height: auto; border: 0; border-bottom: 1px solid var(--line2); border-left: 1px solid var(--line2); border-radius: 0; background: var(--surface-2); font-size: 12px; color: var(--muted); text-align: left; text-decoration: none; }
+    .aca .scm-h.scm-wt { justify-content: flex-start; }
+    .aca .scm-wt b { color: var(--text); } .aca .scm-wt .bad { color: var(--err-fg); font-weight: 600; }
+    .aca .scm-key { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 10px; font-size: 12px; color: var(--muted); }
+    .aca .scm-key i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: #2f6db5; }
+    .aca .scm-key i.need { background: #c2412d; } .aca .scm-key i.wait { background: #b07a00; } .aca .scm-key i.gcal { background: #8a8580; }
+    .aca .sc-chgprev { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 10px 0; font-size: 13px; }
+    .aca .sc-chgprev pre { white-space: pre-wrap; font: inherit; margin: 6px 0 0; max-height: 220px; overflow: auto; }
+    .aca .scl-trip { font-size: 12.5px; color: var(--muted); margin: -2px 0 6px; padding-left: 4px; }
+    .aca .scl-trip b { color: var(--text); font-weight: 600; }
     @media (max-width: 760px) {
       .aca .sc-bar { gap: 6px; }
       .aca .sc-bar h2 { order: -1; flex: 1 0 100%; margin: 0 0 2px; font-size: 16px; }
@@ -268,6 +365,20 @@
       .aca .sc-modal .seg span { text-align: center; padding: 8px 4px; border-top: 1px solid var(--border); margin-top: -1px; white-space: nowrap; }
       .aca .sc-modal .seg label:nth-child(3n+1) span { border-left: 0; }
       .aca .sc-b { height: 28px; line-height: 28px; }
+      .aca .sc-bar2 { gap: 6px 12px; }
+      .aca .sc-wide, .aca .sc-mapopt, .aca .sc-colopt { display: none !important; }
+      .aca .sc-withmap .sc-main { display: block; }
+      .aca .sc-withmap .sc-map { margin-top: 10px; position: static; }
+      .aca .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+      .aca .scm-wt, .aca .scm-h.scm-wt, .aca .scm-off, .aca .scm-day .sc-pill, .aca .scm-more { display: none !important; }
+      .aca .scm-day { min-height: 58px; padding: 3px; gap: 2px; flex-direction: row; flex-wrap: wrap; align-content: flex-start; }
+      .aca .scm-dn { flex: 1 0 100%; font-size: 12px; }
+      .aca .scm-dn span { display: none; }
+      .aca .scm-key span:last-child { display: none; }
+      .aca button.scm-chip { flex: none; width: 9px; height: 9px; min-height: 0; min-width: 0; padding: 0; border: 0 !important; border-radius: 50%; background: #2f6db5; }
+      .aca button.scm-chip.need { background: #c2412d; } .aca button.scm-chip.wait { background: #b07a00; } .aca button.scm-chip.gcal { background: #8a8580; }
+      .aca button.scm-chip .nm, .aca button.scm-chip .who { display: none; }
+      .aca .scc-grid { grid-template-columns: 92px repeat(var(--cols), minmax(112px, 1fr)) 70px; min-width: calc(162px + var(--cols) * 112px); }
       .aca .sc-sum table { min-width: 0; width: 100%; }
     }`;
     const styleTag = document.createElement("style"); styleTag.textContent = css; document.head.appendChild(styleTag);
@@ -278,26 +389,42 @@
         '<button type="button" class="small" data-v="prev" aria-label="Earlier">&lsaquo;</button><button type="button" class="small" data-v="today">Today</button><button type="button" class="small" data-v="next" aria-label="Later">&rsaquo;</button>' +
         '<select class="small" id="aca-scJump" aria-label="Jump to a week"></select>' +
         '<h2 id="aca-scTitle">Schedule</h2>' +
-        '<div class="seg" role="radiogroup" aria-label="View"><label class="sc-listopt"><input type="radio" name="aca-scView" value="list" /><span>List</span></label><label><input type="radio" name="aca-scView" value="week" checked /><span>Week</span></label><label><input type="radio" name="aca-scView" value="day" /><span>Day</span></label><label><input type="radio" name="aca-scView" value="weeks8" /><span>8 weeks</span></label></div>' +
-        '<label class="muted sc-mineopt" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="aca-scMine" /> Just me</label>' +
-        '<label class="muted sc-mineopt" style="font-size:13px;display:flex;gap:6px;align-items:center" title="Only jobs where someone hasn&#39;t answered yet"><input type="checkbox" id="aca-scWait" /> Still waiting</label>' +
+        '<div class="seg" role="radiogroup" aria-label="View"><label class="sc-listopt"><input type="radio" name="aca-scView" value="list" /><span>List</span></label><label><input type="radio" name="aca-scView" value="week" checked /><span>Week</span></label><label><input type="radio" name="aca-scView" value="day" /><span>Day</span></label><label class="sc-wide"><input type="radio" name="aca-scView" value="weeks2" /><span>2 weeks</span></label><label><input type="radio" name="aca-scView" value="month" /><span>Month</span></label><label><input type="radio" name="aca-scView" value="weeks8" /><span>8 weeks</span></label></div>' +
         '<span class="grow"></span>' +
         '<button type="button" class="small sc-keybtn" data-v="key" aria-expanded="false">Colors</button>' +
         '<div class="sc-legend"><span><i class="sc-k-job"></i>On site job</span><span><i class="sc-k-drive"></i>Drive</span><span><i class="sc-k-setup"></i>Setup / teardown</span><span><i class="sc-k-studio"></i>Studio</span><span><i class="sc-k-admin"></i>Admin</span><span><i class="sc-k-flex"></i>Flex</span><span><i class="sc-k-work"></i>Other</span><span><i class="sc-k-off"></i>Time off</span><span><i class="sc-k-gcal"></i>Google Calendar</span></div>' +
         '<button type="button" class="small sc-ed" data-v="studio">Drive &amp; setup</button>' +
         '<button type="button" class="small sc-ed" data-v="crewset">Crew settings</button>' +
         '<button type="button" class="small sc-ed" data-v="weekmail">Email the week</button>' +
+        '<button type="button" class="small sc-ed sc-chg hidden" data-v="changes" id="aca-scChg">Send changes</button>' +
         '<button type="button" class="primary sc-ed" data-v="add">Add time</button>' +
         '<button type="button" class="primary sc-flexbtn hidden" data-v="addflex">Add flex time</button>' +
       "</div>" +
+      // Schedule views (2026-10-24): what's shown, the problems list, the map and the phone calendar link
+      '<div class="sc-bar2">' +
+        '<label class="sc-opt sc-mineopt"><input type="checkbox" id="aca-scMine" /> Just me</label>' +
+        '<label class="sc-opt sc-mineopt sc-waitopt" title="Only jobs where someone hasn&#39;t answered yet"><input type="checkbox" id="aca-scWait" /> Still waiting</label>' +
+        '<label class="sc-opt sc-needopt" title="Only jobs that still need people"><input type="checkbox" id="aca-scNeedOnly" /> Needs people</label>' +
+        '<label class="sc-opt" id="aca-scGcalOpt"><input type="checkbox" id="aca-scGcal" checked /> Google Calendar <span class="s" id="aca-scGcalAge"></span></label>' +
+        '<label class="sc-opt sc-scaleopt" title="Bars drawn to the hour, with drive, setup and the capacity strip, instead of cards"><input type="checkbox" id="aca-scScale" /> To scale</label>' +
+        '<label class="sc-opt sc-mapopt"><input type="checkbox" id="aca-scMapOn" /> Map</label>' +
+        '<label class="sc-opt sc-colopt">Color by <select id="aca-scColor" class="small"><option value="kind">Kind</option><option value="status">Status</option><option value="type">Job type</option><option value="person">Person</option></select></label>' +
+        '<button type="button" class="small sc-probbtn" data-v="problems" id="aca-scProbBtn" aria-expanded="false">Problems</button>' +
+        '<span class="grow"></span>' +
+        '<button type="button" class="small sc-calbtn hidden" data-v="cal">Phone calendar</button>' +
+      "</div>" +
+      '<div id="aca-scColKey" class="sc-colkey hidden"></div>' +
+      '<div id="aca-scProblems" class="sc-problems hidden"></div>' +
       '<div id="aca-scErr" class="inline-error hidden"></div>' +
       '<div id="aca-scWarn" class="sc-warn hidden"></div>' +
       '<div id="aca-scWeeks"></div>' +
       '<p class="sc-swipe hidden" id="aca-scSwipe">Swipe sideways for more days &rsaquo;</p>' +
-      '<div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
+      '<div class="sc-main"><div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
+      '<aside class="sc-map hidden" id="aca-scMap" aria-label="Map"></aside></div>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
       '<div class="sc-sum hidden" id="aca-scPeak"></div>' +
-      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
+      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the 207 Photo Booking Google Calendar that aren&#39;t bookings show under From Google Calendar (bookings are never shown twice), and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off. Untick Google Calendar to hide them.</p>' +
+        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">Changes to people&#39;s schedules from today on are saved up under Send changes: each person gets one email with their changed days when you send.</span> Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     // Phones open on a list of today and tomorrow (2026-10-23, Jeremiah's pick); the grids are one tap away.
@@ -307,6 +434,17 @@
     let highlight = null;     // a day picked from the 8 weeks view or Busiest days, outlined in the week
     let pendingAssign = null; // a job picked from the 8 weeks view: open its assign dialog once its week is loaded
     root.querySelector('input[name="aca-scView"][value="' + view + '"]').checked = true;
+    // Schedule views (2026-10-24): remembered per browser. Google Calendar events on (Jeremiah: a show/hide tick, to
+    // catch anything that didn't go through booking), map off, colored by kind.
+    const pref = (k, dflt) => { try { const v = localStorage.getItem("aca-sc-" + k); return v == null ? dflt : v; } catch (_e) { return dflt; } };
+    const setPref = (k, v) => { try { localStorage.setItem("aca-sc-" + k, String(v)); } catch (_e) { /* private mode */ } };
+    let gcalOn = pref("gcal", "1") === "1", mapOn = pref("map", "0") === "1", colorBy = pref("color", "kind"), scaleOn = pref("scale", "0") === "1", needOnly = false, probOpen = false;
+    el("scScale").checked = scaleOn; el("scGcal").checked = gcalOn; el("scMapOn").checked = mapOn; el("scColor").value = colorBy;
+    // The days each view loads: a week (the list needs the next day too), two weeks, or the whole weeks of a month.
+    function rangeFor(v, a) {
+      if (v === "month") { const first = a.slice(0, 8) + "01", s0 = T.weekStart(first), last = T.addDays(T.addDays(first, 32).slice(0, 8) + "01", -1); return { start: s0, days: T.daysBetween(s0, T.addDays(T.weekStart(last), 7)) }; }
+      return { start: T.weekStart(a), days: v === "list" ? 8 : v === "weeks2" ? 14 : 7 };
+    }
 
     const editable = () => !!(data && data.can_edit);
     // Without Scheduling edit you can still add, move and remove your own flex time.
@@ -328,15 +466,15 @@
       if (view === "weeks8") return loadWeeks();
       const my = ++loading;
       clearError("scErr");
-      const start = T.weekStart(anchor);
+      const { start, days: span } = rangeFor(view, anchor);
       fillJump();
       try {
         // The list shows the anchor day and the next one, which can be the Sunday after this week.
-        const { data: d, error } = await sb.rpc("schedule_week", { p_start: start, p_days: view === "list" ? 8 : 7 });
+        const { data: d, error } = await sb.rpc("schedule_week", { p_start: start, p_days: span });
         if (error) throw error;
         if (my !== loading) return;
         // B3: a copy, so the "X Off" bars below are never pushed into the RPC result itself
-        data = Object.assign({}, d, { start, entries: (d.entries || []).slice() });
+        data = Object.assign({}, d, { start, span, entries: (d.entries || []).slice() });
         data.crew = Object.assign({ roles: [], needed: {}, declined: [], requests: [], settings: {} }, d.crew || {});
         (d.people || []).forEach((p) => { p.name = T.shortName(p.name); });
         // Time off someone asked for and nobody has answered yet: a faded bar on their row (not counted as hours)
@@ -349,6 +487,7 @@
         render();
         loadPeak();
         openPending();
+        loadChanges();
       } catch (e) {
         if (my !== loading) return;
         showError("scErr", "Could not load the schedule: " + cleanErr(e));
@@ -448,7 +587,10 @@
     function render() {
       root.classList.remove("sc-w8");
       root.classList.toggle("sc-islist", view === "list");
+      renderChrome();
       if (view === "list") return renderList();
+      if (view === "month") return renderMonth();
+      if (view === "weeks2" || (view === "week" && !scaleOn)) return renderCards();
       const start = data.start, today = T.today();
       const days = view === "week" ? [0, 1, 2, 3, 4, 5, 6].map((i) => T.addDays(start, i)) : [anchor];
       el("scTitle").textContent = view === "week"
@@ -477,7 +619,7 @@
       let h = '<div class="sc-head sc-name">' + (view === "week" ? "Team" : "") + "</div>";
       days.forEach((d) => {
         h += '<div class="sc-head' + (d === today ? " today" : "") + (d === highlight && view === "week" ? " hl" : "") + '">' + (view === "week" ? '<button type="button" class="link" data-day="' + d + '">' + esc(T.fmtDay(d, { calendar: true })) + "</button>" : esc(T.fmtDay(d, { calendar: true }))) +
-          '<div class="sc-ticks">' + ticks() + "</div></div>";
+          (view === "day" ? dayPills(d) : "") + '<div class="sc-ticks">' + ticks() + "</div></div>";
       });
       // Capacity: per day, who is free (not off) against the people that day's jobs still need.
       if (data.people.length && !mineOnly) {
@@ -502,7 +644,7 @@
             no.map((x) => '<span class="sc-no">' + esc(T.shortName(x.name)) + " can&#39;t make it</span>").join("") + "</button>"; }).join("") + "</div>";
       });
       // From Google Calendar: events that aren't bookings, until someone is on them ("X Off" ones are time off instead)
-      const calOpen = (data.calendar || []).filter((c) => !c.off_user && !data.entries.some((e) => e.gcal_event_id === c.event_id) && days.some((d) => d >= c.start_date && d <= c.end_date));
+      const calOpen = gcalOn ? calOpenOn(days) : [];
       if (calOpen.length) {
         h += '<div class="sc-name"><b>From Google Calendar</b><span class="sc-hrs sc-hint">Not bookings' + (editable() ? "; click one to put people on it" : "") + "</span></div>";
         days.forEach((d) => {
@@ -566,9 +708,23 @@
               (e.kind === "job" && isBar && x.part === "job" ? " job mid" : "") + (trip ? " batched" : "") + (x.late && x.part === "job" ? " late" : "") + (bk.clash && e.kind !== "asked" ? " clash" : "") + (e.booking_status === "cancelled" ? " cancelled" : "") +
               (e.kind === "asked" ? " asked" : "") + (waitOnly && !waiting(e) ? " dim" : "");
             const mark = isBar && cf === "confirmed" ? '<i class="sc-cf ok" aria-hidden="true">\u2713</i>' : isBar && cf === "pending" ? '<i class="sc-cf wait" aria-hidden="true">?</i>' : "";
-            bars += '<button type="button" class="' + cls + '" data-entry="' + esc(e.id) + '" style="left:' + pct(x.from) + ";width:calc(" + pct(x.to) + " - " + pct(x.from) + ");top:" + (6 + bk.lane * 26) + 'px" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' + mark + esc(label) + "</button>";
+            const col = isBar && e.kind === "job" ? colorOf(e) : null, st = isBar && e.kind === "job" && d === today ? dayStatus(e) : null;
+            bars += '<button type="button" class="' + cls + '" data-entry="' + esc(e.id) + '" style="left:' + pct(x.from) + ";width:calc(" + pct(x.to) + " - " + pct(x.from) + ");top:" + (6 + bk.lane * 26) + "px" + (col ? ";background:" + col + ";color:#fff" : "") + '" title="' + esc(tip + (st ? "\n" + st.text : "")) + '" aria-label="' + esc(tip + (st ? ". " + st.text : "")) + '">' +
+              (st ? '<i class="sc-st ' + st.cls + '" aria-hidden="true"></i>' : "") + mark + esc(label) + "</button>";
           }));
-          h += '<div class="sc-cell' + (editable() || isMine(p.user_id) ? " edit" : "") + (view === "day" ? " grid" : "") + (d === today && view === "week" ? " today" : "") + '" data-person="' + esc(p.user_id) + '" data-day="' + esc(d) + '" style="min-height:' + (n * 26 + 18) + 'px">' + bars +
+          // Day view: when they leave and get back, printed under the line, and the time now on today.
+          let edge = "";
+          if (view === "day") {
+            const jobs = mine.filter((e) => e.kind === "job" && piecesOn(e, d).length);
+            if (jobs.length) {
+              const lv = Math.min(...jobs.map(outAt)), bk = Math.max(...jobs.map(backAt)), from = p.from_home ? "home" : "the studio";
+              const lvp = (T.local(lv).min - win.lo) / span;
+              edge = '<span class="sc-edge' + (lvp < 0.2 ? " near" : "") + '" style="left:' + pct(T.local(lv).min) + '">leave ' + esc(from) + " " + esc(T.fmtTs(lv)) + "</span>" +
+                '<span class="sc-edge end" style="left:' + pct(T.local(bk).min) + '">back ' + esc(T.fmtTs(bk)) + "</span>";
+            }
+            if (d === today) { const nm = T.local(Date.now()).min; if (nm > win.lo && nm < win.hi) edge += '<i class="sc-now" style="left:' + pct(nm) + '" aria-hidden="true"></i>'; }
+          }
+          h += '<div class="sc-cell' + (editable() || isMine(p.user_id) ? " edit" : "") + (view === "day" ? " grid" : "") + (d === today && view === "week" ? " today" : "") + '" data-person="' + esc(p.user_id) + '" data-day="' + esc(d) + '" style="min-height:' + (n * 26 + (edge ? 30 : 18)) + 'px">' + bars + edge +
             (dh > 0 ? '<span class="sc-dh' + (dh >= T.LUNCH_AFTER_H ? " sc-lunch" : "") + '"' + (dh >= T.LUNCH_AFTER_H ? ' title="6 hours or more: plan a lunch break"' : "") + ">" + fmtH(dh) + " h" + (dh >= T.LUNCH_AFTER_H ? " &middot; lunch" : "") + "</span>" : "") +
             (tc ? '<a class="sc-tasks" href="#staff/myday" title="Tasks due">' + num(tc.n) + " task" + (tc.n === 1 ? "" : "s") + "</a>" : "") + "</div>";
         });
@@ -610,11 +766,18 @@
             .filter((e) => piecesOn(e, d).length && (!waitOnly || waiting(e))).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
           if (!mine.length) { free.push(p.name); return; }
           const hrs = T.workHours(mine.filter((e) => e.kind !== "asked"), d);
-          h += '<div class="scl-person"><div class="scl-lbl"><b>' + esc(p.name) + "</b>" + (hrs ? " &middot; " + fmtH(hrs) + " h" + (hrs >= T.LUNCH_AFTER_H ? ' <span class="sc-lunch">&middot; lunch</span>' : "") : "") + "</div>" +
+          // Route line (Schedule views 2026-10-24): when they leave, how the day's driving goes, when they're back.
+          const jobs = mine.filter((e) => e.kind === "job" && T.local(e.starts_at).day === d);
+          const drv = jobs.reduce((a, e) => a + num(e.drive_before_min) + num(e.drive_after_min), 0);
+          const route = jobs.length ? '<div class="scl-trip">Leave ' + (p.from_home ? "home" : "the studio") + " <b>" + esc(T.fmtTs(Math.min(...jobs.map(outAt)))) + "</b>" +
+            (drv ? " &middot; " + esc(fmtMins(drv)) + " driving" : "") + (jobs.length > 1 ? " &middot; " + num(jobs.length) + " jobs" : "") + " &middot; back <b>" + esc(T.fmtTs(Math.max(...jobs.map(backAt)))) + "</b></div>" : "";
+          h += '<div class="scl-person"><div class="scl-lbl"><b>' + esc(p.name) + "</b>" + (hrs ? " &middot; " + fmtH(hrs) + " h" + (hrs >= T.LUNCH_AFTER_H ? ' <span class="sc-lunch">&middot; lunch</span>' : "") : "") + "</div>" + route +
             mine.map((e) => {
               const title = e.kind === "job" ? e.booking_title : e.kind === "asked" ? "Asked off" + (e.title ? ": " + e.title : "") : e.kind === "off" ? "Off" + (e.title ? ": " + e.title : "") : (e.title || KIND[e.kind]);
               const cf = e.kind === "job" && e.confirm ? e.confirm.status : null;
-              const sub = [e.role, e.kind === "job" && e.drive_before_min ? num(e.drive_before_min) + " min drive" : "", e.kind !== "job" && e.kind !== "off" && e.kind !== "asked" ? KIND[e.kind] : ""].filter(Boolean).join(" &middot; ");
+              const wx = e.kind === "job" ? wxOf(data.bookings.find((x) => x.booking_id === e.booking_id && x.day === d)) : null, st = e.kind === "job" && d === today ? dayStatus(e) : null;
+              const sub = [esc(e.role || ""), e.kind === "job" && e.drive_before_min ? num(e.drive_before_min) + " min drive" : "", e.kind !== "job" && e.kind !== "off" && e.kind !== "asked" ? KIND[e.kind] : "",
+                wx ? '<span class="sc-wx">' + esc(wx.text) + "</span>" : "", st ? esc(st.text) : ""].filter(Boolean).join(" &middot; ");
               return '<button type="button" class="scl-item scl-k-' + esc(e.kind) + (e.booking_status === "cancelled" ? " cancelled" : "") + '" data-entry="' + esc(e.id) + '"><span class="t">' + esc(when(e) || "All day") + "</span>" +
                 '<span class="w"><b>' + esc(title) + "</b>" + (sub ? "<small>" + sub + "</small>" : "") +
                 (cf === "confirmed" ? '<small class="ok">Confirmed</small>' : cf === "pending" ? '<small class="wait">Hasn&#39;t confirmed yet</small>' : "") + "</span></button>";
@@ -642,9 +805,403 @@
         }).join("") + "</tbody></table></div>";
     }
 
+    // ---------------------------------------------------------------- schedule views (2026-10-24)
+    // From the scheduling software comparison (https://claude.ai/artifact/Xc2SyfFZR2WFgszRMh1W8C), Jeremiah: "go".
+    // Week and 2 weeks show a card per bar (time, name, drive, answer) instead of tiny to-scale bars; Month is a
+    // calendar; the day view prints leave / back times and the time now; a Problems list; weather on outdoor
+    // days; Color by; a map beside the day and week; Google Calendar events behind a show/hide tick; each
+    // person's phone calendar link; and Send changes (one email per person instead of nothing or one per change).
+    const daysOf = () => Array.from({ length: data.span || 7 }, (_, i) => T.addDays(data.start, i));
+    const PALETTE = ["#2f6db5", "#7b5cc4", "#1f8a84", "#c0603a", "#8a6d1f", "#b03a74", "#4a7a2c", "#5b6577"];
+    const hashIdx = (s) => { let h = 0; for (const c of String(s || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % PALETTE.length; };
+    // A booking day's state: needs people / someone hasn't answered (confirm on) / covered.
+    function statusOf(bookingId, d) {
+      if (staffedCount(bookingId, d) < neededOf(bookingId)) return "need";
+      if (confirmOn() && data.entries.some((e) => e.booking_id === bookingId && e.kind === "job" && T.local(e.starts_at).day === d && e.confirm && e.confirm.status === "pending")) return "wait";
+      return "ok";
+    }
+    const STATUS = { need: ["#c2412d", "Needs people"], wait: ["#b07a00", "Someone hasn't answered"], ok: ["#2f6db5", "Covered"] };
+    // The color of a job under "Color by" (null = the usual kind colors).
+    function colorOf(e) {
+      if (colorBy === "kind" || e.kind !== "job") return null;
+      if (colorBy === "status") return STATUS[statusOf(e.booking_id, T.local(e.starts_at).day)][0];
+      if (colorBy === "person") return PALETTE[hashIdx(e.user_id)];
+      const b = data.bookings.find((x) => x.booking_id === e.booking_id);
+      return PALETTE[hashIdx((b && b.type_label) || "")];
+    }
+    function colorKey() {
+      const box = el("scColKey");
+      if (colorBy === "kind" || view === "weeks8") { box.classList.add("hidden"); return; }
+      let items = [];
+      if (colorBy === "status") items = Object.keys(STATUS).filter((k) => k !== "wait" || confirmOn()).map((k) => STATUS[k]);
+      if (colorBy === "person") items = data.people.map((p) => [PALETTE[hashIdx(p.user_id)], p.name]);
+      if (colorBy === "type") items = [...new Set(data.bookings.map((b) => b.type_label || ""))].map((t) => [PALETTE[hashIdx(t)], t || "No type"]);
+      box.innerHTML = items.map(([c, t]) => '<span><i style="background:' + c + '"></i>' + esc(t) + "</span>").join("");
+      box.classList.toggle("hidden", !items.length);
+    }
+    // Weather for an outdoor job, when the forecast check has looked (1 to 3 days out).
+    function wxOf(b) {
+      const w = b && b.weather; if (!w || b.shoot_setting === "indoors") return null;
+      const parts = [w.pop >= 20 ? "Rain " + num(w.pop) + "%" : "", w.gust > 25 ? "Gusts " + num(w.gust) + " mph" : ""].filter(Boolean);
+      return parts.length ? { text: parts.join(", "), bad: !!w.bad } : null;
+    }
+    // Day header pills: jobs, how many still need people, the weather.
+    function dayPills(d) {
+      const jobs = data.bookings.filter((b) => b.day === d && b.status !== "tracked");
+      const need = jobs.reduce((n, b) => n + Math.max(0, neededOf(b.booking_id) - staffedCount(b.booking_id, d)), 0);
+      const c = jobs.length ? capacityOn(d) : null;
+      const wx = jobs.map(wxOf).filter(Boolean);
+      return '<span class="sc-pills">' + (jobs.length ? '<span class="sc-pill">' + num(jobs.length) + " job" + (jobs.length === 1 ? "" : "s") + "</span>" : '<span class="sc-pill quiet">no jobs</span>') +
+        (need ? '<span class="sc-pill bad" title="' + esc(c ? c.free + " free, " + need + " more needed" : "") + '">needs ' + num(need) + (c && c.short > 0 ? ", short " + num(c.short) : "") + "</span>" : "") +
+        (wx.length ? '<span class="sc-pill wx" title="Forecast for the outdoor job' + (wx.length > 1 ? "s" : "") + '">' + esc(wx[0].text) + "</span>" : "") + "</span>";
+    }
+    // Google Calendar events that aren't bookings, not time off, and nobody has been put on yet.
+    const calOpenOn = (days) => (data.calendar || []).filter((c) => !c.off_user && !data.entries.some((e) => e.gcal_event_id === c.event_id) && days.some((d) => d >= c.start_date && d <= c.end_date));
+    // Today, from the time clock: clocked in on this job, or done; late when the job started and nobody clocked in.
+    function dayStatus(e) {
+      const ps = (data.punches || []).filter((p) => p.user_id === e.user_id && (p.booking_id === e.booking_id || !p.booking_id) && new Date(p.clock_in) < backAt(e) && (!p.clock_out || new Date(p.clock_out) > outAt(e)));
+      if (ps.some((p) => !p.clock_out)) return { cls: "on", text: "Clocked in" };
+      if (ps.length && Date.now() > new Date(e.ends_at).getTime()) return { cls: "done", text: "Done (clocked out)" };
+      if (!ps.length && Date.now() > new Date(e.starts_at).getTime() + 10 * 6e4 && Date.now() < new Date(e.ends_at).getTime()) return { cls: "late", text: "Not clocked in yet" };
+      return null;
+    }
+
+    // The bar under the views: which options fit the view, the Google Calendar sync age, problems, the map.
+    function renderChrome() {
+      const v = view;
+      root.querySelector(".sc-needopt").classList.toggle("hidden", v !== "month");
+      root.querySelector(".sc-waitopt").classList.toggle("hidden", v === "month");
+      root.querySelector(".sc-mapopt").classList.toggle("hidden", v !== "day" && v !== "week");
+      root.querySelector(".sc-scaleopt").classList.toggle("hidden", v !== "week");
+      root.querySelector(".sc-colopt").classList.toggle("hidden", v === "month" || v === "list");
+      root.querySelector(".sc-calbtn").classList.toggle("hidden", !data.people.some((p) => isMine(p.user_id)));
+      const age = data.calendar_synced_at ? Math.round((Date.now() - new Date(data.calendar_synced_at)) / 6e4) : null;
+      el("scGcalAge").textContent = age == null ? "" : age < 2 ? "(synced just now)" : age < 90 ? "(synced " + age + " min ago)" : "(last synced " + Fmt.dayTime(data.calendar_synced_at) + ")";
+      el("scGcalOpt").title = "Events on the 207 Photo Booking calendar that aren't bookings, so you can see anything that didn't go through booking. Bookings aren't shown twice. Events named like “Ryan Off” always show as time off.";
+      colorKey();
+      renderProblems();
+      renderMap();
+    }
+
+    // ---- week and 2 weeks: a card per bar
+    function cardFor(e, d) {
+      const isJob = e.kind === "job", trip = e.batch_id ? tripOf(e) : null, stop = trip ? trip.indexOf(e) : -1;
+      const b = isJob ? data.bookings.find((x) => x.booking_id === e.booking_id && x.day === d) : null;
+      const cf = isJob && confirmOn() && e.confirm ? e.confirm.status : null;
+      const allDay = e.kind === "off" || e.kind === "asked";
+      const title = isJob ? shortTitle(e.booking_title) : e.kind === "asked" ? "Asked off" + (e.title ? ": " + e.title : "") : e.kind === "off" ? "Off" + (e.title ? ": " + e.title : "") : (e.title || KIND[e.kind]);
+      const col = colorOf(e), wx = wxOf(b), st = isJob && d === T.today() ? dayStatus(e) : null;
+      const sub = [];
+      if (isJob && e.drive_before_min) sub.push('<span class="dr' + (e.drive_before_min >= 120 ? " far" : "") + '" title="Drive there">' + esc(fmtMins(e.drive_before_min)) + "</span>");
+      if (trip && stop > 0) sub.push("same trip");
+      if (e.role) sub.push(esc(e.role));
+      if (cf === "confirmed") sub.push('<b class="ok" title="Confirmed">✓</b>');
+      if (cf === "pending") sub.push('<b class="wait" title="Hasn’t answered yet">?</b>');
+      if (wx) sub.push('<span class="wx">' + esc(wx.text) + "</span>");
+      if (st) sub.push('<span class="st ' + st.cls + '">' + esc(st.text) + "</span>");
+      const tip = (allDay ? (e.kind === "asked" ? "Asked for time off" : "Time off") : T.fmtTs(e.starts_at) + "–" + T.fmtTs(e.ends_at)) + " " + (isJob ? e.booking_title : title) +
+        (isJob && e.drive_before_min ? "\nLeave " + T.fmtTs(outAt(e)) + ", back " + T.fmtTs(backAt(e)) : "") + (e.note ? "\n" + e.note : "") + (editable() && isJob ? "\nRight-click or press and hold to batch" : "");
+      return '<button type="button" class="scc-card scc-' + esc(e.kind) + (e.booking_status === "cancelled" ? " cancelled" : "") + (waitOnly && !(cf === "pending") ? " dim" : "") + '" data-entry="' + esc(e.id) + '"' +
+        (col ? ' style="--cc:' + col + '"' : "") + ' title="' + esc(tip) + '">' +
+        (allDay ? "" : '<span class="t">' + esc(T.fmtTs(e.starts_at) + "–" + T.fmtTs(e.ends_at)) + "</span>") + '<span class="n">' + esc(title) + "</span>" +
+        (sub.length ? '<span class="d">' + sub.join(" ") + "</span>" : "") + "</button>";
+    }
+    const fmtMins = (m) => (m >= 60 ? Math.floor(m / 60) + "h" + (m % 60 ? String(m % 60).padStart(2, "0") : "") : num(m) + "m");
+    function renderCards() {
+      const days = daysOf(), today = T.today(), two = view === "weeks2";
+      el("scTitle").textContent = T.fmtDay(days[0]) + " – " + T.fmtDay(days[days.length - 1]);
+      root.querySelectorAll(".sc-ed").forEach((n) => n.classList.toggle("hidden", !editable()));
+      root.querySelector(".sc-flexbtn").classList.toggle("hidden", editable() || !data.people.some((p) => isMine(p.user_id)));
+      const warn = el("scWarn");
+      warn.classList.toggle("hidden", !(editable() && !data.studio_address));
+      warn.innerHTML = 'Add the studio address so drive times can be looked up from Google Maps. <button type="button" class="link" data-v="studio">Add it</button>';
+      const grid = el("scGrid");
+      grid.className = "scc-grid" + (two ? " two" : "");
+      grid.removeAttribute("style");
+      grid.style.setProperty("--cols", days.length);
+      const sw = narrow(), scr = root.querySelector(".sc-scroll");
+      el("scSwipe").classList.toggle("hidden", !sw);
+      scr.classList.toggle("fade", sw);
+      if (sw) scr.scrollLeft = 0;
+      const row = (name, cells, cls, tot) => '<div class="scc-name ' + (cls || "") + '">' + name + "</div>" + cells.join("") + '<div class="scc-tot ' + (cls || "") + '">' + (tot || "") + "</div>";
+      let h = row("Team", days.map((d) => '<div class="scc-head' + (d === today ? " today" : "") + (d === highlight ? " hl" : "") + '"><button type="button" class="link" data-day="' + d + '">' + esc(T.fmtDay(d, { calendar: true })) + "</button>" + dayPills(d) + "</div>"), "scc-hrow", "Hours");
+      // Jobs not assigned (the bulk picker in #88 works on these: .sc-jobs [data-booking])
+      const open = data.bookings.filter((b) => days.includes(b.day) && staffedCount(b.booking_id, b.day) < neededOf(b.booking_id));
+      h += row("<b>Jobs not assigned</b><span class=\"sc-hrs\">" + (open.length ? num(open.length) + (two ? " these two weeks" : " this week") + pickManyBtn() : "All jobs have someone") + "</span>",
+        days.map((d) => '<div class="sc-jobs scc-lane">' + open.filter((b) => b.day === d).map((b) => {
+          const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id), wx = wxOf(b);
+          return '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : !have ? " none" : " part") + selCls(b, d) + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "")) + '">' +
+            esc(shortTitle(b.title)) + "<small>" + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "–" + T.fmtTs(b.end_at) : "") : "time not set yet") +
+            (have ? ' <span class="sc-need">&middot; ' + num(have) + " of " + num(need) + "</span>" : need > 1 ? ' <span class="sc-need">&middot; needs ' + num(need) + "</span>" : "") + (wx ? ' <span class="sc-wx">' + esc(wx.text) + "</span>" : "") + "</small></button>";
+        }).join("") + "</div>"), "scc-open");
+      // Google Calendar events that aren't bookings and nobody is on yet
+      const cal = gcalOn ? calOpenOn(days) : [];
+      if (cal.length) h += row('<b>From Google Calendar</b><span class="sc-hrs">Not bookings' + (editable() ? "; click one to put people on it" : "") + "</span>",
+        days.map((d) => '<div class="scc-lane">' + cal.filter((c) => d >= c.start_date && d <= c.end_date).map((c) =>
+          '<button type="button" class="sc-chip gcal" data-gcal="' + esc(c.event_id) + '" data-day="' + esc(d) + '" title="' + esc(c.summary) + '">' + esc(c.summary) +
+          "<small>" + esc(c.all_day || !c.start_at ? "all day" : T.fmtTs(c.start_at) + "–" + T.fmtTs(c.end_at)) + "</small></button>").join("") + "</div>"), "scc-gcal");
+      const waiting = (e) => e.kind === "job" && e.confirm && e.confirm.status === "pending";
+      const people = (mineOnly ? data.people.filter((p) => p.user_id === data.me) : data.people).filter((p) => !waitOnly || data.entries.some((e) => e.user_id === p.user_id && waiting(e)));
+      if (!people.length) h += row('<span class="muted">' + (waitOnly ? "Everyone has answered." : mineOnly ? "You are not on the team list." : "Nobody on the team yet.") + "</span>", days.map(() => "<div></div>"));
+      people.forEach((p) => {
+        const mine = data.entries.filter((e) => e.user_id === p.user_id), rowBars = mine.concat((data.asked || []).filter((e) => e.user_id === p.user_id));
+        const hrs = days.reduce((a, d) => a + T.workHours(mine, d), 0), tgt = p.weekly_hours == null ? null : Number(p.weekly_hours) * days.length / 7, diff = tgt == null ? 0 : hrs - tgt;
+        const tot = "<b>" + fmtH(hrs) + " h</b>" + (tgt == null ? "" : '<span class="sc-hrs">of ' + fmtH(tgt) + (Math.abs(diff) < 0.25 ? ' <span class="on">on target</span>' : diff > 0 ? ' <span class="over">' + fmtH(diff) + " over</span>" : "") + "</span>");
+        h += row("<b>" + esc(p.name) + '</b><span class="sc-hrs">' + (p.from_home ? "From home" : "From the studio") + "</span>", days.map((d) => {
+          const list = rowBars.filter((e) => piecesOn(e, d).length).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
+          const dh = T.workHours(mine, d), tc = (data.tasks || []).find((t) => t.user_id === p.user_id && t.day === d);
+          return '<div class="sc-cell scc-cell' + (editable() || isMine(p.user_id) ? " edit" : "") + (d === today ? " today" : "") + '" data-person="' + esc(p.user_id) + '" data-day="' + esc(d) + '">' +
+            list.map((e) => cardFor(e, d)).join("") +
+            ((dh > 0 || tc) ? '<span class="scc-foot">' + (dh > 0 ? '<span class="' + (dh >= T.LUNCH_AFTER_H ? "sc-lunch" : "") + '">' + fmtH(dh) + " h" + (dh >= T.LUNCH_AFTER_H ? " &middot; lunch" : "") + "</span>" : "") +
+              (tc ? ' <a class="sc-tasks2" href="#staff/myday" title="Tasks due">' + num(tc.n) + " task" + (tc.n === 1 ? "" : "s") + "</a>" : "") + "</span>" : "") + "</div>";
+        }), "", tot);
+      });
+      grid.innerHTML = h;
+      renderSummary(people);
+      if (two) el("scSum").classList.add("hidden");
+    }
+
+    // ---- month: a Sunday-start calendar
+    function renderMonth() {
+      const days = daysOf(), today = T.today(), month = anchor.slice(0, 7);
+      const mName = new Date(anchor.slice(0, 7) + "-15T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long" });
+      el("scTitle").textContent = mName + (month.slice(0, 4) === today.slice(0, 4) ? "" : " " + month.slice(0, 4));
+      root.querySelectorAll(".sc-ed").forEach((n) => n.classList.toggle("hidden", !editable()));
+      root.querySelector(".sc-flexbtn").classList.add("hidden");
+      el("scWarn").classList.add("hidden"); el("scSwipe").classList.add("hidden"); el("scSum").classList.add("hidden");
+      const scr = root.querySelector(".sc-scroll"); scr.classList.remove("fade");
+      const grid = el("scGrid"); grid.className = "scm-grid"; grid.removeAttribute("style");
+      const initials = (uid) => { const n = String(personName(uid)).split(/\s+/); return (n[0] || "?")[0] + (n[1] ? n[1][0] : ""); };
+      const MAXC = narrow() ? 99 : 4;
+      let h = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((w) => '<div class="scm-h">' + w + "</div>").join("") + '<div class="scm-h scm-wt">Week</div>';
+      for (let w = 0; w < days.length; w += 7) {
+        const week = days.slice(w, w + 7);
+        let wJobs = 0, wNeed = 0, wHrs = 0;
+        week.forEach((d) => {
+          let jobs = data.bookings.filter((b) => b.day === d && b.status !== "tracked");
+          if (mineOnly) jobs = jobs.filter((b) => data.entries.some((e) => e.booking_id === b.booking_id && e.user_id === data.me && T.local(e.starts_at).day === d));
+          const st = (b) => statusOf(b.booking_id, d);
+          wJobs += jobs.length; wNeed += jobs.filter((b) => st(b) === "need").length;
+          wHrs += data.people.reduce((a, p) => a + T.workHours(data.entries.filter((e) => e.user_id === p.user_id), d), 0);
+          const shown = needOnly ? jobs.filter((b) => st(b) === "need") : jobs;
+          const chips = shown.map((b) => {
+            const on = [...new Set(data.entries.filter((e) => e.kind === "job" && e.booking_id === b.booking_id && T.local(e.starts_at).day === d).map((e) => e.user_id))];
+            const s = st(b), wx = wxOf(b);
+            return '<button type="button" class="scm-chip ' + s + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.start_at ? "\n" + T.fmtTs(b.start_at) + (b.end_at ? "–" + T.fmtTs(b.end_at) : "") : "\nTime not set yet") +
+              "\n" + (on.length ? "On it: " + on.map(personName).join(", ") : "Nobody on it yet") + (s === "need" && on.length ? " (needs " + neededOf(b.booking_id) + ")" : "") + (wx ? "\n" + wx.text : "")) + '">' +
+              '<span class="nm">' + esc(shortTitle(b.title)) + "</span>" + (s === "need" ? '<span class="who">' + (on.length ? num(on.length) + " of " + num(neededOf(b.booking_id)) : "needs " + num(neededOf(b.booking_id))) + "</span>" : '<span class="who">' + esc(on.map(initials).join(" ")) + (s === "wait" ? " ?" : "") + "</span>") + "</button>";
+          });
+          const cal = gcalOn && !needOnly ? calOpenOn([d]).map((c) => '<button type="button" class="scm-chip gcal" data-gcal="' + esc(c.event_id) + '" data-day="' + esc(d) + '" title="' + esc("Google Calendar (not a booking): " + c.summary) + '"><span class="nm">' + esc(c.summary) + "</span></button>") : [];
+          const all = chips.concat(cal), more = all.length - MAXC;
+          const offs = [...new Set(data.entries.filter((e) => e.kind === "off" && piecesOn(e, d).some((x) => x.to - x.from >= 240)).map((e) => e.user_id))];
+          const wx = jobs.map(wxOf).filter(Boolean)[0];
+          h += '<div class="scm-day' + (d.slice(0, 7) !== month ? " other" : "") + (d < today ? " past" : "") + (d === today ? " today" : "") + '" data-mday="' + esc(d) + '">' +
+            '<button type="button" class="scm-dn link" data-day="' + esc(d) + '" aria-label="' + esc("Open " + T.fmtDay(d, { calendar: true })) + '">' + esc(Fmt.day(d)) + (d === today ? " <span>Today</span>" : "") + "</button>" +
+            (wx ? '<span class="sc-pill wx">' + esc(wx.text) + "</span>" : "") +
+            all.slice(0, more > 0 ? MAXC - 1 : MAXC).join("") + (more > 0 ? '<button type="button" class="scm-more link" data-day="' + esc(d) + '">+' + num(more + 1) + " more</button>" : "") +
+            (offs.length ? '<span class="scm-off" title="' + esc("Off: " + offs.map(personName).join(", ")) + '">Off: ' + esc(offs.map(initials).join(" ")) + "</span>" : "") + "</div>";
+        });
+        h += '<button type="button" class="scm-wt link" data-mweek="' + esc(week[0]) + '" title="Open this week"><b>' + num(wJobs) + " job" + (wJobs === 1 ? "" : "s") + "</b>" + fmtH(wHrs) + " h" + (wNeed ? '<span class="bad">' + num(wNeed) + " need people</span>" : "") + "</button>";
+      }
+      grid.innerHTML = h + '<div class="scm-key"><span><i class="need"></i>Needs people</span>' + (confirmOn() ? '<span><i class="wait"></i>Someone hasn&#39;t answered</span>' : "") + '<span><i class="ok"></i>Covered</span>' + (gcalOn ? '<span><i class="gcal"></i>Google Calendar</span>' : "") + "<span>Letters are who&#39;s on it</span></div>";
+    }
+
+    // ---- problems: what needs a look, from today on, in what's loaded
+    function problems() {
+      if (!data || view === "weeks8") return [];
+      const today = T.today(), days = daysOf().filter((d) => d >= today), out = [];
+      const add = (day, text, extra) => out.push(Object.assign({ day, text }, extra || {}));
+      const bars = data.entries.filter((e) => e.kind !== "off" && !e.gcal);
+      days.forEach((d) => {
+        data.bookings.filter((b) => b.day === d && b.status === "booked").forEach((b) => {
+          const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id);
+          if (have < need) add(d, shortTitle(b.title) + (have ? " has " + have + " of " + need + " people" : " has nobody on it yet"), { booking: b.booking_id });
+          if (!b.start_at) add(d, shortTitle(b.title) + " has no start time", { booking: b.booking_id });
+          const wx = wxOf(b); if (wx && wx.bad) add(d, shortTitle(b.title) + " is outdoors: " + wx.text, { booking: b.booking_id });
+        });
+        data.people.forEach((p) => {
+          const mine = bars.filter((e) => e.user_id === p.user_id && piecesOn(e, d).length);
+          const span = (e) => [outAt(e), backAt(e)];
+          for (let i = 0; i < mine.length; i++) for (let j = i + 1; j < mine.length; j++) {
+            const [a1, a2] = span(mine[i]), [b1, b2] = span(mine[j]);
+            const sameTrip = mine[i].batch_id && mine[i].batch_id === mine[j].batch_id;
+            if (!sameTrip && a1 < b2 && b1 < a2 && T.local(mine[i].starts_at).day === d) add(d, p.name + " has two things at once: " + labelOf(mine[i]) + " and " + labelOf(mine[j]), { person: p.user_id });
+          }
+          const offs = data.entries.filter((e) => e.kind === "off" && e.user_id === p.user_id).concat((data.asked || []).filter((e) => e.user_id === p.user_id));
+          mine.filter((e) => T.local(e.starts_at).day === d && offs.some((o) => new Date(o.starts_at) < backAt(e) && new Date(o.ends_at) > outAt(e))).forEach((e) =>
+            add(d, p.name + " is on " + labelOf(e) + " during " + (offs.some((o) => o.kind === "asked") ? "time off they asked for" : "time off"), { person: p.user_id }));
+          mine.filter((e) => e.kind === "job" && T.local(e.starts_at).day === d && e.drive_before_min >= 120).forEach((e) =>
+            add(d, p.name + " drives " + fmtMins(e.drive_before_min) + " to " + labelOf(e), { person: p.user_id }));
+          const hrs = T.workHours(mine, d);
+          if (hrs >= 10) add(d, p.name + " has a " + fmtH(hrs) + " hour day", { person: p.user_id });
+          if (confirmOn()) mine.filter((e) => e.kind === "job" && e.confirm && e.confirm.status === "pending" && T.local(e.starts_at).day === d && T.daysBetween(today, d) <= 3).forEach((e) =>
+            add(d, p.name + " hasn’t answered for " + labelOf(e), { person: p.user_id }));
+        });
+        if (gcalOn) calOpenOn([d]).filter((c) => c.start_date === d || d === days[0]).forEach((c) =>
+          add(d, "On Google Calendar, not on anyone’s schedule: " + c.summary, { gcal: c.event_id }));
+      });
+      return out;
+    }
+    const labelOf = (e) => e.kind === "job" ? shortTitle(e.booking_title) : (e.title || KIND[e.kind] || "time");
+    function renderProblems() {
+      const list = problems(), btn = el("scProbBtn"), box = el("scProblems");
+      btn.textContent = list.length ? list.length + " problem" + (list.length === 1 ? "" : "s") : "No problems";
+      btn.classList.toggle("bad", list.length > 0);
+      btn.classList.toggle("hidden", view === "weeks8");
+      btn.setAttribute("aria-expanded", String(probOpen && list.length > 0));
+      box.classList.toggle("hidden", !probOpen || !list.length || view === "weeks8");
+      if (!probOpen || !list.length) return;
+      box.innerHTML = '<div class="sc-probhd"><b>Things to look at</b> <span class="muted">from today on, ' + (view === "month" ? "this month" : view === "day" ? "this day" : view === "list" ? "these days" : "on screen") + "</span></div><ul>" +
+        list.map((x) => '<li><button type="button" class="link" data-pday="' + esc(x.day) + '"' + (x.booking ? ' data-pbook="' + esc(x.booking) + '"' : "") + ">" + esc(T.fmtDay(x.day, { calendar: true })) + "</button> " + esc(x.text) + "</li>").join("") + "</ul>";
+    }
+
+    // ---- map beside the day and week
+    const MAP_FN_URL = SUPABASE_URL + "/functions/v1/schedule-map";
+    let mapKey = "", mapRes = null, mapSeq = 0;
+    function mapPlan() {
+      const days = view === "day" ? [anchor] : daysOf();
+      const jobs = data.bookings.filter((b) => days.includes(b.day)).sort((a, b) => (a.day + (a.start_at || "")).localeCompare(b.day + (b.start_at || "")));
+      const ids = [...new Set(jobs.map((b) => "job:" + b.booking_id))];
+      const label = {}; ids.forEach((id, i) => { label[id] = i < 9 ? String(i + 1) : String.fromCharCode(56 + i); });
+      const markers = ids.map((id) => { const b = jobs.find((x) => "job:" + x.booking_id === id); return { id, label: label[id], color: STATUS[statusOf(b.booking_id, b.day)][0].slice(1) }; });
+      const routes = [];
+      if (view === "day") data.people.forEach((p) => {
+        const js = data.entries.filter((e) => e.user_id === p.user_id && e.kind === "job" && T.local(e.starts_at).day === anchor).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+        if (!js.length) return;
+        const home = p.from_home && editable() ? "home:" + p.user_id : "studio";
+        routes.push({ user_id: p.user_id, color: PALETTE[hashIdx(p.user_id)].slice(1), stops: [home].concat(js.map((e) => "job:" + e.booking_id), [home]) });
+      });
+      return { start: days[0], days: days.length, ids, label, markers, routes, jobs };
+    }
+    async function renderMap() {
+      const box = el("scMap"), on = mapOn && (view === "day" || view === "week") && !narrow() ? true : mapOn && (view === "day" || view === "week");
+      root.classList.toggle("sc-withmap", !!on);
+      box.classList.toggle("hidden", !on);
+      if (!on) return;
+      const plan = mapPlan(), key = JSON.stringify([plan.start, plan.days, plan.markers, plan.routes.map((r) => r.stops)]);
+      const draw = () => drawMap(box, plan, mapRes);
+      if (key === mapKey && mapRes) return draw();
+      mapKey = key; mapRes = null;
+      box.innerHTML = '<div class="sc-maphd"><b>Map</b></div><p class="sc-note" style="padding:0 10px">Loading the map&#8230;</p>';
+      if (!plan.ids.length) { mapRes = { places: [], image: null }; return draw(); }
+      const my = ++mapSeq;
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) throw new Error("Signed out.");
+        const r = await fetch(MAP_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" },
+          body: JSON.stringify({ start: plan.start, days: plan.days, image: true, size: "600x460", markers: plan.markers, routes: plan.routes.map(({ color, stops }) => ({ color, stops })) }) });
+        const j = await r.json().catch(() => ({}));
+        if (my !== mapSeq) return;
+        if (!j.ok) throw new Error(j.error || "HTTP " + r.status);
+        mapRes = j;
+      } catch (e) {
+        if (my !== mapSeq) return;
+        mapRes = { places: [], image: null, map_error: "The map didn’t load: " + cleanErr(e) };
+      }
+      draw();
+    }
+    // The picture from Google when there is one; otherwise the pins drawn to scale on a plain background.
+    function drawMap(box, plan, res) {
+      const at = new Map((res.places || []).map((p) => [p.id, p]));
+      const title = view === "day" ? T.fmtDay(anchor, { calendar: true }) : "Week of " + T.fmtDay(plan.start);
+      let pic = "";
+      if (res.image) pic = '<img class="sc-mapimg" src="' + esc(res.image) + '" alt="Map of the jobs on ' + esc(title) + '" />';
+      else {
+        const pts = [...at.values()];
+        if (pts.length) {
+          const lat = pts.map((p) => p.lat), lng = pts.map((p) => p.lng), k = Math.cos(44.5 * Math.PI / 180);
+          const x0 = Math.min(...lng), x1 = Math.max(...lng), y0 = Math.min(...lat), y1 = Math.max(...lat);
+          const W = 300, H = 230, pad = 22, sx = (x1 - x0) * k || 0.01, sy = (y1 - y0) || 0.01, sc = Math.min((W - 2 * pad) / sx, (H - 2 * pad) / sy);
+          const X = (p) => (pad + ((p.lng - x0) * k) * sc + (W - 2 * pad - sx * sc) / 2).toFixed(1), Y = (p) => (H - pad - (p.lat - y0) * sc - (H - 2 * pad - sy * sc) / 2).toFixed(1);
+          let svg = "";
+          plan.routes.forEach((r) => { const s = r.stops.map((id) => at.get(id)).filter(Boolean); if (s.length > 1) svg += '<polyline points="' + s.map((p) => X(p) + "," + Y(p)).join(" ") + '" fill="none" stroke="#' + r.color + '" stroke-width="2.5" stroke-dasharray="5 3" />'; });
+          pts.forEach((p) => {
+            const m = plan.markers.find((x) => x.id === p.id), lbl = p.kind === "studio" ? "S" : p.kind === "home" ? "H" : (m && m.label) || "";
+            svg += p.kind === "job" ? '<circle cx="' + X(p) + '" cy="' + Y(p) + '" r="9" fill="#' + ((m && m.color) || "2f6db5") + '" /><text x="' + X(p) + '" y="' + (+Y(p) + 4) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">' + esc(lbl) + "</text>"
+              : '<rect x="' + (X(p) - 7) + '" y="' + (Y(p) - 7) + '" width="14" height="14" rx="3" fill="' + (p.kind === "studio" ? "#222" : "#8a8580") + '" /><text x="' + X(p) + '" y="' + (+Y(p) + 4) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">' + lbl + "</text>";
+          });
+          pic = '<svg class="sc-mapsvg" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Where the jobs are, to scale">' + '<rect width="' + W + '" height="' + H + '" fill="var(--surface-2)" />' + svg + "</svg>";
+        }
+      }
+      const gdir = (stops) => { const s = stops.map((id) => at.get(id)).filter(Boolean).map((p) => p.lat.toFixed(5) + "," + p.lng.toFixed(5)); if (s.length < 2) return ""; return "https://www.google.com/maps/dir/" + s.join("/"); };
+      const list = plan.ids.map((id) => {
+        const b = plan.jobs.find((x) => "job:" + x.booking_id === id), on = [...new Set(data.entries.filter((e) => e.kind === "job" && e.booking_id === b.booking_id && (view !== "day" || T.local(e.starts_at).day === anchor)).map((e) => e.user_id))];
+        return '<li><span class="pin" style="background:' + STATUS[statusOf(b.booking_id, b.day)][0] + '">' + esc(plan.label[id]) + "</span><span>" + (view === "day" ? "" : esc(T.fmtDay(b.day)) + " ") + esc(shortTitle(b.title)) +
+          '<small>' + (on.length ? esc(on.map(personName).join(", ")) : "nobody yet") + (at.has(id) ? "" : " &middot; not on the map") + "</small></span></li>";
+      }).join("");
+      const routes = plan.routes.map((r) => { const u = gdir(r.stops); return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener"><i style="background:#' + r.color + '"></i>' + esc(personName(r.user_id)) + "&#39;s route</a>" : ""; }).filter(Boolean).join("");
+      box.innerHTML = '<div class="sc-maphd"><b>Map</b> <span class="muted">' + esc(title) + "</span></div>" + (pic || '<p class="sc-note" style="padding:0 10px">' + (plan.ids.length ? "Looking up where the jobs are&#8230; check back in a minute." : "No jobs on these days.") + "</p>") +
+        (res.map_error ? '<p class="sc-note sc-maperr">' + esc(res.map_error) + "</p>" : "") +
+        (routes ? '<div class="sc-routes">' + routes + "</div>" : "") + (list ? '<ol class="sc-maplist">' + list + "</ol>" : "");
+    }
+
+    // ---- send changes: one email per person with their changed days
+    let changes = [];
+    async function loadChanges() {
+      const btn = el("scChg");
+      if (!editable()) { btn.classList.add("hidden"); return; }
+      try {
+        const { data: d, error } = await sb.rpc("schedule_changes_pending");
+        if (error) throw error;
+        changes = d || [];
+      } catch (_e) { changes = []; }
+      btn.classList.toggle("hidden", !changes.length);
+      btn.textContent = "Send changes (" + changes.length + ")";
+    }
+    function openChanges() {
+      const m = openModal('<div class="sc-modal"><h2>Send schedule changes</h2>' +
+        '<p class="sc-note">Changes to people&#39;s schedules from today on are saved up here instead of going out one at a time. Each person you send to gets one email with their changed days as they are now. Time off and flex time people add themselves aren&#39;t included.</p>' +
+        '<ul class="sc-pick" id="aca-scChgList">' + changes.map((c) => '<li><input type="checkbox" value="' + esc(c.user_id) + '"' + (c.has_email ? " checked" : " disabled") + ' aria-label="' + esc(c.name) + '" /><span><span class="n">' + esc(T.shortName(c.name)) + "</span>" +
+          '<span class="s">' + esc((c.days || []).slice().sort().map((d) => T.fmtDay(d, { calendar: true })).join(", ")) + (c.has_email ? "" : " &middot; no email address") + "</span></span>" +
+          '<button type="button" class="link" data-m="preview" data-user="' + esc(c.user_id) + '">Preview</button></li>').join("") + "</ul>" +
+        '<div id="aca-scChgPrev"></div><div class="inline-error hidden" id="aca-scMErr"></div>' +
+        '<div class="modal-actions"><button type="button" class="small" data-m="drop" title="Mark these as done without emailing anyone">Don&#39;t send</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="primary" data-m="send">Send</button></div></div>');
+      const picked = () => [...m.querySelectorAll("#aca-scChgList input:checked")].map((x) => x.value);
+      m.addEventListener("click", async (ev) => {
+        const t = ev.target.closest("[data-m]"); if (!t) return;
+        if (t.dataset.m === "cancel") return m.close();
+        if (t.dataset.m === "preview") {
+          const box = m.querySelector("#aca-scChgPrev");
+          box.innerHTML = '<p class="sc-note">Loading&#8230;</p>';
+          const { data: d, error } = await sb.rpc("schedule_changes_preview", { p_user: t.dataset.user });
+          box.innerHTML = error ? '<p class="sc-note">' + esc(cleanErr(error)) + "</p>" : d ? '<div class="sc-chgprev"><b>' + esc(d.subject) + "</b><pre>" + esc(d.text) + "</pre></div>" : '<p class="sc-note">Nothing to send for them any more.</p>';
+          return;
+        }
+        if (t.dataset.m !== "send" && t.dataset.m !== "drop") return;
+        const who = picked();
+        if (!who.length) return mErr("Tick at least one person.");
+        t.disabled = true;
+        const { data: r, error } = await sb.rpc("schedule_changes_send", { p_users: who, p_send: t.dataset.m === "send" });
+        if (error) { t.disabled = false; return mErr(cleanErr(error)); }
+        m.close();
+        toast(t.dataset.m === "send" ? "Sent to " + num(r.sent) + " " + (r.sent === 1 ? "person" : "people") + "." + (r.no_email ? " " + r.no_email + " had no email address." : "") : "Marked as done. Nothing was sent.");
+        loadChanges();
+      });
+    }
+
+    // ---- each person's own schedule in their phone's calendar
+    async function openCal(reset) {
+      let tok = "";
+      try { const { data: d, error } = await sb.rpc("staff_cal_link", { p_reset: !!reset }); if (error) throw error; tok = d.token; } catch (e) { toast(cleanErr(e), true); return; }
+      const https = SUPABASE_URL + "/functions/v1/staff-ics?t=" + tok, webcal = https.replace(/^https:/, "webcal:");
+      const m = openModal('<div class="sc-modal"><h2>Your schedule in your phone&#39;s calendar</h2>' +
+        '<p>Your jobs and time from the Schedule show up in your phone&#39;s calendar and stay up to date (phones check about once an hour). Jobs have the address, when to leave, your role, the crew notes and the WiFi, with a reminder 15 minutes before you need to leave.</p>' +
+        '<p><a class="primary" style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:6px;text-decoration:none" href="' + esc(webcal) + '">Add to my iPhone calendar</a></p>' +
+        '<div class="field"><label for="aca-scCalUrl">Or copy the link (Google Calendar: Other calendars, +, From URL)</label><div class="sc-drive"><input type="text" id="aca-scCalUrl" readonly value="' + esc(https) + '" style="flex:1;min-width:0" /><button type="button" class="small" data-m="copy">Copy</button></div></div>' +
+        '<p class="sc-note">Only you should have this link: anyone with it can see your schedule. If it gets shared, make a new one and the old one stops working.</p>' +
+        '<div class="modal-actions"><button type="button" class="small" data-m="reset">Make a new link</button><span class="grow"></span><button type="button" class="primary" data-m="cancel">Done</button></div></div>');
+      m.addEventListener("click", async (ev) => {
+        const t = ev.target.closest("[data-m]"); if (!t) return;
+        if (t.dataset.m === "cancel") m.close();
+        if (t.dataset.m === "copy") { const i = m.querySelector("#aca-scCalUrl"); i.select(); try { await navigator.clipboard.writeText(i.value); toast("Copied."); } catch (_e) { document.execCommand && document.execCommand("copy"); } }
+        if (t.dataset.m === "reset") { m.close(); openCal(true); toast("New link made. The old one no longer works."); }
+      });
+    }
+
     // ---------------------------------------------------------------- events
     // Jump ahead up to two months (polish pass 2026-10-23: the schedule is built 2-4 weeks out, looked at up to 2 months).
     function fillJump() {
+      el("scJump").classList.toggle("hidden", view === "month");
       const wk0 = T.weekStart(T.today()), cur = T.weekStart(anchor);
       const opts = Array.from({ length: 9 }, (_, i) => T.addDays(wk0, 7 * i));
       el("scJump").innerHTML = (opts.includes(cur) ? "" : '<option value="">Week of ' + esc(T.fmtDay(cur, { weekday: undefined })) + "</option>") +
@@ -668,15 +1225,20 @@
       }
       const v = e.target.closest("[data-v]");
       if (v) {
-        const a = v.dataset.v, step = view === "week" ? 7 : 1, oneDay = view === "day" || view === "list";
-        if (a === "prev") { anchor = T.addDays(anchor, -step); load(); }
-        if (a === "next") { anchor = T.addDays(anchor, step); load(); }
+        const a = v.dataset.v, step = view === "week" ? 7 : view === "weeks2" ? 14 : 1, oneDay = view === "day" || view === "list";
+        // a month steps to the 1st of the month before / after
+        const monthStep = (n) => { const d = new Date(anchor.slice(0, 8) + "15T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 8) + "01"; };
+        if (a === "prev") { anchor = view === "month" ? monthStep(-1) : T.addDays(anchor, -step); load(); }
+        if (a === "next") { anchor = view === "month" ? monthStep(1) : T.addDays(anchor, step); load(); }
         if (a === "today") { anchor = T.today(); load(); }
         if (a === "addflex") openEntry(null, { user_id: data.me, kind: "flex", day: oneDay ? anchor : T.today() >= data.start && T.today() < T.addDays(data.start, 7) ? T.today() : data.start });
         if (a === "add") openEntry(null, { user_id: data && data.me, day: oneDay ? anchor : T.today() >= data.start && T.today() < T.addDays(data.start, 7) ? T.today() : data.start });
         if (a === "studio") openStudio();
         if (a === "crewset") openCrewSettings();
         if (a === "weekmail") openWeekEmail();
+        if (a === "problems") { probOpen = !probOpen; renderProblems(); }
+        if (a === "cal") openCal(false);
+        if (a === "changes") openChanges();
         if (a === "key") v.setAttribute("aria-expanded", String(root.classList.toggle("sc-showkey")));
         return;
       }
@@ -686,8 +1248,16 @@
       if (w8) { anchor = w8.dataset.w8week; highlight = null; setView("week"); window.scrollTo(0, 0); return; }
       const w8b = e.target.closest("[data-w8b]");
       if (w8b) { anchor = highlight = w8b.dataset.day; pendingAssign = { id: w8b.dataset.w8b, day: w8b.dataset.day }; setView("week"); window.scrollTo(0, 0); return; }
-      const dayBtn = e.target.closest(".sc-head [data-day]");
-      if (dayBtn) { anchor = dayBtn.dataset.day; setView("day"); return; }
+      const pd = e.target.closest("[data-pday]");
+      if (pd) {
+        const b = pd.dataset.pbook && data.bookings.find((x) => x.booking_id === pd.dataset.pbook && x.day === pd.dataset.pday);
+        if (b && editable()) { openAssign(b); return; }
+        anchor = pd.dataset.pday; setView(narrow() ? "list" : "day"); return;
+      }
+      const mw = e.target.closest("[data-mweek]");
+      if (mw) { anchor = mw.dataset.mweek; highlight = null; setView("week"); return; }
+      const dayBtn = e.target.closest(".sc-head [data-day], .scc-head [data-day], .scm-dn[data-day], .scm-more[data-day]");
+      if (dayBtn) { anchor = dayBtn.dataset.day; setView(narrow() && view === "month" ? "list" : "day"); return; }
       const chip = e.target.closest("[data-booking]");
       if (chip) { const b = data.bookings.find((x) => x.booking_id === chip.dataset.booking && x.day === chip.dataset.day); if (b) { if (editable()) openAssign(b); else location.hash = jobLink(b.booking_id); } return; } // people who can't staff it go to the job page
       const gc = e.target.closest("[data-gcal]");
@@ -701,6 +1271,8 @@
       const bar = e.target.closest("[data-entry]");
       if (bar && bar.dataset.entry.startsWith("req:")) { if (canEdit("timeoff")) showTab("timeoff"); else toast("Asked for time off. Nobody has answered yet."); return; }
       if (bar) { const en = data.entries.find((x) => x.id === bar.dataset.entry); if (en) en.gcal ? openCalInfo(en.gcal) : canChange(en) ? openEntry(en) : openInfo(en); return; }
+      const md = e.target.closest("[data-mday]");
+      if (md) { anchor = md.dataset.mday; setView(narrow() ? "list" : "day"); return; }
       const cell = e.target.closest(".sc-cell");
       if (cell && (editable() || isMine(cell.dataset.person)) && !e.target.closest("a")) {
         // the clicked time, rounded to the half hour, becomes the start (in day view)
@@ -716,17 +1288,23 @@
       if (e.target.name === "aca-scView") setView(e.target.value);
       if (e.target.id === "aca-scMine") { mineOnly = e.target.checked; if (data && view !== "weeks8") render(); }
       if (e.target.id === "aca-scWait") { waitOnly = e.target.checked; if (data && view !== "weeks8") render(); }
+      if (e.target.id === "aca-scNeedOnly") { needOnly = e.target.checked; if (data && view !== "weeks8") render(); }
+      if (e.target.id === "aca-scGcal") { gcalOn = e.target.checked; setPref("gcal", gcalOn ? 1 : 0); if (data && view !== "weeks8") render(); }
+      if (e.target.id === "aca-scScale") { scaleOn = e.target.checked; setPref("scale", scaleOn ? 1 : 0); if (data && view !== "weeks8") render(); }
+      if (e.target.id === "aca-scMapOn") { mapOn = e.target.checked; setPref("map", mapOn ? 1 : 0); if (data && view !== "weeks8") render(); }
+      if (e.target.id === "aca-scColor") { colorBy = e.target.value; setPref("color", colorBy); if (data && view !== "weeks8") render(); }
     });
     root.querySelector(".sc-scroll").addEventListener("scroll", (e) => {
       const n = e.currentTarget;
       if (n.scrollLeft > 20) el("scSwipe").classList.add("hidden");
-      n.classList.toggle("fade", narrow() && view === "week" && n.scrollLeft + n.clientWidth < n.scrollWidth - 4);
+      n.classList.toggle("fade", narrow() && (view === "week" || view === "weeks2") && n.scrollLeft + n.clientWidth < n.scrollWidth - 4);
     }, { passive: true });
     function setView(v) {
       view = v;
       root.querySelector('input[name="aca-scView"][value="' + v + '"]').checked = true;
       if (v === "weeks8") { loadWeeks(); return; }
-      if (data && T.weekStart(anchor) === data.start && v !== "list") { render(); openPending(); } else load();
+      const r = rangeFor(v, anchor);
+      if (data && r.start === data.start && r.days === data.span) { render(); openPending(); } else load();
     }
 
     // B1: the next 8 weeks at a glance: per week, its jobs and the ones that still need people, plus Busiest days.

@@ -17,6 +17,8 @@ Project `socluffmclkdljtmiexw`. Only the functions changed in this repo are kept
 | `go` | Tracked links in booking emails: `GET ?e=<booking_emails.id>&u=<base64url link>` logs the click (`booking_link_click`, anon) and redirects. Only our own pages (the hubs, `#day/` page, `booking-ics`); anything else gets a plain page, never a redirect. | none |
 | `booking-weather` | Forecast check for outdoor / either picture days 1 to 3 days out: geocodes the location once (Places Text Search, `GOOGLE_MAPS_API_KEY`), reads the National Weather Service hourly grid, and calls `booking_weather_record` (20%+ rain or gusts over 25 mph during the shoot alerts whoever booked). Cron `booking-weather` twice a day. | `x-booking-secret` (Vault) |
 | `prospect-sender` | Sends outreach email (`prospect_scheduled_emails`) through Gmail, every 15 minutes inside the send window (cron `prospect-sender-15min`). `?ids=A,B` is "Send now" (SQL `prospect_send_now`): just those emails, right away, any hour. Copied from deployed v12 on 2026-10-23. | `x-prospect-secret` (Vault `prospect_trigger_secret`) |
+| `schedule-map` | The map beside the Schedule's day and week: `schedule_map_places` (studio, jobs, and homes for Scheduling edit) with coordinates looked up once (Places text search, cached in `schedule_geo` via `schedule_geo_store`), and with `image: true` the map as a PNG data URL from the **Maps Static API** (pins plus each person's route). Same `GOOGLE_MAPS_API_KEY`, which needs Maps Static API turned on for the picture. | caller's JWT + `can('scheduling','view')` |
+| `staff-ics` | A team member's own schedule as a calendar their phone subscribes to: `GET ?t=<token>` (from Phone calendar on the Schedule, SQL `staff_cal_link`) returns `.ics` built by the anon SQL function `staff_ics(token)`. | none (token only) |
 
 All functions are deployed with `verify_jwt = false` and do their own checks.
 
@@ -34,6 +36,8 @@ supabase functions deploy booking-ics --no-verify-jwt --project-ref socluffmclkd
 supabase functions deploy go --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase functions deploy booking-weather --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase functions deploy prospect-sender --no-verify-jwt --project-ref socluffmclkdljtmiexw
+supabase functions deploy schedule-map --no-verify-jwt --project-ref socluffmclkdljtmiexw
+supabase functions deploy staff-ics --no-verify-jwt --project-ref socluffmclkdljtmiexw
 supabase secrets set GOOGLE_MAPS_API_KEY=... --project-ref socluffmclkdljtmiexw   # Routes API + Places API (New)
 ```
 
