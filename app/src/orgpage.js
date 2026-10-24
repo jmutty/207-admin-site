@@ -191,13 +191,13 @@
         },
         results: async () => {
           if (!canSee("results")) return { jobs: [], terms: null };
-          const [j, p] = await Promise.all([sb.rpc("results_jobs", { p_org: id }), sb.rpc("results_partners")]);
+          const [j, p] = await Promise.all([sb.rpc("results_jobs_for", { p_org: id }), sb.rpc("results_partners")]);
           if (j.error) throw j.error;
           return { jobs: (j.data || []).filter((x) => x.org_id === id), terms: ((p && p.data) || []).find((x) => x.id === id) || null };
         },
         rebook: async () => {
           if (!canSee("partners")) return null;
-          const { data: d } = await sb.rpc("partner_rebook_list", { p_org: id });
+          const { data: d } = await sb.rpc("partner_rebook_list_for", { p_org: id });
           return (d || []).find((x) => x.org_id === id) || null;
         },
         reviews: async () => {
@@ -213,7 +213,7 @@
         },
         outbox: async () => {
           if (!canSee("partners")) return [];
-          const [{ data: d, error }, bks] = await Promise.all([sb.rpc("admin_outbox", { p_org: id }), data("bookings")]);
+          const [{ data: d, error }, bks] = await Promise.all([sb.rpc("admin_outbox_for", { p_org: id }), data("bookings")]);
           if (error) throw error;
           const ids = new Set(bks.map((b) => b.id));
           return (d || []).filter((x) => x.org_id === id || (x.booking_id && ids.has(x.booking_id)) || (!x.org_id && (x.org || "").toLowerCase() === name));

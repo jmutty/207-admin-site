@@ -9,10 +9,10 @@ create index if not exists synced_codes_subject_name_idx on public.synced_codes 
 
 -- 4. A partner's page asked for the whole company's outbox, rebooking list and sales and kept its own rows. Each of
 --    these takes an optional p_org now: the page gets just that partner's rows. Called without it, they answer
---    exactly as before (the Outbox, Due to rebook and Results pages are unchanged). The only change in each body
---    is the p_org filter. A new argument changes the signature, so each is dropped and created again with its grants.
-drop function if exists public.admin_outbox(integer);
-CREATE OR REPLACE FUNCTION public.admin_outbox(p_days_back integer DEFAULT 14, p_org uuid DEFAULT NULL::uuid)
+--    exactly as before (the Outbox, Due to rebook and Results pages are unchanged). Nothing is removed: each body
+--    moves to a new <name>_for function with the p_org filter, and the old name (same arguments) calls it with no
+--    partner. The only change in each body is the p_org filter.
+CREATE OR REPLACE FUNCTION public.admin_outbox_for(p_days_back integer DEFAULT 14, p_org uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE sql
  STABLE SECURITY DEFINER
@@ -102,11 +102,10 @@ AS $function$
       from all_rows r
      where p_org is null or r.org_id = p_org::text or (r.org_id is null and lower(r.org) = (select lower(o.name) from prospect_orgs o where o.id = p_org))), '[]'::jsonb) end;
 $function$;
-revoke all on function public.admin_outbox(integer, uuid) from public, anon;
-grant execute on function public.admin_outbox(integer, uuid) to authenticated, service_role;
+revoke all on function public.admin_outbox_for(integer, uuid) from public, anon;
+grant execute on function public.admin_outbox_for(integer, uuid) to authenticated, service_role;
 
-drop function if exists public.partner_rebook_list();
-CREATE OR REPLACE FUNCTION public.partner_rebook_list(p_org uuid DEFAULT NULL::uuid)
+CREATE OR REPLACE FUNCTION public.partner_rebook_list_for(p_org uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
@@ -145,11 +144,10 @@ begin
       left join public.partner_rebook r on r.org_id = d.id and r.due_on = d.due_on
   ), '[]'::jsonb);
 end $function$;
-revoke all on function public.partner_rebook_list(uuid) from public, anon;
-grant execute on function public.partner_rebook_list(uuid) to authenticated, service_role;
+revoke all on function public.partner_rebook_list_for(uuid) from public, anon;
+grant execute on function public.partner_rebook_list_for(uuid) to authenticated, service_role;
 
-drop function if exists public.results_jobs();
-CREATE OR REPLACE FUNCTION public.results_jobs(p_org uuid DEFAULT NULL::uuid)
+CREATE OR REPLACE FUNCTION public.results_jobs_for(p_org uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -174,7 +172,17 @@ begin
       left join public.booking_types bt on bt.key = c.booking_type
      where p_org is null or c.org_id = p_org), '[]'::jsonb);
 end $function$;
-revoke all on function public.results_jobs(uuid) from public, anon;
-grant execute on function public.results_jobs(uuid) to authenticated, service_role;
+revoke all on function public.results_jobs_for(uuid) from public, anon;
+grant execute on function public.results_jobs_for(uuid) to authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_outbox(p_days_back integer DEFAULT 14)
+ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $function$ select public.admin_outbox_for(p_days_back, null) $function$;
+CREATE OR REPLACE FUNCTION public.partner_rebook_list()
+ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+AS $function$ select public.partner_rebook_list_for(null) $function$;
+CREATE OR REPLACE FUNCTION public.results_jobs()
+ RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path TO ''
+AS $function$ select public.results_jobs_for(null) $function$;
 
 notify pgrst, 'reload schema';

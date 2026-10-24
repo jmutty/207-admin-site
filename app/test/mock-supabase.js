@@ -880,6 +880,7 @@
     from: q, storage, rpc: async (n, a) => {
       window.__rpcCalls.push([n, a]);
       if (SLOW && !/^(admin_session_ok|my_access)$/.test(n)) await new Promise((ok) => setTimeout(ok, SLOW));
+      if (/^(admin_outbox|partner_rebook_list|results_jobs)_for$/.test(n)) n = n.slice(0, -4); // the partner page's one-partner versions
       return { data: typeof RPC[n] === "function" ? RPC[n](a || {}) : RPC[n] !== undefined ? RPC[n] : [], error: null };
     },
   }) };
