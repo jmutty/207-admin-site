@@ -1895,6 +1895,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.$eval('#aca-pfCmTo input[data-cid="c1"][value="to"]', (n) => n.checked) && await page.$eval('#aca-pfCmTo input[data-cid="c2"][value="cc"]', (n) => n.checked)
       && await page.$eval('#aca-pfCmTo input[data-cid="c3"][value=""]', (n) => n.checked), "Main in To, Copy in in CC, Not involved left out");
     check((await page.textContent("#aca-pfCmWho")).includes("Team & individual"), "says which contact line it used");
+    check((await page.textContent(".modal h2")).includes("Winter Sports"), "the title names last year's job");
     await page.click('#aca-pfCmTo input[data-cid="c3"][value="cc"] >> xpath=..');
     await page.click("#aca-pfCmHold");
     await page.waitForTimeout(150);
