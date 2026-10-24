@@ -847,6 +847,26 @@
       .forEach((o) => Object.assign(o, { stage: "client", client_since: "2024-09-01", last_job_at: "2026-09-19", next_job_at: iso(12).slice(0, 10) }));
   }
 
+  // Partner groups (2026-10-24): no partner is in a group unless ?groups=1, which adds the district "RSU 22" with
+  // Hancock Grammar School and a second school under it, its superintendent, and a signed agreement that covers them.
+  {
+    T.prospect_orgs.forEach((o) => { if (!("parent_id" in o)) o.parent_id = null; });
+    if (/[?&]groups=1\b/.test(location.search)) {
+      const D = "55555555-5555-5555-5555-555555555555", H = "22222222-2222-2222-2222-222222222222";
+      T.prospect_orgs.push({ id: D, name: "RSU 22", name_known: true, audience: "school", stage: "client", sports: [], seasons: ["fall", "spring"], town: "Hampden", county: "Penobscot",
+        last_contact_at: iso(-20), last_result: "Client", job_count: 0, client_since: "2023-09-01", parent_id: null, search_text: "rsu 22 hampden district", created_at: iso(-400) },
+        { id: "66666666-6666-6666-6666-666666666666", name: "Reeds Brook Middle School", name_known: true, audience: "school", stage: "client", sports: [], seasons: ["fall"], town: "Hampden", county: "Penobscot",
+          last_contact_at: iso(-40), last_result: "Client \u00b7 15 jobs", job_count: 15, last_job_at: iso(-35).slice(0, 10), client_since: "2021-09-01", parent_id: D, search_text: "reeds brook middle school hampden", created_at: iso(-500) },
+        { id: "77777777-7777-7777-7777-777777777777", name: "Wagner Middle School", name_known: true, audience: "school", stage: "no_reply", sports: [], seasons: [], town: "Winterport", county: "Waldo",
+          parent_id: null, search_text: "wagner middle school winterport", created_at: iso(-500) });
+      T.prospect_orgs.find((o) => o.id === H).parent_id = D;
+      T.prospect_contacts.push({ id: "c40", org_id: D, first_name: "Regan", last_name: "Nickels", email: "rnickels@rsu22.us", role: "Superintendent", is_primary: true, history_only: false, created_at: iso(-30) },
+        { id: "c41", org_id: D, first_name: "Dana", last_name: "Curtis", email: "business@rsu22.us", role: "Business manager", is_primary: false, history_only: false, created_at: iso(-30) });
+      RPC.agreements_list = RPC.agreements_list.filter((a) => a.org_id !== H).concat([{ id: "ag40", org_id: D, org: "RSU 22", title: "RSU 22 district photo agreement", status: "accepted",
+        accepted_at: iso(-60), renewal_date: iso(250).slice(0, 10), covers_members: true, audience: "school" }]);
+      RPC.agreement_set_covers = null;
+    }
+  }
   if (RPC.time_off_list && RPC.time_off_list.team[0]) RPC.time_off_list.team[0].jobs.forEach((j) => { j.booking_id = "bk5"; }); // B7: jobs carry booking_id
   window.__RPC = RPC; // screenshots can adjust the fake data
   window.supabase = { createClient: () => ({
