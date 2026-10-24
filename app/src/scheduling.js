@@ -501,10 +501,18 @@
     // A school's makeup day (booking_days kind makeup) can start out with no time. The first time given to it here
     // (assigning, or changing a crew bar) becomes the makeup day's own time, so the calendar event gets it too.
     const untimedMakeup = (b) => !!b && b.day_label === "Makeup day" && !b.start_at;
-    async function setMakeupTime(b, st, et) {
-      const { error } = await sb.rpc("booking_set_makeup", { p_booking: b.booking_id, p: { day: b.day, start_time: st, end_time: et } });
+    // One time per day, everywhere (2026-10-24, Jeremiah: "I just changed a job's times on the scheduling calendar. That
+    // should sync across Google Calendar, job, etc."): a time changed here is the job's own time for that day. The job
+    // page, its Google Calendar event, emails that mention the time and everyone else on that day follow
+    // (booking_day_set_time); the job's other days stay as they are. A makeup day goes the same way.
+    async function setDayTime(b, st, et) {
+      const { error } = await sb.rpc("booking_day_set_time", { p_booking: b.booking_id, p_day: b.day, p_start: st, p_end: et });
       if (error) throw error;
     }
+    const jobHhmm = (b) => (b && b.start_at ? [T.hhmm(T.local(b.start_at).min), T.hhmm(T.local(b.end_at).min)] : ["", ""]);
+    const fmtHm = (x) => { const [hh, mm] = x.split(":").map(Number); return T.fmtMin(hh * 60 + mm); };
+    const dayTimeMsg = (b, st, et) => (untimedMakeup(b) ? "Makeup day time set." : "The job is now " + fmtHm(st) + "\u2013" + fmtHm(et) + " on " + T.fmtDay(b.day) + ".") +
+      " The job page and calendar event follow" + (untimedMakeup(b) ? "." : ", and so does everyone else on that day.");
     const shortTitle = (s) => String(s || "").split(" \u2022 ")[0];
     // Bulk assign (2026-10-23): Ctrl / Cmd / Shift-click jobs under Jobs not assigned (or turn on "Pick several",
     // which phones need) to pick several, then put the same people on all of them at once. Picks are kept by
@@ -1624,7 +1632,8 @@
         '<div class="row2"><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(en) + '" /></div></div>' +
         driveHtml(already[0] && !already[0].batch_id ? already[0].drive_before_min : 30, already[0] && !already[0].batch_id ? already[0].drive_after_min : 30,
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
-        (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home. Ticking one person shows their drive here; with several ticked, each gets their own.</p>' : "") + "</details>" +
+        (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home. Ticking one person shows their drive here; with several ticked, each gets their own.</p>' : "") +
+        (mkTime ? "" : '<p class="sc-note">A new start or end here is the job&#39;s time for this day: the job page, the Google Calendar event, emails and everyone on it follow. Its other days stay as they are.</p>') + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (mkTime ? "Save time" : already.length ? "Save changes" : "Add to the schedule") + '</button></div></div>');
       // The job's and its partner's newest notes, with Add note (2026-10-24)
@@ -1709,6 +1718,8 @@
         if (t.dataset.m === "save") {
           const who = [...pick.querySelectorAll("li")].filter((li) => li.querySelector("input:checked")).map((li) => ({ user_id: li.querySelector("input").value, role_id: li.querySelector(".sc-role").value || null }));
           const st = el("scS").value, et = el("scE").value;
+          // the job's own time for this day changes too (an overnight time stays on the bars only)
+          const dayTime = et > st && (mkTime || st !== t0.st || et !== t0.et);
           if (mkTime) {
             if (!st || !et) { el("scTimes").open = true; return mErr("Enter the makeup day's start and end time."); }
             if (et <= st) { el("scTimes").open = true; return mErr("The end time has to be after the start time."); }
@@ -1717,12 +1728,12 @@
             // nobody new: save the changes (people needed, the makeup day's time, times and drive for who is on it)
             const v = driveVals(m), tChanged = st !== t0.st || et !== t0.et, dKeys = Object.keys(v).filter((k) => v[k] !== t0.v[k]);
             const edits = already.length > 0 && (tChanged || dKeys.length > 0);
-            if (!mkTime && !edits && needIn.value === need0) return mErr(already.length ? "Nothing changed yet. Tick someone to add them, or change the times or drive." : "Pick at least one person.");
+            if (!dayTime && !edits && needIn.value === need0) return mErr(already.length ? "Nothing changed yet. Tick someone to add them, or change the times or drive." : "Pick at least one person.");
             if (tChanged && (!st || !et)) { el("scTimes").open = true; return mErr("Enter the start and end time."); }
             t.disabled = true;
             try {
               await saveNeed();
-              if (mkTime) await setMakeupTime(b, st, et);
+              if (dayTime) await setDayTime(b, st, et);
               if (edits) for (const e of already) {
                 const p = { id: e.id, user_id: e.user_id, kind: "job", booking_id: e.booking_id, title: "", note: e.note || "", starts_at: e.starts_at, ends_at: e.ends_at,
                   setup_min: e.setup_min, teardown_min: e.teardown_min, drive_before_min: e.drive_before_min, drive_after_min: e.drive_after_min };
@@ -1736,7 +1747,7 @@
                 const { error } = await sb.rpc("schedule_save", { p }); if (error) throw error;
               }
               m.close();
-              toast([mkTime ? "Makeup day time set. The calendar event updates in a minute." : "", edits ? (already.length === 1 ? personName(already[0].user_id) + "'s bar is updated." : already.length + " bars updated.") : "", !mkTime && !edits ? "Saved." : ""].filter(Boolean).join(" "));
+              toast(dayTime ? dayTimeMsg(b, st, et) : edits ? (already.length === 1 ? personName(already[0].user_id) + "'s bar is updated." : already.length + " bars updated.") : "Saved.");
               const trip = edits && already.find((e) => e.batch_id); if (trip) await retrip(trip);
               load(); loadAttention();
             } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
@@ -1747,7 +1758,7 @@
           t.disabled = true;
           try {
             await saveNeed();
-            if (mkTime) await setMakeupTime(b, st, et);
+            if (dayTime) await setDayTime(b, st, et);
             let clashes = 0;
             for (const w of who) {
               const v = driveVals(m);
@@ -1757,7 +1768,7 @@
               clashes += num(r && r.overlaps);
             }
             m.close();
-            toast((who.length === 1 ? "Added to the schedule." : who.length + " people added.") + (confirmOn() && (!b.status || b.status === "booked") ? " They'll be asked to confirm." : "") + (clashes ? " Heads up: it overlaps other time on their schedule." : ""));
+            toast((who.length === 1 ? "Added to the schedule." : who.length + " people added.") + (dayTime ? " " + dayTimeMsg(b, st, et) : "") + (confirmOn() && (!b.status || b.status === "booked") ? " They'll be asked to confirm." : "") + (clashes ? " Heads up: it overlaps other time on their schedule." : ""));
             load(); loadAttention();
           } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
         }
@@ -1943,16 +1954,21 @@
               if (el("scRole")) p.role_id = el("scRole").value || null;
             }
           }
-          // a crew bar on a makeup day with no time yet gives the makeup day its time
-          const mk = k === "job" && editable() && data.bookings.find((x) => x.booking_id === p.booking_id && x.day === el("scD").value);
-          const mkSet = untimedMakeup(mk) && el("scE").value > el("scS").value;
+          // A crew bar whose times were changed here changes that day's job time too (a makeup day with no time yet
+          // gets its first one): the job page, calendar event and everyone else on that day follow, and the job's
+          // other days stay. Saving a bar without touching its times (a note, the drive) leaves the job alone.
+          const jb = k === "job" && editable() && data.bookings.find((x) => x.booking_id === p.booking_id && x.day === el("scD").value);
+          const st = el("scS").value, et = el("scE").value, [js, je] = jobHhmm(jb);
+          const barMoved = !e || e.kind !== "job" || e.booking_id !== p.booking_id || T.local(e.starts_at).day !== el("scD").value ||
+            T.hhmm(T.local(e.starts_at).min) !== st || T.hhmm(T.local(e.ends_at).min) !== et;
+          const dayTime = !!jb && et > st && barMoved && (st !== js || et !== je);
           t.disabled = true;
           try {
+            if (dayTime) await setDayTime(jb, st, et);
             const { data: r, error } = await sb.rpc("schedule_save", { p });
             if (error) throw error;
-            if (mkSet) await setMakeupTime(mk, el("scS").value, el("scE").value);
             m.close();
-            toast((isNew ? "Added." : "Saved.") + (num(r && r.overlaps) ? " Heads up: it overlaps other time on " + personName(p.user_id) + "'s schedule." : ""), false);
+            toast((isNew ? "Added." : "Saved.") + (dayTime ? " " + dayTimeMsg(jb, st, et) : "") + (num(r && r.overlaps) ? " Heads up: it overlaps other time on " + personName(p.user_id) + "'s schedule." : ""), false);
             if (T.local(p.starts_at).day < data.start || T.local(p.starts_at).day >= T.addDays(data.start, 7)) anchor = T.local(p.starts_at).day;
             // a batched bar that moved: work its trip out again (the order may have changed, or it left the trip)
             if (e && e.batch_id) await retrip(e);

@@ -1158,12 +1158,12 @@
       const sent = (d.emails || []).filter((e) => e.status === "sent").length;
       const names = (crewNow || []).map((c) => shortNm(c.name));
       const bits = dayMoved ? [
-        names.length ? "the crew on the Schedule (" + esc(names.join(", ")) + ") moves to the new day with the same times" : "nobody is on the Schedule for it yet",
+        names.length ? "the crew on the Schedule (" + esc(names.join(", ")) + ") moves with each day that moves" : "nobody is on the Schedule for it yet",
         "the Google Calendar event moves",
         unsent ? unsent + " email" + (unsent === 1 ? " that hasn't" : "s that haven't") + " gone out yet " + (unsent === 1 ? "is" : "are") + " rescheduled from the new day" : "no emails are waiting to go out",
         "checklist steps keep their spacing from picture day"] : [
         "the Google Calendar event and emails that mention the time follow",
-        names.length ? "the crew's times on the Schedule stay as they are, so check them there" : "nobody is on the Schedule for it yet"];
+        names.length ? "the crew on the Schedule (" + esc(names.join(", ")) + ") moves by the same amount on the days that changed" : "nobody is on the Schedule for it yet"];
       note.innerHTML = "<strong>" + (dayMoved ? "Moving the day:" : "Changing the time:") + "</strong> " + bits.join("; ") + "." + (dayMoved && sent ? " Emails already sent stay sent." : "");
       note.classList.remove("hidden");
     } Promise.all([Schedule.team(), crewLoad]).then(([ppl]) => {

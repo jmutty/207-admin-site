@@ -1517,9 +1517,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       check((await page.textContent('.sc-modal [data-m="save"]')).trim() === "Save time", "Save time with nobody ticked");
       await page.evaluate(() => { window.__rpcCalls.length = 0; });
       await page.click('.sc-modal [data-m="save"]');
-      await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_set_makeup"));
-      const mc = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "booking_set_makeup").pop());
-      check(mc[1].p_booking === "bkM" && mc[1].p.start_time === "11:00" && mc[1].p.end_time === "13:00", "saves the makeup day's time: " + JSON.stringify(mc[1]));
+      await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_day_set_time"));
+      const mc = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "booking_day_set_time").pop());
+      check(mc[1].p_booking === "bkM" && mc[1].p_start === "11:00" && mc[1].p_end === "13:00", "saves the makeup day's time: " + JSON.stringify(mc[1]));
       // a timed job with someone on it: nobody new ticked, the button saves changed times and drive onto their bar
       await page.waitForSelector(".modal-wrap", { state: "detached" }).catch(() => {});
       await page.click("#aca-scGrid .sc-chip.part");
@@ -1530,6 +1530,41 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "schedule_save"));
       const ss = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
       check(ss.length === 2 && ss.every((p) => p.id && /T14:00:00/.test(new Date(p.starts_at).toISOString()) && p.drive_before_min === 55 && p.drive_after_min === 30), "saves the new start and drive onto both bars: " + JSON.stringify(ss));
+      // One time per day, everywhere (2026-10-24): the new start is the job's own time for that day, set before the bars
+      const calls = await page.evaluate(() => window.__rpcCalls.map((c) => c[0]).filter((n) => n === "booking_day_set_time" || n === "schedule_save"));
+      const dt = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "booking_day_set_time").pop());
+      check(calls[0] === "booking_day_set_time" && dt && dt[1].p_booking === "bk1" && dt[1].p_start === "10:00" && dt[1].p_end === "12:00", "the job's time for that day changes first: " + JSON.stringify(dt && dt[1]));
+      // changing only the drive leaves the job's time alone
+      await page.waitForSelector(".modal-wrap", { state: "detached" }).catch(() => {});
+      await page.click("#aca-scGrid .sc-chip.part");
+      await page.waitForSelector(".sc-modal .sc-onit");
+      await page.evaluate(() => { document.querySelector(".sc-modal .sc-db").value = "40"; window.__rpcCalls.length = 0; });
+      await page.click('.sc-modal [data-m="save"]');
+      await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "schedule_save"));
+      check(!(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_day_set_time"))), "a drive-only change leaves the job's time alone");
+      // a crew bar's own dialog: a new end time is the job's end for that day
+      await page.waitForSelector(".modal-wrap", { state: "detached" }).catch(() => {});
+      await page.evaluate(() => { window.__rpcCalls.length = 0; });
+      await page.click("#aca-scGrid .sc-chip.part");
+      await page.waitForSelector(".sc-modal .sc-onit");
+      await page.click('.sc-modal [data-m="edit"][data-id="se1"]');
+      await page.waitForSelector(".sc-modal #aca-scB");
+      await page.evaluate(() => { const x = document.getElementById("aca-scE"); x.value = "12:30"; x.dispatchEvent(new Event("input", { bubbles: true })); });
+      await page.click('.sc-modal [data-m="save"]');
+      await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "schedule_save"));
+      const bt = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "booking_day_set_time").pop());
+      check(bt && bt[1].p_booking === "bk1" && bt[1].p_start === "09:00" && bt[1].p_end === "12:30", "changing a crew bar's end changes the job's end for that day: " + JSON.stringify(bt && bt[1]));
+      // the same bar saved again with only a note: the job is left alone
+      await page.waitForSelector(".modal-wrap", { state: "detached" }).catch(() => {});
+      await page.evaluate(() => { window.__rpcCalls.length = 0; });
+      await page.click("#aca-scGrid .sc-chip.part");
+      await page.waitForSelector(".sc-modal .sc-onit");
+      await page.click('.sc-modal [data-m="edit"][data-id="se2"]');
+      await page.waitForSelector(".sc-modal #aca-scB");
+      await page.fill("#aca-scN", "Bring the ladder");
+      await page.click('.sc-modal [data-m="save"]');
+      await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "schedule_save"));
+      check(!(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_day_set_time"))), "saving a note on a bar leaves the job's time alone");
     }
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
