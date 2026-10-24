@@ -1192,6 +1192,10 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("[data-pr-roster]");
     await page.waitForTimeout(300);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_run_roster_only" && c[1].p_booking === "bk1")), "Keep date runs the job as Roster Only");
+    await page.evaluate(() => { location.hash = "#jobs/job/bk1/crew"; });
+    await page.waitForSelector("#aca-jpBody .cr-day");
+    const crewTxt = await page.textContent("#aca-jpBody");
+    check(crewTxt.includes("1 of 3 needed") && crewTxt.includes("Jeremiah M.") && !crewTxt.includes("Ask to confirm"), "Crew tab: grouped by day, each with its own count: " + crewTxt.slice(0, 160));
     check(!errors.length, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }

@@ -1501,8 +1501,10 @@
         if (!id) { msg.textContent = "Pick the job first."; return; }
         btn.disabled = true; msg.textContent = "Asking Google Maps\u2026";
         try {
-          const r = await lookupDrive(id, getUser && getUser());
+          const who = getUser && getUser();
+          const r = await lookupDrive(id, who);
           const mins = Math.ceil(r.minutes / 5) * 5;
+          m.dataset.lookFrom = r.from === "home" ? "home" : "studio"; m.dataset.lookUser = who || "";
           m.querySelector(".sc-db").value = mins; m.querySelector(".sc-da").value = mins;
           msg.textContent = r.minutes + " min from " + (r.from === "home" ? "home" : "the studio") + " to " + r.destination + (r.meters ? " (" + (r.meters / 1609.34).toFixed(1) + " mi)" : "") + ". Rounded up to " + mins + ".";
         } catch (e) { msg.textContent = cleanErr(e); }
@@ -1613,7 +1615,13 @@
         (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home. Ticking one person shows their drive here; with several ticked, each gets their own.</p>' : "") + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (mkTime ? "Save time" : already.length ? "Save changes" : "Add to the schedule") + '</button></div></div>');
-      driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
+      // Look up drive time is from the person's home (2026-10-24, Jeremiah: "it's still calculating from the studio"):
+      // the one person ticked, or with nobody ticked the one person already on it; otherwise the studio.
+      const driveUser = () => {
+        const ids = [...m.querySelectorAll("#aca-scPick input:checked")].map((x) => x.value);
+        return ids.length === 1 ? ids[0] : !ids.length && already.length === 1 ? already[0].user_id : undefined;
+      };
+      driveControls(m, () => b.booking_id, !!data.studio_address && !already.length, driveUser);
       // what the times and drive boxes started at: with nobody new ticked, the button saves what changed onto who is on it
       const t0 = { st: el("scS").value, et: el("scE").value, v: driveVals(m) };
       const timesTxt = () => {
@@ -1705,6 +1713,11 @@
                   setup_min: e.setup_min, teardown_min: e.teardown_min, drive_before_min: e.drive_before_min, drive_after_min: e.drive_after_min };
                 if (tChanged) { p.starts_at = T.toIso(b.day, st); p.ends_at = T.toIso(et <= st ? T.addDays(b.day, 1) : b.day, et); }
                 dKeys.forEach((k) => { if (!(e.batch_id && k.startsWith("drive"))) p[k] = v[k]; }); // a trip's drives are worked out below
+                // Never put a studio lookup on someone who drives from home: they get their own home drive instead.
+                if (!e.batch_id && fromHome(e.user_id) && dKeys.some((k) => k.startsWith("drive")) && m.dataset.lookFrom === "studio") {
+                  try { p.drive_before_min = p.drive_after_min = round5((await lookupDrive(b.booking_id, e.user_id)).minutes); }
+                  catch (_e) { p.drive_before_min = e.drive_before_min; p.drive_after_min = e.drive_after_min; }
+                }
                 const { error } = await sb.rpc("schedule_save", { p }); if (error) throw error;
               }
               m.close();
