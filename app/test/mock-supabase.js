@@ -445,7 +445,7 @@
   {
     const nyDay = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
     const add = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-    const today = nyDay(Date.now()), sun = add(today, -new Date(today + "T12:00:00Z").getUTCDay());
+    const today = nyDay(Date.now()), sun = add(today, -((new Date(today + "T12:00:00Z").getUTCDay() + 6) % 7)); // the week's Monday (Monday to Sunday weeks)
     const at = (d, hm) => d + "T" + hm + ":00-04:00";
     RPC.schedule_week = { can_edit: !AS_STAFF, me: AS_STAFF ? "u2" : "u1", studio_address: AS_STAFF ? "1 Main St, Bangor ME" : "", setup_default: 30, teardown_default: 30,
       calendar: [{ event_id: "ev1@google.com", summary: "Studio makeup session", start_date: add(sun, 3), end_date: add(sun, 3), all_day: false, start_at: at(add(sun, 3), "10:00"), end_at: at(add(sun, 3), "12:00"), off_user: null },
@@ -620,7 +620,7 @@
   {
     const nyDay = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
     const add = (d, n) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-    const today = nyDay(Date.now()), sun = add(today, -new Date(today + "T12:00:00Z").getUTCDay());
+    const today = nyDay(Date.now()), sun = add(today, -((new Date(today + "T12:00:00Z").getUTCDay() + 6) % 7)); // the week's Monday (Monday to Sunday weeks)
     const at = (d, hm) => d + "T" + hm + ":00-04:00";
     const me = AS_STAFF ? "u2" : "u1";
     const punch = (id, user, day, a, b, kind, extra) => Object.assign({ id, user_id: user, kind, booking_id: null, job_title: "", clock_in: at(day, a), clock_out: b ? at(day, b) : null, day,
@@ -652,7 +652,9 @@
               { id: "mt2", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: "bk3", job_title: "Island Cheer & Tumbling \u2022 Cheer", location: "Deer Isle", day: add(sun, 3), miles: null, auto: true, note: "", est_miles: null, locked: false },
               { id: "mt3", user_id: me, name: AS_STAFF ? "Sam Helper" : "Jeremiah Mutty", booking_id: null, job_title: "", location: null, day: add(sun, 1), miles: 12, auto: false, note: "Staples for paper", est_miles: null, locked: false }] };
     RPC.mileage_save = { ok: true, id: "mt9" }; RPC.mileage_remove = { ok: true }; RPC.mileage_refresh = { ok: true, filled: 0 }; RPC.mileage_from_schedule = { ok: true, added: 2 };
-    RPC.timeclock_attention = { open_long: 0, to_approve: AS_STAFF ? 0 : 1, last_week: add(sun, -7), review: 1, expenses: AS_STAFF ? 0 : 1, near_ot: AS_STAFF ? 0 : 1 };
+    // Pay periods every 2 weeks; this week starts the current one.
+    RPC.timeclock_pay_periods = { weeks: 2, anchor: sun, payday_days: 5, periods: [0, 1, 2, 3].map((i) => ({ start: add(sun, -14 * i), end: add(sun, 13 - 14 * i), payday: add(sun, 18 - 14 * i), current: i === 0 })) };
+    RPC.timeclock_attention = { open_long: 0, to_approve: AS_STAFF ? 0 : 1, last_week: add(sun, -14), review: 1, expenses: AS_STAFF ? 0 : 1, near_ot: AS_STAFF ? 0 : 1 };
     // Round two (2026-10-23): location, review flag, pay, expenses, rates, job time.
     Object.assign(RPC.timeclock_status, { gps: true, overtime_after: 40, overtime_applies: true, review: 1 });
     RPC.timesheet_week.people.forEach((p, i) => Object.assign(p, { pay: { basis: "hourly", rate: 22, source: "type", pay: 352.5 + i * 10 }, expenses: i ? 0 : 12.75, review: i ? 1 : 0 }));

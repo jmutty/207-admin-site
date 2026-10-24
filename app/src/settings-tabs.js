@@ -307,8 +307,8 @@
         card("stRates", "Pay rate defaults", "For estimated pay and payroll. A person&#39;s own rate wins, then their job title&#39;s, then their employment type&#39;s. Set one person&#39;s rate on their Team record.",
           '<ul class="st-list">' + (rl.filter((x) => x.scope !== "person").map((x) => '<li><span class="grow">' + esc(scope(x)) + '</span><span class="st-sum">' + esc(rateTxt(x)) + "</span></li>").join("") || '<li class="st-sum">No rates yet.</li>') + "</ul>" +
             (rl.some((x) => x.scope === "person") ? '<p class="st-sum">' + rl.filter((x) => x.scope === "person").length + " people have their own rate.</p>" : ""), btn("rates", "Change")) +
-        card("stRules", "Time clock rules", "Overtime, mileage, location and the midnight stop. The Timesheets page has the same Settings button.",
-          '<p class="st-sum">Overtime after ' + num(tc.overtime_after) + " hours a week. Mileage $" + num(tc.mileage_rate).toFixed(3).replace(/0$/, "") + " a mile. A half day is under " + num(tc.half_day_hours) + " hours. " +
+        card("stRules", "Time clock rules", "Pay periods, overtime, mileage, location and the midnight stop. The Timesheets page has the same Settings button.",
+          '<p class="st-sum">Pay period: ' + (num(tc.pay_weeks) === 1 ? "every week" : "every 2 weeks") + ", Monday to Sunday" + (tc.pay_anchor ? " (one started " + esc(+tc.pay_anchor.slice(5, 7) + "/" + +tc.pay_anchor.slice(8, 10)) + ")" : "") + ", payday " + num(tc.payday_days) + " days after it ends. Overtime after " + num(tc.overtime_after) + " hours a week. Mileage $" + num(tc.mileage_rate).toFixed(3).replace(/0$/, "") + " a mile. A half day is under " + num(tc.half_day_hours) + " hours. " +
             "Location " + (tc.gps_on ? "saved" : "not saved") + " with each clock in and out. Clocks still running at midnight " + (tc.auto_out ? "are stopped there (marked stopped at midnight)" : "keep running") + ".</p>" +
             '<button type="button" class="link" data-st="payroll">Open payroll</button>', btn("rules", "Change")) +
         "</div>";

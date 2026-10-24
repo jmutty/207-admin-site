@@ -1,5 +1,5 @@
   // ================================================================ STAFF: Schedule (bar scheduler, 2026-10-22)
-  // One row per person, weeks start on Sunday, the week's bookings across the top. Bars come from
+  // One row per person, weeks start on Monday, the week's bookings across the top. Bars come from
   // schedule_entries: job (a person on a booking, with drive time before/after in its own color), work (any
   // other time) and off (time off). Scheduled hours are compared with each person's default hours per week
   // (Team page). View = see the team's week; Edit = add, change and remove bars. Drive times come from the
@@ -32,7 +32,8 @@
     const today = () => local(Date.now()).day;
     const addDays = (day, n) => { const d = new Date(day + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
     const dow = (day) => new Date(day + "T12:00:00Z").getUTCDay();
-    const weekStart = (day) => addDays(day, -dow(day));
+    // Weeks run Monday to Sunday, like the Paychex pay periods (2026-10-24, Jeremiah).
+    const weekStart = (day) => addDays(day, -((dow(day) + 6) % 7));
     const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00Z") - new Date(a + "T12:00:00Z")) / 864e5);
     // Eastern day + "HH:MM" -> ISO timestamp (handles daylight saving)
     function toIso(day, hhmm) {
@@ -466,8 +467,8 @@
       '<details class="sc-more" id="aca-scMore"><summary>Hours scheduled and busiest days</summary>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
       '<div class="sc-sum hidden" id="aca-scPeak"></div></details>' +
-      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the 207 Photo Booking Google Calendar that aren&#39;t bookings show under From Google Calendar (bookings are never shown twice), and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off. Untick Google Calendar to hide them.</p>' +
-        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Dismiss one that is a non-issue and it stops counting for everyone; it comes back on its own if the thing behind it changes (a longer drive, a renamed event), and Show dismissed lists them with Bring back. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">View schedule shows the email a person would get with their next two weeks (days that changed since they were last told are marked) and sends it to them from there.</span> Each job&#39;s Lead (or its Editor, picked on the job page) gets Flex time for editing (an hour for the first hour of shooting, 30 minutes for each hour after), due 24 hours after the shoot. It goes right after they get home if there&#39;s room before 9pm and their day stays at 8 hours or less, otherwise the next morning after a 12 hour break; they can move it. Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
+      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Monday to Sunday, like the pay periods. Each Friday everyone gets next week&#39;s schedule by email (Crew settings), and you get a reminder on Thursday to finish it. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the 207 Photo Booking Google Calendar that aren&#39;t bookings show under From Google Calendar (bookings are never shown twice), and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off. Untick Google Calendar to hide them.</p>' +
+        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Dismiss one that is a non-issue and it stops counting for everyone; it comes back on its own if the thing behind it changes (a longer drive, a renamed event), and Show dismissed lists them with Bring back. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">View schedule shows the email a person would get with this week and next (days that changed since they were last told are marked) and sends it to them from there.</span> Each job&#39;s Lead (or its Editor, picked on the job page) gets Flex time for editing (an hour for the first hour of shooting, 30 minutes for each hour after), due 24 hours after the shoot. It goes right after they get home if there&#39;s room before 9pm and their day stays at 8 hours or less, otherwise the next morning after a 12 hour break; they can move it. Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     // Phones open on a list of today and tomorrow (2026-10-23, Jeremiah's pick); the grids are one tap away.
@@ -537,7 +538,7 @@
       };
       if (snap && snap.entries) { try { shape(snap); render(); } catch (_e) { /* an old copy that no longer fits: wait for the fresh one */ } }
       try {
-        // The list shows the anchor day and the next one, which can be the Sunday after this week.
+        // The list shows the anchor day and the next one, which can be the Monday after this week.
         const { data: d, error } = await sb.rpc("schedule_week", { p_start: start, p_days: span });
         if (error) throw error;
         if (my !== loading) return;
@@ -1024,7 +1025,7 @@
       if (two) el("scSum").classList.add("hidden");
     }
 
-    // ---- month: a Sunday-start calendar
+    // ---- month: a Monday-start calendar
     function renderMonth() {
       const days = daysOf(), today = T.today(), month = anchor.slice(0, 7);
       const mName = new Date(anchor.slice(0, 7) + "-15T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long" });
@@ -1036,7 +1037,7 @@
       const grid = el("scGrid"); grid.className = "scm-grid"; grid.removeAttribute("style");
       const initials = (uid) => { const n = String(personName(uid)).split(/\s+/); return (n[0] || "?")[0] + (n[1] ? n[1][0] : ""); };
       const MAXC = narrow() ? 99 : 4;
-      let h = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((w) => '<div class="scm-h">' + w + "</div>").join("") + '<div class="scm-h scm-wt">Week</div>';
+      let h = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w) => '<div class="scm-h">' + w + "</div>").join("") + '<div class="scm-h scm-wt">Week</div>';
       for (let w = 0; w < days.length; w += 7) {
         const week = days.slice(w, w + 7);
         let wJobs = 0, wNeed = 0, wHrs = 0;
@@ -1282,7 +1283,7 @@
             (g.changed ? '<span class="chgp">Changed</span>' : "") + '</div><div class="sc-vwitems">' +
             ((g.items || []).length ? g.items.map(item).join("") : '<div class="sc-vwnone">Nothing scheduled now</div>') +
             (g.gone ? '<div class="sc-vwgone">Taken off: ' + esc(g.gone) + "</div>" : "") + "</div></div>").join("")
-          : '<div class="sc-vwempty">Nothing scheduled for ' + esc(name) + " in the next two weeks.</div>") + "</div>" +
+          : '<div class="sc-vwempty">Nothing scheduled for ' + esc(name) + " this week or next.</div>") + "</div>" +
           '<details class="sc-vwmail"><summary>See the email: <b>' + esc(d.subject) + '</b></summary><iframe class="sc-vwframe" sandbox="" title="' + esc("The email " + name + " would get") + '"></iframe></details>';
         box.querySelector("iframe").srcdoc = d.html || "";
         send.disabled = !d.has_email;
@@ -1299,7 +1300,7 @@
         const { error } = t.dataset.m === "send" ? await sb.rpc("schedule_view_send", { p_user: uid }) : await sb.rpc("schedule_changes_send", { p_users: [uid], p_send: false });
         t.disabled = false;
         if (error) return mErr(cleanErr(error));
-        toast(t.dataset.m === "send" ? "Sent " + name + " their next two weeks." : name + "'s changes are marked as told. Nothing was sent.");
+        toast(t.dataset.m === "send" ? "Sent " + name + " this week and next." : name + "'s changes are marked as told. Nothing was sent.");
         await loadChanges();
         const o = who.selectedOptions[0]; if (o) o.textContent = name;
         m.querySelector('[data-m="drop"]').classList.add("hidden");
@@ -1786,7 +1787,7 @@
         (roles ? '<h3 class="sc-sub">Roles</h3><p class="sc-note">What someone does on a job. Pick each person&#39;s roles on the Team page; the crew picker suggests their first one.</p>' +
         '<ul class="sc-roles" id="aca-scRoles"></ul><div class="sc-drive"><div class="field" style="flex:1"><label for="aca-scRoleNew">New role</label><input type="text" id="aca-scRoleNew" maxlength="40" placeholder="Lighting, Group photos&#8230;" style="width:100%" /></div><button type="button" class="small" data-m="addrole">Add</button></div>' : "") +
         (mails ? '<h3 class="sc-sub">Asking the crew</h3><label class="sc-chk"><input type="checkbox" id="aca-scCfOn"' + (st.crew_confirm_on === true ? " checked" : "") + ' /> Ask people to confirm when they&#39;re put on a booked job (email and app notification, 7am to 9pm). Off: putting someone on a job just assigns it.</label>' +
-        '<h3 class="sc-sub">Weekly schedule email</h3><label class="sc-chk"><input type="checkbox" id="aca-scWkOn"' + (st.week_email_auto ? " checked" : "") + ' /> Email everyone their next week automatically</label>' +
+        '<h3 class="sc-sub">Weekly schedule email</h3><label class="sc-chk"><input type="checkbox" id="aca-scWkOn"' + (st.week_email_auto ? " checked" : "") + ' /> Release the schedule: email everyone their next week (Monday to Sunday) automatically. You get a reminder at 9am the day before to finish it.</label>' +
         '<div class="row2"><div class="field"><label for="aca-scWkD">Day</label><select id="aca-scWkD">' + DOWS.map((d, i) => '<option value="' + i + '"' + (i === num(st.week_email_dow == null ? 5 : st.week_email_dow) ? " selected" : "") + ">" + d + "</option>").join("") + "</select></div>" +
         '<div class="field"><label for="aca-scWkH">Time</label><select id="aca-scWkH">' + Array.from({ length: 15 }, (_, i) => i + 6).map((h) => '<option value="' + h + '"' + (h === num(st.week_email_hour == null ? 15 : st.week_email_hour) ? " selected" : "") + ">" + T.fmtMin(h * 60) + "</option>").join("") + "</select></div></div>" : "") +
         '<div class="inline-error hidden" id="aca-scMErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button>' + (mails ? '<button type="button" class="primary" data-m="save">Save</button>' : "") + '</div></div>');

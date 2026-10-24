@@ -1,6 +1,6 @@
   // ================================================================ STAFF: Time clock and mileage (2026-10-22)
   // Clock: clock in from a phone to one of today's jobs (yours first) or to Studio / Admin / Other, switch, clock out.
-  // Timesheets: a week (Sunday start) per person, worked vs scheduled per day, the punches behind it and fixes;
+  // Timesheets: a week (Monday to Sunday, like the Paychex pay periods) per person, worked vs scheduled per day, the punches behind it and fixes;
   // Edit approves weeks (that locks them) and downloads the payroll CSV. Mileage: a month of trips (clocking in to a
   // job adds its round trip from the studio), totals and pay at the mileage rate, CSV. View = your own; Edit = everyone.
   // RPCs: timeclock_status / timeclock_in / timeclock_out / timesheet_week / timepunch_save / timepunch_remove /
@@ -14,7 +14,7 @@
   registerAttention("timeclockOpen", { module: "timeclock", level: "warn", name: "time clock",
     one: "A clock has been running for more than 12 hours. Someone probably forgot to clock out.", many: "{n} clocks have been running for more than 12 hours." });
   registerAttention("timesheetsApprove", { module: "timeclock", level: "soon", name: "timesheets",
-    one: "A timesheet from last week is waiting for approval.", many: "{n} timesheets from last week are waiting for approval." });
+    one: "A timesheet from the last pay period is waiting for approval.", many: "{n} timesheets from the last pay period are waiting for approval." });
   registerAttention("timeclockReview", { module: "timeclock", level: "warn", name: "time clock",
     one: "A clock was stopped at midnight. Put in the real time.", many: "{n} clocks were stopped at midnight. Put in the real times." });
   registerAttention("expensesWaiting", { module: "timeclock", level: "soon", name: "expenses",
@@ -35,6 +35,22 @@
     const hrs2 = (min) => (Math.round(num(min) / 60 * 100) / 100).toFixed(2);
     const mi = (v) => (v == null ? "" : (Math.round(num(v) * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 }));
     const money = (v) => "$" + num(v).toFixed(2);
+    // Pay periods (Time clock settings, set to match Paychex): every pay_weeks weeks from a Monday, payday
+    // payday_days after the period's last Sunday. Loaded once; Settings saving reloads it.
+    let pay = null;
+    async function payInfo() {
+      if (pay) return pay;
+      const { data, error } = await sb.rpc("timeclock_pay_periods", { p_back: 12 });
+      if (error) throw error;
+      pay = data;
+      return pay;
+    }
+    // The pay period a day falls in: { start, end, payday }
+    function periodOf(day) {
+      const len = 7 * num(pay.weeks), off = Math.floor(T.daysBetween(pay.anchor, day) / len) * len, start = T.addDays(pay.anchor, off);
+      return { start, end: T.addDays(start, len - 1), payday: T.addDays(start, len - 1 + num(pay.payday_days)) };
+    }
+    const md = (d) => +d.slice(5, 7) + "/" + +d.slice(8, 10);
     const rateTxt = (r) => "$" + num(r).toFixed(Math.round(num(r) * 1000) % 10 ? 3 : 2) + " a mile";
     const names = (list) => list.map((p) => T.shortName(p.name)).join(", ").replace(/\.?$/, ".");
     const what = (p) => (p.kind === "job" ? p.job_title || "Job" : KIND[p.kind] || "Work");
@@ -215,7 +231,7 @@
     const weekRoot = el("panel-timesheets");
     weekRoot.innerHTML =
       '<div class="tc-bar"><button type="button" class="small" data-w="prev" aria-label="Week before">&lsaquo;</button><button type="button" class="small" data-w="this">This week</button>' +
-      '<button type="button" class="small" data-w="next" aria-label="Week after">&rsaquo;</button><h2 id="aca-tsTitle">Timesheet</h2><span class="grow"></span>' +
+      '<button type="button" class="small" data-w="next" aria-label="Week after">&rsaquo;</button><h2 id="aca-tsTitle">Timesheet</h2><span class="tc-sum" id="aca-tsPay" style="margin:0"></span><span class="grow"></span>' +
       '<label class="hidden" id="aca-tsWhoWrap" style="font-size:13px">Showing <select class="small" id="aca-tsWho"><option value="me">Me</option><option value="all">Everyone</option></select></label>' +
       '<button type="button" class="small" data-w="add">Add time</button><button type="button" class="small hidden tc-ed" data-w="payroll">Payroll CSV</button>' +
       '<button type="button" class="small hidden tc-ed" data-w="rates">Pay rates</button><button type="button" class="small hidden tc-ed" data-w="settings">Settings</button></div>' +
@@ -230,6 +246,7 @@
       el("tsWhoWrap").classList.toggle("hidden", !ed);
       weekRoot.querySelectorAll(".tc-ed").forEach((n) => n.classList.toggle("hidden", !ed));
       el("tsTitle").textContent = (week === T.weekStart(T.today()) ? "This week, " : "Week of ") + T.fmtDay(week, { weekday: undefined }) + "\u2013" + T.fmtDay(T.addDays(week, 6), { weekday: undefined });
+      payInfo().then(() => { const pp = periodOf(week); el("tsPay").textContent = "Pay period " + md(pp.start) + " to " + md(pp.end) + ", payday " + T.WEEKDAYS[T.dow(pp.payday)] + " " + md(pp.payday); }).catch(() => { el("tsPay").textContent = ""; });
       try {
         const { data, error } = await sb.rpc("timesheet_week", who === "me" ? { p_start: week } : who === "all" ? { p_start: week, p_all: true } : { p_start: week, p_user: who });
         if (error) throw error;
@@ -396,15 +413,15 @@
       });
     }
 
-    // Payroll: one dialog, opened from Timesheets and from Settings. It picks its own period (the last finished
-    // week by default), not the week the timesheet happens to show.
+    // Payroll: one dialog, opened from Timesheets and from Settings. It goes by pay period (Time clock settings,
+    // matching Paychex), the last finished one by default, not the week the timesheet happens to show.
     async function openPayroll() {
-      const lastSun = T.addDays(T.weekStart(T.today()), -7);
-      const ends = Array.from({ length: 12 }, (_, i) => T.addDays(lastSun, -7 * i));
+      let pi;
+      try { pi = await payInfo(); } catch (e) { toast(cleanErr(e), true); return; }
+      const n = num(pi.weeks) || 1;
       const m = openModal('<div class="tc-modal"><h2>Payroll</h2>' +
-        '<div class="row2"><div class="field"><label for="aca-prW">Pay period</label><select id="aca-prW"><option value="1">1 week</option><option value="2">2 weeks</option></select></div>' +
-        '<div class="field"><label for="aca-prE">Ending</label><select id="aca-prE">' + '<option value="' + T.weekStart(T.today()) + '">' + esc(T.fmtDay(T.addDays(T.weekStart(T.today()), 6))) + " (this week, not over)</option>" +
-          ends.map((w, i) => '<option value="' + w + '"' + (i === 0 ? " selected" : "") + ">" + esc(T.fmtDay(T.addDays(w, 6))) + (i === 0 ? " (last week)" : "") + "</option>").join("") + "</select></div></div>" +
+        '<div class="field"><label for="aca-prP">Pay period</label><select id="aca-prP">' + (pi.periods || []).map((x, i) => '<option value="' + esc(x.start) + '"' + (i === 1 ? " selected" : "") + ">" +
+          esc(T.fmtDay(x.start) + " to " + T.fmtDay(x.end) + ", payday " + T.fmtDay(x.payday)) + (i === 0 ? " (this period, not over)" : i === 1 ? " (last period)" : "") + "</option>").join("") + "</select></div>" +
         '<p class="tc-sum" id="aca-prEnd" style="margin:-4px 0 10px"></p>' +
         '<div id="aca-prBody"><p class="empty">Loading&#8230;</p></div><div class="inline-error hidden tc-merr"></div>' +
         '<div class="modal-actions"><button type="button" class="small" data-m="detail" disabled>Every punch (CSV)</button><button type="button" class="small hidden" data-m="exp">Expenses (CSV)</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="small hidden" data-m="cont">1099 contractors (CSV)</button><button type="button" class="primary" data-m="csv" disabled>Download payroll CSV</button></div></div>');
@@ -420,8 +437,8 @@
           '</td><td class="tc-num">' + (num(p.expenses) ? money(p.expenses) : "") + '</td><td class="tc-num" title="' + esc(p.pay ? (p.pay.basis === "day" ? "Day rate " + money(p.pay.rate) : p.pay.basis === "job" ? money(p.pay.rate) + " a job x " + num(p.pay.jobs) : money(p.pay.rate) + " an hour") + ", from the " + p.pay.source + " rate. Mileage and expenses added." : "No pay rate set") + '">' + (total$(p) != null ? money(total$(p)) : '<span class="muted">no rate</span>') + "</td></tr>").join("") +
         "</tbody></table></div>";
       async function run() {
-        const last = el("prE").value, n = +el("prW").value, start = T.addDays(last, -7 * (n - 1));
-        el("prEnd").textContent = T.fmtDay(start) + " to " + T.fmtDay(T.addDays(last, 6));
+        const start = el("prP").value;
+        el("prEnd").textContent = (n === 1 ? "One week" : n + " weeks") + ", Monday to Sunday.";
         el("prBody").innerHTML = '<p class="empty">Loading&#8230;</p>';
         m.querySelectorAll('[data-m="csv"], [data-m="detail"]').forEach((b) => (b.disabled = true));
         try {
@@ -433,15 +450,14 @@
             (unapproved.length ? '<p class="tc-warn">Not approved yet: ' + esc(names(unapproved)) + ' <button type="button" class="small" data-m="approveall">Approve all</button></p>' : "") +
             (pr.people.filter((p) => !isCont(p)).length ? table(pr.people.filter((p) => !isCont(p)), true) : pr.people.length ? "" : '<p class="empty">No time in this period.</p>') +
             (pr.people.some(isCont) ? '<h3 style="margin:16px 0 6px;font-size:14px">1099 contractors</h3><p class="tc-sum" style="margin:0 0 6px">Not in the payroll CSV. Pay them from their own CSV.</p>' + table(pr.people.filter(isCont), false) : "") +
-            '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Sunday\u2013Saturday); salaried people and 1099 contractors get none. Mileage at " + rateTxt(pr.mileage_rate) + ". Expenses are the approved ones. Est. pay = pay rate (overtime at 1.5x) + mileage + expenses; set rates under Pay rates. The CSV is for your payroll service.</p>";
+            '<p class="tc-sum" style="margin-top:8px">Hours as decimals. Overtime is time over ' + esc(num(pr.overtime_after)) + " hours in a week (Monday\u2013Sunday); salaried people and 1099 contractors get none. Mileage at " + rateTxt(pr.mileage_rate) + ". Expenses are the approved ones. Est. pay = pay rate (overtime at 1.5x) + mileage + expenses; set rates under Pay rates. The CSV is for your payroll service.</p>";
           m.querySelector('[data-m="csv"]').disabled = !pr.people.some((p) => !isCont(p));
           m.querySelector('[data-m="detail"]').disabled = !pr.people.length;
           m.querySelector('[data-m="cont"]').classList.toggle("hidden", !pr.people.some(isCont));
           m.querySelector('[data-m="exp"]').classList.toggle("hidden", !(pr.expense_rows || []).length);
         } catch (e) { mErr(cleanErr(e)); }
       }
-      el("prW").addEventListener("change", run);
-      el("prE").addEventListener("change", run);
+      el("prP").addEventListener("change", run);
       run();
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
@@ -452,10 +468,10 @@
           const open = list.filter((p) => p.open);
           if (!confirm("Approve " + list.length + (list.length === 1 ? " person's" : " people's") + " time for this period? Approved weeks are locked." + (open.length ? " " + names(open) + " still clocked in; their open time is not approved." : ""))) return;
           t.disabled = true;
-          const last = el("prE").value, n = +el("prW").value;
+          const start = el("prP").value;
           let failed = 0;
           for (const p of list.filter((x) => !x.open)) for (let i = 0; i < n; i++) {
-            const { error } = await sb.rpc("timesheet_approve", { p_user: p.user_id, p_week: T.addDays(last, -7 * i), p_approve: true });
+            const { error } = await sb.rpc("timesheet_approve", { p_user: p.user_id, p_week: T.addDays(start, 7 * i), p_approve: true });
             if (error) failed++;
           }
           toast(failed ? failed + " week" + (failed === 1 ? "" : "s") + " could not be approved (nothing worked, or still clocked in)." : "Approved.", !!failed);
@@ -495,6 +511,9 @@
         '<div class="row2">' + numIn("tsR", "Mileage rate ($ a mile)", v.mileage_rate, 0, 5, 0.005) + numIn("tsO", "Overtime after (hours a week)", v.overtime_after, 0, 80, 0.5) + "</div>" +
         '<div class="row2">' + numIn("tsW", "Overtime warning (hours before; 0 = off)", v.ot_warn_hours, 0, 40, 0.5) + numIn("tsH", "Half day is under (hours)", v.half_day_hours, 1, 12, 0.5) + "</div>" +
         '<div class="row2">' + numIn("tsB", "Clock-in reminder (minutes before; 0 = off; never for salaried people)", v.remind_before_min, 0, 120, 5) + numIn("tsA", "Clock-out reminder (minutes after; 0 = off)", v.remind_out_after_min, 0, 240, 5) + "</div>" +
+        '<h3 style="margin:6px 0 8px;font-size:14px">Pay periods</h3><div class="row2"><div class="field"><label for="aca-tsPW">Pay period</label><select id="aca-tsPW"><option value="2"' + (num(v.pay_weeks) === 1 ? "" : " selected") + '>Every 2 weeks</option><option value="1"' + (num(v.pay_weeks) === 1 ? " selected" : "") + ">Every week</option></select></div>" +
+          '<div class="field"><label for="aca-tsPA">A pay period started on (a Monday)</label><input type="date" id="aca-tsPA" value="' + esc(v.pay_anchor || "2026-09-28") + '" /></div></div>' +
+          '<div class="row2">' + numIn("tsPD", "Payday (days after the period ends)", v.payday_days == null ? 5 : v.payday_days, 0, 14, 1) + "<div></div></div>" +
         box("tsG", "Save the phone\u2019s location with each clock in and out", v.gps_on) +
         box("tsX", "Stop clocks still running at midnight (marked \u201cstopped at midnight\u201d until the real time is put in)", v.auto_out) +
         '<p class="muted" style="font-size:12.5px">Reminders and warnings are phone notifications (people can turn each kind off). Trip miles are a round trip from the studio address (Settings, Company). The half-day rate applies to day-rate people who work less than the hours above.</p>' +
@@ -507,9 +526,10 @@
         try {
           const { error } = await sb.rpc("timeclock_settings_save", { p_rate: parseFloat(el("tsR").value), p_overtime: parseFloat(el("tsO").value),
             p: { gps_on: el("tsG").checked, auto_out: el("tsX").checked, ot_warn_hours: parseFloat(el("tsW").value) || 0, half_day_hours: parseFloat(el("tsH").value) || 5,
-                 remind_before_min: parseInt(el("tsB").value, 10) || 0, remind_out_after_min: parseInt(el("tsA").value, 10) || 0 } });
+                 remind_before_min: parseInt(el("tsB").value, 10) || 0, remind_out_after_min: parseInt(el("tsA").value, 10) || 0,
+                 pay_weeks: +el("tsPW").value, pay_anchor: el("tsPA").value, payday_days: parseInt(el("tsPD").value, 10) || 0 } });
           if (error) throw error;
-          m.close(); toast("Saved."); if (wk) loadWeek(); if (opts.onSaved) opts.onSaved();
+          pay = null; m.close(); toast("Saved."); if (wk) loadWeek(); if (opts.onSaved) opts.onSaved();
         } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
       });
     }

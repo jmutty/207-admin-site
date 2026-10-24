@@ -869,8 +869,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForFunction(() => document.querySelector("#aca-scAddr").value === "60 Main Rd N, Hampden, ME 04444");
     check(true, "the studio address searches Google Maps and fills the full address");
     await page.click('.sc-modal [data-m="cancel"]');
-    check((await page.$$("#aca-scGrid .sc-head")).length === 8, "week view: 7 days Sunday to Saturday");
-    check((await page.textContent("#aca-scGrid .sc-head:nth-child(2)")).startsWith("Sun"), "the week starts on Sunday");
+    check((await page.$$("#aca-scGrid .sc-head")).length === 8, "week view: 7 days Monday to Sunday");
+    check((await page.textContent("#aca-scGrid .sc-head:nth-child(2)")).startsWith("Mon"), "the week starts on Monday");
     check((await page.$$("#aca-scGrid .sc-b.sc-k-drive")).length === 7 && (await page.$$("#aca-scGrid .sc-b.sc-k-job")).length >= 2, "job bars with drive time on both sides (a batched first stop has none back)");
     check((await page.$$("#aca-scGrid .sc-b.sc-k-setup")).length === 8, "every job bar has setup before and teardown after");
     check((await page.$$("#aca-scGrid .sc-b.trip")).length === 1 && (await page.$$("#aca-scGrid .sc-b.batched.sc-k-job")).length === 2, "a batched trip: both jobs marked, a dashed line between them");
@@ -2125,7 +2125,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-todayClock [data-tc="out"]');
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timeclock_out")), "Clock out from Today");
-    check((await page.textContent("#aca-todayList")).includes("timesheet from last week"), "Today: last week's timesheet waits for approval");
+    check((await page.textContent("#aca-todayList")).includes("timesheet from the last pay period"), "Today: the last pay period's timesheet waits for approval");
     await page.click('#aca-nav button[data-tab="timepay"]');
     await page.waitForSelector("#aca-tcTimer");
     check(await page.isVisible('#aca-tcBody [data-c="out"]'), "clocked in: big Clock out button");
@@ -2148,8 +2148,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-panel-timesheets [data-w="payroll"]');
     await page.waitForSelector('.tc-modal [data-m="csv"]:not([disabled])');
     check((await page.textContent(".tc-modal")).includes("Not approved yet: Jeremiah M."), "payroll warns about unapproved weeks");
-    check(await page.$eval("#aca-prE", (n) => n.selectedOptions[0].textContent.includes("last week")), "payroll: its own period, last finished week by default");
-    check(await page.evaluate(() => { const c = window.__rpcCalls.filter((x) => x[0] === "timesheet_payroll").pop(); return c && c[1].p_weeks === 1; }), "payroll loads one week");
+    check(await page.$eval("#aca-prP", (n) => n.selectedOptions[0].textContent.includes("last period")), "payroll: its own period, last finished pay period by default");
+    check(await page.evaluate(() => { const c = window.__rpcCalls.filter((x) => x[0] === "timesheet_payroll").pop(); return c && c[1].p_weeks === 2 && c[1].p_start === document.querySelector("#aca-prP").value; }), "payroll loads the two-week pay period");
+    check(/payday/.test(await page.textContent("#aca-tsPay")), "timesheet shows its pay period and payday");
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click('.tc-modal [data-m="csv"]')]);
     const csv = fs.readFileSync(await dl.path(), "utf8");
     check(/^Name,Email,Type,Period start,Period end,Regular hours,Overtime hours,Total hours,Miles,Mileage pay,Expenses,Est\. wages,Est\. total,Weeks approved\r\nJeremiah Mutty,jmutty@207photo.com,Full time,.*,40\.00,3\.50,43\.50,26\.1,18\.27,12\.75,1078\.75,1109\.77,0 of 1\r\n/.test(csv), "payroll CSV: " + csv.split("\r\n")[1]);
@@ -2160,7 +2161,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(/^Name,Email,Job title,Period start,Period end,Hours,Miles,Mileage pay,Expenses,Est\. fees,Est\. total,Weeks approved\r\nRiley Second,riley@example\.com,Second shooter,.*,5\.00,40\.0,28\.00,0\.00,,,1 of 1\r\n$/.test(csvc), "1099 CSV: " + csvc.split("\r\n")[1]);
     await page.click('.tc-modal [data-m="approveall"]');
     await page.waitForTimeout(200);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timesheet_approve" && c[1].p_user === "u1" && c[1].p_week === document.querySelector("#aca-prE").value)), "payroll: Approve all approves the period");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "timesheet_approve" && c[1].p_user === "u1" && c[1].p_week === document.querySelector("#aca-prP").value)) && await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "timesheet_approve" && c[1].p_user === "u1").length >= 2), "payroll: Approve all approves both weeks of the period");
     await page.click('.tc-modal [data-m="cancel"]');
     await page.click('#aca-panel-timesheets [data-w="settings"]');
     await page.waitForSelector("#aca-tsR");
