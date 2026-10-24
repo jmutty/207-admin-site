@@ -161,6 +161,13 @@
   .aca .pill.warn::before { background: var(--accent); } .aca .pill.warn { color: var(--accent); }
   .aca .pill.accent::before { background: var(--text); } .aca .pill.accent { color: var(--text); }
   .aca .pill.muted, .aca .pill.hidden-pill { color: var(--muted); }
+  /* Roster in GotPhoto (2026-10-24): louder than a pill, a tinted tag. Roster in shell-top.js. */
+  .aca .roster-tag { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 600; line-height: 18px; white-space: nowrap; vertical-align: middle; }
+  .aca .roster-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+  .aca .roster-tag.ok { color: var(--ok-fg); background: var(--ok-bg); }
+  .aca .roster-tag.due { color: var(--warn-fg); background: var(--warn-bg); }
+  .aca .roster-tag.late { color: var(--err-fg); background: var(--err-bg); }
+  .aca .roster-tag.none { color: var(--hidden-fg); background: var(--hidden-bg); }
   .aca .src { display: inline-block; padding: 0 6px; border-radius: 3px; background: var(--hidden-bg); color: var(--hidden-fg); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
   .aca pre.json { margin: 0; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; max-width: 480px; }
   .aca .row-msg { font-size: 12.5px; margin-left: 10px; }

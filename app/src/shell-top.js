@@ -149,6 +149,34 @@
     return { day, days, md: day, time, hhmm, dayTime: (v) => [day(v), time(v)].filter(Boolean).join(", ") };
   })();
 
+  // ---- Roster in GotPhoto (2026-10-24, Jeremiah: "I need to know louder if rosters are loaded") ----
+  // One tag everywhere a job shows: the job page, All jobs, the Jobs calendar, Today and the partner page.
+  // b.roster comes from admin_bookings (booking_roster, migration 20261025180000): state in / due / late / nojob / single / past,
+  // names, loaded_at, due (two weeks before picture day), days_out. School Photos jobs track the student data file instead.
+  const Roster = (function () {
+    const of = (x) => (x && x.state ? x : x && x.roster) || null;
+    const when = (n) => (n <= 0 ? "today" : n === 1 ? "tomorrow" : n + " days");
+    function words(x, short) {
+      const r = of(x); if (!r) return null;
+      const what = r.school ? "Student data" : "Roster";
+      if (r.state === "in") return { cls: "ok", text: r.school ? "Student data in" : "Roster in" + (r.names ? " \u00b7 " + r.names : ""),
+        tip: (r.school ? "The student data file came in " : (r.names || "The") + " names in GotPhoto, loaded ") + (r.loaded_at ? Fmt.day(r.loaded_at) : "") };
+      if (r.state === "due") return { cls: "due", text: what + " due " + Fmt.day(r.due), tip: "Not in GotPhoto yet. It's due " + Fmt.day(r.due) + ", two weeks before picture day." };
+      if (r.state === "late") return { cls: "late", text: (r.school ? "No student data" : "No roster") + (short ? "" : " \u00b7 " + when(r.days_out)),
+        tip: (r.school ? "The student data file" : "The roster") + " isn't in GotPhoto and picture day is " + (r.days_out <= 1 ? when(r.days_out) : "in " + r.days_out + " days") + ". It was due " + Fmt.day(r.due) + "." };
+      if (r.state === "nojob") return { cls: "none", text: "No GotPhoto job", tip: "Create the GotPhoto job first, then load the roster into it." };
+      if (r.state === "single") return { cls: "none", text: short ? "No roster needed" : "Single password, no roster", tip: "This GotPhoto job uses one password for everyone, so it never holds names." };
+      return null;
+    }
+    // tag(booking or roster, { short }) -> HTML, "" when there's nothing to say (cancelled, past, unknown)
+    function tag(x, o) {
+      const w = words(x, o && o.short); if (!w) return "";
+      return '<span class="roster-tag ' + w.cls + '" title="' + esc(w.tip) + '">' + esc(w.text) + "</span>";
+    }
+    const state = (x) => { const r = of(x); return r ? r.state : ""; };
+    return { tag, words, state, late: (x) => state(x) === "late" };
+  })();
+
   function showError(id, msg) {
     const node = el(id);
     if (!node) return;
@@ -1005,7 +1033,8 @@
         const more = (b.days || []).length > 1 ? '<div class="s">' + esc(b.days.length + " days: " + Fmt.days(b)) + "</div>" : "";
         const st = b.status_text ? '<div class="pill ' + esc(b.status_class || "muted") + '">' + esc(b.status_text) + "</div>" : "";
         return '<div class="today-up" data-booking="' + esc(b.id) + '"><div class="d">' + esc(Fmt.day(b.picture_day)) + '</div>' +
-          '<div>' + esc(b.org_name || b.title || "") + '<div class="s">' + esc([b.type_label, b.location].filter(Boolean).join(", ")) + "</div>" + more + st + "</div></div>";
+          '<div>' + esc(b.org_name || b.title || "") + '<div class="s">' + esc([b.type_label, b.location].filter(Boolean).join(", ")) + "</div>" + more + st +
+          (Roster.tag(b) ? '<div class="s">' + Roster.tag(b) + "</div>" : "") + "</div></div>";
       }).join("") + '<p><a href="#jobs/bookings">All jobs</a></p>' : "<p>No picture days booked in the next 60 days. <a href=\"#jobs/bookings\">Book a job</a></p>";
       upFresh = true;
     } catch (e) {

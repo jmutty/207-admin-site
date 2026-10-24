@@ -1175,13 +1175,44 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
+  console.log("Roster in GotPhoto (job page, All jobs)");
+  {
+    const { page, errors } = await open(browser, port, "", "#jobs/job/bk1");
+    await page.waitForSelector("#aca-jpRosterCard .jp-rcard");
+    check((await page.textContent(".jp-stages .jp-roster")).includes("No roster · 12 days"), "job page: the tag is on the status line");
+    const card = await page.textContent("#aca-jpRosterCard");
+    check(card.includes("No roster in GotPhoto yet") && card.includes("12 days out"), "job page: Overview has the red card: " + card.slice(0, 120));
+    check((await page.textContent("#aca-jpRosterFact")).includes("No roster"), "job page: The job lists the roster");
+    await page.click('#aca-jpRosterCard [data-r="mail"]');
+    await page.waitForSelector("#aca-ogJeBody");
+    check((await page.inputValue("#aca-ogJeSubj")).startsWith("Roster for picture day") && (await page.inputValue("#aca-ogJeBody")).includes("send us your roster for picture day"), "Email for it: the ask is filled in");
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => { location.hash = "#jobs/bookings"; });
+    await page.waitForSelector("#aca-bkBody tr.bk-row");
+    check(await page.$("#aca-bkBody tr.bk-rlate .roster-tag.late") !== null, "All jobs: the late row is tinted with its tag");
+    await page.click('#aca-bkScope [data-scope="roster"]');
+    await page.waitForTimeout(300);
+    const ids = await page.$$eval("#aca-bkBody tr.bk-row", (rs) => rs.map((r) => r.dataset.id));
+    check(ids[0] === "bk1" && !ids.includes("bk3"), "No roster chip: late first, rosters in left out: " + ids.join(","));
+    check(!errors.length, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  {
+    const { page, errors } = await open(browser, port, "?rosterin=1", "#jobs/job/bk1");
+    await page.waitForSelector(".jp-stages .jp-roster .roster-tag");
+    check((await page.textContent(".jp-stages .jp-roster")).includes("Roster in · 84") && !(await page.$("#aca-jpRosterCard .jp-rcard")), "job page: a roster that's in is one green tag, no card");
+    check(!errors.length, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
   console.log("Did families hear? (Parents tab, Today task)");
   {
     const { page, errors } = await open(browser, port, "", "#today");
-    await page.waitForSelector('#aca-todayList .today-item[data-key="followRoster"]');
-    const row = await page.$('#aca-todayList .today-item[data-key="followRoster"]');
-    check((await row.textContent()).includes("Brewer Travel Basketball Club") && (await row.textContent()).includes("no roster two weeks out"), "Today: the roster task names its job");
-    check(await row.getAttribute("data-jobtab") === "hub", "Today: it opens the job's Hub tab");
+    // Roster in GotPhoto (2026-10-24): the late roster is one Fix now line per job; the Hub tab's task isn't on Today too.
+    await page.waitForSelector('#aca-todayList .today-item[data-key="rosterLate"]');
+    const row = await page.$('#aca-todayList .today-item[data-key="rosterLate"]');
+    check((await row.textContent()).includes("Brewer Travel Basketball Club") && (await row.textContent()).includes("no roster in GotPhoto"), "Today: the late roster names its job");
+    check(!(await page.$('#aca-todayList .today-item[data-key="followRoster"]')), "Today: the Hub tab's roster task doesn't show twice");
+    check((await page.textContent("#aca-todayUp")).includes("Roster in · 46"), "Today Coming up: each job carries its roster tag");
     await page.evaluate(() => { location.hash = "#jobs/job/bk1/parents"; });
     await page.waitForSelector("#aca-jpBody .pr-tbl");
     const txt = await page.textContent("#aca-jpBody");

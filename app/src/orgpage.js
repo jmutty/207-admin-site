@@ -710,6 +710,8 @@
       if (owed.length) needs.push(["warn", "Payout", money(owed.reduce((n, j) => n + num(j.balance), 0)) + " is owed for a season that is over.", edR ? [["Record payment", "pay"], ["Copy statement", "stmt"]] : [["Open Sales", "tab:sales"]]]);
       (bks || []).filter((b) => b.status !== "cancelled" && num(b.progress && b.progress.overdue)).forEach((b) => needs.push(["err", "Deliverable", (b.title || "A job") + " has " + num(b.progress.overdue) + " overdue deliverable" + (num(b.progress.overdue) === 1 ? "" : "s") + ".", [["Open the job", "job:" + b.id]]]));
 
+      // Roster in GotPhoto past its deadline (two weeks before picture day), 2026-10-24.
+      (bks || []).filter((b) => Roster.late(b)).forEach((b) => needs.push(["err", "Roster", (b.title || "A job") + " on " + Fmt.day(b.picture_day) + " has no " + (b.roster.school ? "student data" : "roster") + " in GotPhoto. It was due " + Fmt.day(b.roster.due) + ".", [["Open the job", "job:" + b.id]]]));
       // A group's Coming up includes its members' jobs, each with the member's name.
       const upcoming = (bks || []).concat(gbks || []).filter((b) => b.status !== "cancelled" && String(b.picture_day || "") >= t).sort((a, b) => String(a.picture_day).localeCompare(String(b.picture_day)));
       const covering = (gags || []).find((a) => a.status === "accepted" && a.covers_members);
@@ -741,7 +743,8 @@
         const name = b.title_label || String(b.title || "Job").replace(new RegExp("^" + on + "\\s*\u2022\\s*|\\s*\u2022\\s*" + on + "$"), "") || "Job";
         const how = [b.stage ? b.stage : b.status === "tracked" ? "Tracking only" : "", b.status === "booked" && num(b.emails_total) ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" \u00b7 ");
         return '<a class="op-job" href="' + jobLink(b.id) + '"><span class="d">' + esc(Fmt.days(b)) + (t ? "<small>" + esc(t) + "</small>" : "") + '</span><span><span class="h">' + (b.org_id && b.org_id !== O.id ? esc(b.org_name || "") + ": " : "") + esc(name) + "</span>" +
-          (b.location ? '<span class="s">' + esc(b.location) + "</span>" : "") + (how ? '<span class="s">' + esc(how) + "</span>" : "") + "</span></a>";
+          (b.location ? '<span class="s">' + esc(b.location) + "</span>" : "") + (how ? '<span class="s">' + esc(how) + "</span>" : "") +
+          (Roster.tag(b) ? '<span class="s">' + Roster.tag(b) + "</span>" : "") + "</span></a>"; // roster in GotPhoto, 2026-10-24
       };
       // Notes first (2026-10-24, Jeremiah: notes easy to find wherever he looks at a client): this partner's notes and
       // the notes on their jobs, newest first, with an Add note box. All of them are on Notes & history.
