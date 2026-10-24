@@ -3,7 +3,7 @@
   // Job notes (job_notes, with @mentions on the job's Notes tab) and partner notes (prospect_activities kind 'note',
   // on the partner's Notes & history tab) now show on the partner Overview, the job Overview, the Jobs and Partners
   // lists, the Schedule boxes and My day. One RPC reads them in bulk: notes_peek(p_bookings, p_orgs)
-  // (migration 20261025070000_notes_everywhere.sql). Each person only gets the notes they may see.
+  // (migration 20261025080000_notes_everywhere.sql). Each person only gets the notes they may see.
   //
   //   Notes.fillLines(root)   fills every [data-nt-job="<booking id>"] / [data-nt-org="<org id>"] under root with a
   //                           one-line "newest note"; empty when there is none. Batched and cached for a minute.
