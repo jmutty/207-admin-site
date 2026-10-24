@@ -185,7 +185,7 @@
       if (error) return toast(cleanErr(error), true);
       let c = c0 || {}, edited = false;
       const title = { rebook: "Rebook email", review: "Ask for a review", agreement: "Email the agreement" }[kind];
-      const m = openModal("<h2>" + esc(title) + ": " + esc(c.org || "") + "</h2>" +
+      const m = openModal("<h2>" + esc(title) + ": " + esc(c.org || "") + (kind === "rebook" && c.job ? " \u00b7 " + esc(c.job) : "") + "</h2>" +
         '<div class="pf-warn' + (c.warning ? "" : " hidden") + '" id="aca-pfCmWarn">' + esc(c.warning || "") + "</div>" +
         ((c.contacts || []).length
           ? '<div class="field"><label>Who gets it</label><div class="pf-rcpts" id="aca-pfCmTo"></div>' +
@@ -262,7 +262,7 @@
     // ---------------------------------------------------------------- templates
     const HELP = {
       common: "<code>{{hi|Hi there}}</code> <code>{{first_name}}</code> <code>{{league}}</code> <code>{{town}}</code> <code>{{sport}}</code> <code>{{sender_first_name}}</code>",
-      rebook: "<code>{{last_date}}</code> <code>{{last_season}}</code> <code>{{year}}</code>",
+      rebook: "<code>{{job}}</code> (last year\u2019s job, e.g. Winter Sports) <code>{{last_date}}</code> <code>{{last_season}}</code> <code>{{year}}</code>",
       review: "<code>{{review_link}}</code> <code>{{job}}</code> <code>{{picture_day}}</code>",
       agreement: "<code>{{agreement_link}}</code> (required) <code>{{title}}</code> <code>{{picture_day}}</code> <code>{{job}}</code>",
       terms: "<code>{{league}}</code> <code>{{picture_day}}</code> <code>{{job}}</code> <code>{{pricing}}</code> <code>{{payout}}</code> <code>{{renewal_date}}</code>",

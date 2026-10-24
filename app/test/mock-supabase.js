@@ -329,7 +329,7 @@
       partner_compose: { org_id: A, org: "Brewer Travel Basketball Club", contacts: [{ id: "c1", name: "Chris Snowdeal", email: "csnowdeal75@gmail.com", role: "President", primary: true, roles: { portraits: "main" }, stopped: false },
           { id: "c2", name: "Jamie Emerson", email: "jemerson@breweredu.org", role: "", primary: false, roles: { portraits: "copy" }, stopped: false },
           { id: "c3", name: "Pat Doyle", email: "pdoyle@breweredu.org", role: "Principal", primary: false, roles: { school_photos: "main" }, stopped: false }],
-        contact_id: "c1", to_id: "c1", cc_ids: ["c2"], service: "portraits", service_name: "Team & individual", subject: "Brewer Travel Basketball Club 2027", body: "Hi Chris,\n\nLast year we photographed Brewer Travel Basketball Club on December 6, 2025.", warning: "" },
+        contact_id: "c1", to_id: "c1", cc_ids: ["c2"], service: "portraits", service_name: "Team & individual", job: "Winter Sports", subject: "Brewer Travel Basketball Club 2027", body: "Hi Chris,\n\nLast year we photographed Brewer Travel Basketball Club on December 6, 2025.", warning: "" },
       partner_queue: { ok: true, email_id: "m10", status: "review" },
       partner_queue_cc: { ok: true, email_id: "m10", status: "review", cc: 1 },
       agreements_list: [{ id: "ag1", org_id: A, org: "Brewer Travel Basketball Club", title: "Picture day agreement", status: "sent", picture_day: day(45), sent_at: iso(-3), viewed_at: null,
