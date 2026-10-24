@@ -31,6 +31,19 @@
   .aca .modal textarea.pf-terms { width: 100%; min-height: 300px; resize: vertical; font-size: 13px; }
   .aca .modal textarea.pf-short { width: 100%; min-height: 64px; resize: vertical; }
   .aca .modal .field input[type=text], .aca .modal .field select { width: 100%; }
+  .aca .pf-rcpts { border: 1px solid var(--line2); border-radius: 6px; max-height: 240px; overflow: auto; }
+  .aca .pf-rcpt { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid var(--line2); }
+  .aca .pf-rcpt:last-child { border-bottom: 0; }
+  .aca .pf-rcpt.off .pf-rcpt-who { opacity: .6; }
+  .aca .pf-rcpt-who { min-width: 0; font-size: 14px; line-height: 20px; }
+  .aca .pf-rcpt-who .pf-sub { display: inline; white-space: normal; }
+  .aca .pf-rcpt-who .pill { margin-left: 4px; }
+  .aca .pf-seg { display: inline-flex; flex: none; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .aca .pf-seg label { position: relative; padding: 4px 10px; font-size: 13px; line-height: 18px; cursor: pointer; border-left: 1px solid var(--border); white-space: nowrap; }
+  .aca .pf-seg label:first-child { border-left: 0; }
+  .aca .pf-seg label.on { background: var(--accent); color: #fff; font-weight: 600; }
+  .aca .pf-seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .aca .pf-seg label:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; }
   .aca .pf-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
   .aca .pf-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 12px; }
   .aca .pf-warn { padding: 8px 12px; border-radius: 4px; background: var(--surface-2); font-size: 13px; margin: 0 0 12px; }
@@ -47,6 +60,7 @@
   .aca .ag-done { padding: 12px 14px; border-radius: 4px; background: var(--surface-2); margin: 0 0 12px; font-size: 14.5px; line-height: 21px; }
   .aca .ag-check { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; font-size: 14px; line-height: 20px; }
   .aca .ag-check input { margin-top: 3px; }
+  @media (max-width: 700px) { .aca .pf-rcpt { flex-direction: column; align-items: stretch; } .aca .pf-seg { align-self: flex-start; } }
   @media (max-width: 700px) { .aca .pf-row2, .aca .pf-row3 { grid-template-columns: 1fr; } .aca .pf-acts { justify-content: flex-start; } }
   /* 2026-10-23: the three lists are rows on a grid (not tables). One main button per row; the rest sit in a ... menu. Phones get a card. */
   .aca .pf-list { border-top: 1px solid var(--border); }
@@ -173,8 +187,8 @@
       const m = openModal("<h2>" + esc(title) + ": " + esc(c.org || "") + "</h2>" +
         '<div class="pf-warn' + (c.warning ? "" : " hidden") + '" id="aca-pfCmWarn">' + esc(c.warning || "") + "</div>" +
         ((c.contacts || []).length
-          ? '<div class="field"><label for="aca-pfCmTo">To</label><select id="aca-pfCmTo">' + c.contacts.map((x) => '<option value="' + esc(x.id) + '"' + (x.id === c.contact_id ? " selected" : "") + ">" +
-              esc(x.name) + (x.name !== x.email ? " &lt;" + esc(x.email) + "&gt;" : "") + (x.role ? " (" + esc(x.role) + ")" : "") + "</option>").join("") + "</select></div>"
+          ? '<div class="field"><label>Who gets it</label><div class="pf-rcpts" id="aca-pfCmTo"></div>' +
+            '<p class="pf-help" id="aca-pfCmWho"></p></div>'
           : '<p class="inline-error">Nobody to email. Add a contact on the partner page first.</p>') +
         '<div class="field"><label for="aca-pfCmSubj">Subject</label><input type="text" id="aca-pfCmSubj" maxlength="200" /></div>' +
         '<div class="field"><label for="aca-pfCmBody">Message</label><textarea id="aca-pfCmBody" class="pf-body"></textarea></div>' +
@@ -185,17 +199,52 @@
       const fill = () => { el("pfCmSubj").value = c.subject || ""; el("pfCmBody").value = c.body || ""; edited = false; };
       fill();
       ["pfCmSubj", "pfCmBody"].forEach((id) => el(id).addEventListener("input", () => { edited = true; }));
-      if (el("pfCmTo")) el("pfCmTo").addEventListener("change", async () => {
-        if (edited) return; // keep what they typed; only the greeting would change
-        const { data } = await sb.rpc("partner_compose", { p_kind: kind, p_ref: ref, p_contact: el("pfCmTo").value, ...dueArg });
-        if (data) { c = data; fill(); }
+      // Recipients (2026-10-24): one To, any number in CC, filled in from the partner's contact lines (rebook: the
+      // service of last year's job, Main in To, Copy in in CC) or the booking's people. Each person can be moved by hand.
+      const people = c.contacts || [];
+      let toId = c.to_id || c.contact_id || (people[0] && people[0].id) || "";
+      const cc = new Set((c.cc_ids || []).filter((id) => id !== toId));
+      const svc = c.service || "", svcName = c.service_name || "";
+      const roleTag = (x) => {
+        const r = svc && x.roles ? x.roles[svc] : "";
+        return (r === "main" ? '<span class="pill accent">' + esc(svcName) + " main</span>" : r === "copy" ? '<span class="pill muted">' + esc(svcName) + " copy in</span>" : "") +
+          (x.stopped ? '<span class="pill muted">emails stopped</span>' : "");
+      };
+      const drawTo = () => {
+        const box = el("pfCmTo");
+        if (!box) return;
+        box.innerHTML = people.map((x) => {
+          const v = x.id === toId ? "to" : cc.has(x.id) ? "cc" : "";
+          const opt = (val, label) => '<label class="' + (v === val ? "on" : "") + '"><input type="radio" name="pfCm-' + esc(x.id) + '" value="' + val + '" data-cid="' + esc(x.id) + '"' + (v === val ? " checked" : "") + " />" + label + "</label>";
+          return '<div class="pf-rcpt' + (v ? "" : " off") + '"><div class="pf-rcpt-who"><strong>' + esc(x.name) + "</strong>" +
+            (x.name !== x.email ? ' <span class="pf-sub">' + esc(x.email) + "</span>" : "") + (x.role ? ' <span class="pf-sub">' + esc(x.role) + "</span>" : "") + " " + roleTag(x) + "</div>" +
+            '<div class="pf-seg" role="radiogroup" aria-label="' + esc(x.name) + '">' + opt("to", "To") + opt("cc", "CC") + opt("", "Leave out") + "</div></div>";
+        }).join("");
+        const n = cc.size;
+        el("pfCmWho").textContent = (svc && kind === "rebook"
+          ? "Filled in from the " + svcName + " contacts on the partner page: Main in To, Copy in in CC, Not involved left out. "
+          : "") + (toId ? "One email" + (n ? ", " + n + " copied in." : ".") : "Pick who it goes To.");
+      };
+      drawTo();
+      if (el("pfCmTo")) el("pfCmTo").addEventListener("change", async (e) => {
+        const t = e.target.closest("input[data-cid]");
+        if (!t) return;
+        const id = t.dataset.cid, was = toId;
+        cc.delete(id);
+        if (t.value === "to") { if (toId && toId !== id) cc.add(toId); toId = id; }
+        else { if (t.value === "cc") cc.add(id); if (toId === id) { toId = [...cc][0] || ""; cc.delete(toId); } }
+        drawTo();
+        if (toId === was || !toId || edited) return; // keep what they typed; only the greeting would change
+        const { data } = await sb.rpc("partner_compose", { p_kind: kind, p_ref: ref, p_contact: toId, ...dueArg });
+        if (data && !edited) { c = { ...c, subject: data.subject, body: data.body }; fill(); }
       });
       const err = (t) => { const n = el("pfCmErr"); n.textContent = t; n.classList.remove("hidden"); };
       el("pfCmCancel").addEventListener("click", () => m.close());
       const send = async (approve, now) => {
         if (!el("pfCmTo")) return err("Nobody to email.");
+        if (!toId) return err("Pick who it goes To.");
         const btns = [el("pfCmHold"), el("pfCmGo"), el("pfCmNow")]; btns.forEach((b) => { b.disabled = true; });
-        const { data: q, error: e2 } = await sb.rpc("partner_queue", { p_kind: kind, p_ref: ref, p_contact: el("pfCmTo").value,
+        const { data: q, error: e2 } = await sb.rpc("partner_queue_cc", { p_kind: kind, p_ref: ref, p_contact: toId, p_cc: [...cc],
           p_subject: el("pfCmSubj").value, p_body: el("pfCmBody").value, p_approve: approve, ...dueArg });
         btns.forEach((b) => { b.disabled = false; });
         if (e2) return err(cleanErr(e2));

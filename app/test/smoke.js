@@ -1891,16 +1891,21 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-pfRbBody [data-do="draft"]');
     await page.waitForSelector("#aca-pfCmSubj");
     check(await page.$eval("#aca-pfCmSubj", (n) => n.value) === "Brewer Travel Basketball Club 2027", "rebook email is filled in");
-    check(await page.$eval("#aca-pfCmTo", (n) => n.options.length) === 2, "both contacts offered");
+    check(await page.$$eval("#aca-pfCmTo .pf-rcpt", (n) => n.length) === 3, "every contact offered");
+    check(await page.$eval('#aca-pfCmTo input[data-cid="c1"][value="to"]', (n) => n.checked) && await page.$eval('#aca-pfCmTo input[data-cid="c2"][value="cc"]', (n) => n.checked)
+      && await page.$eval('#aca-pfCmTo input[data-cid="c3"][value=""]', (n) => n.checked), "Main in To, Copy in in CC, Not involved left out");
+    check((await page.textContent("#aca-pfCmWho")).includes("Team & individual"), "says which contact line it used");
+    await page.click('#aca-pfCmTo input[data-cid="c3"][value="cc"] >> xpath=..');
     await page.click("#aca-pfCmHold");
     await page.waitForTimeout(150);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_queue" && c[1].p_kind === "rebook" && c[1].p_contact === "c1" && c[1].p_approve === false)), "Hold for review queues it unapproved");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "partner_queue_cc" && c[1].p_kind === "rebook" && c[1].p_contact === "c1" && c[1].p_approve === false
+      && c[1].p_cc.join() === "c2,c3")), "Hold for review queues it unapproved, with both copied in");
     await page.click('#aca-pfRbBody [data-do="draft"]');
     await page.waitForSelector("#aca-pfCmNow");
     check((await page.$$eval(".modal-actions button", (bs) => bs.map((b) => b.textContent.trim()))).join("|").includes("Add to queue|Send now"), "rebook email offers Add to queue and Send now");
     await page.click("#aca-pfCmNow");
     await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "prospect_send_now"));
-    check(await page.evaluate(() => { const q = window.__rpcCalls.filter((c) => c[0] === "partner_queue").pop(); const n = window.__rpcCalls.filter((c) => c[0] === "prospect_send_now").pop(); return q[1].p_approve === true && n[1].p_ids[0] === "m10"; }), "Send now approves it and sends that email right away");
+    check(await page.evaluate(() => { const q = window.__rpcCalls.filter((c) => c[0] === "partner_queue_cc").pop(); const n = window.__rpcCalls.filter((c) => c[0] === "prospect_send_now").pop(); return q[1].p_approve === true && n[1].p_ids[0] === "m10"; }), "Send now approves it and sends that email right away");
 
     await page.evaluate(() => { location.hash = "#partners/reviews"; });
     await page.waitForSelector('#aca-pfRvBody .pf-item[data-id="rv2"]');
