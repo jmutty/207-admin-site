@@ -140,9 +140,10 @@
     .aca .jp-latest .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
     .aca .jp-latest .hd h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--head); }
     .aca .jp-latest .hd a { font-size: 13px; color: var(--muted); }
+    .aca .jp-latest .jp-orghd { margin-top: 4px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,.08); }
     .aca .jp-latest .jp-notes { margin: 0 0 8px; max-width: none; } .aca .jp-latest .jp-notes li { padding: 6px 0; border-bottom-color: transparent; }
     .aca .jp-latest .jp-compose { max-width: none; } .aca .jp-latest .jp-compose textarea { min-height: 38px; height: 38px; background: var(--surface); }
-    .aca .jp-latest .jp-compose textarea:focus { height: 76px; } .aca .jp-latest .jp-compose .row { margin-top: 6px; } .aca .jp-latest .jp-suggest { top: 42px; }
+    .aca .jp-latest .jp-compose textarea:focus, .aca .jp-latest .jp-compose textarea:not(:placeholder-shown) { height: 76px; } .aca .jp-latest .jp-compose .row { margin-top: 6px; } .aca .jp-latest .jp-suggest { top: 42px; }
     .aca .jp-onsite h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     .aca .jp-onsite h3 button { text-transform: none; letter-spacing: 0; }
     .aca .jp-onsite .pw { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
@@ -534,14 +535,19 @@
       };
     }
     // The newest job notes at the top of Overview (two; one on a phone), with the same composer as the Notes tab.
+    // Under them, the partner's newest notes (2026-10-24), for people who can see Partners.
     async function renderLatest(b) {
       const box = el("jpLatest"); if (!box) return;
-      const { data } = await sb.rpc("job_notes_list", { p_booking: b.id });
+      const [{ data }, peek] = await Promise.all([sb.rpc("job_notes_list", { p_booking: b.id }),
+        b.org_id && canSee("partners") ? Notes.peek([], [b.org_id]).catch(() => null) : null]);
       if (!el("jpLatest") || J.booking.id !== b.id || curTab !== "overview") return;
       const notes = (data || []).slice(-2).reverse();
       const n = num(J.notes_count);
+      const on = peek && peek.orgs[b.org_id], pn = (on && on.latest) || [];
       box.innerHTML = '<div class="hd"><h3>' + (notes.length ? "Latest notes" : "Job notes") + "</h3>" + (n > notes.length ? '<a href="' + jobLink(b.id, "notes") + '">All ' + n + " notes &#8250;</a>" : "") + "</div>" +
         (notes.length ? '<ul class="jp-notes">' + notes.map((x) => noteHtml(Object.assign({}, x, { mine: false, can_remove: false }))).join("") + "</ul>" : "") +
+        (pn.length ? '<div class="hd jp-orghd"><h3>About ' + esc(b.org_name || "the partner") + '</h3><a href="' + esc(orgLink(b.org_id, "history")) + '">' + (num(on.count) > pn.length ? "All " + num(on.count) + " partner notes" : "Partner notes") + " &#8250;</a></div>" +
+          '<ul class="jp-notes">' + pn.map((x) => noteHtml(Object.assign({ id: 0 }, x, { mine: false, can_remove: false }))).join("") + "</ul>" : "") +
         '<div class="jp-compose"><textarea id="aca-jpNote" aria-label="New note" maxlength="4000" placeholder="Add a note. Type @ to mention someone."></textarea>' +
         '<div class="jp-suggest hidden" id="aca-jpSug"></div>' +
         '<div class="row"><span class="muted" id="aca-jpMent"></span><button type="button" class="small primary" id="aca-jpAdd">Add note</button></div></div>';
@@ -666,6 +672,7 @@
         const n = mentioned().length;
         toast(n ? "Added. " + n + (n === 1 ? " person was" : " people were") + " notified." : "Added.");
         J.notes_count = num(J.notes_count) + 1;
+        Notes.forget(J.booking.id);
         refreshCounts();
         if (after) after(); else renderNotes(J.booking, el("jpBody"));
       };
@@ -677,7 +684,7 @@
         if (!confirm("Remove this note?")) return;
         const { data, error } = await sb.rpc("job_note_remove", { p_id: n.id });
         if (error || !data.ok) { toast(error ? cleanErr(error) : data.error, true); return; }
-        toast("Removed."); J.notes_count = Math.max(0, num(J.notes_count) - 1); refreshCounts(); renderNotes(J.booking, el("jpBody"));
+        toast("Removed."); Notes.forget(J.booking.id); J.notes_count = Math.max(0, num(J.notes_count) - 1); refreshCounts(); renderNotes(J.booking, el("jpBody"));
       }
       if (b.dataset.e === "edit") {
         const div = li.querySelector(".b");
@@ -687,7 +694,7 @@
         div.querySelector("[data-s]").onclick = async () => {
           const { data, error } = await sb.rpc("job_note_edit", { p_id: n.id, p_body: ta.value });
           if (error || !data.ok) { toast(error ? cleanErr(error) : data.error, true); return; }
-          toast("Saved."); renderNotes(J.booking, el("jpBody"));
+          toast("Saved."); Notes.forget(J.booking.id); renderNotes(J.booking, el("jpBody"));
         };
       }
     }

@@ -1601,6 +1601,7 @@
       const no = (data.crew.declined || []).filter((x) => x.booking_id === b.booking_id);
       const m = openModal('<div class="sc-modal"><h2>' + esc(bookingLabel(b)) + "</h2>" +
         '<p class="sc-facts">' + esc(T.fmtDay(b.day, { weekday: "long" })) + ", " + esc(b.start_at ? T.fmtTs(b.start_at) + "–" + T.fmtTs(b.end_at) : "time not set yet") + (b.location ? "<br>" + esc(b.location) : "") + "</p>" +
+        '<div id="aca-scNotes"></div>' +
         (mkTime ? '<p class="sc-note">The start and end under Times and drive become the makeup day&#39;s time (on the Google Calendar too). Press Save time, or tick people and add them.</p>' : "") +
         '<div class="field"><label for="aca-scNeed">People needed</label><input type="number" id="aca-scNeed" min="1" max="20" step="1" value="' + neededOf(b.booking_id) + '" style="width:90px" /></div>' +
         (already.length ? '<h3 class="sc-sub">On it</h3><ul class="sc-onit">' + already.map((e) => "<li><b>" + esc(personName(e.user_id)) + "</b>" + (e.role ? " (" + esc(e.role) + ")" : "") + " " + cf(e) +
@@ -1618,6 +1619,9 @@
         (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home. Ticking one person shows their drive here; with several ticked, each gets their own.</p>' : "") + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (mkTime ? "Save time" : already.length ? "Save changes" : "Add to the schedule") + '</button></div></div>');
+      // The job's and its partner's newest notes, with Add note (2026-10-24)
+      Notes.box(m.querySelector("#aca-scNotes"), { bookings: [{ id: b.booking_id, title: bookingLabel(b) }], max: 2 });
+      m.querySelector("#aca-scNotes").addEventListener("click", (ev) => { if (ev.target.closest("a[href]")) m.close(); });
       // Look up drive time is from the person's home (2026-10-24, Jeremiah: "it's still calculating from the studio"):
       // the one person ticked, or with nobody ticked the one person already on it; otherwise the studio.
       const driveUser = () => {
@@ -2187,8 +2191,14 @@
           (e.drive_after_min ? "back about " + esc(T.fmtTs(new Date(backAt(e)).toISOString())) : "on to the next job after " + num(e.teardown_min) + " min teardown") : "") +
         (e.batch_id ? "<br>" + esc(tripLine(e)) : "") +
         (e.booking_location ? "<br>" + esc(e.booking_location) : "") + (e.edit_due ? "<br>Editing time, due " + esc(dueAt(e)) : "") + (e.note ? "<br>" + esc(e.note) : "") + "</p>" +
-        '<div class="modal-actions"><span class="grow"></span><button type="button" class="primary" data-m="ok">OK</button></div></div>');
+        (e.kind === "job" && e.booking_id ? '<div id="aca-scInfoNotes"></div>' : "") +
+        '<div class="modal-actions">' + (e.kind === "job" && e.booking_id ? '<a href="' + jobLink(e.booking_id) + '" class="small" data-m="job">Open the job</a>' : "") + '<span class="grow"></span><button type="button" class="primary" data-m="ok">OK</button></div></div>');
       m.querySelector('[data-m="ok"]').addEventListener("click", () => m.close());
+      const jl = m.querySelector('[data-m="job"]'); if (jl) jl.addEventListener("click", () => m.close());
+      if (e.kind === "job" && e.booking_id) {
+        Notes.box(m.querySelector("#aca-scInfoNotes"), { bookings: [{ id: e.booking_id, title: e.booking_title }], max: 2 });
+        m.querySelector("#aca-scInfoNotes").addEventListener("click", (ev) => { if (ev.target.closest("a[href]")) m.close(); });
+      }
     }
     function openCalInfo(c) {
       const when = c.all_day || !c.start_at ? T.fmtDay(c.start_date, { weekday: "long" }) + (c.end_date > c.start_date ? " through " + T.fmtDay(c.end_date, { weekday: "long" }) : "") + ", all day"

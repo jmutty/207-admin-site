@@ -471,10 +471,12 @@
         (cs.length > 1 ? '<div class="bk-sub">+ ' + (cs.length - 1) + (cs.length === 2 ? " other" : " others") + "</div>" : cs[0].name && cs[0].name !== cs[0].email ? '<div class="bk-sub">' + esc(cs[0].email) + "</div>" : ""); };
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
       '<td class="bk-c-when"><div class="bk-date">' + esc(Fmt.days(b)) + '</div><div class="bk-sub">' + whenTimes(b) + "</div>" + (b.makeup ? '<div class="bk-sub">Makeup day ' + esc(Fmt.day(b.makeup.day)) + "</div>" : "") + calNote(b) + "</td>" +
-      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
+      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div>" +
+        '<span class="nt-line" data-nt-job="' + esc(b.id) + '"></span></td>' +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-who">' + who(b) + "</td>" +
       '<td class="bk-c-mail">' + mailSummary(b) + "</td></tr>").join("");
+    Notes.fillLines(body); // each job's newest note (or its partner's) under the name, 2026-10-24
   }
   el("bkSearch").addEventListener("input", render);
   el("bkType").addEventListener("change", render);

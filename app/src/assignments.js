@@ -112,7 +112,8 @@
             : esc(e.kind === "job" ? e.booking_title : e.title || ({ studio: "Studio", admin: "Admin" })[e.kind] || "Work")) + (e.booking_status === "cancelled" ? ' <span class="as-tag urgent">cancelled</span>' : "") +
           (e.role ? ' <span class="muted">(' + esc(e.role) + ")</span>" : "") +
           (e.confirm && e.confirm.status === "confirmed" ? ' <span class="pill ok">Confirmed</span>' : e.confirm && e.confirm.status === "pending" ? ' <a class="pill warn" href="#crew/' + esc(e.confirm.token) + '">Confirm</a>' : "") +
-          (e.booking_location ? '<span class="s">' + esc(e.booking_location) + "</span>" : "") + (e.note ? '<span class="s">' + esc(e.note) + "</span>" : "") + "</span></li>"]);
+          (e.booking_location ? '<span class="s">' + esc(e.booking_location) + "</span>" : "") + (e.note ? '<span class="s">' + esc(e.note) + "</span>" : "") +
+          (e.kind === "job" && e.booking_id ? '<span class="nt-line nt-wrap" data-nt-job="' + esc(e.booking_id) + '"></span>' : "") + "</span></li>"]);
         if (td) { rows.push([T.local(e.ends_at).min + 0.5, '<li><span class="t drive">' + esc(T.fmtTs(e.ends_at)) + '</span><span class="drive">Tear down (' + td + " min)</span></li>"]); }
         if (e.kind === "job" && e.drive_after_min) {
           const back = new Date(en.getTime() + (e.drive_after_min + td) * 6e4).toISOString();
@@ -130,6 +131,7 @@
         '<div class="as-sec"><h3>Tasks</h3><div id="aca-asTasks"></div></div>' +
         '<label class="as-mail hidden"><input type="checkbox" id="aca-asMailMine" /> Email me my day each morning</label>';
       renderTasks(plain, false, el("asTasks"));
+      Notes.fillLines(el("asBody"));
       if (steps.length) el("asSteps").innerHTML = steps.map(taskHtml).join("");
       sb.rpc("day_email_status").then(({ data: m }) => {
         const box = el("asMailMine"); if (!m || !box) return;
