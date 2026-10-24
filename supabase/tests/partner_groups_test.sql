@@ -1,4 +1,4 @@
--- Tests for 20261025080000_partner_groups. Run inside a transaction that is rolled back (a shadow copy, or prod
+-- Tests for 20261025090000_partner_groups. Run inside a transaction that is rolled back (a shadow copy, or prod
 -- with the migration applied):
 --   psql -v ON_ERROR_STOP=1 -f supabase/tests/partner_groups_test.sql
 -- "ALL PARTNER GROUP TESTS PASSED" at the end means every check held.

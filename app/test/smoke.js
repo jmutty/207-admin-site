@@ -2744,6 +2744,27 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
+  console.log("Notes everywhere (owner)");
+  {
+    const { page, errors } = await open(browser, port, "", "#partners/org/11111111-1111-1111-1111-111111111111");
+    await page.waitForSelector("#aca-opNotesTop li");
+    const top = await page.textContent("#aca-opNotesTop");
+    check(top.includes("Met Chris at the fall tourney") && top.includes("Parking is behind the gym"), "partner Overview: partner notes and its job notes at the top");
+    check(top.includes("Winter Sports"), "partner Overview: a job note says which job");
+    check(!(await page.textContent(".jp-rows") || "").includes("Met Chris"), "Recent activity leaves out notes (they are in the box)");
+    await page.fill("#aca-opNotesTop textarea", "Gym doors open at 7");
+    await page.click('#aca-opNotesTop [data-nt="add"]');
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "notes_peek").length >= 2), "adding a partner note reloads the box");
+    await page.goto(page.url().replace(/#.*/, "#jobs/job/bk1")); await page.waitForSelector("#aca-jpLatest .jp-orghd");
+    check((await page.textContent("#aca-jpLatest")).includes("Met Chris"), "job Overview: the partner's newest note under the job's");
+    await page.goto(page.url().replace(/#.*/, "#jobs/bookings")); await page.waitForSelector('#aca-bkBody [data-nt-job="bk1"] .nt-k');
+    check((await page.textContent('#aca-bkBody [data-nt-job="bk1"]')).includes("Parking is behind"), "Jobs list: newest note under the job name");
+    await page.goto(page.url().replace(/#.*/, "#partners/orgs")); await page.waitForSelector('#aca-ogBody [data-nt-org] .nt-k');
+    check((await page.textContent('#aca-ogBody [data-nt-org="11111111-1111-1111-1111-111111111111"]')).includes("Met Chris"), "Partners list: newest note under the name");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
 
   await browser.close();
   server.close();

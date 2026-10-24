@@ -64,11 +64,18 @@
     .aca .op-need li.err .tag { background: var(--err-bg); color: var(--err-fg); }
     .aca .op-need li .t { flex: 1 1 220px; min-width: 0; }
     .aca .op-need li .b { flex: 0 0 auto; display: flex; gap: 6px; flex-wrap: wrap; }
-    .aca .op-job { display: block; padding: 12px 14px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); text-decoration: none; margin-bottom: 8px; }
+    .aca .op-job { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 2px 14px; align-items: start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); text-decoration: none; margin-bottom: 8px; }
     .aca .op-job:hover { border-color: var(--accent); }
-    .aca .op-job .h { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-weight: 600; }
-    .aca .op-job .h .muted { font-weight: 400; }
-    .aca .op-job .s { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .aca .op-job .d { font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .aca .op-job .d small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+    .aca .op-job .h { display: block; font-weight: 600; }
+    .aca .op-job .s { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .aca .op-sechd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+    .aca .op-sechd a, .aca .op-sechd button.link { font-size: 13px; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+    .aca .op-side .jp-sec { margin: 0 0 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line2); }
+    .aca .op-side .jp-sec:last-child { margin: 0; padding: 0; border: 0; }
+    .aca .op-side .jp-sec h3 { font-size: 12px; }
+    .aca .op-side .jp-dl { grid-template-columns: 104px minmax(0, 1fr); }
     .aca .op-side { background: var(--surface-2); border-radius: 4px; padding: 14px 16px; }
     .aca .op-line { display: flex; gap: 8px 14px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; font-size: 13.5px; }
     .aca .op-line .grow { flex: 1 1 auto; }
@@ -125,6 +132,7 @@
     @media (max-width: 760px) {
       .aca .op-mg-pair { grid-template-columns: minmax(0, 1fr); }
       .aca .op-grid { grid-template-columns: minmax(0, 1fr); }
+      .aca .op-job { grid-template-columns: minmax(0, 1fr); }
       .aca .op-table.op-phone thead { display: none; }
       .aca .op-table.op-phone, .aca .op-table.op-phone tbody, .aca .op-table.op-phone tr, .aca .op-table.op-phone td { display: block; width: 100%; }
       .aca .op-table.op-phone tr { border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; margin-bottom: 8px; background: var(--surface); }
@@ -698,26 +706,37 @@
         G.members.length ? [cap(word()), G.members.length + " (" + G.members.filter((x) => x.stage === "client" || x.stage === "booked").length + " clients)"] : null,
         !(ags || []).some((a) => a.status === "accepted") && covering ? ["Agreement", "Covered by " + G.parent.name + "'s"] : null,
       ].filter(Boolean);
+      const others = (acts || []).filter((a) => a.kind !== "note"); // notes are in the box at the top
       const cName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "";
-      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + (b.org_id && b.org_id !== O.id ? esc(b.org_name || "") + ": " : "") + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(Fmt.days(b)) +
-        (b.location ? " · " + esc(b.location) : "") + '</span></div><div class="s">' + esc([b.stage ? "Stage: " + b.stage : b.status === "tracked" ? "Tracking only" : "",
-          b.status === "booked" ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" · ")) + "</div></a>";
-      box.innerHTML = '<div class="op-grid"><div>' +
+      // Coming up (2026-10-24 tidy): the date on the left, then the job, where, and how it's going, each on its own line.
+      // The partner's name is left off the job name here since we're on their page; a member's job (on a group's page) starts with the member's name.
+      const jobCard = (b) => {
+        const t = b.start_at && typeof Fmt.time === "function" ? safe(() => Fmt.time(b.start_at)) : "";
+        const name = b.title_label || String(b.title || "Job").replace(new RegExp("\\s*\u2022\\s*" + O.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"), "") || "Job";
+        const how = [b.stage ? b.stage : b.status === "tracked" ? "Tracking only" : "", b.status === "booked" && num(b.emails_total) ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" \u00b7 ");
+        return '<a class="op-job" href="' + jobLink(b.id) + '"><span class="d">' + esc(Fmt.days(b)) + (t ? "<small>" + esc(t) + "</small>" : "") + '</span><span><span class="h">' + (b.org_id && b.org_id !== O.id ? esc(b.org_name || "") + ": " : "") + esc(name) + "</span>" +
+          (b.location ? '<span class="s">' + esc(b.location) + "</span>" : "") + (how ? '<span class="s">' + esc(how) + "</span>" : "") + "</span></a>";
+      };
+      // Notes first (2026-10-24, Jeremiah: notes easy to find wherever he looks at a client): this partner's notes and
+      // the notes on their jobs, newest first, with an Add note box. All of them are on Notes & history.
+      box.innerHTML = '<div id="aca-opNotesTop"></div><div class="op-grid"><div>' +
         '<div class="jp-sec"><h3>Needs you here</h3>' + (needs.length ? '<ul class="op-need">' + needs.map((n) => '<li class="' + n[0] + '"><span class="tag">' + esc(n[1]) + '</span><span class="t">' + esc(n[2]) +
           '</span><span class="b">' + n[3].map((x, i) => '<button type="button" class="small' + (i === 0 ? " primary" : "") + '" data-go="' + esc(x[1]) + '">' + esc(x[0]) + "</button>").join("") + "</span></li>").join("") + "</ul>"
           : '<div class="empty" style="padding:4px 0">Nothing needs you for ' + esc(O.name) + " right now.</div>") + "</div>" +
         '<div class="jp-sec"><h3>' + (upcoming.length ? "Coming up" : "Last job") + "</h3>" + (upcoming.length ? upcoming.slice(0, G.members.length ? 5 : 3).map(jobCard).join("") : recent ? jobCard(recent)
           : '<div class="empty" style="padding:4px 0">No jobs yet.' + (edB ? ' <button type="button" class="link" data-go="book">Book one</button>' : "") + "</div>") + "</div>" +
-        ((acts || []).length ? '<div class="jp-sec"><h3>Recent activity</h3><ul class="jp-rows">' + acts.slice(0, 6).map((a) => '<li><span class="t">' + esc(actText(a)) + '</span><span class="r">' + esc(fmtAgo(a.occurred_at)) + "</span></li>").join("") +
-          '</ul><button type="button" class="link small" data-go="tab:history">All notes and history</button></div>' : "") +
+        (others.length ? '<div class="jp-sec"><h3 class="op-sechd"><span>Recent activity</span><a href="' + esc(orgLink(O.id, "history")) + '">All history &#8250;</a></h3><ul class="jp-rows">' +
+          others.slice(0, 5).map((a) => '<li><span class="t">' + esc(actText(a)) + '</span><span class="r">' + esc(fmtAgo(a.occurred_at)) + "</span></li>").join("") + "</ul></div>" : "") +
         '</div><div><div class="op-side">' +
-        (contact ? '<div class="jp-sec" style="margin-bottom:14px"><h3>Main contact</h3><div style="font-size:13.5px"><b>' + esc(cName || contact.email) + "</b>" + (contact.role ? ", " + esc(contact.role) : "") +
-          (contact.email ? '<div class="mono" style="overflow-wrap:anywhere">' + esc(contact.email) + "</div>" : "") + (contact.phone ? "<div>" + esc(contact.phone) + "</div>" : "") + "</div></div>" : "") +
-        '<div class="jp-sec jp-onsite" id="aca-opAddr" style="margin-bottom:14px"></div>' +
-        '<div class="jp-sec jp-onsite" id="aca-opWifi" style="margin-bottom:14px"></div>' +
-        '<div class="jp-sec" style="margin:0"><h3>At a glance</h3><dl class="jp-dl">' + glance.map((g) => "<dt>" + esc(g[0]) + "</dt><dd>" + esc(g[1]) + "</dd>").join("") + "</dl></div>" +
+        (contact ? '<div class="jp-sec"><h3 class="op-sechd"><span>Main contact</span><a href="' + esc(orgLink(O.id, "contacts")) + '">All contacts &#8250;</a></h3><div style="font-size:13.5px"><b>' + esc(cName || contact.email) + "</b>" + (contact.role ? ", " + esc(contact.role) : "") +
+          (contact.email ? '<div style="overflow-wrap:anywhere">' + esc(contact.email) + "</div>" : "") + (contact.phone ? "<div>" + esc(contact.phone) + "</div>" : "") + "</div></div>" : "") +
+        '<div class="jp-sec jp-onsite" id="aca-opAddr"></div>' +
+        '<div class="jp-sec jp-onsite" id="aca-opWifi"></div>' +
+        '<div class="jp-sec"><h3>At a glance</h3><dl class="jp-dl">' + glance.map((g) => "<dt>" + esc(g[0]) + "</dt><dd>" + esc(g[1]) + "</dd>").join("") + "</dl></div>" +
         "</div></div></div>";
       renderAddress(); renderWifi();
+      const noteJobs = aj.live.slice().sort((a, b) => String(b.picture_day || "").localeCompare(String(a.picture_day || ""))).slice(0, 12).map((b) => ({ id: b.id, title: b.title_label || b.title || "a job" }));
+      Notes.box(el("opNotesTop"), { bookings: noteJobs, orgId: O.id, orgName: O.name, addTo: "org", max: 3, onAdd: () => { delete cache.activity; } });
       box.onclick = (e) => {
         const b = e.target.closest("[data-go]"); if (!b) return;
         const g = b.dataset.go, arg = g.slice(g.indexOf(":") + 1);
@@ -746,8 +765,8 @@
           '<div class="row"><button type="submit" class="small primary">Save</button><button type="button" class="small" data-ad="cancel">Cancel</button></div></form>';
         if (typeof Places !== "undefined") Places.attach(el("opAdIn"), {});
         el("opAdIn").focus();
-      } else box.innerHTML = head + (has ? '<div style="font-size:13.5px;overflow-wrap:anywhere">' + esc(O.address) + '</div><p class="oncal">New bookings start here.</p>'
-        : '<p class="muted" style="margin:0;font-size:13px">Not known yet. Add it here, or book a job with a location and it lands here.</p>');
+      } else box.innerHTML = head + (has ? '<div style="font-size:13.5px;overflow-wrap:anywhere" title="New bookings start here.">' + esc(O.address) + "</div>"
+        : '<p class="muted" style="margin:0;font-size:13px">Not known yet.</p>');
       box.onclick = (e) => { const t = e.target.closest("[data-ad]"); if (t) renderAddress(t.dataset.ad === "edit"); };
       const f = el("opAdForm");
       if (f) f.onsubmit = async (e) => {
@@ -775,8 +794,8 @@
           '<div class="row"><button type="submit" class="small primary">Save</button><button type="button" class="small" data-wf="cancel">Cancel</button></div></form>';
         el("opWfNet").focus();
       } else box.innerHTML = head + (has ? '<dl class="jp-dl">' + (O.wifi_network ? "<dt>Network</dt><dd>" + esc(O.wifi_network) + "</dd>" : "") +
-          (O.wifi_password ? '<dt>Password</dt><dd><span class="pw">' + esc(O.wifi_password) + "</span></dd>" : "") + '</dl><p class="oncal">New bookings start with this WiFi.</p>'
-        : '<p class="muted" style="margin:0;font-size:13px">Not known yet. Add it here or on a job, and new bookings start with it.</p>');
+          (O.wifi_password ? '<dt>Password</dt><dd><span class="pw">' + esc(O.wifi_password) + "</span></dd>" : "") + '</dl>'
+        : '<p class="muted" style="margin:0;font-size:13px">Not known yet.</p>');
       box.onclick = (e) => { const t = e.target.closest("[data-wf]"); if (t) renderWifi(t.dataset.wf === "edit"); };
       const f = el("opWfForm");
       if (f) f.onsubmit = async (e) => {
@@ -1009,6 +1028,7 @@
         b.disabled = false;
         if (error) return toast("Note not saved: " + cleanErr(error), true);
         toast("Note saved");
+        Notes.forget(null, O.id);
         refresh(["activity"]);
       };
       const [acts, bks] = await Promise.all([quiet(data("activity")), quiet(data("bookings"))]);

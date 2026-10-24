@@ -471,10 +471,12 @@
         (cs.length > 1 ? '<div class="bk-sub">+ ' + (cs.length - 1) + (cs.length === 2 ? " other" : " others") + "</div>" : cs[0].name && cs[0].name !== cs[0].email ? '<div class="bk-sub">' + esc(cs[0].email) + "</div>" : ""); };
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
       '<td class="bk-c-when"><div class="bk-date">' + esc(Fmt.days(b)) + '</div><div class="bk-sub">' + whenTimes(b) + "</div>" + (b.makeup ? '<div class="bk-sub">Makeup day ' + esc(Fmt.day(b.makeup.day)) + "</div>" : "") + calNote(b) + "</td>" +
-      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
+      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div>" +
+        '<span class="nt-line" data-nt-job="' + esc(b.id) + '"></span></td>' +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-who">' + who(b) + "</td>" +
       '<td class="bk-c-mail">' + mailSummary(b) + "</td></tr>").join("");
+    Notes.fillLines(body); // each job's newest note (or its partner's) under the name, 2026-10-24
   }
   el("bkSearch").addEventListener("input", render);
   el("bkType").addEventListener("change", render);
@@ -695,7 +697,7 @@
         <label>Picture day${(d.days || []).length > 1 ? "s" : ""}</label>
         <div><div class="bk-dayhead" aria-hidden="true"><span>Day</span><span class="t">Start</span><span class="to"></span><span class="t">End</span><span>Label</span></div><div id="aca-bkDays"></div>
           <button type="button" class="link" data-v="addday" style="margin-top:6px">+ Add another day</button>
-          <div class="bk-sub" style="margin-top:4px">Times can wait: emails that mention one hold until it is set. Label a day only when each day is a different group. With more than one day, each day can be somewhere else: leave "Where" blank when it's at the Location.</div>
+          <div class="bk-sub" style="margin-top:4px">Times can wait: emails that mention one hold until it is set. Label a day only when each day is a different group. Every day is at the Primary location below unless you give it a different place.</div>
           <div class="bk-move-note hidden" id="aca-bkMoveNote" role="status"></div></div>
         <label>Calendar title</label>
         <div><div class="bk-chips" id="aca-bkLabels"></div>
@@ -703,7 +705,7 @@
             <label class="bk-sub" style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" id="aca-bkKeepOrg" ${ovParts(d).keep ? "checked" : ""} /> keep the organization before it</label></div>
           <div class="bk-sub" id="aca-bkTitlePrev" style="margin-top:6px"></div>
           <div id="aca-bkGp"></div></div>
-        <label for="aca-bkLoc">Location</label>
+        <label for="aca-bkLoc">Primary location</label>
         <div class="bk-loc"><input type="text" id="aca-bkLoc" value="${esc(d.location || "")}" placeholder="Search Google Maps or type where we set up" style="width:100%" />
           <div class="bk-sub" id="aca-bkLocNote" style="margin-top:4px"></div></div>
         ${canCrew && d.status !== "tracked" ? `<label>Who's shooting</label>
@@ -751,8 +753,11 @@
         '<input type="time" class="bk-d-end" value="' + esc(r.end_time || "") + '" step="300" aria-label="End" data-dp-after=".bk-d-start" /> ' +
         '<input type="text" class="bk-d-label" value="' + esc(r.label || "") + '" placeholder="' + (dayRows.length > 1 ? "Which teams this day" : "Label (optional)") + '" maxlength="60" style="flex:1 1 160px;min-width:120px" />' +
         (dayRows.length > 1 ? '<button type="button" class="small quiet" data-v="rmday" data-i="' + i + '" aria-label="Remove day ' + (i + 1) + '">&times;</button>' +
-          // Each day can be somewhere else (2026-10-24); blank is the job's Location. It goes on that day's calendar event.
-          '<div class="bk-d-locw" style="flex:1 1 100%;min-width:0"><input type="text" class="bk-d-loc" value="' + esc(r.location || "") + '" placeholder="Where: same as the Location below" aria-label="Where on day ' + (i + 1) + '" style="width:100%" /></div>' : "") + "</div>").join("");
+          // Each day can be somewhere else (2026-10-24, Jeremiah): "+ Different place" opens a box under the day; left
+          // alone, the day is at the Primary location. A day's own place goes on that day's calendar event.
+          '<div class="bk-d-locw" style="flex:1 1 100%;min-width:0">' + (r.location || r.open
+            ? '<input type="text" class="bk-d-loc" value="' + esc(r.location || "") + '" placeholder="Different place this day (blank = the Primary location)" aria-label="Where on day ' + (i + 1) + '" style="width:100%" />'
+            : '<button type="button" class="link" data-v="dayloc" data-i="' + i + '">+ Different place</button>') + "</div>" : "") + "</div>").join("");
       el("bkDays").querySelectorAll(".bk-d-loc").forEach((x) => Places.attach(x));
     }
     function readDays() {
@@ -760,7 +765,7 @@
       el("bkDays").querySelectorAll(".bk-dayrow").forEach((row, i) => {
         const loc = row.querySelector(".bk-d-loc");
         const r = { day: row.querySelector(".bk-d-day").value, start_time: row.querySelector(".bk-d-start").value, end_time: row.querySelector(".bk-d-end").value, label: row.querySelector(".bk-d-label").value.trim(),
-          location: loc ? loc.value.trim() : "" };
+          location: loc ? loc.value.trim() : "", open: !!loc };
         dayRows[i] = r; if (r.day) out.push(r);
       });
       return out.sort((a, b2) => a.day.localeCompare(b2.day));
@@ -1021,6 +1026,7 @@
       if (v === "close") return box.close();
       if (v === "prevfold") { const open = el("bkPrev").classList.toggle("folded") === false; b.setAttribute("aria-expanded", String(open)); try { localStorage.setItem("aca-bkformmail", open ? "open" : "closed"); } catch (e2) {} return; }
       if (v === "copyname") { try { await navigator.clipboard.writeText(b.dataset.name); b.textContent = "copied"; setTimeout(() => { b.textContent = "copy"; }, 1500); } catch (er) { toast("Couldn't copy: " + b.dataset.name, true); } return; }
+      if (v === "dayloc") { const i = Number(b.dataset.i); readDays(); dayRows[i].open = true; renderDays(); const x = el("bkDays").querySelectorAll(".bk-dayrow")[i].querySelector(".bk-d-loc"); if (x) x.focus(); return; }
       if (v === "addday") { readDays(); dayRows.push({ day: "", start_time: "", end_time: "", label: "", location: "" }); renderDays(); return; }
       if (v === "rmday") { const i = Number(b.dataset.i); if (dayRows.length > 1) { readDays(); dayRows.splice(i, 1); renderDays(); renderPreview(); renderMoveNote(); } return; }
       if (v === "changeorg") { org = null; contacts = []; chosen.clear(); el("bkOrgPick").innerHTML = '<input type="text" id="aca-bkOrgQ" placeholder="Type the league or school name" autocomplete="off" style="width:100%" />'; renderContacts(); el("bkOrgQ").focus(); return; }

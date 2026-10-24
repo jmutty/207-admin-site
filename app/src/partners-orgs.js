@@ -44,7 +44,7 @@
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const monthsText = (o) => (o.shoot_months || []).map((m) => MONTHS[m - 1]).join(", ");
   const DEFAULT_STATE = { q: "", group: "", stage: "", sport: "", season: "", audience: "", sp: "", month: "", service: "", svs: "", county: "", towns: [], flag: "", parent: "", grouped: false, sort: { key: "next", dir: 1 } };
-  // Partner groups (2026-10-24, migration 20261025080000): a school can be part of its district (RSU 22) and a league
+  // Partner groups (2026-10-24, migration 20261025090000): a school can be part of its district (RSU 22) and a league
   // part of a bigger league, through prospect_orgs.parent_id, one level deep. Each stays its own partner. The list's
   // Grouped button puts members under their group, Part of filters to one group, and searching a group's name finds
   // its members too. "schools" for a school group, "teams" for a league group.
@@ -796,7 +796,7 @@
       return `<tr class="og-row${o.id === openId ? " open" : ""}${grp ? " og-grp" : ""}${nested ? " og-kid" : ""}" data-id="${esc(o.id)}">
         <td class="c-ck"><input type="checkbox" class="og-ck" ${selected.has(o.id) ? "checked" : ""} aria-label="Select ${esc(o.name)}" /></td>
         <td class="c-org"><div class="og-name" title="${esc(o.name)}">${grp ? `<button type="button" class="og-fold" data-fold="${esc(o.id)}" aria-expanded="${!folded.has(o.id)}" aria-label="${folded.has(o.id) ? "Show" : "Hide"} its ${memberWord(o)}">${folded.has(o.id) ? "&#9656;" : "&#9662;"}</button>` : ""}${esc(o.name)}${flags}</div><div class="og-sub og-dsk">${esc(sub)}</div>
-          <div class="og-sub og-mob">${esc(mmeta || sub)}</div></td>
+          <div class="og-sub og-mob">${esc(mmeta || sub)}</div><span class="nt-line" data-nt-org="${esc(o.id)}"></span></td>
         <td class="c-stage">${stagePill(o.stage, o)}</td>
         <td class="c-sports"><div class="og-cell" title="${esc((o.sports || []).join(", "))}">${esc((o.sports || []).join(", ")) || '<span class="muted">&mdash;</span>'}</div><div class="og-sub" title="${esc(monthsText(o) ? "Shoots: " + monthsText(o) : "")}">${esc(monthsText(o) || (o.seasons || []).join(", "))}</div></td>
         <td class="c-town"><div class="og-cell">${o.county ? esc(o.county) : '<span class="muted">&mdash;</span>'}</div>${o.town ? `<div class="og-sub" title="${esc(o.town)}">${esc(o.town)}</div>` : ""}</td>
@@ -807,6 +807,7 @@
         <td class="og-cell c-res">${esc(o.last_result || "")}</td>`}
         <td class="c-next">${nextCell(o)}</td></tr>`;
     }).join("") : `<tr><td colspan="9" class="empty">${loaded ? emptyText() : "Loading&hellip;"}</td></tr>`;
+    Notes.fillLines(el("ogBody")); // each partner's newest note under the name, 2026-10-24
     el("ogMoreWrap").classList.toggle("hidden", list.length <= shown);
     el("ogMore").textContent = `Show ${Math.min(PAGE, list.length - shown)} more`;
     el("ogAll").checked = rows.length > 0 && rows.every((o) => selected.has(o.id));
