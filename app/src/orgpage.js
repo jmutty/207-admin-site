@@ -49,7 +49,7 @@
     const css = `
     .aca .op-trail { margin: 0 0 8px; font-size: 13px; color: var(--muted); } .aca .op-trail a { color: var(--muted); }
     .aca .op-backtrail { margin: 0 0 10px; }
-    .aca .jp-head h2 .op-rename { margin-left: 6px; vertical-align: 3px; }
+    .aca #aca-panel-org .jp-head h2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .aca .op-rn { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .aca .op-rn input { font-size: 18px; font-weight: 600; min-width: min(420px, 70vw); }
     .aca .op-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--muted); font-size: 13.5px; margin-top: 4px; }
