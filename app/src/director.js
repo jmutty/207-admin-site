@@ -224,7 +224,7 @@
       if (d.terms) get.push(esc(d.terms));
       (d.deliverables || []).forEach((x) => get.push(esc(x.label) + (x.done ? (x.link ? ': <a href="' + esc(x.link) + '" target="_blank" rel="noopener">open</a>' : " (delivered)") : ' <span class="m">(coming after the gallery is live)</span>')));
       h += sec("What your program gets", list(get));
-      if (d.retake) h += sec(d.audience === "school" ? "Retakes" : "Missed the day?", "<p>" + esc(d.retake).replace(/207photo\.com\/makeups/, '<a href="https://207photo.com/makeups" target="_blank" rel="noopener">207photo.com/makeups</a>') + "</p>");
+      if (d.retake) h += sec(d.audience === "school" ? "Makeup day" : "Missed the day?", "<p>" + esc(d.retake).replace(/207photo\.com\/makeups/, '<a href="https://207photo.com/makeups" target="_blank" rel="noopener">207photo.com/makeups</a>') + "</p>");
       if (d.agreement) h += sec("Agreement", '<p><a href="' + esc(d.agreement.link) + '" target="_blank" rel="noopener">' + (d.agreement.status === "accepted" ? "Your agreement (accepted" + (d.agreement.accepted_at ? " " + esc(longDay(d.agreement.accepted_at)) : "") + ")" : "Read and accept the agreement") + "</a></p>");
       h += '<p class="dyp-foot">This page updates as we go. Bookmark it, or forward it to your board.</p>';
       box.innerHTML = h;

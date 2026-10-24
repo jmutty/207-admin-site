@@ -48,7 +48,7 @@
       { t: "head", label: "SESSION DAYS" },
       { t: "service", key: "FALL", label: "Fall picture day, individual portraits" },
       { t: "service", key: "SPRING", label: "Spring picture day, individual portraits" },
-      { t: "service", key: "RETAKE", label: "Retake day, included at no charge" },
+      { t: "service", key: "RETAKE", label: "Makeup day, included at no charge" },
       { t: "service", key: "GRAD", label: "Graduation or cap and gown day" },
       { t: "service", key: "SENIOR", label: "Underclass or senior portrait day" },
       { t: "service", key: "ADDL", label: "Additional session day (put the description in the box to the right)" },
@@ -290,7 +290,7 @@
       ];
       if (on.FALL) rows.push(["Fall picture day", V(d, "FALL", 16)]);
       if (on.SPRING) rows.push(["Spring picture day", V(d, "SPRING", 16)]);
-      if (on.RETAKE) rows.push(["Retake day", V(d, "RETAKE", 16) + "   (no charge)"]);
+      if (on.RETAKE) rows.push(["Makeup day", V(d, "RETAKE", 16) + "   (no charge)"]);
       rows.push(["Roster data due", "14 days before picture day at the latest"]);
       rows.push(["Parent announcement due", "10 days before picture day at the latest"]);
       rows.push(["Term", yearsPhrase(d.val.TERM_YEARS) + (on.AUTORENEW ? ", renewing automatically" : "")]);
@@ -313,7 +313,7 @@
       const sessions = [];
       if (on.FALL) sessions.push("Fall picture day, individual student portraits. Date: " + V(d, "FALL", 16) + ".");
       if (on.SPRING) sessions.push("Spring picture day, individual student portraits. Date: " + V(d, "SPRING", 16) + ".");
-      if (on.RETAKE) sessions.push("One retake day, included at no charge. Date: " + V(d, "RETAKE", 16) + ".");
+      if (on.RETAKE) sessions.push("One makeup day, included at no charge. Date: " + V(d, "RETAKE", 16) + ".");
       if (on.GRAD) sessions.push("Graduation or cap and gown photography. Date: " + V(d, "GRAD", 16) + ".");
       if (on.SENIOR) sessions.push("Underclass or senior portrait day. Date: " + V(d, "SENIOR", 16) + ".");
       if (on.ADDL) sessions.push((d.val.ADDL || "Additional session day") + ".");
@@ -396,9 +396,9 @@
       kvTable(trows, { labelWidth: 330 });
 
       if (on.RETAKE) {
-        sub("Retake day", "One retake day is included at no cost. Any student may retake for any reason, " +
-          "including simple dissatisfaction with the first photo. There is no additional charge to a family " +
-          "that has already purchased.");
+        sub("Makeup day", "One makeup day is included at no cost, for students who were absent on picture day. " +
+          "Any student may also retake for any reason, including simple dissatisfaction with the first photo. " +
+          "There is no additional charge to a family that has already purchased.");
       }
 
       sub("Satisfaction guarantee", "If a family is unhappy with an order for any reason, they may return it " +
@@ -512,7 +512,7 @@
 
       sub("Communications with families", "The School agrees that 207 Photo will contact parents and guardians " +
         "by email and text about that School picture day. That includes advance notice, gallery availability, " +
-        "order status, shipping, ordering deadlines, retake day, and reorder windows. These messages are part " +
+        "order status, shipping, ordering deadlines, makeup day, and reorder windows. These messages are part " +
         "of delivering the service and are expressly permitted under this Agreement. Every message carries a " +
         "one click unsubscribe. 207 Photo will not use School supplied contact information to market unrelated " +
         "products or services without the School written consent.");
@@ -764,7 +764,7 @@
         if (on.YEARBOOK || on.SIS || on.STAFF_BADGE || on.STUDENT_BADGE) {
           w.push(["Yearbook, SIS and ID files delivered", line(12), "207 Photo"]);
         }
-        if (on.RETAKE) w.push(["Retake day", V(d, "RETAKE", 12), "Both"]);
+        if (on.RETAKE) w.push(["Makeup day", V(d, "RETAKE", 12), "Both"]);
         if (on.CLASS_PRINT || on.ALBUM) w.push(["Composites and albums delivered", line(12), "207 Photo"]);
         w.push(["Ordering closes", line(12), "207 Photo"]);
         w.push(["Next year check in", line(12), "Both"]);
@@ -933,7 +933,7 @@
       if (!c) return;
       d.val.CONTACT_NAME = c.name || ""; d.val.CONTACT_TITLE = c.role || ""; d.val.CONTACT_EMAIL = c.email || ""; d.val.CONTACT_PHONE = c.phone || "";
     }
-    // Fall picture day + retake day from this partner's school jobs; the school year from those dates (or today).
+    // Fall picture day + makeup day from this partner's school jobs; the school year from those dates (or today).
     function fillDates(d, ctx) {
       const today = todayStr();
       const jobs = (ctx.bookings || []).filter((b) => b.picture_day && b.status !== "cancelled" && b.audience !== "sports");

@@ -172,7 +172,7 @@
       const s = String(u || "");
       const m = /\/send=([a-z0-9-]+)/.exec(s);
       if (m) return "Hub message: " + ({ heads: "One week before", live: "Photos are online", lastcall: "Last call", m1: "Two weeks before", m2: "One week before", m3: "Day before",
-        m4: "Gallery published", r1: "Retake day, one week out", r2: "Retake day, day before" }[m[1]] || (/^day-/.test(m[1]) ? "Day before" : m[1]));
+        m4: "Gallery published", r1: "Makeup day, one week out", r2: "Makeup day, day before" }[m[1]] || (/^day-/.test(m[1]) ? "Day before" : m[1]));
       if (/#day\//.test(s)) return "Their picture day page";
       if (/booking-ics/.test(s)) return "Add to calendar";
       if (/207photo\.com\/(sports|school)admin/.test(s)) return "The hub";

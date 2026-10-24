@@ -685,6 +685,13 @@
   // ws/jobs (2026-10-24): one job screen (the Booking tab), checklists on All jobs, crew links into their job.
   {
     if (/[?&]tracked=1\b/.test(location.search)) RPC.job_get.booking.status = "tracked";
+    // Makeup days (2026-10-24): ?school=1 makes the job a school job; ?makeup=1 gives it (and bk2 on All jobs) a makeup day.
+    if (/[?&](school|makeup)=1\b/.test(location.search)) Object.assign(RPC.job_get.booking, { audience: "school", type_label: "School Photos" });
+    if (/[?&]makeup=1\b/.test(location.search)) {
+      RPC.job_get.makeup = { day: iso(32).slice(0, 10), start_at: iso(32), end_at: iso(32.08), calendar_status: "synced" };
+      const b2 = RPC.admin_bookings.find((x) => x.id === "bk2"); if (b2) b2.makeup = { id: "mk2", day: iso(32).slice(0, 10), start_at: iso(32), end_at: iso(32.08), calendar_status: "synced" };
+    }
+    RPC.booking_set_makeup = { ok: true, crew_moved: 0, crew_removed: 0 };
     // view-only Bookings: no Edit booking. A part-timer (Open jobs only) opens a job they are on: crew access only.
     if (AS_VIEWER) RPC.job_get.can = Object.assign({}, RPC.job_get.can, { bookings_edit: false });
     if (AS_PART) RPC.job_get.can = { bookings: false, bookings_edit: false, pictureday: false, workflows: false, results: false, scheduling: false, crew: true };

@@ -1361,6 +1361,31 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
+  console.log("Makeup day (school job, tracking only)");
+  {
+    const { page, errors } = await open(browser, port, "?tracked=1&school=1", "#jobs/job/bk1");
+    await page.waitForSelector("#aca-jpMakeup h3");
+    check((await page.textContent("#aca-jpMakeup")).includes("No makeup day yet"), "a school job with none offers to add one");
+    await page.click('#aca-jpMakeup [data-mk="edit"]');
+    await page.evaluate(() => { [["aca-jpMkDay", "2026-12-03"], ["aca-jpMkStart", "09:00"], ["aca-jpMkEnd", "11:00"]].forEach(([id, v]) => { document.getElementById(id).value = v; }); }); // picker faces; the value is what counts
+    await page.click('#aca-jpMkForm [type="submit"]');
+    await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_set_makeup"));
+    const mc = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "booking_set_makeup").pop());
+    check(mc[1].p_booking === "bk1" && mc[1].p.day === "2026-12-03" && mc[1].p.start_time === "09:00" && mc[1].p.end_time === "11:00", "a tracking-only job saves its makeup day: " + JSON.stringify(mc[1]));
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  {
+    const { page, errors } = await open(browser, port, "?makeup=1", "#jobs/job/bk1");
+    await page.waitForSelector("#aca-jpMakeup dl");
+    const t = await page.textContent("#aca-jpMakeup");
+    check(t.includes("absent") && /Change/.test(t), "the makeup day shows with who it's for: " + t.slice(0, 120));
+    await page.goto(`http://127.0.0.1:${port}/test/harness.html?makeup=1#jobs/bookings`);
+    await page.waitForSelector('.bk-row[data-id="bk2"]');
+    check((await page.textContent('.bk-row[data-id="bk2"] .bk-c-when')).includes("Makeup day"), "All jobs lists the makeup day under the picture day");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
   console.log("One Outbox (owner)");
   {
     const { page, errors } = await open(browser, port, "", "#partners/ready");

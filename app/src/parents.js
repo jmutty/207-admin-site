@@ -643,7 +643,7 @@
   // Today: "retakesNew" (asked in the last 24 h) and "retakeDayTomorrow" (requests for a school whose retake day is tomorrow).
   let rtList = [];
   const nyDay = (offset) => new Date(Date.now() + (offset || 0) * 864e5).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-  const rtDay = (d) => (d ? Fmt.day(d) : "no retake day");
+  const rtDay = (d) => (d ? Fmt.day(d) : "no makeup day");
 
   async function loadRetakes() {
     clearError("rtError");
@@ -668,7 +668,7 @@
     });
     const schools = Object.keys(bySchool);
     const tmrN = schools.reduce((n, k) => n + bySchool[k].n, 0);
-    setAttention("retakeDayTomorrow", tmrN, schools.map((k) => "Retake day at " + k + " is tomorrow: " + bySchool[k].n +
+    setAttention("retakeDayTomorrow", tmrN, schools.map((k) => "Makeup day at " + k + " is tomorrow: " + bySchool[k].n +
       (bySchool[k].n === 1 ? " request" : " requests") + (bySchool[k].np ? ", " + bySchool[k].np + " not yet in Names List" : "")).join("; ") + ".", "retakes", "warn");
 
     el("rtCount").textContent = rtList.length ? rtList.length + (rtList.length === 1 ? " request" : " requests") : "";
@@ -684,7 +684,7 @@
       if (grp !== last) {
         last = grp;
         const past = r.retake_day && r.retake_day < nyDay(0);
-        html += '<tr class="rt-grp"><td colspan="6">' + esc(r.school) + ' <span class="muted">· retake day ' + esc(rtDay(r.retake_day)) + (past ? " (passed)" : "") + "</span></td></tr>";
+        html += '<tr class="rt-grp"><td colspan="6">' + esc(r.school) + ' <span class="muted">· makeup day ' + esc(rtDay(r.retake_day)) + (past ? " (passed)" : "") + "</span></td></tr>";
       }
       const notes = (Array.isArray(r.notes) ? r.notes : []).map((n) => '<span class="rt-sub">“' + esc(n.text) + "”</span>").join("");
       html += '<tr data-id="' + esc(r.id) + '">' +
