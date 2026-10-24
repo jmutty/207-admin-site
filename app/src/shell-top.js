@@ -161,11 +161,12 @@
       const what = r.school ? "Student data" : "Roster";
       if (r.state === "in") return { cls: "ok", text: r.school ? "Student data in" : "Roster in" + (r.names ? " \u00b7 " + r.names : ""),
         tip: (r.school ? "The student data file came in " : (r.names || "The") + " names in GotPhoto, loaded ") + (r.loaded_at ? Fmt.day(r.loaded_at) : "") };
-      if (r.state === "due") return { cls: "due", text: what + " due " + Fmt.day(r.due), tip: "Not in GotPhoto yet. It's due " + Fmt.day(r.due) + ", two weeks before picture day." };
+      // Due: amber in its last week, quiet grey before that, so a season of jobs isn't a wall of amber.
+      if (r.state === "due") return { cls: r.days_out - 14 <= 7 ? "due" : "none", text: what + " due " + Fmt.day(r.due), tip: "Not in GotPhoto yet. It's due " + Fmt.day(r.due) + ", two weeks before picture day." };
       if (r.state === "late") return { cls: "late", text: (r.school ? "No student data" : "No roster") + (short ? "" : " \u00b7 " + when(r.days_out)),
         tip: (r.school ? "The student data file" : "The roster") + " isn't in GotPhoto and picture day is " + (r.days_out <= 1 ? when(r.days_out) : "in " + r.days_out + " days") + ". It was due " + Fmt.day(r.due) + "." };
       if (r.state === "nojob") return { cls: "none", text: "No GotPhoto job", tip: "Create the GotPhoto job first, then load the roster into it." };
-      if (r.state === "single") return { cls: "none", text: short ? "No roster needed" : "Single password, no roster", tip: "This GotPhoto job uses one password for everyone, so it never holds names." };
+      if (r.state === "single") return { cls: "none", text: short ? "Not needed" : "Single password, no roster", tip: "This GotPhoto job uses one password for everyone, so it never holds names." };
       return null;
     }
     // tag(booking or roster, { short }) -> HTML, "" when there's nothing to say (cancelled, past, unknown)

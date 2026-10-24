@@ -33,6 +33,8 @@
   .aca .bk-table th.bk-c-when { width: 150px; } .aca .bk-table th.bk-c-stage { width: 170px; } .aca .bk-table th.bk-c-who { width: 150px; }
   .aca .bk-table th.bk-c-mail { width: 170px; } .aca .bk-table th.bk-c-roster { width: 160px; }
   .aca .bk-table tr.bk-row.bk-rlate > td { background: var(--err-bg); }
+  /* In the list the roster reads like the columns beside it: a dot and short words, no tinted box (2026-10-24, "messy"). */
+  .aca .bk-table td.bk-c-roster .roster-tag { background: none; padding: 0; white-space: normal; }
   .aca .bk-table td > div, .aca .bk-table td .bk-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .aca .bk-table td > div.bk-date, .aca .bk-table td.bk-c-when > .bk-sub { white-space: normal; }
   .aca .bk-table td.bk-c-job strong { font-size: 14px; line-height: 20px; }
@@ -657,7 +659,7 @@
       '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div>" +
         '<span class="nt-line" data-nt-job="' + esc(b.id) + '"></span></td>' +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
-      '<td class="bk-c-roster">' + Roster.tag(b) + "</td>" +
+      '<td class="bk-c-roster">' + Roster.tag(b, { short: true }) + "</td>" +
       '<td class="bk-c-who">' + who(b) + "</td>" +
       '<td class="bk-c-mail">' + mailSummary(b) + "</td></tr>").join("");
     Notes.fillLines(body); // each job's newest note (or its partner's) under the name, 2026-10-24
@@ -774,7 +776,7 @@
   // Roster in GotPhoto (2026-10-24): past the deadline (two weeks before picture day) counts as a problem, so it gets the
   // red dot and Problems only; chips and cards also carry a roster line while it's due or late (Roster in shell-top.js).
   const ROSTER_PROB = "No roster in GotPhoto";
-  const rosterOn = (it) => shows("roster") && !it.x.makeup && it.x.day >= StaffTime.today() && ["late", "due"].includes(Roster.state(it.b));
+  const rosterOn = (it) => shows("roster") && !it.x.makeup && it.x.day >= StaffTime.today() && ["late", "due"].includes((Roster.words(it.b) || {}).cls);
   function problemsOf(b, x, crew, today) {
     if (b.status === "cancelled" || b.status === "tracked") return [];
     const out = [], ahead = x.day >= today, p = b.progress || {}, c = checklist[b.id];
@@ -844,7 +846,11 @@
     return { byDay, marks, holds, used };
   }
   // Does an item match the summary filter picked (the rest fade)?
-  const focusHit = (it) => !calFocus || (calFocus === "problems" ? it.probs.length > 0 : calFocus === "nobody" ? !!(it.crew && it.crew.state === "none" && it.x.day >= StaffTime.today()) : calFocus === "makeup" ? !!it.x.makeup : calFocus === "roster" ? it.probs.includes(ROSTER_PROB) : false);
+  // One problem count (2026-10-24, Jeremiah: "nobody on IS a problem"): a job day has a problem when anything is wrong
+  // with it, nobody (or too few people) on it included, even though that part shows as the red crew line, not a dot.
+  const crewShort = (it) => !!(it.crew && (it.crew.state === "none" || it.crew.state === "short") && it.x.day >= StaffTime.today());
+  const hasProblem = (it) => it.probs.length > 0 || crewShort(it);
+  const focusHit = (it) => !calFocus || (calFocus === "problems" ? hasProblem(it) : calFocus === "nobody" ? !!(it.crew && it.crew.state === "none" && it.x.day >= StaffTime.today()) : calFocus === "makeup" ? !!it.x.makeup : calFocus === "roster" ? it.probs.includes(ROSTER_PROB) : false);
   const nameOf = (b, x) => (x.makeup ? "Makeup: " : "") + b.title + (x.label ? " (" + x.label + ")" : "");
   const whoText = (it, long) => !it.crew || !shows("crew") ? "" : it.crew.on.length ? (long ? it.crew.on.map(personName).join(", ") : it.crew.on.map(initials).join(" ")) + (it.crew.state === "short" ? " (needs " + it.crew.need + ")" : "") : "Nobody on it";
   const dayOf = (x, long) => x.of > 1 ? (long ? "Day " + x.n + " of " + x.of : x.n + "/" + x.of) : x.makeup ? (long ? "Makeup day" : "") : "";
@@ -854,7 +860,7 @@
     const meta = [timeOf(x) ? '<span class="tm">' + esc(timeOf(x)) + "</span>" : "", who ? '<span class="' + (it.crew && it.crew.state === "none" && x.day >= StaffTime.today() ? "none" : "who") + '">' + esc(who) + "</span>" : "", dn ? "<span>" + esc(dn) + "</span>" : ""].filter(Boolean).join("");
     return '<button type="button" class="scm-chip bk-mchip' + (x.makeup ? " mk" : "") + (focusHit(it) ? "" : " dim") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" data-jday="' + esc(x.day) + '" aria-label="' + esc(nameOf(b, x) + (it.probs.length ? ". " + it.probs.join(", ") : "")) + '"' + (canHover() ? "" : ' title="' + esc(tipOf(it)) + '"') + ">" +
       '<span class="nm">' + (it.probs.length && shows("problems") ? '<i class="bk-pdot" aria-hidden="true"></i>' : "") + esc(nameOf(b, x)) + "</span>" + (meta ? '<span class="mt">' + meta + "</span>" : "") +
-      (rosterOn(it) ? '<span class="rs ' + Roster.state(b) + '">' + esc(Roster.words(b, true).text) + "</span>" : "") + "</button>";
+      (rosterOn(it) ? '<span class="rs ' + Roster.words(b).cls + '">' + esc(Roster.words(b, true).text) + "</span>" : "") + "</button>";
   }
   // A week's (and a phone day's) card: time, the job, its type and place, who's on it and what's wrong, all on view.
   function card(it) {
@@ -897,10 +903,10 @@
     const MAXC = calNarrow() ? 99 : 4;
     let h = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w, i) => '<div class="scm-h">' + w + (week ? " " + esc(Fmt.day(days[i])) : "") + "</div>").join("") + (week || !shows("weektotals") ? "" : '<div class="scm-h scm-wt">Week</div>');
     for (let w = 0; w < days.length; w += 7) {
-      const wSet = new Set(); let wNone = 0, wProb = 0;
+      const wSet = new Set(), wProb = new Set();
       days.slice(w, w + 7).forEach((d) => {
         const items = m.byDay[d] || [], gc = gcalOn(d), hs = m.holds[d] || [], mk = m.marks[d] || [], off = offOn(d);
-        items.forEach((it) => { if (!it.x.makeup) wSet.add(it.b.id); if (it.crew && it.crew.state === "none" && d >= today) wNone++; if (it.probs.length) wProb++; });
+        items.forEach((it) => { if (!it.x.makeup) wSet.add(it.b.id); if (hasProblem(it)) wProb.add(it.b.id); });
         const wx = items.map((it) => wxOf(it.b, d)).filter(Boolean)[0];
         const head = '<span class="bk-dhead">' + (week ? '<span class="scm-dn"><span class="wd">' + esc(T.fmtDay(d, { calendar: true })) + "</span>" + (d === today ? " <span>Today</span>" : "") + "</span>"
           : '<button type="button" class="scm-dn link" data-weekof="' + esc(d) + '" aria-label="' + esc("Open the week of " + Fmt.day(d)) + '">' + esc(Fmt.day(d)) + (d === today ? " <span>Today</span>" : "") + "</button>") +
@@ -916,7 +922,7 @@
           head + body + (off.length ? '<span class="scm-off bk-off" title="' + esc("Off: " + off.join(", ")) + '">Off: ' + esc(off.join(", ")) + "</span>" : "") + "</div>";
       });
       if (!week && shows("weektotals")) h += '<button type="button" class="scm-wt link" data-weekof="' + esc(days[w]) + '" title="Open this week"><b>' + num(wSet.size) + " job" + (wSet.size === 1 ? "" : "s") + "</b>" +
-        (wNone ? '<span class="bad">' + num(wNone) + " nobody on</span>" : "") + (wProb ? '<span class="bad">' + num(wProb) + " problem" + (wProb === 1 ? "" : "s") + "</span>" : "") + "</button>";
+        (wProb.size ? '<span class="bad">' + num(wProb.size) + (wProb.size === 1 ? " problem" : " problems") + "</span>" : "") + "</button>";
     }
     h += keyHtml(m, week && calNarrow() ? "" : !week && calNarrow() ? "Tap a day to see its jobs" : "Click a job to open it");
     el("bkCalGrid").innerHTML = h;
@@ -934,17 +940,16 @@
     return '<div class="scm-key">' + keys.map(([c, t]) => '<span><i style="--tc:' + c + '"></i>' + esc(t) + "</span>").join("") +
       (shows("problems") ? '<span><i class="bk-pdot" aria-hidden="true"></i>Has a problem</span>' : "") + (calData.holds.length ? '<span><i class="bk-holdkey"></i>Hold</span>' : "") + (note ? '<span class="kl">' + esc(note) + "</span>" : "") + "</div>";
   }
-  // "November: 23 jobs, 3 nobody on, 2 problems, 4 makeup days, 1 hold". Each count filters the calendar (the rest fade).
+  // "November: 23 jobs, 2 with problems, 4 makeup days, 1 hold" (nobody on and a late roster count as problems). Each count filters the calendar (the rest fade).
   function renderSummary(m, r, today) {
     const inView = (d) => calMode !== "month" || d.slice(0, 7) === calAnchor.slice(0, 7);
-    const jobs = new Set(), probs = new Set(), noRoster = new Set(); let none = 0, mk = 0, holds = 0, open = 0;
-    Object.keys(m.byDay).filter(inView).forEach((d) => m.byDay[d].forEach((it) => { if (it.x.makeup) mk++; else jobs.add(it.b.id); if (it.crew && it.crew.state === "none" && d >= today) none++; if (it.probs.length) probs.add(it.b.id); if (it.probs.includes(ROSTER_PROB)) noRoster.add(it.b.id); }));
+    const jobs = new Set(), probs = new Set(); let mk = 0, holds = 0, open = 0;
+    Object.keys(m.byDay).filter(inView).forEach((d) => m.byDay[d].forEach((it) => { if (it.x.makeup) mk++; else jobs.add(it.b.id); if (hasProblem(it)) probs.add(it.b.id); }));
     Object.keys(m.holds).filter(inView).forEach((d) => { holds += m.holds[d].length; });
     if (calMode === "season") for (let d = r.start; d <= r.end; d = StaffTime.addDays(d, 1)) if (d >= today && StaffTime.dow(d) === 6 && !(m.byDay[d] || []).length && !(m.holds[d] || []).length) open++;
     const b = (k, n, label, bad) => n ? '<button type="button" class="bk-sumb' + (bad ? " bad" : "") + (calFocus === k ? " on" : "") + '" data-focus="' + k + '" aria-pressed="' + (calFocus === k) + '">' + num(n) + " " + esc(label) + "</button>" : "";
     el("bkCalSum").innerHTML = '<span class="bk-sumh">' + esc(calMode === "week" ? "This week" : calMode === "season" ? "These months" : el("bkCalTitle").textContent) + ": " + num(jobs.size) + " job" + (jobs.size === 1 ? "" : "s") + "</span>" +
-      b("nobody", none, none === 1 ? "day nobody on" : "days nobody on", true) + b("problems", probs.size, probs.size === 1 ? "job with a problem" : "jobs with problems", true) +
-      b("roster", noRoster.size, noRoster.size === 1 ? "job past its roster deadline" : "jobs past the roster deadline", true) + b("makeup", mk, mk === 1 ? "makeup day" : "makeup days") + b("holds", holds, holds === 1 ? "hold" : "holds") +
+      b("problems", probs.size, probs.size === 1 ? "job with a problem" : "jobs with problems", true) + b("makeup", mk, mk === 1 ? "makeup day" : "makeup days") + b("holds", holds, holds === 1 ? "hold" : "holds") +
       (calMode === "season" ? '<span class="bk-sub">' + num(open) + " open Saturday" + (open === 1 ? "" : "s") + ' ahead · <a href="https://calendar.207photo.com/" target="_blank" rel="noopener">public dates page</a></span>' : "") +
       (calFocus ? '<button type="button" class="link bk-sumclear" data-focus="">Show everything</button>' : "");
     el("bkCalProb").setAttribute("aria-pressed", String(calFocus === "problems")); el("bkCalProb").classList.toggle("on", calFocus === "problems");
