@@ -1430,10 +1430,18 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector("#aca-opBody .op-table, #aca-opBody .empty");
     check(!!(await page.$('#aca-opBody a[href="#partners/outbox/' + BR + '"]')), "Emails & hub links to the Outbox for this partner");
     check(!!(await page.$('#aca-opBody tr[data-id="ob2"] [data-v="sendnow"]')) && !!(await page.$('#aca-opBody tr[data-id="ob2"] [data-v="bskip"]')), "a failed booking email has Send now and Don't send");
-    await page.click('#aca-opBody tr[data-id="ob2"] [data-v="preview"]');
+    // One line of actions per row (2026-10-24): Send now, then the ... menu with Don't send and Preview.
+    check(await page.$eval('#aca-opBody tr[data-id="ob2"] td.op-act', (td) => td.querySelectorAll(":scope .ra > button").length === 2 && td.querySelector(".ra-menu").classList.contains("hidden")), "one main button and a closed ... menu per row");
+    const actH = await page.$$eval("#aca-opBody tr[data-id] .ra", (ns) => ns.map((n) => n.getBoundingClientRect().height));
+    check(actH.every((h) => h <= 32), "row actions stay on one line: " + actH.join(","));
+    await page.click('#aca-opBody tr[data-id="ob2"] td[data-l="Subject"]');
     await page.waitForSelector("#aca-opBody tr.op-prev .ob-mail:not(:has(.spin))");
-    check((await page.textContent("#aca-opBody tr.op-prev")).includes("Picture day is coming up"), "Preview shows the email");
-    await page.click('#aca-opBody tr[data-id="ob2"] [data-v="bskip"]');
+    check((await page.textContent("#aca-opBody tr.op-prev")).includes("Picture day is coming up"), "a click on the row shows the email");
+    await page.click('#aca-opBody tr[data-id="ob2"] td[data-l="Subject"]');
+    check(!(await page.$("#aca-opBody tr.op-prev")), "a second click hides it");
+    await page.click('#aca-opBody tr[data-id="ob2"] .ra-more');
+    check(await page.isVisible('#aca-opBody tr[data-id="ob2"] .ra-menu [data-v="preview"]'), "the ... menu opens with Preview");
+    await page.click('#aca-opBody tr[data-id="ob2"] .ra-menu [data-v="bskip"]');
     await page.waitForTimeout(200);
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "booking_email_skip" && c[1].p_email === "ob2")), "Don't send skips the booking email");
 

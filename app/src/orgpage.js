@@ -74,6 +74,14 @@
     .aca .op-table td.n, .aca .op-table th.n { text-align: right; font-variant-numeric: tabular-nums; }
     .aca .op-table .op-acts { display: flex; gap: 6px; flex-wrap: wrap; }
     .aca .op-table tr.op-prev td { background: var(--surface-2); padding: 10px 12px; }
+    .aca .op-mails tbody tr[data-id] { cursor: pointer; }
+    .aca .op-mails tbody tr[data-id]:hover td, .aca .op-mails tr.open td { background: var(--surface-2); }
+    .aca .op-mails td { padding-top: 10px; padding-bottom: 10px; }
+    .aca .op-mails td:first-child { padding-left: 8px; }
+    .aca .op-mails .sl-chev { display: inline-block; transform: rotate(-45deg); margin: 0 8px 1px 0; width: 6px; height: 6px; }
+    .aca .op-mails tr.open .sl-chev { transform: rotate(45deg); margin-bottom: 3px; }
+    .aca .op-mails td.op-to { white-space: nowrap; }
+    .aca .op-mails td.op-act { width: 1%; padding-top: 6px; padding-bottom: 6px; }
     .aca .op-wrap { overflow-x: auto; }
     .aca .op-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
     .aca .op-card { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); padding: 12px 14px; font-size: 13.5px; }
@@ -110,6 +118,7 @@
       .aca .op-table.op-phone, .aca .op-table.op-phone tbody, .aca .op-table.op-phone tr, .aca .op-table.op-phone td { display: block; width: 100%; }
       .aca .op-table.op-phone tr { border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; margin-bottom: 8px; background: var(--surface); }
       .aca .op-table.op-phone td { border: 0; padding: 3px 0; }
+      .aca .op-mails td.op-act .ra { justify-content: flex-start; padding-top: 4px; } .aca .op-mails .ra-more { width: 44px; } .aca .op-mails tr.open td, .aca .op-mails tbody tr[data-id]:hover td { background: transparent; }
       .aca .op-table.op-phone td.n { text-align: left; }
       .aca .op-table.op-phone td[data-l]::before { content: attr(data-l) ": "; color: var(--faint); font-size: 12px; }
       .aca .op-table.op-phone tr.op-prev { padding: 0; }
@@ -678,13 +687,15 @@
       const byId = {}; rows.forEach((x) => { byId[x.id] = x; });
       box.innerHTML = '<p class="op-intro">What is going out to ' + esc(O.name) + " and what went out lately: booking emails, outreach, follow-ups and hub reminders. " +
         '<a href="#partners/outbox/' + esc(O.id) + '">Open in the Outbox</a>.</p>' +
-        '<div class="jp-sec"><h3>Emails</h3>' + (rows.length ? '<div class="op-wrap"><table class="op-table op-phone"><thead><tr><th>When</th><th>Kind</th><th>Subject</th><th>To</th><th>Status</th><th></th></tr></thead><tbody>' + rows.map((x) => {
+        '<div class="jp-sec"><h3>Emails</h3>' + (rows.length ? '<div class="op-wrap"><table class="op-table op-phone op-mails"><thead><tr><th>When</th><th>Kind</th><th>Subject</th><th>To</th><th>Status</th><th></th></tr></thead><tbody>' + rows.map((x) => {
           const s = OB_ST[x.status] || ["muted", x.status || ""];
-          const verbs = Outbox.verbs(x, { inPartner: true });
-          return '<tr data-id="' + esc(x.id) + '"><td data-l="When" style="white-space:nowrap">' + esc(x.at ? Fmt.day(x.at) : "") + '</td><td data-l="Kind">' + esc(OB_SRC[x.src] || x.src || "") + '</td><td data-l="Subject">' + esc(x.subject || "") +
-            (x.detail ? '<div class="muted" style="font-size:12.5px">' + esc(x.detail) + "</div>" : "") + '</td><td data-l="To">' + esc(x.to_name || x.to_email || "") + '</td><td data-l="Status"><span class="pill ' + s[0] + '">' + esc(s[1]) + "</span>" +
-            (x.error ? '<div class="muted" style="font-size:12.5px">' + esc(x.error) + "</div>" : "") + '</td><td><div class="op-acts">' + verbs.join("") +
-            '<button type="button" class="small" data-v="preview" aria-expanded="false">Preview</button></div></td></tr>';
+          // One main button (Send now or Resend), the rest in the ... menu; a click on the row opens the email.
+          const verbs = Outbox.verbList(x, { inPartner: true });
+          const main = verbs.length && ["osend", "sendnow", "resend"].includes(verbs[0].v) ? verbs.shift() : null;
+          if (main) main.primary = ["failed", "needs_review", "bounced"].includes(x.status);
+          return '<tr data-id="' + esc(x.id) + '" title="Click to read the email"><td data-l="When" style="white-space:nowrap">' + esc(x.at ? Fmt.day(x.at) : "") + '</td><td data-l="Kind">' + esc(OB_SRC[x.src] || x.src || "") + '</td><td data-l="Subject"><span class="sl-chev"></span>' + esc(x.subject || "") +
+            (x.detail ? '<div class="muted" style="font-size:12.5px">' + esc(x.detail) + "</div>" : "") + '</td><td data-l="To" class="op-to">' + esc(x.to_name || x.to_email || "") + '</td><td data-l="Status"><span class="pill ' + s[0] + '">' + esc(s[1]) + "</span>" +
+            (x.error ? '<div class="muted" style="font-size:12.5px">' + esc(x.error) + "</div>" : "") + '</td><td class="op-act">' + rowActs(main, verbs.concat([{ v: "preview", label: "Preview" }])) + "</td></tr>";
         }).join("") + "</tbody></table></div>" : '<div class="empty" style="padding:4px 0">Nothing in the Outbox for ' + esc(O.name) + ".</div>") + "</div>" +
         (canSee("hub") ? '<div class="jp-sec"><h3>Hub messages</h3>' + ((hub || []).length ? (hub || []).map((h) => '<div style="margin-bottom:12px"><div style="font-size:13.5px;margin-bottom:4px"><b>' + esc(h.org || "") + "</b> " +
           '<span class="muted">' + esc(h.hub === "school" ? "School hub" : "Sports hub") + (h.picture_day ? " · picture day " + esc(day(h.picture_day, { year: undefined })) : "") + "</span>" +
@@ -693,14 +704,16 @@
             ({ grabbed: "ok", late: "err", due: "accent", missed: "warn" }[s.status] || "muted") + '">' + esc({ grabbed: "Grabbed", late: "Late", due: "Due today", upcoming: "Not due yet", waiting: "Gallery not live yet", missed: "Not grabbed" }[s.status] || s.status) + "</span></td></tr>").join("") + "</tbody></table>" : "") +
           "</div>").join("") : '<div class="empty" style="padding:4px 0">No hub messages for ' + esc(O.name) + ".</div>") + "</div>" : "");
       box.onclick = async (e) => {
-        const b = e.target.closest("button[data-v]"); if (!b) return;
-        const tr = b.closest("tr[data-id]"), x = tr && byId[tr.dataset.id]; if (!x) return;
-        if (b.dataset.v === "preview") {
+        const b = e.target.closest("button[data-v]");
+        if (!b && (e.target.closest("button, a, .ra") || String(window.getSelection() || ""))) return;
+        const tr = (b || e.target).closest("tr[data-id]"), x = tr && byId[tr.dataset.id]; if (!x) return;
+        if (!b || b.dataset.v === "preview") {
           const open = tr.nextElementSibling && tr.nextElementSibling.classList.contains("op-prev");
-          if (open) { tr.nextElementSibling.remove(); b.setAttribute("aria-expanded", "false"); b.textContent = "Preview"; return; }
+          tr.classList.toggle("open", !open);
+          if (open) { tr.nextElementSibling.remove(); return; }
           const p = document.createElement("tr"); p.className = "op-prev";
           p.innerHTML = '<td colspan="6"><div class="ob-mail"><span class="spin"></span>Loading&#8230;</div></td>';
-          tr.after(p); b.setAttribute("aria-expanded", "true"); b.textContent = "Hide preview";
+          tr.after(p);
           Outbox.preview(x, p.querySelector(".ob-mail"));
           return;
         }

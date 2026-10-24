@@ -245,25 +245,27 @@
       <div class="og-pbody"><div class="ob-h4">The email</div><div class="ob-mail" id="aca-obPreview"><span class="spin"></span>Loading&#8230;</div></div>`;
     loadPreview(r, el("obPreview"));
   }
-  // The verbs one email offers, as buttons (data-v). The partner page's Emails & hub tab shows the same ones (2026-10-24).
-  function verbs(r, opt) {
+  // The verbs one email offers, as { v, label, primary } (verbList) or as buttons (verbs, data-v). The partner page's
+  // Emails & hub tab shows the same ones (2026-10-24), as one main button and a ... menu (rowActs).
+  function verbList(r, opt) {
     opt = opt || {};
     const ed = canEdit(r.src === "booking" ? "bookings" : "partners");
-    const acts = [];
-    if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) acts.push('<button type="button" class="primary small" data-v="osend">Send now</button>');
-    if (ed && isOutreach(r) && r.status === "needs_review") acts.push('<button type="button" class="small" data-v="approve">Add to queue</button>');
-    if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) acts.push('<button type="button" class="small" data-v="edit">Edit</button><button type="button" class="small" data-v="skip">Don’t send</button>');
-    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed", "skipped"].includes(r.status)) acts.push('<button type="button" class="primary small" data-v="sendnow">Send now</button>');
-    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed"].includes(r.status)) acts.push('<button type="button" class="small" data-v="bskip">Don’t send</button>');
-    if (ed && r.src === "booking" && r.status === "sent") acts.push('<button type="button" class="small" data-v="resend">Resend</button>');
+    const acts = [], add = (v, label, primary) => acts.push({ v, label, primary: !!primary });
+    if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) add("osend", "Send now", true);
+    if (ed && isOutreach(r) && r.status === "needs_review") add("approve", "Add to queue");
+    if (ed && isOutreach(r) && ["needs_review", "scheduled", "failed"].includes(r.status)) { add("edit", "Edit"); add("skip", "Don’t send"); }
+    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed", "skipped"].includes(r.status)) add("sendnow", "Send now", true);
+    if (ed && r.src === "booking" && ["scheduled", "waiting", "failed"].includes(r.status)) add("bskip", "Don’t send");
+    if (ed && r.src === "booking" && r.status === "sent") add("resend", "Resend");
     if (opt.inPartner) return acts;
-    if (r.src === "booking" && r.booking_id) acts.push('<button type="button" class="small" data-v="booking">Open the job</button>');
-    if (r.src === "makeup") acts.push('<button type="button" class="primary small" data-v="makeups">Open in Makeups</button>');
-    if (r.src === "hub" && r.booking_id) acts.push('<button type="button" class="small" data-v="hub">Open the job</button>');
-    if (r.src === "digest") acts.push('<button type="button" class="small" data-v="settings">Morning email settings</button>');
-    if (r.org_id) acts.push('<button type="button" class="small" data-v="org">Open ' + esc(r.org) + "</button>");
+    if (r.src === "booking" && r.booking_id) add("booking", "Open the job");
+    if (r.src === "makeup") add("makeups", "Open in Makeups", true);
+    if (r.src === "hub" && r.booking_id) add("hub", "Open the job");
+    if (r.src === "digest") add("settings", "Morning email settings");
+    if (r.org_id) add("org", "Open " + (r.org || ""));
     return acts;
   }
+  const verbs = (r, opt) => verbList(r, opt).map((a) => '<button type="button" class="' + (a.primary ? "primary " : "") + 'small" data-v="' + a.v + '">' + esc(a.label) + "</button>");
   // Runs one verb on one email. Resolves true when something changed (the caller reloads), false when cancelled.
   async function act(r, v, onEdited) {
     if (v === "edit") { Orgs.editEmail(r.id, onEdited); return false; }
@@ -339,7 +341,7 @@
     history.pushState(null, "", hash);
     if (currentTab === "outbox") load(); else showTab("outbox");
   }
-  return { load, loadToday, focus, verbs, act, preview: loadPreview, refresh: () => { if (currentTab === "outbox") load(); }, hide: () => { if (openId) closePanel(); } };
+  return { load, loadToday, focus, verbs, verbList, act, preview: loadPreview, refresh: () => { if (currentTab === "outbox") load(); }, hide: () => { if (openId) closePanel(); } };
   })();
 
   // Today's "This page, by email" line.

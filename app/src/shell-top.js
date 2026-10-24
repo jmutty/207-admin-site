@@ -69,6 +69,36 @@
   }
   // numbers that come from RPCs are rendered through this so a changed return type can never inject markup
   const num = (v) => Number(v) || 0;
+  // Row actions (2026-10-24): one main button and a ... menu with the rest, so a list row stays one line high and the
+  // buttons line up down the list. Items are { v, label, primary, attrs }; each is an ordinary data-v button, so the
+  // list's own click handler runs it. The menu is position: fixed so a scrolling table never clips it.
+  function rowActs(main, more) {
+    const btn = (x, cls, role) => '<button type="button"' + (cls ? ' class="' + cls + '"' : "") + (role ? ' role="' + role + '"' : "") + ' data-v="' + esc(x.v) + '"' + (x.attrs || "") + ">" + esc(x.label) + "</button>";
+    return '<div class="ra">' + (main ? btn(main, "small" + (main.primary ? " primary" : "")) : "") +
+      ((more || []).length ? '<button type="button" class="small ra-more" aria-haspopup="true" aria-expanded="false" aria-label="More" title="More">&#8943;</button>' +
+        '<div class="ra-menu hidden" role="menu">' + more.map((x) => btn(x, "", "menuitem")).join("") + "</div>" : "") + "</div>";
+  }
+  function closeRowMenus(except) {
+    document.querySelectorAll(".aca .ra-menu:not(.hidden)").forEach((m) => { if (m === except) return; m.classList.add("hidden"); m.previousElementSibling.setAttribute("aria-expanded", "false"); });
+  }
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest && e.target.closest(".aca .ra-more");
+    if (!t) return closeRowMenus();
+    const m = t.nextElementSibling, open = m.classList.contains("hidden");
+    closeRowMenus(m);
+    if (open) {
+      const r = t.getBoundingClientRect();
+      m.classList.remove("hidden");
+      const below = r.bottom + 4 + m.offsetHeight <= window.innerHeight;
+      m.style.top = (below ? r.bottom + 4 : Math.max(8, r.top - 4 - m.offsetHeight)) + "px";
+      m.style.left = Math.max(8, r.right - m.offsetWidth) + "px";
+      m.querySelector("button").focus();
+    } else m.classList.add("hidden");
+    t.setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeRowMenus(); });
+  window.addEventListener("scroll", () => closeRowMenus(), true);
+  window.addEventListener("resize", () => closeRowMenus());
   // History and logs: "10/23, 4:26pm" (Maine time)
   function fmtDate(iso) {
     if (!iso) return "—";
