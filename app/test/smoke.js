@@ -857,6 +857,20 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const cs = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
     check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "crew_needed_set" && c[1].p_booking === "bk1" && c[1].p_needed === 4)), "people needed saves");
     check(cs.length === 1 && cs[0].user_id === "u5" && cs[0].role_id === "r3", "puts them on with their role: " + JSON.stringify(cs));
+    // Bulk assign: Ctrl-click several jobs, then put the same person on all of them
+    const openIds = await page.$$eval(".sc-jobs .sc-chip[data-booking]", (xs) => [...new Set(xs.map((x) => x.dataset.booking))].filter((x) => x !== "bk3").slice(0, 2));
+    for (const id of openIds) await page.click('.sc-jobs [data-booking="' + id + '"]', { modifiers: ["Control"] });
+    check(!(await page.$(".modal")) && (await page.$$(".sc-jobs .sc-chip.sel")).length === 2 && (await page.textContent("#aca-scBulk")).includes("2 jobs picked"), "Ctrl-click picks several jobs");
+    await page.click("[data-bulkgo]");
+    await page.waitForSelector("#aca-scBulkPick input");
+    check((await page.$$(".sc-bulkjobs li")).length === 2, "bulk dialog lists the picked jobs");
+    const firstUid = await page.$eval("#aca-scBulkPick input", (x) => x.value);
+    await page.check("#aca-scBulkPick input >> nth=0");
+    await page.click('.sc-modal [data-m="save"]');
+    await page.waitForTimeout(400);
+    const bs = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p)).then((x) => x.slice(1));
+    check(bs.every((p) => p.user_id === firstUid && p.kind === "job") && bs.map((p) => p.booking_id).sort().join() === openIds.filter((x) => x !== "bk1").sort().join(), "bulk assign puts them on every picked job they aren't already on (u1 is on bk1): " + openIds.join() + " -> " + JSON.stringify(bs.map((p) => p.booking_id)));
+    check(!(await page.$(".modal")) && (await page.$eval("#aca-scBulk", (n) => n.classList.contains("hidden"))), "picks clear after assigning");
     await page.click('[data-v="crewset"]');
     await page.waitForSelector("#aca-scRoles li[data-id]");
     check((await page.$$("#aca-scRoles li[data-id]")).length === 4 && !(await page.isChecked("#aca-scCfOn")) && !(await page.isChecked("#aca-scWkOn")), "crew settings: roles, asking off to start, weekly email off");

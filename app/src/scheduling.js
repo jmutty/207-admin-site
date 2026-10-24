@@ -128,6 +128,15 @@
     .aca .sc-chip.none small::after { content: " \\00b7  nobody on it"; color: var(--accent); font-weight: 600; }
     .aca .sc-chip.tracked { border-left-color: var(--faint); opacity: .8; }
     .aca .sc-chip.gcal { border-left-color: #8a8580; }
+    .aca .sc-chip.sel, .aca .scl-item.sel { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface-2); }
+    .aca .sc-pickmany { border: 0; background: none; padding: 0; margin-left: 6px; color: var(--accent); font-size: 11.5px; font-weight: 600; cursor: pointer; text-decoration: underline; }
+    .aca .sc-bulk { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 40; display: flex; gap: 10px; align-items: center; padding: 10px 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; max-width: calc(100vw - 32px); flex-wrap: wrap; }
+    .aca .sc-bulk.hidden { display: none; }
+    .aca .sc-bulkjobs { list-style: none; margin: 0 0 12px; padding: 0; font-size: 13.5px; max-height: 180px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+    .aca .sc-bulkjobs li { padding: 6px 10px; border-bottom: 1px solid var(--line2); }
+    .aca .sc-bulkjobs li:last-child { border-bottom: 0; }
+    .aca .sc-bulkjobs .s { color: var(--muted); font-size: 12.5px; }
     .aca .sc-cell { position: relative; min-height: 46px; cursor: default; }
     .aca .sc-cell.edit { cursor: copy; }
     .aca .sc-cell.today { background: #fffaf4; }
@@ -306,6 +315,14 @@
     const personName = (id) => { const p = data && data.people.find((x) => x.user_id === id); return p ? p.name : "Someone"; };
     const bookingLabel = (b) => b.title + (b.day_label ? " (" + b.day_label + ")" : "");
     const shortTitle = (s) => String(s || "").split(" \u2022 ")[0];
+    // Bulk assign (2026-10-23): Ctrl / Cmd / Shift-click jobs under Jobs not assigned (or turn on "Pick several",
+    // which phones need) to pick several, then put the same people on all of them at once. Picks are kept by
+    // booking + day, across weeks, until they're assigned or cleared.
+    const bulk = new Map();
+    let bulkMode = false;
+    const bulkKey = (id, day) => id + "|" + day;
+    const selCls = (b, d) => (bulk.has(bulkKey(b.booking_id, d)) ? " sel" : "");
+    const pickManyBtn = () => editable() ? '<button type="button" class="sc-pickmany" data-bulkmode>' + (bulkMode ? "Done picking" : "Pick several") + "</button>" : "";
 
     async function load() {
       if (view === "weeks8") return loadWeeks();
@@ -473,13 +490,13 @@
       }
       // Jobs not assigned: a job stays in this lane until it has as many people as it needs that day.
       const open = data.bookings.filter((b) => days.includes(b.day) && staffedCount(b.booking_id, b.day) < neededOf(b.booking_id));
-      h += '<div class="sc-name"><b>Jobs not assigned</b><span class="sc-hrs">' + (open.length ? num(open.length) + " this " + (view === "week" ? "week" : "day") : "All jobs have someone") + "</span></div>";
+      h += '<div class="sc-name"><b>Jobs not assigned</b><span class="sc-hrs">' + (open.length ? num(open.length) + " this " + (view === "week" ? "week" : "day") + pickManyBtn() : "All jobs have someone") + "</span></div>";
       days.forEach((d) => {
         const list = open.filter((b) => b.day === d);
         h += '<div class="sc-jobs">' + list.map((b) => {
           const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id);
           const no = (data.crew.declined || []).filter((x) => x.booking_id === b.booking_id);
-          return '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : b.status === "booked" && !have ? " none" : have ? " part" : "") + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "") + no.map((x) => "\n" + T.shortName(x.name) + " can't make it" + (x.reason ? ": " + x.reason : "")).join("")) + '">' +
+          return '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : b.status === "booked" && !have ? " none" : have ? " part" : "") + selCls(b, d) + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "") + no.map((x) => "\n" + T.shortName(x.name) + " can't make it" + (x.reason ? ": " + x.reason : "")).join("")) + '">' +
             esc(view === "week" ? shortTitle(b.title) : bookingLabel(b)) + "<small>" + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "time not set yet") +
             (have ? ' <span class="sc-need">&middot; ' + num(have) + " of " + num(need) + "</span>" : need > 1 ? ' <span class="sc-need">&middot; needs ' + num(need) + "</span>" : "") + "</small>" +
             no.map((x) => '<span class="sc-no">' + esc(T.shortName(x.name)) + " can&#39;t make it</span>").join("") + "</button>"; }).join("") + "</div>";
@@ -581,9 +598,9 @@
       days.forEach((d) => {
         h += '<section class="scl-day"><h3>' + (d === today ? "Today, " : d === T.addDays(today, 1) ? "Tomorrow, " : "") + esc(T.fmtDay(d, { calendar: true })) + "</h3>";
         const open = data.bookings.filter((b) => b.day === d && staffedCount(b.booking_id, d) < neededOf(b.booking_id));
-        if (open.length) h += '<div class="scl-open"><div class="scl-lbl">Nobody on it yet</div>' + open.map((b) => {
+        if (open.length) h += '<div class="scl-open"><div class="scl-lbl">Nobody on it yet' + pickManyBtn() + "</div>" + open.map((b) => {
           const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id);
-          return '<button type="button" class="scl-item open" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '"><span class="t">' + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "Time not set") + "</span>" +
+          return '<button type="button" class="scl-item open' + selCls(b, d) + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '"><span class="t">' + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "Time not set") + "</span>" +
             '<span class="w"><b>' + esc(bookingLabel(b)) + "</b>" + (b.location ? "<small>" + esc(b.location) + "</small>" : "") + "<small>" + (have ? num(have) + " of " + num(need) + " people" : need > 1 ? "Needs " + num(need) + " people" : "Needs someone") + "</small></span></button>";
         }).join("") + "</div>";
         const people = (mineOnly ? data.people.filter((p) => p.user_id === data.me) : data.people);
@@ -636,6 +653,19 @@
     el("scJump").addEventListener("change", (e) => { if (!e.target.value) return; anchor = e.target.value; load(); });
     root.addEventListener("click", (e) => {
       if (pressed) { pressed = false; e.preventDefault(); return; } // the click after a long-press opened the menu
+      if (e.target.closest("[data-bulkmode]")) { bulkMode = !bulkMode; render(); return; }
+      if (e.target.closest("[data-bulkclear]")) { bulk.clear(); bulkMode = false; render(); bulkBar(); return; }
+      if (e.target.closest("[data-bulkgo]")) { openBulkAssign(); return; }
+      const pk0 = e.target.closest(".sc-jobs [data-booking], .scl-open [data-booking]");
+      if (pk0 && editable() && (bulkMode || e.ctrlKey || e.metaKey || e.shiftKey)) {
+        e.preventDefault();
+        const k = bulkKey(pk0.dataset.booking, pk0.dataset.day);
+        const b = data.bookings.find((x) => x.booking_id === pk0.dataset.booking && x.day === pk0.dataset.day);
+        if (bulk.has(k)) bulk.delete(k); else if (b) bulk.set(k, Object.assign({}, b, { on: data.entries.filter((x) => x.kind === "job" && x.booking_id === b.booking_id && T.local(x.starts_at).day === b.day).map((x) => x.user_id) }));
+        pk0.classList.toggle("sel", bulk.has(k));
+        bulkBar();
+        return;
+      }
       const v = e.target.closest("[data-v]");
       if (v) {
         const a = v.dataset.v, step = view === "week" ? 7 : 1, oneDay = view === "day" || view === "list";
@@ -793,6 +823,64 @@
     // ---------------------------------------------------------------- put people on a job
     // The booking day a job bar belongs to (bookings on screen this week).
     const jobOf = (e) => data.bookings.find((b) => b.booking_id === e.booking_id && b.day === T.local(e.starts_at).day);
+    // The floating "N jobs picked" bar.
+    function bulkBar() {
+      let bar = el("scBulk");
+      if (!bar) { bar = document.createElement("div"); bar.className = "sc-bulk hidden"; bar.id = "aca-scBulk"; root.appendChild(bar); }
+      const n = bulk.size;
+      bar.classList.toggle("hidden", !n || !editable());
+      bar.innerHTML = n ? "<span><b>" + num(n) + "</b> job" + (n === 1 ? "" : "s") + ' picked</span><button type="button" class="primary" data-bulkgo>Assign people</button><button type="button" class="small" data-bulkclear>Clear</button>' : "";
+    }
+    // Put the same people on every picked job, each at the job's own time, with drive from where they start.
+    function openBulkAssign() {
+      const jobs = [...bulk.values()].sort((x, y) => (x.day + (x.start_at || "")).localeCompare(y.day + (y.start_at || "")));
+      if (!jobs.length) return;
+      const roles = data.crew.roles || [];
+      const roleSel = '<select class="sc-role" aria-label="Role"><option value="">No role</option>' + roles.map((r) => '<option value="' + esc(r.id) + '">' + esc(r.label) + "</option>").join("") + "</select>";
+      const timed = (b) => !!(b.start_at && b.end_at);
+      const m = openModal('<div class="sc-modal"><h2>Assign ' + num(jobs.length) + " job" + (jobs.length === 1 ? "" : "s") + "</h2>" +
+        '<ul class="sc-bulkjobs">' + jobs.map((b) => "<li><b>" + esc(T.fmtDay(b.day)) + "</b> " + esc(bookingLabel(b)) + '<br><span class="s">' +
+          esc(timed(b) ? T.fmtTs(b.start_at) + "–" + T.fmtTs(b.end_at) : "Time not set yet, so it's skipped") + (b.location ? " · " + esc(b.location) : "") + "</span></li>").join("") + "</ul>" +
+        '<div class="field"><label>Who</label><ul class="sc-pick" id="aca-scBulkPick">' + data.people.map((p) =>
+          '<li><input type="checkbox" value="' + esc(p.user_id) + '" aria-label="' + esc(p.name) + '" /><span><span class="n">' + esc(p.name) + "</span>" +
+          '<span class="s">' + (p.from_home ? "Drives from home" : "Drives from the studio") + "</span></span>" + roleSel + "</li>").join("") + "</ul></div>" +
+        '<p class="sc-note">Each person goes on every job at its booked time, with the usual setup and teardown. Drive time is looked up for each job from their home (or the studio if they have no home address). Anyone already on a job stays as they are.</p>' +
+        '<div class="inline-error hidden" id="aca-scMErr"></div>' +
+        '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Assign</button></div></div>');
+      m.addEventListener("click", async (ev) => {
+        const t = ev.target.closest("[data-m]"); if (!t) return;
+        if (t.dataset.m === "cancel") return m.close();
+        if (t.dataset.m !== "save") return;
+        const who = [...m.querySelectorAll("#aca-scBulkPick li")].filter((li) => li.querySelector("input:checked")).map((li) => ({ user_id: li.querySelector("input").value, role_id: li.querySelector(".sc-role").value || null }));
+        if (!who.length) return mErr("Pick at least one person.");
+        const todo = jobs.filter(timed);
+        if (!todo.length) return mErr("None of these jobs have a time yet. Set the times on the bookings first.");
+        t.disabled = true;
+        let added = 0, clashes = 0, n = 0;
+        const total = todo.length * who.length;
+        try {
+          for (const b of todo) {
+            for (const w of who) {
+              t.textContent = "Assigning " + (++n) + " of " + total + "…";
+              if ((b.on || []).includes(w.user_id)) continue;
+              const st = T.hhmm(T.local(b.start_at).min), et = T.hhmm(T.local(b.end_at).min);
+              const v = { setup_min: setupDefault(), teardown_min: teardownDefault(), drive_before_min: 30, drive_after_min: 30 };
+              try { v.drive_before_min = v.drive_after_min = round5((await lookupDrive(b.booking_id, w.user_id)).minutes); } catch (_e) { /* keep 30 */ }
+              const { data: r, error } = await sb.rpc("schedule_save", { p: Object.assign({ user_id: w.user_id, kind: "job", booking_id: b.booking_id, role_id: w.role_id, starts_at: T.toIso(b.day, st), ends_at: T.toIso(et <= st ? T.addDays(b.day, 1) : b.day, et) }, v) });
+              if (error) throw error;
+              added += 1; clashes += num(r && r.overlaps);
+            }
+            bulk.delete(bulkKey(b.booking_id, b.day));
+          }
+          m.close();
+          bulkMode = bulk.size > 0 && bulkMode;
+          const skipped = jobs.length - todo.length;
+          toast("Assigned " + num(todo.length) + " job" + (todo.length === 1 ? "" : "s") + (added ? "" : " (everyone was already on them)") + "." +
+            (skipped ? " " + skipped + " without a time " + (skipped === 1 ? "is" : "are") + " still picked." : "") + (clashes ? " Heads up: " + clashes + " overlap other time on their schedule." : ""));
+          bulkBar(); load(); loadAttention();
+        } catch (e) { mErr(cleanErr(e)); t.disabled = false; t.textContent = "Assign"; load(); bulkBar(); }
+      });
+    }
     function openAssign(b) {
       const already = data.entries.filter((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day === b.day);
       const s = b.start_at ? T.local(b.start_at).min : 9 * 60, en = b.end_at ? T.local(b.end_at).min : s + 120;
