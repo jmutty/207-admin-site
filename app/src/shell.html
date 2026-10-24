@@ -45,6 +45,10 @@
   .aca header.top .search kbd { font: 12px/1 inherit; color: var(--faint); }
   .aca header.top .grow { flex: 1; }
   .aca .menubtn { display: none; }
+  /* Back / forward (2026-10-24): the home-screen app and full-screen windows have no browser buttons */
+  .aca header.top .navbtns { display: inline-flex; gap: 2px; margin-right: -4px; flex: none; }
+  .aca header.top .navbtns button { width: 30px; height: 30px; padding: 0; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+  .aca header.top .navbtns button:disabled { opacity: .35; cursor: default; }
   .aca .main { padding: 28px 32px 48px; max-width: 1280px; width: 100%; }
   .aca .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); margin-right: 6px; vertical-align: 1px; }
   .aca .dot.ok { background: var(--ok-fg); } .aca .dot.err { background: var(--err-fg); } .aca .dot.warn { background: var(--warn-fg); }
@@ -614,6 +618,7 @@
       <div class="content">
         <header class="top">
           <button type="button" class="small quiet menubtn" id="aca-menuBtn" aria-label="Open menu">&#9776;</button>
+          <span class="navbtns"><button type="button" class="small quiet" id="aca-navBack" aria-label="Back" title="Back">&#8249;</button><button type="button" class="small quiet" id="aca-navFwd" aria-label="Forward" title="Forward">&#8250;</button></span>
           <div class="search" id="aca-gsOpen" role="button" tabindex="0" aria-label="Search everything">
             <input type="text" id="aca-gsTop" placeholder="Search" aria-label="Search everything" readonly />
             <kbd>&#8984;K</kbd>
