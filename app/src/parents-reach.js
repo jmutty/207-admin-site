@@ -116,7 +116,7 @@
         "</tbody></table></div>");
       const facts = [
         school ? "<span>Student data: <b>" + (d.school_data_at ? "in " + esc(Fmt.day(d.school_data_at)) : "not yet") + "</b></span>"
-          : "<span>Roster with parent emails: <b>" + (d.roster_loaded_at ? "loaded " + esc(Fmt.day(d.roster_loaded_at)) : "not yet") + "</b>" + (num(d.code_count) ? " (" + num(d.code_count) + " codes)" : "") + "</span>",
+          : "<span>Roster with parent emails: <b>" + (d.roster_loaded_at ? "loaded " + esc(Fmt.day(d.roster_loaded_at)) : "not yet") + "</b>" + (num(d.named_count) ? " (" + num(d.named_count) + " names)" : "") + "</span>",
         school ? "" : "<span>Coach emails: <b>" + num(d.coaches) + "</b></span>",
         "<span>Shooting: <b>" + esc(SHOOT[d.shoot_setting] || "Not set") + "</b></span>",
       ].filter(Boolean).join("");
