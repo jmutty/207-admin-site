@@ -3,7 +3,7 @@ const TZ = "America/New_York";
 // Pure: the Google event resource. Exported for the Node test (functions/calendar-write/test.mjs).
 export function eventBody(o: {
   orgName: string; typeLabel: string; titleLabel: string; titleOverride?: string | null; startAt: string; endAt: string;
-  location?: string | null; notes?: string | null; accessCode?: string | null; retakeDay?: string | null;
+  location?: string | null; notes?: string | null; accessCode?: string | null; retakeDay?: string | null; // the makeup day, "2026-12-03"
   wifiNetwork?: string | null; wifiPassword?: string | null; // On-site details on the job page (2026-10-24)
   contacts: { name: string; email?: string | null; role?: string | null }[]; shortId: string;
   allDay?: boolean;            // no start time yet: an all-day event, never a guessed time
@@ -23,7 +23,7 @@ export function eventBody(o: {
   for (const c of o.contacts) lines.push(`Contact: ${[c.name, c.role ? `(${c.role})` : "", c.email ?? ""].filter(Boolean).join(" ")}`.trim());
   lines.push(`Type: ${o.typeLabel}`);
   if (o.accessCode) lines.push(`Access code: ${o.accessCode}`);
-  if (o.retakeDay) lines.push(`Retake day: ${o.retakeDay}`);
+  if (o.retakeDay && !(o.dayLabel || "").startsWith("Makeup")) lines.push(`Makeup day: ${Number(o.retakeDay.slice(5, 7))}/${Number(o.retakeDay.slice(8, 10))}`);
   lines.push(`Booked in 207 Admin · ${o.shortId}`);
   let start = new Date(o.startAt), end = new Date(o.endAt);
   if (!(end > start)) end = new Date(start.getTime() + 60 * 60000);

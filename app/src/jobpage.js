@@ -26,7 +26,7 @@
   const HistoryView = (function () {
     const LABELS = {
       picture_day: "Picture day", start_at: "Start", end_at: "End", location: "Location", notes: "Notes", status: "Status",
-      title_override: "Name", title_label: "Name", access_code: "Access code", retake_day: "Retake day", gotphoto_job_id: "GotPhoto job",
+      title_override: "Name", title_label: "Name", access_code: "Access code", retake_day: "Makeup day", gotphoto_job_id: "GotPhoto job",
       contact_ids: "Contacts", type_key: "Job type", duration_min: "Length (minutes)", time_set: "Time set", end_set: "End time set",
       cancelled_at: "Cancelled", hub_school_id: "Hub school", org_id: "Organization", sequence_id: "Email sequence",
       day: "Day", label: "Label", removed: "Removed", sort: "Order", user_id: "Person", kind: "Kind", drive_before_min: "Drive there (min)",
@@ -332,7 +332,6 @@
       const crew = J.crew || [];
       const facts = [
         ["When", dayLine(b)], ["Where", b.location || ""], ["Type", b.type_label || ""],
-        b.retake_day ? ["Retake day", fmtDayIso(b.retake_day, { weekday: "short", month: "short" })] : null,
         c.bookings && b.access_code ? ["Access code", b.access_code] : null,
         J.stage ? ["Stage", J.stage.label + " (" + fmtAgo(J.stage.at) + ")"] : null,
         J.deliverables && J.deliverables.length ? ["Deliverables", J.deliverables.filter((d) => d.status !== "todo").length + " of " + J.deliverables.length + " delivered"] : null,
@@ -341,7 +340,7 @@
       // Remove takes someone off this job's emails (2026-10-23); Edit booking adds people.
       const rm = c.bookings_edit && b.status === "booked" && contacts.length > 1;
       box.innerHTML = '<div class="jp-latest" id="aca-jpLatest"></div><div class="jp-grid"><div>' +
-        '<div class="jp-sec jp-onsite" id="aca-jpOnsite"></div>' +
+        '<div class="jp-sec jp-onsite" id="aca-jpOnsite"></div>' + '<div class="jp-sec jp-onsite" id="aca-jpMakeup"></div>' +
         '<div class="jp-sec"><h3>The job</h3><dl class="jp-dl">' + facts.map((f) => "<dt>" + esc(f[0]) + "</dt><dd>" + esc(f[1] || "\u2014") + "</dd>").join("") +
         "<dt>Organization</dt><dd>" + (canSee("partners") ? '<a href="' + orgLink(b.org_id) + '">' + esc(b.org_name) + "</a>" : esc(b.org_name)) + (b.org_town ? ", " + esc(b.org_town) : "") + "</dd></dl></div>" +
         (contacts.length ? '<div class="jp-sec"><h3>Who gets the emails</h3><ul class="jp-rows">' + contacts.map((p) => "<li><span>" + esc(p.name || p.email || "") +
@@ -356,6 +355,7 @@
         "</div></div>";
       loadMails(b.id);
       renderOnsite(b);
+      renderMakeup(b);
       renderLatest(b);
       box.onclick = async (e) => {
         const em = e.target.closest("[data-mail]");
@@ -454,6 +454,54 @@
         Object.assign(J.booking, { wifi_network: p.wifi_network || null, wifi_password: p.wifi_password || null, notes: p.notes || null });
         toast(data && data.calendar ? "Saved. The calendar event updates in a minute." : "Saved.");
         renderOnsite(J.booking);
+      };
+    }
+    // Makeup day (2026-10-24): a school job's day for students who were absent on picture day (retakes welcome too).
+    // Its own calendar event and Schedule card, assigned like any day; it uses this job's GotPhoto gallery.
+    // RPC booking_set_makeup (migration 20261025030000); job_get returns it as J.makeup.
+    const hhmmOf = (iso) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+    const makeupLine = (m) => fmtDayIso(m.day) + (m.start_at ? ", " + timeOf(m.start_at) + (m.end_at ? "\u2013" + timeOf(m.end_at) : "") : ", time not set");
+    function renderMakeup(b, editing) {
+      const box = el("jpMakeup"); if (!box) return;
+      const m = J.makeup, can = J.can.bookings_edit && (b.status === "booked" || b.status === "tracked");
+      if (b.audience !== "school" && !m) { box.remove(); return; }
+      if (!m && !can) { box.remove(); return; }
+      const head = "<h3>Makeup day" + (can && !editing ? '<button type="button" class="small quiet" data-mk="edit">' + (m ? "Change" : "Add") + "</button>" : "") + "</h3>";
+      if (editing) {
+        box.innerHTML = head + '<form id="aca-jpMkForm"><label for="aca-jpMkDay">Day</label><input type="date" id="aca-jpMkDay" value="' + esc(m ? m.day : "") + '" />' +
+          '<label for="aca-jpMkStart">Start</label><input type="time" id="aca-jpMkStart" step="300" value="' + esc(m && m.start_at ? hhmmOf(m.start_at) : "") + '" />' +
+          '<label for="aca-jpMkEnd">End</label><input type="time" id="aca-jpMkEnd" step="300" data-dp-after="#aca-jpMkStart" value="' + esc(m && m.end_at ? hhmmOf(m.end_at) : "") + '" />' +
+          '<div class="row"><button type="submit" class="small primary">Save</button>' + (m ? '<button type="button" class="small" data-mk="remove">Take it off</button>' : "") +
+          '<button type="button" class="small" data-mk="cancel">Cancel</button></div></form>';
+        el("jpMkDay").focus();
+      } else if (!m) {
+        box.innerHTML = head + '<p class="muted" style="margin:0;font-size:13px">No makeup day yet. Add one for students who were absent on picture day; it goes on the calendar and the Schedule to assign, and uses this job\u2019s GotPhoto gallery.</p>';
+      } else {
+        box.innerHTML = head + '<dl class="jp-dl"><dt>When</dt><dd>' + esc(makeupLine(m)) + "</dd><dt>For</dt><dd>Students who were absent on picture day; retakes welcome too</dd></dl>" +
+          '<p class="oncal">On the Google Calendar and the Schedule as its own day.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Assign it on the Schedule</a>.' : "") + "</p>";
+      }
+      const save = async (p, btn) => {
+        btn.disabled = true;
+        const { data, error } = await sb.rpc("booking_set_makeup", { p_booking: b.id, p });
+        if (error) { btn.disabled = false; toast(cleanErr(error), true); return; }
+        const n = (data && (data.crew_moved || data.crew_removed)) || 0;
+        toast(p.day ? "Makeup day saved. The calendar event updates in a minute." + (data.crew_moved ? " " + n + (n === 1 ? " person moved" : " people moved") + " with it." : "")
+          : "Makeup day taken off." + (data.crew_removed ? " " + n + (n === 1 ? " person was" : " people were") + " taken off the Schedule for it." : ""));
+        reload();
+      };
+      box.onclick = (e) => {
+        const t = e.target.closest("[data-mk]"); if (!t) return;
+        if (t.dataset.mk === "edit") renderMakeup(J.booking, true);
+        if (t.dataset.mk === "cancel") renderMakeup(J.booking);
+        if (t.dataset.mk === "remove" && confirm("Take the makeup day off this job? Its calendar event goes away, and anyone assigned to it comes off the Schedule.")) save({ day: "" }, t);
+      };
+      const f = el("jpMkForm");
+      if (f) f.onsubmit = (e) => {
+        e.preventDefault();
+        const day = el("jpMkDay").value, st = el("jpMkStart").value, en = el("jpMkEnd").value;
+        if (!day) return toast("Pick the makeup day.", true);
+        if (st && en && en <= st) return toast("The end time has to be after the start time.", true);
+        save({ day, start_time: st, end_time: st ? en : "" }, f.querySelector("[type=submit]"));
       };
     }
     // The newest job notes at the top of Overview (two; one on a phone), with the same composer as the Notes tab.
@@ -660,7 +708,7 @@
         "table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:5px 10px 5px 0;border-bottom:1px solid #e6e2db;vertical-align:top}th{width:140px;color:#6b675f;font-weight:600}.s{color:#6b675f}</style></head><body>" +
         "<h1>" + esc(b.title) + '</h1><div class="s">' + esc(dayLine(b)) + "</div>" +
         "<h2>The job</h2><table>" + row("Where", b.location) + row("Type", b.type_label) + row("Organization", b.org_name + (b.org_town ? ", " + b.org_town : "")) +
-        row("Retake day", b.retake_day ? fmtDayIso(b.retake_day) : "") + row("Access code", J.can.bookings ? b.access_code : "") + row("Stage", J.stage ? J.stage.label : "") + "</table>" +
+        row("Makeup day", J.makeup ? makeupLine(J.makeup) : "") + row("Access code", J.can.bookings ? b.access_code : "") + row("Stage", J.stage ? J.stage.label : "") + "</table>" +
         (b.wifi_network || b.wifi_password || b.notes ? "<h2>On site</h2><table>" + row("WiFi network", b.wifi_network) + row("WiFi password", b.wifi_password) + row("For the crew", b.notes) + "</table>" : "") +
         ((J.contacts || []).length ? "<h2>Contacts</h2><table>" + J.contacts.map((p) => "<tr><th>" + esc(p.name || "") + "</th><td>" + esc([p.role, p.email, p.phone].filter(Boolean).join(" \u00b7 ")) + "</td></tr>").join("") + "</table>" : "") +
         "<h2>Crew</h2><table>" + ((J.crew || []).map((p) => "<tr><th>" + esc(p.name) + "</th><td>" + esc(timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at) + (p.note ? " \u00b7 " + p.note : "")) + "</td></tr>").join("") || "<tr><td>Nobody yet</td></tr>") + "</table>" +

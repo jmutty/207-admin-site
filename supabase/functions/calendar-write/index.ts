@@ -137,9 +137,10 @@ export async function buildEvent(b: any, day?: any, dayNo?: number, dayCount?: n
   const { data: org } = await db.from("prospect_orgs").select("name, town").eq("id", b.org_id).single();
   const { data: type } = await db.from("booking_types").select("label").eq("key", b.type_key).single();
   const { data: contacts } = await db.from("prospect_contacts").select("first_name, last_name, email, role").in("id", b.contact_ids ?? []);
-  const { data: days } = await db.from("booking_days").select("label, sort").eq("booking_id", b.id).eq("removed", false).order("day");
+  const { data: days } = await db.from("booking_days").select("label, sort, kind").eq("booking_id", b.id).eq("removed", false).order("day");
   const first = (days ?? []).find((x: any) => x.sort === 0);
-  const n = dayCount ?? (days ?? []).length;
+  const n = dayCount ?? (days ?? []).filter((x: any) => x.kind !== "makeup").length;
+  const makeup = day?.kind === "makeup";
   return eventBody({
     orgName: org?.name ?? "", typeLabel: type?.label ?? b.type_key, titleLabel: b.title_label, titleOverride: b.title_override,
     startAt: day ? day.start_at : b.start_at, endAt: day ? day.end_at : b.end_at, location: b.location, notes: b.notes, accessCode: b.access_code, retakeDay: b.retake_day,
@@ -150,7 +151,8 @@ export async function buildEvent(b: any, day?: any, dayNo?: number, dayCount?: n
     // an untimed booking stays all-day too)
     allDay: b.time_set === false || (day ? !day.start_at : false),
     dayLabel: day ? day.label : first?.label,
-    dayNote: n > 1 ? `Day ${(dayNo ?? 0) + 1} of ${n}` : null,
+    // A school's makeup day (2026-10-24) shares the job and its GotPhoto gallery but isn't one of its picture days.
+    dayNote: makeup ? "Makeup day: students who were absent on picture day (retakes welcome too)" : n > 1 ? `Day ${(dayNo ?? 0) + 1} of ${n}` : null,
   });
 }
 
@@ -160,11 +162,12 @@ async function processExtraDays(token: string, calendarId: string, bookingId: st
   const { data: b } = await db.from("bookings").select("*").eq("id", bookingId).single();
   if (!b) return out;
   const { data: days } = await db.from("booking_days").select("*").eq("booking_id", bookingId).order("day");
-  const live = (days ?? []).filter((d: any) => !d.removed);
+  const live = (days ?? []).filter((d: any) => !d.removed && d.kind !== "makeup");
   const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
   for (const d of days ?? []) {
     if (d.sort === 0 && !d.removed) continue; // the bookings row owns day 0's event
-    const wantsGone = d.removed || b.status !== "booked";
+    // A tracking-only job's makeup day still gets its event (2026-10-24); its other days never do.
+    const wantsGone = d.removed || !(b.status === "booked" || (b.status === "tracked" && d.kind === "makeup"));
     if (!wantsGone && !["pending", "error"].includes(d.calendar_status)) continue;
     if (wantsGone && !d.google_event_id) { if (d.removed) await db.from("booking_days").delete().eq("id", d.id); continue; }
     try {

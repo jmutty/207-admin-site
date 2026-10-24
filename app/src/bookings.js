@@ -469,7 +469,7 @@
       return '<div class="bk-who" title="' + esc(all) + '">' + esc(cs[0].name || cs[0].email) + "</div>" +
         (cs.length > 1 ? '<div class="bk-sub">+ ' + (cs.length - 1) + (cs.length === 2 ? " other" : " others") + "</div>" : cs[0].name && cs[0].name !== cs[0].email ? '<div class="bk-sub">' + esc(cs[0].email) + "</div>" : ""); };
     body.innerHTML = list.map((b) => '<tr class="bk-row" data-id="' + esc(b.id) + '">' +
-      '<td class="bk-c-when"><div class="bk-date">' + esc(Fmt.days(b)) + '</div><div class="bk-sub">' + whenTimes(b) + "</div>" + calNote(b) + "</td>" +
+      '<td class="bk-c-when"><div class="bk-date">' + esc(Fmt.days(b)) + '</div><div class="bk-sub">' + whenTimes(b) + "</div>" + (b.makeup ? '<div class="bk-sub">Makeup day ' + esc(Fmt.day(b.makeup.day)) + "</div>" : "") + calNote(b) + "</td>" +
       '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></td>" +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-who">' + who(b) + "</td>" +
@@ -666,6 +666,9 @@
     try { await ensureMeta(); } catch (e) { toast(cleanErr(e), true); return; }
     const isNew = !existing;
     const d = existing || {};
+    // A school's makeup day (2026-10-24): its own day on the calendar and the Schedule, saved by booking_set_makeup.
+    const mk = d.makeup || {};
+    const hhmm0 = (iso) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
     let org = isNew ? null : { id: d.org_id, name: d.org_name, town: d.org_town };
     let contacts = isNew ? [] : (d.org_contacts || []);
     let typeKey = d.type_key || (types[0] && types[0].key) || "", typeTouched = !isNew;
@@ -711,7 +714,11 @@
           <button type="button" class="link hidden" id="aca-bkAddCBtn" data-v="showaddc">+ Add a contact</button></div>
         <label for="aca-bkCode" class="bk-school">Access code</label>
         <span class="bk-school"><input type="text" id="aca-bkCode" value="${esc(d.access_code || "")}" placeholder="GotPhoto registration code" style="width:180px" /> <span class="bk-sub">Suggested in your usual pattern; change it if you like. With "Create the GotPhoto job after booking" ticked, 207 Admin sets it in GotPhoto and then puts the school on 207photo.com/schooladmin. Otherwise the school goes on the hub with it right away.</span></span>
-        <label for="aca-bkRetake" class="bk-school">Retake day</label><span class="bk-school"><input type="date" id="aca-bkRetake" value="${esc(d.retake_day || "")}" /> <span class="bk-sub">optional</span></span>
+        <label for="aca-bkMakeup" class="bk-school">Makeup day</label>
+        <div class="bk-school"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input type="date" id="aca-bkMakeup" value="${esc(mk.day || "")}" aria-label="Makeup day" />
+            <input type="time" id="aca-bkMkStart" value="${esc(mk.start_at ? hhmm0(mk.start_at) : "")}" step="300" aria-label="Makeup day start" /> <span class="bk-sub">to</span>
+            <input type="time" id="aca-bkMkEnd" value="${esc(mk.end_at ? hhmm0(mk.end_at) : "")}" step="300" aria-label="Makeup day end" data-dp-after="#aca-bkMkStart" /></div>
+          <div class="bk-sub" style="margin-top:4px">Optional. For students who were absent on picture day (retakes welcome too). It goes on the calendar and the Schedule as its own day to assign, and uses this job's GotPhoto gallery.</div></div>
         ${DirectorFields.formHtml()}
         <label for="aca-bkWifi">WiFi</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="text" id="aca-bkWifi" value="${esc(d.wifi_network || "")}" maxlength="120" placeholder="Network name" style="flex:1 1 180px;min-width:0" /><input type="text" id="aca-bkWifiPw" value="${esc(d.wifi_password || "")}" maxlength="120" placeholder="Password" autocomplete="off" style="flex:1 1 180px;min-width:0" /></div>
@@ -864,7 +871,7 @@
       const items = list.flatMap((s) => {
         if (s.kind === "coach" && s.trigger === "gallery_live") return { k: "3|" + String(s.offset_days).padStart(4, "0"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">coach</span>: ' + (s.offset_days ? s.offset_days + " days after the gallery goes live" : "when the gallery goes live") + " (to the coaches on file)</li>" };
         if (s.kind === "hub" && s.trigger === "gallery_live") return { k: "3|" + String(s.offset_days).padStart(4, "0"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + (s.offset_days ? s.offset_days + " days after the gallery goes live" : "when the gallery goes live") + "</li>" };
-        if (s.kind === "hub" && s.trigger === "retake_day") return { k: "2|" + (isSchool() && el("bkRetake").value ? addDays(el("bkRetake").value, -s.offset_days) : "9999"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + s.offset_days + " day" + (s.offset_days === 1 ? "" : "s") + " before retake day" + (isSchool() && el("bkRetake").value ? " (" + esc(fmtDay(addDays(el("bkRetake").value, -s.offset_days))) + ")" : " (needs a retake day)") + "</li>" };
+        if (s.kind === "hub" && s.trigger === "retake_day") return { k: "2|" + (isSchool() && el("bkMakeup").value ? addDays(el("bkMakeup").value, -s.offset_days) : "9999"), h: "<li><strong>" + esc(s.label) + '</strong> <span class="pill accent">hub</span>: ' + s.offset_days + " day" + (s.offset_days === 1 ? "" : "s") + " before makeup day" + (isSchool() && el("bkMakeup").value ? " (" + esc(fmtDay(addDays(el("bkMakeup").value, -s.offset_days))) + ")" : " (needs a makeup day)") + "</li>" };
         if (s.trigger === "booking") return { k: "0|0", h: "<li><strong>" + esc(s.label) + "</strong>: " + (isNew ? "right after you book (after the undo window)" : "already scheduled") + "</li>" };
         if (s.offset_days === 0) return { k: "0|", h: "<li><strong>" + esc(s.label) + "</strong>: " + (isSchool() ? (el("bkCode").value.trim() ? (isNew ? (gpAfter && gpOffered ? "about 10 minutes after the GotPhoto job is made with the code" : "about 10 minutes after you book") : "already scheduled") : "waits for the access code, then 10 minutes later") : (isNew ? "10 minutes after the GotPhoto job exists (it links itself within 5 minutes of the job being created)" : "already scheduled")) + "</li>" };
         // the hub "day before" reminder goes once per night; everything else once, keyed off the first day
@@ -971,7 +978,7 @@
         }, 220);
       }
       if (e.target.id === "aca-bkCode") codeTouched = true;
-      if (["aca-bkCode", "aca-bkRetake"].includes(e.target.id) || e.target.classList.contains("bk-d-day") || e.target.classList.contains("bk-d-label")) renderPreview();
+      if (["aca-bkCode", "aca-bkMakeup"].includes(e.target.id) || e.target.classList.contains("bk-d-day") || e.target.classList.contains("bk-d-label")) renderPreview();
       if (e.target.closest && e.target.closest("#aca-bkDays")) renderMoveNote();
       if (e.target.id === "aca-bkTitle" || e.target.id === "aca-bkKeepOrg") renderPreview();
     });
@@ -1044,7 +1051,12 @@
         const p = { org_id: org.id, type_key: typeKey, picture_day: days[0].day, days,
           title_label: pickedLabel(), title_override: composedOverride(), location: el("bkLoc").value.trim(), notes: el("bkNotes").value.trim(),
           wifi_network: el("bkWifi").value.trim(), wifi_password: el("bkWifiPw").value.trim(),
-          contact_ids: [...chosen], access_code: isSchool() && !holdCode ? el("bkCode").value.trim() : "", retake_day: isSchool() ? (el("bkRetake").value || "") : "" };
+          contact_ids: [...chosen], access_code: isSchool() && !holdCode ? el("bkCode").value.trim() : "" };
+        const mkNew = isSchool() ? { day: el("bkMakeup").value, start_time: el("bkMakeup").value ? el("bkMkStart").value : "", end_time: el("bkMakeup").value ? el("bkMkEnd").value : "" } : { day: "" };
+        const mkChanged = mkNew.day !== (mk.day || "") || (mkNew.day && (mkNew.start_time !== (mk.start_at ? hhmm0(mk.start_at) : "") || mkNew.end_time !== (mk.end_at ? hhmm0(mk.end_at) : "")));
+        if (mkNew.day && mkNew.day <= days[0].day) return err("The makeup day has to be after picture day.");
+        if (mkNew.day && days.some((x) => x.day === mkNew.day)) return err("The makeup day can't be one of the picture days.");
+        if (mkNew.start_time && mkNew.end_time && mkNew.end_time <= mkNew.start_time) return err("The makeup day's end time has to be after its start time.");
         if (isNew && rows.some((r) => r.org_id === org.id && r.picture_day === p.picture_day && r.type_key === typeKey && r.status !== "cancelled")
             && !confirm("There is already a " + byType(typeKey).label + " booking for " + org.name + " on that day. Book another one anyway?")) return;
         b.disabled = true;
@@ -1067,6 +1079,11 @@
             hoMsg = he ? " Who runs picture day was not saved: " + cleanErr(he) + "." : " School photos is now a client" + (hr && hr.outreach_stopped ? " and its school photos outreach stopped." : ".");
           }
           const dirErr = await DirectorFields.save(isNew ? data.id : d.id, dir, isNew);
+          let mkMsg = "";
+          if (mkChanged) {
+            const { error: mErr } = await sb.rpc("booking_set_makeup", { p_booking: isNew ? data.id : d.id, p: mkNew });
+            mkMsg = mErr ? " The makeup day was not saved: " + cleanErr(mErr) + ". Add it on the job's Overview." : mkNew.day ? " The makeup day is on " + fmtDay(mkNew.day) + "; assign it on the Schedule." : " The makeup day was taken off.";
+          }
           // booking_create doesn't take the WiFi; a new booking gets it right after (booking_update does take it).
           if (isNew && (p.wifi_network || p.wifi_password)) { const { error: wErr } = await sb.rpc("job_onsite_save", { p_booking: data.id, p: { wifi_network: p.wifi_network, wifi_password: p.wifi_password } }); if (wErr) toast("Booked, but the WiFi was not saved: " + cleanErr(wErr) + ". Add it on the job's Overview.", true); }
           let dlvErr = "";
@@ -1082,10 +1099,10 @@
               crewMsg = sr.untimed.length ? " " + (sr.added ? "On the schedule for the days with a time; " : "") + "add the crew on the Schedule once " + sr.untimed.map(fmtDay).join(", ") + (sr.untimed.length > 1 ? " have times." : " has a time.") : " Crew is on the schedule.";
             } catch (e4) { crewMsg = " The crew was not put on the schedule: " + cleanErr(e4) + "."; }
           }
-          crewMsg += hoMsg;
+          crewMsg += hoMsg + mkMsg;
           if (dirErr) crewMsg += " The team times and order dates were not saved (" + dirErr + "); open Edit booking to try again.";
           toast((dlvErr ? "Booked, but the deliverables were not added: " + dlvErr + ". Add them on the booking." : isNew ? "Booked. Writing the calendar event\u2026" :
-            "Saved." + (moved ? " The Schedule, the calendar event and the unsent emails move with it." : "")) + crewMsg, !!dlvErr || !!dirErr || /not put|not changed/.test(crewMsg));
+            "Saved." + (moved ? " The Schedule, the calendar event and the unsent emails move with it." : "")) + crewMsg, !!dlvErr || !!dirErr || /not put|not changed|not saved/.test(crewMsg));
           // After booking, the new job's page (its trail leads back to the partner); after an edit, the page you were on.
           if (isNew) {
             pollNew = data.id; await load(true); openJob(data.id, "booking");
@@ -1328,8 +1345,8 @@
         (live ? '<div class="bk-sub">Not linked yet, so email 0 waits (the hub lists teams from GotPhoto jobs). Once the job exists in GotPhoto it links itself within 5 minutes' + (can ? ", or pick it here." : ".") + "</div>" + gpMakeBlock(b, can) +
           (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><select id="aca-bkDJob" class="small" style="max-width:360px"><option value="">' + ((b.job_candidates || []).length ? "Pick the GotPhoto job…" : "No matching job in the sync yet") + '</option>' +
           (b.job_candidates || []).map((j) => '<option value="' + esc(j.gotphoto_job_id) + '">' + esc(j.name) + (j.picture_day ? " (" + esc(fmtDay(j.picture_day)) + ")" : "") + "</option>").join("") + '</select><button type="button" class="small primary" data-v="linkjob">Link</button></div>' : "") : '<div class="bk-sub">No GotPhoto job linked.</div>')) + "</div>"
-        : '<div class="bk-sec"><h3>School hub</h3>' + (b.hub_school ? '<div class="bk-sub">On 207photo.com/schooladmin as <strong>' + esc(b.hub_school.name) + "</strong>, code <strong>" + esc(b.hub_school.access_code) + "</strong>" + (b.hub_school.retake_day ? ", retake " + esc(fmtDay(b.hub_school.retake_day)) : "") + ". Reminder signups were added for the contacts.</div>" + (can ? hubRowTools(b.hub_school) : "") :
-        (live ? '<div class="bk-sub">Not on the hub yet. Email 0 waits until the school exists there. Create the job in GotPhoto first, then enter its access code here.</div>' + gpMakeBlock(b, can) + (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkDCode" placeholder="GotPhoto access code" style="width:170px" /><input type="date" id="aca-bkDRetake" title="Retake day (optional)" /><button type="button" class="small primary" data-v="setcode">Create on the hub</button></div>' : "") : '<div class="bk-sub">Not on the hub.</div>')) + "</div>"]);
+        : '<div class="bk-sec"><h3>School hub</h3>' + (b.hub_school ? '<div class="bk-sub">On 207photo.com/schooladmin as <strong>' + esc(b.hub_school.name) + "</strong>, code <strong>" + esc(b.hub_school.access_code) + "</strong>" + (b.hub_school.retake_day ? ", makeup day " + esc(fmtDay(b.hub_school.retake_day)) : "") + ". Reminder signups were added for the contacts.</div>" + (can ? hubRowTools(b.hub_school) : "") :
+        (live ? '<div class="bk-sub">Not on the hub yet. Email 0 waits until the school exists there. Create the job in GotPhoto first, then enter its access code here.</div>' + gpMakeBlock(b, can) + (can ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkDCode" placeholder="GotPhoto access code" style="width:170px" /><button type="button" class="small primary" data-v="setcode">Create on the hub</button></div>' : "") : '<div class="bk-sub">Not on the hub.</div>')) + "</div>"]);
       if (!isSchool) parts.push(["coaches", '<div class="bk-sec"><h3>Coaches</h3>' + coachesBlock(b, live && can) + "</div>"]);
       // Remove takes someone off this job's emails (2026-10-23); Edit booking adds people.
       const usable = new Set((b.org_contacts || []).filter((c) => c.emailable).map((c) => c.id));
@@ -1514,15 +1531,15 @@
       (live ? '<div style="margin-top:8px"><textarea id="aca-bkCoachText" rows="2" style="width:100%" placeholder="Paste coach emails (one per line or comma separated)"></textarea>' +
         '<div style="margin-top:6px"><button type="button" class="small" data-v="coachadd">Add coaches</button></div></div>' : "");
   }
-  // The hub row used to have its own Schools tab. Dates come from the booking; the code, retake day and
-  // visibility are edited here (2026-10-12). Writes go straight to comm_hub_schools, like the old tab did.
+  // The hub row used to have its own Schools tab. Dates come from the booking (the makeup day too, since
+  // 2026-10-24); the code and visibility are edited here (2026-10-12). Writes go straight to comm_hub_schools, like the old tab did.
   function hubRowTools(h) {
     return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">' +
       '<span class="sw' + (h.active === false ? "" : " on") + '" role="switch" aria-checked="' + (h.active !== false) + '" tabindex="0" data-v="hubvis" aria-label="Shown on the hub"><span class="knob"></span></span>' +
       '<span class="bk-sub">' + (h.active === false ? "Hidden from the hub" : "Shown on the hub") + '</span>' +
-      '<button type="button" class="small" data-v="hubedit" style="margin-left:auto">Change code or retake day</button></div>' +
+      '<button type="button" class="small" data-v="hubedit" style="margin-left:auto">Change code</button></div>' +
       '<div class="hidden" id="aca-bkHubEdit" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input type="text" id="aca-bkHCode" value="' + esc(h.access_code || "") + '" placeholder="Access code" style="width:150px" />' +
-      '<input type="date" id="aca-bkHRetake" value="' + esc(h.retake_day || "") + '" title="Retake day (optional)" /><button type="button" class="small primary" data-v="hubsave">Save</button><button type="button" class="small" data-v="hubcancel">Cancel</button></div>';
+      '<button type="button" class="small primary" data-v="hubsave">Save</button><button type="button" class="small" data-v="hubcancel">Cancel</button></div>';
   }
   // The Booking tab's controls; listeners go on each new tab element (the job page rebuilds it per visit).
   function wireHost(h) {
@@ -1554,7 +1571,7 @@
       if (v === "hubsave") {
         const code = el("bkHCode").value.trim(); if (!code) return toast("Type the access code first.", true);
         b.disabled = true;
-        const { error } = await sb.from("comm_hub_schools").update({ access_code: code, retake_day: el("bkHRetake").value || null }).eq("id", detail.hub_school.id);
+        const { error } = await sb.from("comm_hub_schools").update({ access_code: code }).eq("id", detail.hub_school.id);
         if (error) throw error;
         toast("Hub row updated."); await refreshDetail(); return;
       }
@@ -1602,7 +1619,7 @@
       }
       if (v === "sendnow") { if (!confirm("Send this email now?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_send_now", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Sending\u2026" : "Queued. Sending is turned off, so it waits."); }
       if (v === "resend") { if (!confirm("Send this email again to the same person?")) return; b.disabled = true; const { data, error } = await sb.rpc("booking_resend", { p_email: em }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast(data.sending_enabled ? "Resending\u2026" : "Queued. Sending is turned off, so it waits."); }
-      if (v === "setcode") { const code = el("bkDCode").value.trim(); if (!code) return toast("Type the access code first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_set_access_code", { p_id: detail.id, p_code: code, p_retake: el("bkDRetake").value || null }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("School created on the hub."); }
+      if (v === "setcode") { const code = el("bkDCode").value.trim(); if (!code) return toast("Type the access code first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_set_access_code", { p_id: detail.id, p_code: code }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("School created on the hub."); }
       if (v === "gpmake") { gpCheck(detail); return; }
       if (v === "linkjob") { const job = el("bkDJob").value; if (!job) return toast("Pick the job first.", true); b.disabled = true; const { data, error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: job }); if (error) throw error; if (!data.ok) throw new Error(data.error); toast("Linked. Email 0 goes out in about 10 minutes."); }
       if (v === "unlinkjob") { if (!confirm("Unlink the GotPhoto job? Email 0 waits again if it has not gone out.")) return; const { error } = await sb.rpc("booking_link_job", { p_id: detail.id, p_job: null }); if (error) throw error; toast("Unlinked."); }
