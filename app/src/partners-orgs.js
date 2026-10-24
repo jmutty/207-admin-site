@@ -1989,6 +1989,8 @@ ${order.map((k) => sec[k]).join("")}
     });
     if (!r) return false;
     if (!quiet) toast("Saved");
+    // the partner page heading and other open screens follow a rename (2026-10-24)
+    if (patch.name && patch.name !== before.name) window.dispatchEvent(new CustomEvent("aca:partner-renamed", { detail: { id, name: patch.name, old: before.name } }));
     refreshOrg(id);
     return true;
   }
@@ -2374,5 +2376,5 @@ ${order.map((k) => sec[k]).join("")}
   }
 
   return { load: () => load(false), reload: () => load(true), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, sendNow, emailPeople, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
-    embed, unembed, get: (id) => byId.get(id) || null, stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
+    embed, unembed, get: (id) => byId.get(id) || null, changed: (id) => reloadOrg(id), stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
   })();
