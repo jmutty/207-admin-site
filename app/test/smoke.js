@@ -791,18 +791,22 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-scGrid .sc-jobs [data-booking="bk3"]', { modifiers: ["Control"] });
     check(!(await page.$(".modal")) && (await page.$$("#aca-scGrid .sel")).length >= 2 && (await page.textContent("#aca-scBulk")).includes("2 jobs picked"), "Ctrl-click a job card and an open job: both picked");
     await page.click("[data-bulkclear]");
-    // send changes
+    // View schedule: pick a person, see their next two weeks as they'd get it, send it
     await page.waitForSelector("#aca-scChg:not(.hidden)");
-    check((await page.textContent("#aca-scChg")).includes("(2)"), "Send changes counts the people with changes");
+    check((await page.textContent("#aca-scChg")).includes("View schedule (2 changed)"), "View schedule says how many people have changes");
     await page.click("#aca-scChg");
-    await page.waitForSelector("#aca-scChgList li");
-    check(await page.isChecked("#aca-scChgList input >> nth=0") && await page.isDisabled("#aca-scChgList input >> nth=1") && (await page.textContent("#aca-scChgList")).includes("no email address"), "who changed; someone with no email can't be picked");
-    await page.click('#aca-scChgList [data-m="preview"] >> nth=0');
-    await page.waitForSelector(".sc-chgprev pre");
-    check((await page.textContent(".sc-chgprev")).includes("Taken off: Editing"), "preview of their email");
+    await page.waitForSelector("#aca-scVwWho");
+    const vwOpts = await page.$$eval("#aca-scVwWho option", (os) => os.map((o) => o.textContent));
+    check(vwOpts.length === 3 && vwOpts[0].includes("changed") && vwOpts[1].includes("changed") && !vwOpts[2].includes("changed"), "everyone on the team is in the list, people with changes first: " + vwOpts.join(" | "));
+    await page.waitForFunction(() => { const f = document.querySelector(".sc-vwframe"); return f && f.srcdoc.includes("next two weeks"); });
+    check((await page.textContent("#aca-scVwInfo")).includes("To: sam@example.com") && await page.$eval(".sc-vwframe", (f) => f.getAttribute("sandbox") === ""), "shows the email they'd get, in a sandboxed frame, and who it goes to");
+    await page.selectOption("#aca-scVwWho", "u1");
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_view_preview").map((c) => c[1].p_user).join() === "u2,u1"), "picking another person shows theirs");
     await page.click('.sc-modal [data-m="send"]');
     await page.waitForTimeout(150);
-    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "schedule_changes_send" && c[1].p_users.join() === "u2" && c[1].p_send === true)), "sends one email to each person picked");
+    check(await page.evaluate(() => window.__rpcCalls.some((c) => c[0] === "schedule_view_send" && c[1].p_user === "u1")) && !!(await page.$(".sc-viewmodal")), "sends it to that person and stays open for the next one");
+    await page.click('.sc-modal [data-m="cancel"]');
     // phone calendar
     await page.click('#aca-panel-schedule [data-v="cal"]');
     await page.waitForSelector("#aca-scCalUrl");

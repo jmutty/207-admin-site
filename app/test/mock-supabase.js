@@ -450,6 +450,9 @@
     RPC.schedule_changes_pending = AS_STAFF ? [] : [{ user_id: "u2", name: "Sam Helper", days: [add(sun, 2)], n: 2, has_email: true }, { user_id: "u5", name: "Alex Assistant", days: [add(sun, 4), add(sun, 2)], n: 1, has_email: false }];
     RPC.schedule_changes_preview = { subject: "Your schedule changed: Tue", text: "Hampden Academy 9am-12pm\nTaken off: Editing", html: "" };
     RPC.schedule_changes_send = { ok: true, sent: 1, no_email: 0 };
+    RPC.schedule_view_preview = { days: 2, jobs: 1, pending: 0, changed: 1, subject: "Your schedule changed: the next two weeks: 1 job", email: "sam@example.com", has_email: true,
+      text: "Hi Sam.", html: "<p>Hi Sam. Here is your schedule for the next two weeks.</p><table><tr><td>Tue<br><span>Changed</span></td><td><b>9:00am-12:00pm Hampden Academy</b></td></tr></table>" };
+    RPC.schedule_view_send = { ok: true, email: "sam@example.com" };
     RPC.staff_cal_link = { ok: true, token: "a".repeat(40) };
     RPC.schedule_attention = { unstaffed: 2 };
     RPC.schedule_save = { ok: true, id: "se9", overlaps: 0 }; RPC.schedule_remove = { ok: true }; RPC.schedule_settings_save = { ok: true }; RPC.schedule_batch_save = { ok: true }; RPC.schedule_setup_save = { ok: true, changed: 0 };

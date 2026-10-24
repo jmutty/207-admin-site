@@ -338,6 +338,10 @@
     .aca .scm-key { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 10px; font-size: 12px; color: var(--muted); }
     .aca .scm-key i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: #2f6db5; }
     .aca .scm-key i.need { background: #c2412d; } .aca .scm-key i.wait { background: #b07a00; } .aca .scm-key i.gcal { background: #8a8580; }
+    .aca .modal:has(.sc-viewmodal) { width: min(760px, calc(100vw - 32px)); max-width: none; }
+    .aca .sc-vwframe { display: block; width: 100%; height: 52vh; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+    .aca .sc-vwsub { margin: 0 0 6px; font-size: 13.5px; }
+    .aca .sc-bad { color: var(--err-fg); }
     .aca .sc-chgprev { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 10px 0; font-size: 13px; }
     .aca .sc-chgprev pre { white-space: pre-wrap; font: inherit; margin: 6px 0 0; max-height: 220px; overflow: auto; }
     .aca .scl-trip { font-size: 12.5px; color: var(--muted); margin: -2px 0 6px; padding-left: 4px; }
@@ -402,7 +406,7 @@
         '<button type="button" class="small sc-ed" data-v="studio">Drive &amp; setup</button>' +
         '<button type="button" class="small sc-ed" data-v="crewset">Crew settings</button>' +
         '<button type="button" class="small sc-ed" data-v="weekmail">Email the week</button>' +
-        '<button type="button" class="small sc-ed sc-chg hidden" data-v="changes" id="aca-scChg">Send changes</button>' +
+        '<button type="button" class="small sc-ed sc-chg hidden" data-v="changes" id="aca-scChg">View schedule</button>' +
         '<button type="button" class="primary sc-ed" data-v="add">Add time</button>' +
         '<button type="button" class="primary sc-flexbtn hidden" data-v="addflex">Add flex time</button>' +
       "</div>" +
@@ -432,7 +436,7 @@
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
       '<div class="sc-sum hidden" id="aca-scPeak"></div></details>' +
       '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the 207 Photo Booking Google Calendar that aren&#39;t bookings show under From Google Calendar (bookings are never shown twice), and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off. Untick Google Calendar to hide them.</p>' +
-        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">Changes to people&#39;s schedules from today on are saved up under Send changes: each person gets one email with their changed days when you send.</span> Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
+        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">View schedule shows the email a person would get with their next two weeks (days that changed since they were last told are marked) and sends it to them from there.</span> Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     // Phones open on a list of today and tomorrow (2026-10-23, Jeremiah's pick); the grids are one tap away.
@@ -821,7 +825,7 @@
     // Week and 2 weeks show a card per bar (time, name, drive, answer) instead of tiny to-scale bars; Month is a
     // calendar; the day view prints leave / back times and the time now; a Problems list; weather on outdoor
     // days; Color by; a map beside the day and week; Google Calendar events behind a show/hide tick; each
-    // person's phone calendar link; and Send changes (one email per person instead of nothing or one per change).
+    // person's phone calendar link; and View schedule (each person's next two weeks as they'd get it, sent from there).
     const daysOf = () => Array.from({ length: data.span || 7 }, (_, i) => T.addDays(data.start, i));
     const PALETTE = ["#2f6db5", "#7b5cc4", "#1f8a84", "#c0603a", "#8a6d1f", "#b03a74", "#4a7a2c", "#5b6577"];
     const hashIdx = (s) => { let h = 0; for (const c of String(s || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % PALETTE.length; };
@@ -1148,7 +1152,8 @@
         (routes ? '<div class="sc-routes">' + routes + "</div>" : "") + (list ? '<ol class="sc-maplist">' + list + "</ol>" : "") + "</div></div>";
     }
 
-    // ---- send changes: one email per person with their changed days
+    // ---- View schedule (2026-10-24, Jeremiah): pick a person, see the email they'd get with their next two
+    // weeks (changed days marked), and send it to them from here. Sending counts their saved-up changes as told.
     let changes = [];
     async function loadChanges() {
       const btn = el("scChg");
@@ -1158,37 +1163,53 @@
         if (error) throw error;
         changes = d || [];
       } catch (_e) { changes = []; }
-      btn.classList.toggle("hidden", !changes.length);
-      btn.textContent = "Send changes (" + changes.length + ")";
+      btn.classList.remove("hidden");
+      btn.textContent = "View schedule" + (changes.length ? " (" + changes.length + " changed)" : "");
     }
     function openChanges() {
-      const m = openModal('<div class="sc-modal"><h2>Send schedule changes</h2>' +
-        '<p class="sc-note">Changes to people&#39;s schedules from today on are saved up here instead of going out one at a time. Each person you send to gets one email with their changed days as they are now. Time off and flex time people add themselves aren&#39;t included.</p>' +
-        '<ul class="sc-pick" id="aca-scChgList">' + changes.map((c) => '<li><input type="checkbox" value="' + esc(c.user_id) + '"' + (c.has_email ? " checked" : " disabled") + ' aria-label="' + esc(c.name) + '" /><span><span class="n">' + esc(T.shortName(c.name)) + "</span>" +
-          '<span class="s">' + esc((c.days || []).slice().sort().map((d) => T.fmtDay(d, { calendar: true })).join(", ")) + (c.has_email ? "" : " &middot; no email address") + "</span></span>" +
-          '<button type="button" class="link" data-m="preview" data-user="' + esc(c.user_id) + '">Preview</button></li>').join("") + "</ul>" +
-        '<div id="aca-scChgPrev"></div><div class="inline-error hidden" id="aca-scMErr"></div>' +
-        '<div class="modal-actions"><button type="button" class="small" data-m="drop" title="Mark these as done without emailing anyone">Don&#39;t send</button><span class="grow"></span><button type="button" class="small" data-m="cancel">Close</button><button type="button" class="primary" data-m="send">Send</button></div></div>');
-      const picked = () => [...m.querySelectorAll("#aca-scChgList input:checked")].map((x) => x.value);
+      const changed = (uid) => changes.find((c) => c.user_id === uid);
+      const people = data.people.slice().sort((a, b) => (changed(b.user_id) ? 1 : 0) - (changed(a.user_id) ? 1 : 0));
+      if (!people.length) return toast("Nobody on the team yet.");
+      const m = openModal('<div class="sc-modal sc-viewmodal"><h2>View schedule</h2>' +
+        '<div class="field"><label for="aca-scVwWho">Whose schedule</label><select id="aca-scVwWho">' + people.map((p) => '<option value="' + esc(p.user_id) + '">' + esc(p.name) +
+          (changed(p.user_id) ? " \u00b7 changed" : "") + "</option>").join("") + "</select></div>" +
+        '<p class="sc-note" id="aca-scVwInfo"></p><div id="aca-scVwBox"></div><div class="inline-error hidden" id="aca-scMErr"></div>' +
+        '<div class="modal-actions"><button type="button" class="small hidden" data-m="drop" title="Count their changes as told without emailing them">Don&#39;t send their changes</button><span class="grow"></span>' +
+        '<button type="button" class="small" data-m="cancel">Close</button><button type="button" class="primary" data-m="send">Send to them</button></div></div>');
+      const who = m.querySelector("#aca-scVwWho"), info = m.querySelector("#aca-scVwInfo"), box = m.querySelector("#aca-scVwBox"), send = m.querySelector('[data-m="send"]');
+      let cur = null, seq = 0;
+      async function show() {
+        const uid = who.value, my = ++seq, name = personName(uid);
+        el("scMErr").classList.add("hidden");
+        box.innerHTML = '<p class="sc-note">Loading&#8230;</p>'; info.textContent = ""; send.disabled = true;
+        m.querySelector('[data-m="drop"]').classList.toggle("hidden", !changed(uid));
+        const { data: d, error } = await sb.rpc("schedule_view_preview", { p_user: uid });
+        if (my !== seq) return;
+        if (error) { box.innerHTML = ""; return mErr(cleanErr(error)); }
+        cur = d;
+        info.innerHTML = "What " + esc(name) + " would get for the next two weeks" + (d.changed ? ", with " + num(d.changed) + " changed day" + (d.changed === 1 ? "" : "s") + " marked" : "") + ". " +
+          (d.has_email ? "To: " + esc(d.email) : '<b class="sc-bad">No email address on the Team page.</b>');
+        box.innerHTML = '<p class="sc-vwsub"><b>' + esc(d.subject) + '</b></p><iframe class="sc-vwframe" sandbox="" title="' + esc("The email " + name + " would get") + '"></iframe>';
+        box.querySelector("iframe").srcdoc = d.html;
+        send.disabled = !d.has_email;
+        send.textContent = "Send to " + name;
+      }
+      who.addEventListener("change", show);
+      show();
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") return m.close();
-        if (t.dataset.m === "preview") {
-          const box = m.querySelector("#aca-scChgPrev");
-          box.innerHTML = '<p class="sc-note">Loading&#8230;</p>';
-          const { data: d, error } = await sb.rpc("schedule_changes_preview", { p_user: t.dataset.user });
-          box.innerHTML = error ? '<p class="sc-note">' + esc(cleanErr(error)) + "</p>" : d ? '<div class="sc-chgprev"><b>' + esc(d.subject) + "</b><pre>" + esc(d.text) + "</pre></div>" : '<p class="sc-note">Nothing to send for them any more.</p>';
-          return;
-        }
         if (t.dataset.m !== "send" && t.dataset.m !== "drop") return;
-        const who = picked();
-        if (!who.length) return mErr("Tick at least one person.");
+        const uid = who.value, name = personName(uid);
         t.disabled = true;
-        const { data: r, error } = await sb.rpc("schedule_changes_send", { p_users: who, p_send: t.dataset.m === "send" });
-        if (error) { t.disabled = false; return mErr(cleanErr(error)); }
-        m.close();
-        toast(t.dataset.m === "send" ? "Sent to " + num(r.sent) + " " + (r.sent === 1 ? "person" : "people") + "." + (r.no_email ? " " + r.no_email + " had no email address." : "") : "Marked as done. Nothing was sent.");
-        loadChanges();
+        const { error } = t.dataset.m === "send" ? await sb.rpc("schedule_view_send", { p_user: uid }) : await sb.rpc("schedule_changes_send", { p_users: [uid], p_send: false });
+        t.disabled = false;
+        if (error) return mErr(cleanErr(error));
+        toast(t.dataset.m === "send" ? "Sent " + name + " their next two weeks." : name + "'s changes are marked as told. Nothing was sent.");
+        await loadChanges();
+        const o = who.selectedOptions[0]; if (o) o.textContent = name;
+        m.querySelector('[data-m="drop"]').classList.add("hidden");
+        if (t.dataset.m === "send") send.textContent = "Sent. Send again";
       });
     }
 
