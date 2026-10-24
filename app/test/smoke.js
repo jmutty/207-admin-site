@@ -187,6 +187,11 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click('#aca-bkBody tr[data-id="bk1"]');
     await page.waitForSelector("#aca-jpTabs button");
     check(page.url().endsWith("#jobs/job/bk1") && await page.$eval("#aca-bkPanel", (n) => n.classList.contains("hidden")), "a row goes straight to the job page, no preview");
+    // Editor (2026-10-24): picked on the Overview, the editing time goes to them
+    await page.selectOption("#aca-jpEditor", "u2");
+    await page.waitForTimeout(150);
+    { const c = await page.evaluate(() => window.__rpcCalls.filter((x) => x[0] === "job_editor_set").pop());
+      check(c && c[1].p_booking === "bk1" && c[1].p_user === "u2", "Editor pick saves: " + JSON.stringify(c && c[1])); }
     // Email the job's contacts from the job page (2026-10-23)
     await page.waitForSelector("#aca-jpMails h3");
     check((await page.textContent("#aca-jpMails")).includes("Gym change"), "Overview lists emails sent from this job");
@@ -771,6 +776,10 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.click("#aca-scProbBtn");
     const probs = await page.textContent("#aca-scProblems");
     check(probs.includes("Island Cheer & Tumbling has nobody on it yet") && probs.includes("no start time"), "Problems lists jobs with nobody and no start time: " + probs.slice(0, 200));
+    // Editing time for the Lead (2026-10-24): due time on the card, a late one in Problems (when its day is still on screen from today)
+    check((await page.textContent('#aca-scGrid .scc-card[data-entry="se10"]')).includes("due "), "editing time card shows when it's due");
+    const lateOn = await page.$eval('#aca-scGrid .scc-card[data-entry="se11"]', (n) => !!n).catch(() => false);
+    if (lateOn && probs.includes("Bucksport")) check(probs.includes("Editing: Bucksport Middle ends after it’s due"), "Problems: editing set after it's due");
     await page.click("#aca-scProbBtn");
     check(!(await visible(page, "#aca-scProblems")), "Problems folds away");
     await page.selectOption("#aca-scColor", "person");
@@ -1630,7 +1639,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.isVisible(".sc-modal") && !(await page.$(".sc-modal [data-m=save]")), "a bar opens its details, not an editor");
     await page.click('.sc-modal [data-m="ok"]');
     check(await visible(page, '#aca-panel-schedule [data-v="addflex"]'), "staff: Add flex time shown");
-    await page.click("#aca-scGrid .scc-card.scc-flex");
+    await page.click('#aca-scGrid .scc-card.scc-flex[data-entry="se6"]');
     await page.waitForSelector("#aca-scT");
     check((await page.$$('.sc-modal input[name="aca-scK"]')).length === 1 && (await page.$$("#aca-scP option")).length === 1 && await page.isVisible('.sc-modal [data-m="remove"]'), "staff: their flex bar opens an editor limited to flex time for themselves");
     await page.evaluate(() => { const s = document.getElementById("aca-scS"), e = document.getElementById("aca-scE"); s.value = "13:00"; e.value = "15:00"; s.dispatchEvent(new Event("change", { bubbles: true })); e.dispatchEvent(new Event("change", { bubbles: true })); });

@@ -519,6 +519,11 @@
     {
       const W = RPC.schedule_week, roles = [{ id: "r1", label: "Lead" }, { id: "r2", label: "Second shooter" }, { id: "r3", label: "Posing" }, { id: "r4", label: "Check-in" }];
       W.people[0].roles = ["r1"]; W.people[1].roles = ["r2", "r4"]; W.people[2].roles = ["r3"];
+      // Editing time for the Lead (2026-10-24): one placed after the shoot, one moved past its due time
+      W.entries.push({ id: "se10", user_id: "u1", kind: "flex", booking_id: null, starts_at: at(add(sun, 2), "13:00"), ends_at: at(add(sun, 2), "15:00"), drive_before_min: 0, drive_after_min: 0, setup_min: 0, teardown_min: 0,
+        title: "Editing: Hampden Academy", note: "Added for the Lead. Move it to whenever suits you before it is due.", booking_title: null, edit_for: "se1", edit_due: at(add(sun, 3), "12:00"), edit_moved: false },
+        { id: "se11", user_id: "u1", kind: "flex", booking_id: null, starts_at: at(add(sun, 6), "15:00"), ends_at: at(add(sun, 6), "16:30"), drive_before_min: 0, drive_after_min: 0, setup_min: 0, teardown_min: 0,
+        title: "Editing: Bucksport Middle", note: "", booking_title: null, edit_for: "se8", edit_due: at(add(sun, 6), "14:30"), edit_moved: true });
       Object.assign(W.entries[0], { role_id: "r1", role: "Lead", confirm: { status: "confirmed", reason: "", asked_at: iso(-2), answered_at: iso(-1), changed: false } });
       Object.assign(W.entries[1], { role_id: "r2", role: "Second shooter", confirm: { status: "pending", reason: "", asked_at: iso(-1), answered_at: null, changed: false } });
       W.crew = { roles, needed: { bk1: 3 }, declined: [{ booking_id: "bk1", user_id: "u5", name: "Alex Assistant", reason: "Dentist", answered_at: iso(-1) }],
@@ -705,6 +710,7 @@
     }
     RPC.booking_set_makeup = { ok: true, crew_moved: 0, crew_removed: 0 };
     // view-only Bookings: no Edit booking. A part-timer (Open jobs only) opens a job they are on: crew access only.
+    RPC.job_get.editor_options = [{ user_id: "u1", name: "Jeremiah Mutty" }, { user_id: "u2", name: "Sam Helper" }]; RPC.job_editor_set = { ok: true };
     if (AS_VIEWER) RPC.job_get.can = Object.assign({}, RPC.job_get.can, { bookings_edit: false });
     if (AS_PART) RPC.job_get.can = { bookings: false, bookings_edit: false, pictureday: false, workflows: false, results: false, scheduling: false, crew: true };
     // My jobs: from home, and their own checklist steps on the job

@@ -351,12 +351,22 @@
         '<div class="jp-sec"><h3>Crew</h3>' + (crew.length ? '<ul class="jp-rows">' + crew.map((p) => "<li><span>" + esc(p.name) + (p.note ? ' <span class="muted">' + esc(p.note) + "</span>" : "") +
           '</span><span class="r">' + esc(T.fmtDay(T.local(p.starts_at).day, { weekday: "short" }) + ", " + timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at)) +
           (p.drive_before_min ? " \u00b7 " + num(p.drive_before_min) + " min drive" : "") + "</span></li>").join("") + "</ul>"
-          : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>.' : "") + "</div>") + "</div>" +
+          : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>.' : "") + "</div>") +
+        editorHtml(b) + "</div>" +
         "</div></div>";
       loadMails(b.id);
       renderOnsite(b);
       renderMakeup(b);
       renderLatest(b);
+      box.onchange = async (e) => {
+        if (e.target.id !== "aca-jpEditor") return;
+        const sel = e.target; sel.disabled = true;
+        const { error } = await sb.rpc("job_editor_set", { p_booking: b.id, p_user: sel.value || null });
+        sel.disabled = false;
+        if (error) { toast(cleanErr(error), true); return; }
+        toast(sel.value ? "Editing time goes to " + sel.options[sel.selectedIndex].text + " now." : "Editing time goes to the Lead now.");
+        load(b.id, "overview");
+      };
       box.onclick = async (e) => {
         const em = e.target.closest("[data-mail]");
         if (em) { e.preventDefault(); em.closest("li").classList.toggle("open"); return; }
@@ -369,6 +379,16 @@
         toast(t.dataset.who + " is off this job's emails.");
         load(b.id, "overview");
       };
+    }
+    // Editor (2026-10-24): who edits this job. The editing time (Flex, 1 h for the first hour of shooting, 30 min an
+    // hour after that, due 24 h after) goes on their schedule; with nobody picked it goes to the Lead.
+    function editorHtml(b) {
+      const opts = J.editor_options;
+      if (!opts && !b.editor_id) return "";
+      return '<p class="jp-editor" style="margin:10px 0 0;font-size:13px"><label for="aca-jpEditor"><b>Editor</b></label> ' +
+        (opts ? '<select id="aca-jpEditor" class="small"><option value="">The Lead edits</option>' + opts.map((p) => '<option value="' + esc(p.user_id) + '"' + (p.user_id === b.editor_id ? " selected" : "") + ">" + esc(p.name) + "</option>").join("") + "</select>"
+          : esc(b.editor_name || "Someone")) +
+        '<br><span class="muted">Gets the editing time on their schedule, due 24 hours after each shoot.</span></p>';
     }
     // ---------------------------------------------------------------- email the job's contacts (2026-10-23)
     // The header's Email button writes to the people under "Who gets the emails", with the partner page's composer
