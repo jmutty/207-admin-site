@@ -169,6 +169,14 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const row1 = await page.textContent('#aca-bkBody tr[data-id="bk1"] .bk-c-stage');
     check(row1.includes("In production") && row1.includes("1 of 3 delivered") && row1.includes("1 overdue"), "list shows the stage and deliverables: " + row1.trim());
     check((await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-c-stage')).includes("Booked"), "list shows Booked for a new job");
+    // One line per cell at a glance; the rest opens in a popup on hover (2026-10-24)
+    check(!(await page.isVisible('#aca-bkBody tr[data-id="bk1"] .bk-c-stage .bk-more')) && !(await page.isVisible('#aca-bkBody tr[data-id="bk1"] .bk-c-job .bk-type')), "stage details and job type are hidden at a glance");
+    await page.hover('#aca-bkBody tr[data-id="bk1"] .bk-c-stage .pill');
+    await page.waitForSelector(".bk-stgpop:not(.hidden)");
+    check((await page.textContent(".bk-stgpop")).includes("1 of 3 delivered"), "hovering Stage shows the deliverables");
+    await page.hover('#aca-bkBody tr[data-id="bk1"] .bk-c-job strong');
+    check((await page.textContent(".bk-stgpop")).includes("Sports"), "hovering the job shows its type: " + (await page.textContent(".bk-stgpop")));
+    await page.mouse.move(5, 5);
     const bk2When = await page.textContent('#aca-bkBody tr[data-id="bk2"] .bk-date');
     check(/^\d+\/\d+, \d+\/\d+, \d+\/\d+$/.test(bk2When.trim()), "a multi-day job lists each of its three dates, not a range: " + bk2When);
     await page.selectOption("#aca-bkStage", ":overdue");
@@ -2830,8 +2838,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "notes_peek").length >= 2), "adding a partner note reloads the box");
     await page.goto(page.url().replace(/#.*/, "#jobs/job/bk1")); await page.waitForSelector("#aca-jpLatest .jp-orghd");
     check((await page.textContent("#aca-jpLatest")).includes("Met Chris"), "job Overview: the partner's newest note under the job's");
-    await page.goto(page.url().replace(/#.*/, "#jobs/bookings")); await page.waitForSelector('#aca-bkBody [data-nt-job="bk1"] .nt-k');
-    check((await page.textContent('#aca-bkBody [data-nt-job="bk1"]')).includes("Parking is behind"), "Jobs list: newest note under the job name");
+    await page.goto(page.url().replace(/#.*/, "#jobs/bookings")); await page.waitForSelector('#aca-bkBody [data-nt-job="bk1"] .nt-k', { state: "attached" });
+    await page.hover('#aca-bkBody tr[data-id="bk1"] .bk-c-job strong');
+    check((await page.textContent(".bk-stgpop")).includes("Parking is behind"), "Jobs list: newest note in the job name's hover popup");
     await page.goto(page.url().replace(/#.*/, "#partners/orgs")); await page.waitForSelector('#aca-ogBody [data-nt-org] .nt-k');
     check((await page.textContent('#aca-ogBody [data-nt-org="11111111-1111-1111-1111-111111111111"]')).includes("Met Chris"), "Partners list: newest note under the name");
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
