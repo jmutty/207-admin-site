@@ -38,9 +38,9 @@ select pg_temp.ok((select kind = 'flex' and user_id = '00000000-0000-0000-0000-0
 select pg_temp.ok((select starts_at = '2027-03-03 17:30-05' and ends_at = '2027-03-03 19:00-05' from ed), 'right after they get home');
 select pg_temp.ok((select edit_due = '2027-03-04 16:00-05' and not edit_moved from ed), 'due 24 hours after the shoot');
 
--- a late shoot: no room before 9pm, so 8am the next morning
+-- a late shoot: no room before 9pm, so the next morning after a 12 hour break (home 8:30pm -> 8:30am)
 update public.schedule_entries set starts_at = '2027-03-03 17:00-05', ends_at = '2027-03-03 19:00-05' where id = '00000000-0000-0000-0000-00000000ee01';
-select pg_temp.ok((select starts_at = '2027-03-04 08:00-05' from ed), 'late shoot: next morning at 8');
+select pg_temp.ok((select starts_at = '2027-03-04 08:30-05' from ed), 'late shoot: next morning after a 12 hour break');
 
 -- something at 8am the next day: after it, still before it's due
 insert into public.schedule_entries (user_id, kind, starts_at, ends_at, title)
@@ -56,7 +56,7 @@ select pg_temp.ok((select starts_at = '2027-03-04 13:00-05' and ends_at = '2027-
 
 -- someone else takes the bar: placed again for them
 update public.schedule_entries set user_id = '00000000-0000-0000-0000-0000000000e9' where id = '00000000-0000-0000-0000-00000000ee01';
-select pg_temp.ok((select user_id = '00000000-0000-0000-0000-0000000000e9' and not edit_moved and starts_at = '2027-03-04 08:00-05' from ed), 'follows the new person');
+select pg_temp.ok((select user_id = '00000000-0000-0000-0000-0000000000e9' and not edit_moved and starts_at = '2027-03-04 09:45-05' from ed), 'follows the new person');
 
 -- the Lead role moves to the second shooter: editing moves with it
 update public.schedule_entries set role_id = (select other from ids) where id = '00000000-0000-0000-0000-00000000ee01';
@@ -74,10 +74,17 @@ select pg_temp.ok((select title = 'Editing: Edit Test Lax' from public.schedule_
 -- an Editor picked for the job: the editing time goes on their schedule, timed from when the Lead gets home
 select public.job_editor_set('00000000-0000-0000-0000-00000000eb01', '00000000-0000-0000-0000-0000000000e9');
 create temp view ed2 as select e.* from public.schedule_entries e where e.edit_for = '00000000-0000-0000-0000-00000000ee02';
-select pg_temp.ok((select user_id = '00000000-0000-0000-0000-0000000000e9' and starts_at = '2027-03-04 08:00-05' from ed2), 'Editor gets it, around their own day (busy that evening)');
+select pg_temp.ok((select user_id = '00000000-0000-0000-0000-0000000000e9' and starts_at = '2027-03-04 09:45-05' from ed2), 'Editor gets it, around their own day (busy until 9:45pm, so 12 hours later)');
 select pg_temp.ok((select (j -> 'booking' ->> 'editor_name') = 'Takes Over' and jsonb_array_length(j -> 'editor_options') >= 3 from public.job_get('00000000-0000-0000-0000-00000000eb01') j), 'job page shows the Editor and who can be picked');
 select public.job_editor_set('00000000-0000-0000-0000-00000000eb01', null);
 select pg_temp.ok((select user_id = '00000000-0000-0000-0000-0000000000e8' and starts_at = '2027-03-03 17:30-05' from ed2), 'no Editor: back to the Lead');
+
+-- a long day: 6:30am-3:30pm out is 9 hours, so editing waits for the next morning (8am; the 12 hour break is over)
+insert into public.schedule_entries (id, user_id, kind, booking_id, starts_at, ends_at, setup_min, teardown_min, drive_before_min, drive_after_min, role_id)
+values ('00000000-0000-0000-0000-00000000ee04', '00000000-0000-0000-0000-0000000000e7', 'job', '00000000-0000-0000-0000-00000000eb01',
+        '2027-04-07 08:00-04', '2027-04-07 14:00-04', 30, 30, 60, 60, (select lead from ids));
+select pg_temp.ok((select starts_at = '2027-04-08 08:00-04' and ends_at = '2027-04-08 11:30-04' from public.schedule_entries where edit_for = '00000000-0000-0000-0000-00000000ee04'), 'over 8 hours that day: next morning');
+select pg_temp.ok(public.edit_day_min('00000000-0000-0000-0000-0000000000e7', '2027-04-07', null) = 540, 'day minutes count drive, setup and teardown');
 
 -- job bar removed: editing goes with it; past jobs get nothing new
 delete from public.schedule_entries where id = '00000000-0000-0000-0000-00000000ee02';

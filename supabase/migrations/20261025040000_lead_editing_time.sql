@@ -2,9 +2,10 @@
 -- bar titled "Editing: <job>". Length: the first hour of shooting counts 1:1, every hour after that 30 min
 -- (2 h shoot = 1.5 h editing), rounded up to 15 min. Shooting time is the bar itself (starts_at..ends_at): no
 -- setup, teardown or drive. Due 24 hours after the shoot ends.
--- Where it goes: right after they get home (the end of the trip, drive included) if it fits before 9pm that day;
--- else the next morning from 8am, ending by the due time (so before they leave for anything else); else the first
--- gap that next day; else 8am next day anyway. Flex time is the Lead's own to move, resize or remove.
+-- Where it goes: right after they get home (the end of the trip, drive included) if it fits before 9pm that day
+-- and keeps their day at 8 hours or less; else the next morning from 8am, after a 12 hour break from the end of
+-- their day, ending by the due time (so before they leave for anything else); else without the full break; else
+-- the first gap that next day; else 8am next day anyway. Flex time is the Lead's own to move, resize or remove.
 -- Kept in step: when the job bar changes (time, person, role, trip) the editing bar is placed again, unless the
 -- Lead already moved it themselves (edit_moved); then only its length follows the job. No longer Lead, job not
 -- booked or the job bar removed = the editing bar goes. Each day of a multi-day job is its own job bar, so each
@@ -54,12 +55,33 @@ begin
   return case when v_at + v_len <= p_to then v_at end;
 end $$;
 
+-- Minutes p_user works on Eastern day p_day (drive, setup and teardown included, time off not), and when their last
+-- bar that day ends; both leave out p_skip. A day stops at 8 hours (Jeremiah): editing that would go past it waits
+-- for the next morning, after a 12 hour break when there's time before it's due.
+create function public.edit_day_min(p_user uuid, p_day date, p_skip uuid) returns integer
+language sql stable security definer set search_path to '' as $$
+  select coalesce(sum(greatest(0, extract(epoch from
+           least(e.ends_at + make_interval(mins => e.drive_after_min + e.teardown_min), (p_day + 1)::timestamp at time zone 'America/New_York')
+         - greatest(e.starts_at - make_interval(mins => e.drive_before_min + e.setup_min), p_day::timestamp at time zone 'America/New_York')) / 60)), 0)::int
+    from public.schedule_entries e
+   where e.user_id = p_user and e.kind <> 'off' and e.id is distinct from p_skip
+     and e.starts_at - make_interval(mins => e.drive_before_min + e.setup_min) < (p_day + 1)::timestamp at time zone 'America/New_York'
+     and e.ends_at + make_interval(mins => e.drive_after_min + e.teardown_min) > p_day::timestamp at time zone 'America/New_York'
+$$;
+create function public.edit_day_end(p_user uuid, p_day date, p_skip uuid) returns timestamptz
+language sql stable security definer set search_path to '' as $$
+  select max(e.ends_at + make_interval(mins => e.drive_after_min + e.teardown_min))
+    from public.schedule_entries e
+   where e.user_id = p_user and e.kind <> 'off' and e.id is distinct from p_skip
+     and (e.starts_at at time zone 'America/New_York')::date = p_day
+$$;
+
 -- Make, place, resize or remove the editing bar for one job bar
 create function public.edit_sync(p_job uuid) returns void
 language plpgsql security definer set search_path to '' as $$
 declare
   j public.schedule_entries; x public.schedule_entries;
-  v_len int; v_due timestamptz; v_home timestamptz; v_day date; v_at timestamptz; v_title text; v_who uuid;
+  v_len int; v_due timestamptz; v_home timestamptz; v_day date; v_at timestamptz; v_title text; v_who uuid; v_m timestamptz; v_rest timestamptz; v_eod2 timestamptz;
   v_tz text := 'America/New_York';
 begin
   select * into j from public.schedule_entries where id = p_job;
@@ -91,11 +113,17 @@ begin
       from public.schedule_entries e
      where e.user_id = j.user_id and e.kind = 'job' and (e.id = j.id or (j.batch_id is not null and e.batch_id = j.batch_id));
     v_day := (j.ends_at at time zone v_tz)::date;
+    v_m := (v_day + 1 + time '08:00') at time zone v_tz;
+    v_eod2 := (v_day + 1 + time '21:00') at time zone v_tz;
+    v_rest := public.edit_day_end(v_who, v_day, x.id) + interval '12 hours';  -- null if they didn't work that day
     v_at := coalesce(
-      public.edit_slot(v_who, v_home, (v_day + time '21:00') at time zone v_tz, v_len, x.id),
-      public.edit_slot(v_who, (v_day + 1 + time '08:00') at time zone v_tz, least(v_due, (v_day + 1 + time '21:00') at time zone v_tz), v_len, x.id),
-      public.edit_slot(v_who, (v_day + 1 + time '08:00') at time zone v_tz, (v_day + 1 + time '21:00') at time zone v_tz, v_len, x.id),
-      (v_day + 1 + time '08:00') at time zone v_tz);
+      case when public.edit_day_min(v_who, v_day, x.id) + v_len <= 480
+           then public.edit_slot(v_who, v_home, (v_day + time '21:00') at time zone v_tz, v_len, x.id) end,
+      public.edit_slot(v_who, greatest(v_m, v_rest), least(v_due, v_eod2), v_len, x.id),
+      public.edit_slot(v_who, v_m, least(v_due, v_eod2), v_len, x.id),
+      public.edit_slot(v_who, greatest(v_m, v_rest), v_eod2, v_len, x.id),
+      public.edit_slot(v_who, v_m, v_eod2, v_len, x.id),
+      greatest(v_m, v_rest));
     if x.id is null then
       insert into public.schedule_entries (user_id, kind, starts_at, ends_at, title, note, edit_for, edit_due, edit_min)
       values (v_who, 'flex', v_at, v_at + make_interval(mins => v_len), v_title,
@@ -112,6 +140,7 @@ begin
 end $$;
 revoke all on function public.edit_slot(uuid, timestamptz, timestamptz, integer, uuid) from public, anon, authenticated;
 revoke all on function public.edit_sync(uuid) from public, anon, authenticated;
+revoke all on function public.edit_day_min(uuid, date, uuid), public.edit_day_end(uuid, date, uuid) from public, anon, authenticated;
 
 -- An editing bar the person moves or resizes themselves stays where they put it.
 create function public.edit_entry_moved() returns trigger
