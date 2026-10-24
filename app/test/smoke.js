@@ -1429,6 +1429,29 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
   }
+  {
+    // Schedule: a makeup day with no time takes the time given while assigning (it was stuck on "no start time")
+    const { page, errors } = await open(browser, port, "?makeup=1", "#staff/schedule");
+    await page.waitForSelector("#aca-scProbBtn");
+    await page.click("#aca-scProbBtn");
+    await page.waitForSelector("#aca-scProblems li");
+    const pb = page.locator("#aca-scProblems li", { hasText: "Gould Academy makeup day has no time yet" });
+    check(await pb.count() === 1, "Problems names the untimed makeup day: " + (await page.textContent("#aca-scProblems")).slice(0, 300));
+    if (await pb.count()) {
+      await pb.locator("button").click();
+      await page.waitForSelector(".sc-modal .sc-note");
+      check((await page.textContent(".sc-modal")).includes("become the makeup day"), "the dialog says the time becomes the makeup day's");
+      check((await page.inputValue("#aca-scS")) === "11:00" && (await page.inputValue("#aca-scE")) === "13:00", "starts from the crew's 11-1, not 9-11");
+      check((await page.textContent('.sc-modal [data-m="save"]')).trim() === "Save time", "Save time with nobody ticked");
+      await page.evaluate(() => { window.__rpcCalls.length = 0; });
+      await page.click('.sc-modal [data-m="save"]');
+      await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_set_makeup"));
+      const mc = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "booking_set_makeup").pop());
+      check(mc[1].p_booking === "bkM" && mc[1].p.start_time === "11:00" && mc[1].p.end_time === "13:00", "saves the makeup day's time: " + JSON.stringify(mc[1]));
+    }
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
   console.log("One Outbox (owner)");
   {
     const { page, errors } = await open(browser, port, "", "#partners/ready");

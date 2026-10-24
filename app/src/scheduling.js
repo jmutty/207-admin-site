@@ -493,6 +493,13 @@
     const canChange = (e) => !e.gcal && (editable() || (e.kind === "flex" && isMine(e.user_id)));
     const personName = (id) => { const p = data && data.people.find((x) => x.user_id === id); return p ? p.name : "Someone"; };
     const bookingLabel = (b) => b.title + (b.day_label ? " (" + b.day_label + ")" : "");
+    // A school's makeup day (booking_days kind makeup) can start out with no time. The first time given to it here
+    // (assigning, or changing a crew bar) becomes the makeup day's own time, so the calendar event gets it too.
+    const untimedMakeup = (b) => !!b && b.day_label === "Makeup day" && !b.start_at;
+    async function setMakeupTime(b, st, et) {
+      const { error } = await sb.rpc("booking_set_makeup", { p_booking: b.booking_id, p: { day: b.day, start_time: st, end_time: et } });
+      if (error) throw error;
+    }
     const shortTitle = (s) => String(s || "").split(" \u2022 ")[0];
     // Bulk assign (2026-10-23): Ctrl / Cmd / Shift-click jobs under Jobs not assigned (or turn on "Pick several",
     // which phones need) to pick several, then put the same people on all of them at once. Picks are kept by
@@ -1061,7 +1068,7 @@
         data.bookings.filter((b) => b.day === d && b.status === "booked").forEach((b) => {
           const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id);
           if (have < need) add(d, shortTitle(b.title) + (have ? " has " + have + " of " + need + " people" : " has nobody on it yet"), { booking: b.booking_id });
-          if (!b.start_at) add(d, shortTitle(b.title) + " has no start time", { booking: b.booking_id });
+          if (!b.start_at) add(d, shortTitle(b.title) + (b.day_label === "Makeup day" ? " makeup day has no time yet" : " has no start time"), { booking: b.booking_id });
           const wx = wxOf(b); if (wx && wx.bad) add(d, shortTitle(b.title) + " is outdoors: " + wx.text, { booking: b.booking_id });
         });
         data.people.forEach((p) => {
@@ -1554,13 +1561,16 @@
     }
     function openAssign(b) {
       const already = data.entries.filter((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day === b.day);
-      const s = b.start_at ? T.local(b.start_at).min : 9 * 60, en = b.end_at ? T.local(b.end_at).min : s + 120;
+      const mkTime = untimedMakeup(b), was = already[0];
+      const s = b.start_at ? T.local(b.start_at).min : was ? T.local(was.starts_at).min : 9 * 60;
+      const en = b.end_at ? T.local(b.end_at).min : was ? T.local(was.ends_at).min : s + 120;
       const roles = data.crew.roles || [];
       const roleSel = (pick, cls) => '<select class="' + cls + '" aria-label="Role"><option value="">No role</option>' + roles.map((r) => '<option value="' + esc(r.id) + '"' + (r.id === pick ? " selected" : "") + ">" + esc(r.label) + "</option>").join("") + "</select>";
       const cf = (e) => (e.confirm ? '<span class="pill ' + CREW_STATUS[e.confirm.status][1] + '">' + CREW_STATUS[e.confirm.status][0] + "</span>" : b.status && b.status !== "booked" ? "" : '<span class="muted">not asked</span>');
       const no = (data.crew.declined || []).filter((x) => x.booking_id === b.booking_id);
       const m = openModal('<div class="sc-modal"><h2>' + esc(bookingLabel(b)) + "</h2>" +
         '<p class="sc-facts">' + esc(T.fmtDay(b.day, { weekday: "long" })) + ", " + esc(b.start_at ? T.fmtTs(b.start_at) + "–" + T.fmtTs(b.end_at) : "time not set yet") + (b.location ? "<br>" + esc(b.location) : "") + "</p>" +
+        (mkTime ? '<p class="sc-note">The start and end under Times and drive become the makeup day&#39;s time (on the Google Calendar too). Press Save time, or tick people and add them.</p>' : "") +
         '<div class="field"><label for="aca-scNeed">People needed</label><input type="number" id="aca-scNeed" min="1" max="20" step="1" value="' + neededOf(b.booking_id) + '" style="width:90px" /></div>' +
         (already.length ? '<h3 class="sc-sub">On it</h3><ul class="sc-onit">' + already.map((e) => "<li><b>" + esc(personName(e.user_id)) + "</b>" + (e.role ? " (" + esc(e.role) + ")" : "") + " " + cf(e) +
           ' <span class="s">' + esc(T.fmtTs(e.starts_at)) + "–" + esc(T.fmtTs(e.ends_at)) + ", drive " + num(e.drive_before_min) + "/" + num(e.drive_after_min) + " min" + (e.batch_id ? ", batched" : "") + "</span>" +
@@ -1576,7 +1586,7 @@
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
         (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home. Ticking one person shows their drive here; with several ticked, each gets their own.</p>' : "") + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
-        '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
+        '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (mkTime ? "Save time" : "Add to the schedule") + '</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
       const timesTxt = () => {
         const st = el("scS").value, et = el("scE").value, v = driveVals(m);
@@ -1613,6 +1623,7 @@
         timesTxt();
       }
       pick.addEventListener("change", followPick);
+      if (mkTime) pick.addEventListener("change", () => { m.querySelector('[data-m="save"]').textContent = pick.querySelector("input:checked") ? "Save time and add" : "Save time"; });
       CrewPick.options(b.booking_id, b.day).then((cp) => {
         const byId = new Map(cp.people.map((p) => [p.user_id, p]));
         cp.people.forEach((p) => { if (p.home_min != null) homeMin[p.user_id] = p.home_min; });
@@ -1644,9 +1655,17 @@
         if (t.dataset.m === "save") {
           const who = [...pick.querySelectorAll("li")].filter((li) => li.querySelector("input:checked")).map((li) => ({ user_id: li.querySelector("input").value, role_id: li.querySelector(".sc-role").value || null }));
           const st = el("scS").value, et = el("scE").value;
-          if (!who.length && needIn.value !== need0) {
+          if (mkTime) {
+            if (!st || !et) { el("scTimes").open = true; return mErr("Enter the makeup day's start and end time."); }
+            if (et <= st) { el("scTimes").open = true; return mErr("The end time has to be after the start time."); }
+          }
+          if (!who.length && (mkTime || needIn.value !== need0)) {
             t.disabled = true;
-            try { await saveNeed(); m.close(); toast("Saved."); load(); } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
+            try {
+              await saveNeed();
+              if (mkTime) await setMakeupTime(b, st, et);
+              m.close(); toast(mkTime ? "Makeup day time set. The calendar event updates in a minute." : "Saved."); load(); loadAttention();
+            } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
             return;
           }
           if (!who.length) return mErr("Pick at least one person.");
@@ -1655,6 +1674,7 @@
           t.disabled = true;
           try {
             await saveNeed();
+            if (mkTime) await setMakeupTime(b, st, et);
             let clashes = 0;
             for (const w of who) {
               const v = driveVals(m);
@@ -1850,10 +1870,14 @@
               if (el("scRole")) p.role_id = el("scRole").value || null;
             }
           }
+          // a crew bar on a makeup day with no time yet gives the makeup day its time
+          const mk = k === "job" && editable() && data.bookings.find((x) => x.booking_id === p.booking_id && x.day === el("scD").value);
+          const mkSet = untimedMakeup(mk) && el("scE").value > el("scS").value;
           t.disabled = true;
           try {
             const { data: r, error } = await sb.rpc("schedule_save", { p });
             if (error) throw error;
+            if (mkSet) await setMakeupTime(mk, el("scS").value, el("scE").value);
             m.close();
             toast((isNew ? "Added." : "Saved.") + (num(r && r.overlaps) ? " Heads up: it overlaps other time on " + personName(p.user_id) + "'s schedule." : ""), false);
             if (T.local(p.starts_at).day < data.start || T.local(p.starts_at).day >= T.addDays(data.start, 7)) anchor = T.local(p.starts_at).day;
