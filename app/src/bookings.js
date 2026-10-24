@@ -831,7 +831,7 @@
       (it.probs.filter((t) => !who || !/^(Nobody on it|Needs \d)/.test(t)).length ? '<span class="sub prob">' + esc(it.probs.filter((t) => !who || !/^(Nobody on it|Needs \d)/.test(t)).join(", ")) + "</span>" : "") + "</button>";
   }
   const tipOf = (it) => [nameOf(it.b, it.x), it.b.type_label, it.x.start ? Fmt.time(it.x.start) : "Time not set", it.x.loc, whoText(it, true), dayOf(it.x, true), it.probs.join(", ")].filter(Boolean).join("\n");
-  const holdChip = (h, today, big) => '<button type="button" class="' + (big ? "bk-wcard " : "scm-chip ") + "bk-hold" + (holdOld(h, today) ? " old" : "") + (calFocus && calFocus !== "holds" ? " dim" : "") + '" data-hold="' + esc(h.id) + '" title="' + esc("Hold: " + holdName(h) + (h.hold_until ? "\nHeld until " + Fmt.day(h.hold_until) + (holdOld(h, today) ? " (expired)" : "") : "") + (h.note ? "\n" + h.note : "")) + '">' +
+  const holdChip = (h, today, big) => '<button type="button" class="' + (big ? "bk-wcard " : "scm-chip ") + "bk-hold" + (holdOld(h, today) ? " old" : "") + (calFocus && calFocus !== "holds" ? " dim" : "") + '" data-hold="' + esc(h.id) + '" title="' + esc("Hold: " + holdName(h) + (h.hold_until ? "\nHeld until " + Fmt.day(h.hold_until) + (holdOld(h, today) ? " (expired)" : "") : "") + (h.note ? "\n" + h.note : "") + (h.calendar_status === "synced" ? "\nOn the Google Calendar" : h.calendar_status === "error" ? "\nGoogle Calendar error" : "\nAdding to the Google Calendar")) + '">' +
     (big ? '<span class="tm">Hold' + (h.hold_until ? (holdOld(h, today) ? ", expired " : " until ") + esc(Fmt.day(h.hold_until)) : "") + "</span><strong>" + esc(holdName(h)) + "</strong>" + (h.note ? '<span class="sub">' + esc(h.note) + "</span>" : "")
       : '<span class="nm">Hold: ' + esc(holdName(h)) + "</span>") + "</button>";
   const gcalChip = (c, d, big) => '<button type="button" class="' + (big ? "bk-wcard " : "scm-chip ") + "gcal bk-gc" + (calFocus ? " dim" : "") + '" data-gcal="' + esc(c.event_id) + '" data-day="' + esc(d) + '" title="' + esc("Google Calendar (not a booking): " + c.summary) + '">' +
@@ -985,7 +985,8 @@
   function openHold(h, day) {
     if (!canHold()) { if (h) toast("Hold: " + holdName(h) + (h.note ? ". " + h.note : "")); return; }
     const isNew = !h; let org = h && h.org_id ? { id: h.org_id, name: h.org_name, town: h.org_town } : null;
-    const box = dialog('<h2>' + (isNew ? "Hold a day" : "Hold") + '</h2><p class="bk-sub">A hold keeps a day for a partner before it’s booked. It shows striped on the Jobs calendar so the day isn’t given away twice. Nothing is emailed and nothing goes on the Google Calendar.</p>' +
+    const box = dialog('<h2>' + (isNew ? "Hold a day" : "Hold") + '</h2><p class="bk-sub">A hold keeps a day for a partner before it’s booked. It shows striped here and goes on the Google Calendar as an all-day “HOLD” event, so the public dates page shows the day as taken. Nothing is emailed. Book it or Let it go takes the event off.</p>' +
+      (h ? '<p class="bk-sub">' + esc({ synced: "On the Google Calendar.", pending: "Adding to the Google Calendar…", error: "Google Calendar error: " + (h.calendar_error || "will try again") }[h.calendar_status] || "") + "</p>" : "") +
       '<div class="og-grid"><label>Partner</label><div><div id="aca-hdOrg"></div><div class="bk-orgs hidden" id="aca-hdOrgList"></div></div>' +
       '<label for="aca-hdLabel">Or a label</label><input type="text" id="aca-hdLabel" value="' + esc(h ? h.label : "") + '" placeholder="e.g. Camden Hills spring sports" />' +
       '<label for="aca-hdDay">Day</label><input type="date" id="aca-hdDay" value="' + esc(h ? h.day : day || "") + '" />' +

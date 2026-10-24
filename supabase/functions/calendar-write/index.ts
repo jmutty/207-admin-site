@@ -3,6 +3,8 @@
 // Called with header x-booking-secret (Vault 'prospect_trigger_secret', checked by RPC booking_trigger_ok):
 //   POST {}                      process every booking with calendar_status pending/error (<10 attempts)   [cron]
 //   POST { "booking_id": uuid }  process that booking now                                                    [RPC pokes]
+//   POST { "hold_id": uuid }     write or remove that hold's all-day "HOLD: <name>" event (2026-10-24)       [RPC pokes]
+// The cron sweep also picks up holds left pending / error / remove (job_holds, migration 20261025170000).
 // Never called from the browser.
 //
 // Auth to Google: a service account (edge secret GOOGLE_CALENDAR_SA_JSON = the downloaded key file) that
@@ -32,16 +34,19 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch { body = {}; }
   try {
-    const ids: string[] = [];
-    if (body.booking_id) ids.push(String(body.booking_id));
+    const ids: string[] = [], holdIds: string[] = [];
+    if (body.hold_id) holdIds.push(String(body.hold_id));
+    else if (body.booking_id) ids.push(String(body.booking_id));
     else {
       const { data } = await db.from("bookings").select("id").in("calendar_status", ["pending", "error"]).lt("calendar_attempts", 10).limit(25);
       for (const r of data ?? []) ids.push(r.id);
       const { data: dd } = await db.from("booking_days").select("booking_id").in("calendar_status", ["pending", "error", "remove"]).lt("calendar_attempts", 10).limit(25);
       for (const r of dd ?? []) if (!ids.includes(r.booking_id)) ids.push(r.booking_id);
+      const { data: hh } = await db.from("job_holds").select("id").in("calendar_status", ["pending", "error", "remove"]).lt("calendar_attempts", 10).limit(25);
+      for (const r of hh ?? []) holdIds.push(r.id);
     }
-    if (!ids.length) return json({ ok: true, processed: 0 });
-    if (!SA_JSON) return json({ ok: false, error: "GOOGLE_CALENDAR_SA_JSON missing", pending: ids.length });
+    if (!ids.length && !holdIds.length) return json({ ok: true, processed: 0 });
+    if (!SA_JSON) return json({ ok: false, error: "GOOGLE_CALENDAR_SA_JSON missing", pending: ids.length + holdIds.length });
     const { data: settings } = await db.from("booking_settings").select("calendar_id").single();
     const calendarId = settings?.calendar_id;
     if (!calendarId) return json({ ok: false, error: "booking_settings.calendar_id empty" });
@@ -54,6 +59,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: msg, marked_error: ids.length });
     }
     const results = [];
+    for (const id of holdIds) results.push(await processHold(token, calendarId, id));
     for (const id of ids) { results.push(await processBooking(token, calendarId, id)); results.push(...await processExtraDays(token, calendarId, id)); }
     return json({ ok: true, processed: results.length, results });
   } catch (e) {
@@ -117,6 +123,54 @@ async function processBooking(token: string, calendarId: string, id: string) {
     return { id, outcome: "error", error: msg };
   }
 }
+// ---------------------------------------------------------------- one hold
+// An all-day event on the hold's day, so the public open-dates page shows it as taken. Let go (released_at set,
+// also when it was booked) = the event comes off; the booking writes its own.
+async function processHold(token: string, calendarId: string, id: string) {
+  const { data: h } = await db.from("job_holds").select("*").eq("id", id).single();
+  if (!h) return { hold: id, outcome: "not found" };
+  const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+  try {
+    if (h.released_at) {
+      if (h.google_event_id) {
+        const r = await fetch(`${base}/${encodeURIComponent(h.google_event_id)}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        if (!r.ok && r.status !== 404 && r.status !== 410) throw new Error(`delete ${r.status}: ${(await r.text()).slice(0, 300)}`);
+        await db.from("calendar_events").delete().eq("google_event_id", h.google_event_id);
+      }
+      await db.from("job_holds").update({ calendar_status: "deleted", google_event_id: null, calendar_error: null }).eq("id", id);
+      return { hold: id, outcome: "event removed" };
+    }
+    if (h.calendar_status === "synced") return { hold: id, outcome: "nothing to do" };
+    const { data: org } = h.org_id ? await db.from("prospect_orgs").select("name").eq("id", h.org_id).single() : { data: null };
+    const name = (org?.name || h.label || "Hold").trim();
+    const next = new Date(h.day + "T12:00:00Z"); next.setUTCDate(next.getUTCDate() + 1);
+    const ev = {
+      summary: "HOLD: " + name,
+      description: ["Held in 207 Admin, not booked yet.", h.hold_until ? "Held until " + (+h.hold_until.slice(5, 7)) + "/" + (+h.hold_until.slice(8, 10)) : "", h.note || "", "Book it or let it go on Jobs > All jobs > Calendar."].filter(Boolean).join("\n"),
+      start: { date: h.day }, end: { date: next.toISOString().slice(0, 10) }, transparency: "opaque", colorId: "8",
+      extendedProperties: { private: { admin_hold: String(h.id) } },
+    };
+    let r: Response;
+    if (h.google_event_id) {
+      r = await fetch(`${base}/${encodeURIComponent(h.google_event_id)}?sendUpdates=none`, { method: "PATCH", headers: hdrs(token), body: JSON.stringify(ev) });
+      if (r.status === 404 || r.status === 410) r = await fetch(`${base}?sendUpdates=none`, { method: "POST", headers: hdrs(token), body: JSON.stringify(ev) });
+    } else r = await fetch(`${base}?sendUpdates=none`, { method: "POST", headers: hdrs(token), body: JSON.stringify(ev) });
+    const t = await r.text();
+    if (!r.ok) throw new Error(`hold ${h.google_event_id ? "patch" : "insert"} ${r.status}: ${t.slice(0, 300)}`);
+    const g = JSON.parse(t);
+    await mirrorEvent(g);
+    // Only mark it written if nothing changed meanwhile: an edit runs again, a let-go takes the new event off.
+    const { data: upd } = await db.from("job_holds").update({ google_event_id: g.id, calendar_status: "synced", calendar_error: null, calendar_attempts: 0 })
+      .eq("id", id).eq("updated_at", h.updated_at).is("released_at", null).select("id");
+    if (!upd || !upd.length) { await db.from("job_holds").update({ google_event_id: g.id }).eq("id", id); return { hold: id, ...(await processHold(token, calendarId, id)), again: true }; }
+    return { hold: id, outcome: h.google_event_id ? "updated" : "created", event: g.id };
+  } catch (e) {
+    const msg = String((e as Error)?.message ?? e).slice(0, 500);
+    await db.from("job_holds").update({ calendar_status: "error", calendar_error: msg, calendar_attempts: (h.calendar_attempts ?? 0) + 1 }).eq("id", id);
+    return { hold: id, outcome: "error", error: msg };
+  }
+}
+
 const hdrs = (token: string) => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" });
 
 // Same row shape the hourly calendarToSupabase.gs mirror writes (title + dates only; no description/location).
