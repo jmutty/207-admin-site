@@ -507,7 +507,7 @@
       const ymd = (d) => d.toLocaleDateString("en-CA", { timeZone: TZ });
       const today = ymd(new Date()), in7 = ymd(new Date(Date.now() + 7 * 864e5)), in21 = ymd(new Date(Date.now() + 21 * 864e5));
       const { data } = await sb.rpc("admin_bookings", { p_from: ymd(new Date(Date.now() - 30 * 864e5)), p_to: null });
-      const add = (k, b) => (out[k] = out[k] || []).push({ id: b.id, title: b.org_name ? b.org_name + (b.title_label ? " · " + b.title_label : "") : b.title, day: b.picture_day });
+      const add = (k, b) => (out[k] = out[k] || []).push({ id: b.id, title: b.title || b.org_name, day: b.picture_day });
       (data || []).filter((b) => b.status === "booked").forEach((b) => {
         const day = String(b.picture_day || ""), ahead = day >= today;
         const rest = num(b.emails_waiting) - num(b.emails_waiting_time) - num(b.emails_waiting_coaches) - num(b.emails_waiting_gallery);
