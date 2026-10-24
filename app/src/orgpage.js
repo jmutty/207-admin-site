@@ -501,7 +501,7 @@
 
     // ---------------------------------------------------------------- groups (2026-10-24)
     // Draws the page again after a link changed, on the same tab when it still exists.
-    function reloadHere() { const id = O.id, t = curTab; O = null; load(id, t); safe(() => Orgs.reload()); }
+    function reloadHere() { const id = O.id, t = curTab; O = null; Snap.drop("orgp:" + id); Snap.dropAll("org:" + id + ":"); load(id, t); safe(() => Orgs.reload()); }
     async function setParent(ids, parentId) {
       const { error } = await sb.from("prospect_orgs").update({ parent_id: parentId }).in("id", ids);
       if (error) throw error;

@@ -231,6 +231,8 @@
       return changed;
     }
     function drop(key) { mem.delete(key); try { localStorage.removeItem(full(key)); } catch (_) {} }
+    // Every copy whose key starts with prefix ("org:<id>"): after a change on that page, nothing old shows first.
+    function dropAll(prefix) { [...mem.keys()].forEach((k) => { if (k.startsWith(prefix)) mem.delete(k); }); keys().forEach((k) => { if (k.startsWith(full(prefix))) { try { localStorage.removeItem(k); } catch (_) {} } }); }
     function keys() { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(P)) out.push(k); } } catch (_) {} return out; }
     // Out of room: forget the older half of the copies (oldest first by when they were saved).
     function prune() {
@@ -243,7 +245,7 @@
       who = id || "";
       try { const last = localStorage.getItem(P + "who"); if (last && last !== who) clear(); localStorage.setItem(P + "who", who); } catch (_) {}
     }
-    return { get, put, drop, clear, user };
+    return { get, put, drop, dropAll, clear, user };
   })();
   // Early (speed, 2026-10-24): a job or partner starts loading the moment a finger or the pointer lands on its link or
   // row, so the page has its answer by the time the click opens it. Early.take(key) hands over an answer under 15 s old.
