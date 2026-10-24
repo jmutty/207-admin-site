@@ -462,6 +462,7 @@
         { day: "2026-11-02", changed: false, items: [{ kind: "off", time: "All day", title: "Time off through Tue 11/3" }] }],
       text: "Hi Sam.", html: "<p>Hi Sam. Here is your schedule for the next two weeks.</p>" };
     RPC.schedule_view_send = { ok: true, email: "sam@example.com" };
+    RPC.schedule_problem_dismiss = { ok: true };
     RPC.staff_cal_link = { ok: true, token: "a".repeat(40) };
     RPC.schedule_attention = { unstaffed: 2 };
     // ?makeup=1: a school makeup day with no time yet, one person already on it 11-1

@@ -780,6 +780,21 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check((await page.textContent('#aca-scGrid .scc-card[data-entry="se10"]')).includes("due "), "editing time card shows when it's due");
     const lateOn = await page.$eval('#aca-scGrid .scc-card[data-entry="se11"]', (n) => !!n).catch(() => false);
     if (lateOn && probs.includes("Bucksport")) check(probs.includes("Editing: Bucksport Middle ends after it’s due"), "Problems: editing set after it's due");
+    // Dismiss a problem (2026-10-24): hidden and not counted, kept under "Show N dismissed", can be brought back
+    const pCount = (t) => parseInt(t, 10) || 0;
+    const n0 = pCount(await page.textContent("#aca-scProbBtn"));
+    const firstText = await page.$eval("#aca-scProblems li", (li) => li.querySelector("[data-pdis]").dataset.text);
+    await page.click("#aca-scProblems li [data-pdis=\"1\"] >> nth=0");
+    await page.waitForSelector("#aca-scProblems [data-pshow]");
+    const dcall = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_problem_dismiss").pop());
+    const n1 = pCount(await page.textContent("#aca-scProbBtn"));
+    const stillListed = await page.$$eval("#aca-scProblems ul:not(.sc-pgone) [data-pdis]", (bs, t) => bs.some((b) => b.dataset.text === t), firstText);
+    check(dcall && dcall[1].p_on === true && dcall[1].p_text === firstText && n1 === n0 - 1 && !stillListed, "Dismiss hides a problem and takes it off the count: " + firstText + " " + n0 + "->" + n1 + " listed=" + stillListed);
+    check((await page.textContent("#aca-scProblems [data-pshow]")).includes("Show 1 dismissed"), "dismissed ones can be shown");
+    await page.click("#aca-scProblems [data-pshow]");
+    await page.click("#aca-scProblems .sc-pgone [data-pdis=\"0\"]");
+    await page.waitForTimeout(150);
+    check(pCount(await page.textContent("#aca-scProbBtn")) === n0 && await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_problem_dismiss").pop()[1].p_on === false), "Bring back puts it back on the list");
     await page.click("#aca-scProbBtn");
     check(!(await visible(page, "#aca-scProblems")), "Problems folds away");
     await page.selectOption("#aca-scColor", "person");
@@ -1438,7 +1453,7 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const pb = page.locator("#aca-scProblems li", { hasText: "Gould Academy makeup day has no time yet" });
     check(await pb.count() === 1, "Problems names the untimed makeup day: " + (await page.textContent("#aca-scProblems")).slice(0, 300));
     if (await pb.count()) {
-      await pb.locator("button").click();
+      await pb.locator("button[data-pday]").click();
       await page.waitForSelector(".sc-modal .sc-note");
       check((await page.textContent(".sc-modal")).includes("become the makeup day"), "the dialog says the time becomes the makeup day's");
       check((await page.inputValue("#aca-scS")) === "11:00" && (await page.inputValue("#aca-scE")) === "13:00", "starts from the crew's 11-1, not 9-11");
