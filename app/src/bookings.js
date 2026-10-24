@@ -30,8 +30,16 @@
   .aca .bk-table td, .aca .bk-table th { padding: 12px; font-size: 13px; vertical-align: top; }
   .aca .bk-table th { font-size: 12.5px; font-weight: 400; color: var(--faint); }
   .aca .bk-table { table-layout: fixed; min-width: 960px; }
-  .aca .bk-table th.bk-c-when { width: 150px; } .aca .bk-table th.bk-c-stage { width: 170px; } .aca .bk-table th.bk-c-who { width: 150px; }
-  .aca .bk-table th.bk-c-mail { width: 170px; } .aca .bk-table th.bk-c-roster { width: 160px; }
+  .aca .bk-table th.bk-c-when { width: 150px; } .aca .bk-table th.bk-c-stage { width: 128px; } .aca .bk-table th.bk-c-who { width: 150px; }
+  .aca .bk-table th.bk-c-mail { width: 170px; } .aca .bk-table th.bk-c-roster { width: 150px; }
+  /* At a glance each cell is one line (job name, stage pill, contact name); the rest (type, place, note, deliverables,
+     checklist, emails) opens in a popup on hover (2026-10-24, Jeremiah: "not needed at a glance"). */
+  .aca .bk-table td .bk-more { display: none; }
+  .aca .bk-table td.bk-c-who .bk-who .bk-plus1 { color: var(--muted); font-weight: 400; }
+  .aca .bk-table td.bk-c-stage .bk-stg-i { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 6px; border-radius: 50%; background: var(--hidden-bg, rgba(0,0,0,.07)); color: var(--muted); font-size: 11px; font-weight: 700; vertical-align: middle; cursor: default; }
+  .aca .bk-table td.bk-c-stage .bk-stg-i.late { background: var(--err-bg); color: var(--err-fg); }
+  .aca .bk-stgpop { width: auto; min-width: 180px; max-width: 280px; } .aca .bk-stgpop > * { display: block; } .aca .bk-stgpop > * + * { margin-top: 4px; } .aca .bk-stgpop .bk-sub { font-size: 12.5px; } .aca .bk-stgpop .nt-line { white-space: normal; overflow-wrap: anywhere; }
+  .aca .bk-table td.bk-c-stage { white-space: nowrap; }
   .aca .bk-table tr.bk-row.bk-rlate > td { background: var(--err-bg); }
   /* In the list the roster reads like the columns beside it: a dot and short words, no tinted box (2026-10-24, "messy"). */
   .aca .bk-table td.bk-c-roster .roster-tag { background: none; padding: 0; white-space: normal; }
@@ -613,7 +621,9 @@
       out.push('<div class="bk-sub">' + done + " of " + num(p.deliverables_total) + " delivered" + (num(p.overdue) ? ', <span class="late">' + num(p.overdue) + " overdue</span>" : num(p.deliverables_open) && p.next_due ? ", next due " + esc(fmtDay(p.next_due)) : "") + "</div>");
     }
     out.push(checklistChip(b));
-    return out.join("");
+    const more = out.slice(1).join(""); if (!more) return out[0];
+    const late = num(p.overdue) || (checklist[b.id] && num(checklist[b.id].overdue_count));
+    return out[0] + '<span class="bk-stg-i' + (late ? " late" : "") + '" aria-hidden="true">' + (late ? "!" : "i") + '</span><div class="bk-more">' + more + "</div>";
   }
   // "Checklist: 2 to do, 1 late" (Job checklists live here now, 2026-10-24).
   function checklistChip(b) {
@@ -652,12 +662,12 @@
     const who = (b) => { const cs = b.contacts || [];
       if (!cs.length) return b.status === "tracked" ? '<span class="bk-sub">&mdash;</span>' : '<span class="pill err">no contact</span>';
       const all = cs.map((c) => (c.name && c.name !== c.email ? c.name + " <" + c.email + ">" : c.email)).join("\n");
-      return '<div class="bk-who" title="' + esc(all) + '">' + esc(cs[0].name || cs[0].email) + "</div>" +
-        (cs.length > 1 ? '<div class="bk-sub">+ ' + (cs.length - 1) + (cs.length === 2 ? " other" : " others") + "</div>" : cs[0].name && cs[0].name !== cs[0].email ? '<div class="bk-sub">' + esc(cs[0].email) + "</div>" : ""); };
+      return '<div class="bk-who" aria-label="' + esc(all) + '">' + esc(cs[0].name || cs[0].email) + (cs.length > 1 ? ' <span class="bk-plus1">+' + (cs.length - 1) + "</span>" : "") + "</div>" +
+        '<div class="bk-more">' + cs.map((c) => "<div><strong>" + esc(c.name || c.email) + "</strong>" + (c.name && c.email && c.name !== c.email ? '<div class="bk-sub">' + esc(c.email) + "</div>" : "") + "</div>").join("") + "</div>"; };
     body.innerHTML = list.map((b) => '<tr class="bk-row' + (Roster.late(b) ? " bk-rlate" : "") + '" data-id="' + esc(b.id) + '">' +
       '<td class="bk-c-when"><div class="bk-date">' + esc(Fmt.days(b)) + '</div><div class="bk-sub">' + whenTimes(b) + "</div>" + (b.makeup ? '<div class="bk-sub">Makeup day ' + esc(Fmt.day(b.makeup.day)) + "</div>" : "") + calNote(b) + "</td>" +
-      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-type" title="' + esc([b.type_label, b.location].filter(Boolean).join(" \u00b7 ")) + '">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div>" +
-        '<span class="nt-line" data-nt-job="' + esc(b.id) + '"></span></td>' +
+      '<td class="bk-c-job"><div><strong>' + esc(b.title) + '</strong></div><div class="bk-more"><div class="bk-type">' + esc(b.type_label) + (b.location ? " \u00b7 " + esc(b.location) : "") + "</div>" +
+        '<span class="nt-line" data-nt-job="' + esc(b.id) + '"></span></div></td>' +
       '<td class="bk-c-stage">' + stageCell(b) + "</td>" +
       '<td class="bk-c-roster">' + Roster.tag(b, { short: true }) + "</td>" +
       '<td class="bk-c-who">' + who(b) + "</td>" +
@@ -1025,6 +1035,20 @@
     if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest("[data-job]")) el("bkCal").querySelectorAll(".sib").forEach((n) => n.classList.remove("sib"));
   });
   window.addEventListener("scroll", () => { if (hovFor) hideHover(); }, { passive: true });
+  // List: a cell's extra lines (.bk-more: type and place, note, deliverables, checklist, emails) in a small popup on hover.
+  const stgPop = document.createElement("div"); stgPop.className = "bk-hov bk-stgpop hidden"; stgPop.setAttribute("role", "tooltip");
+  document.querySelector(".aca").appendChild(stgPop);
+  el("bkBody").addEventListener("mouseover", (e) => {
+    const td = e.target.closest("td"), more = td && td.querySelector(".bk-more");
+    if (!more) { stgPop.classList.add("hidden"); return; }
+    if (!stgPop.classList.contains("hidden") && stgPop._for === td) return;
+    stgPop._for = td; stgPop.innerHTML = more.innerHTML; stgPop.querySelectorAll(".nt-line:empty").forEach((n) => n.remove()); stgPop.classList.remove("hidden");
+    const rc = td.getBoundingClientRect(), hh = stgPop.offsetHeight, hw = stgPop.offsetWidth;
+    stgPop.style.left = Math.max(8, Math.min(rc.left + 6, window.innerWidth - hw - 8)) + "px";
+    stgPop.style.top = (rc.bottom + hh + 8 > window.innerHeight ? rc.top - hh - 4 : rc.top + 40) + "px";
+  });
+  el("bkBody").addEventListener("mouseleave", () => stgPop.classList.add("hidden"));
+  window.addEventListener("scroll", () => stgPop.classList.add("hidden"), { passive: true });
 
   // ---- holds (S): a day penciled in for a partner before it's booked
   function openHold(h, day) {
