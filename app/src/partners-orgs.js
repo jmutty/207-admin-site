@@ -43,7 +43,12 @@
   const SERVICE_NAME = Object.fromEntries(SERVICES);
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const monthsText = (o) => (o.shoot_months || []).map((m) => MONTHS[m - 1]).join(", ");
-  const DEFAULT_STATE = { q: "", group: "", stage: "", sport: "", season: "", audience: "", sp: "", month: "", service: "", svs: "", county: "", towns: [], flag: "", sort: { key: "next", dir: 1 } };
+  const DEFAULT_STATE = { q: "", group: "", stage: "", sport: "", season: "", audience: "", sp: "", month: "", service: "", svs: "", county: "", towns: [], flag: "", parent: "", grouped: false, sort: { key: "next", dir: 1 } };
+  // Partner groups (2026-10-24, migration 20261025080000): a school can be part of its district (RSU 22) and a league
+  // part of a bigger league, through prospect_orgs.parent_id, one level deep. Each stays its own partner. The list's
+  // Grouped button puts members under their group, Part of filters to one group, and searching a group's name finds
+  // its members too. "schools" for a school group, "teams" for a league group.
+  function memberWord(o, n) { const w = o && o.audience === "league" ? "team" : "school"; return n === 1 ? w : w + "s"; }
   const COUNTIES = ["Androscoggin", "Aroostook", "Cumberland", "Franklin", "Hancock", "Kennebec", "Knox", "Lincoln", "Oxford", "Penobscot",
     "Piscataquis", "Sagadahoc", "Somerset", "Waldo", "Washington", "York"];
   // School photos status (schools only), separate from the main stage (2026-09-27)
@@ -120,6 +125,7 @@
     .aca table.og-table td.og-cell { white-space: normal; word-break: break-word; }
     .aca table.og-table td .og-sub.og-mob { display: none; }
     .aca table.og-table td.c-org .og-name { white-space: normal; }
+    .aca tr.og-row.og-kid > td.c-org { padding-left: 34px; }
   }
   .aca tr.og-row { cursor: pointer; }
   .aca tr.og-row.open, .aca tr.og-row.open:hover { background: var(--sel-bg); box-shadow: inset 3px 0 0 var(--accent); }
@@ -137,6 +143,9 @@
   .aca .og-mtools select { max-width: 260px; }
   .aca #aca-ogSortM { display: none; }
   .aca .og-ftoggle { font-weight: 600; display: inline-flex; gap: 6px; align-items: center; }
+  .aca .og-gtoggle[aria-pressed="true"] { background: var(--sel-bg); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .aca tr.og-row.og-grp > td { background: var(--surface-2); }
+  .aca .og-fold { border: 0; background: none; padding: 0 6px 0 0; color: var(--faint); font-size: 13px; cursor: pointer; min-height: 0; }
   .aca .og-ftoggle[aria-expanded="true"] { background: var(--sel-bg); border-color: var(--accent); color: var(--accent); }
   .aca .og-fsel { display: none; width: 100%; }
   .aca .og-fsel.open { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 12px; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
@@ -162,6 +171,9 @@
     .aca .og-mtools #aca-ogView { grid-column: 1 / -1; max-width: none; }
     .aca .og-bar select { min-width: 0; max-width: none; width: 100%; }
     .aca .og-mtools #aca-ogViewDel { grid-column: 1 / -1; }
+    .aca .og-mtools #aca-ogGrouped { grid-column: 1 / -1; }
+    .aca tr.og-row.og-kid { margin-left: 18px; }
+    .aca tr.og-row.og-grp { background: var(--surface-2); } .aca tr.og-row.og-grp > td { background: transparent; }
     .aca .og-fsel.open { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .aca .og-mtools > * { flex: 1 1 0; min-height: 44px; font-size: 15px; }
     .aca .og-ftoggle { font-weight: 600; }
@@ -402,7 +414,7 @@
       if (!data || data.length < 1000) return out;
     }
   }
-  const ORG_COLS = "id,name,name_known,audience,stage,sports,seasons,seasons_manual,town,county,website,notes,source,personal_line,last_contact_at,last_result,last_opened_at,next_action_at,next_action,needs_new_contact,search_text,created_at,stage_changed_at,gotphoto_names,client_since,last_job_at,next_job_at,job_count,sp_status,sp_competitor,sp_until,sp_note,shoot_months,services,service_status,roles_checked_at";
+  const ORG_COLS = "id,name,name_known,audience,stage,sports,seasons,seasons_manual,town,county,website,notes,source,personal_line,last_contact_at,last_result,last_opened_at,next_action_at,next_action,needs_new_contact,search_text,created_at,stage_changed_at,gotphoto_names,client_since,last_job_at,next_job_at,job_count,sp_status,sp_competitor,sp_until,sp_note,shoot_months,services,service_status,roles_checked_at,parent_id";
 
   // ---------------------------------------------------------------- panel markup (section lives in partners.html)
   const panelEl = el("panel-orgs");
@@ -429,6 +441,7 @@
             <option value="next:1">Sort: Next up</option><option value="last:-1">Sort: Last contact (newest)</option>
             <option value="name:1">Sort: Name A&ndash;Z</option><option value="stage:1">Sort: Stage</option><option value="county:1">Sort: County</option><option value="result:1">Sort: Result</option>
           </select>
+          <button type="button" class="small og-gtoggle" id="aca-ogGrouped" aria-pressed="false" title="Put schools under their district and teams under their league">Grouped</button>
           <select id="aca-ogView" aria-label="Saved views"></select>
           <button type="button" class="small hidden" id="aca-ogViewDel">Delete view</button>
         </div>
@@ -442,6 +455,7 @@
           <label class="og-f"><span>Shoots in</span><select id="aca-ogMonth"><option value="">Any month</option>${MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("")}</select></label>
           <label class="og-f"><span>County</span><select id="aca-ogCounty"><option value="">Any</option>${COUNTIES.map((c) => `<option value="${c}">${c}</option>`).join("")}<option value="__none">Not set</option></select></label>
           <div class="og-f og-towns"><span>Towns</span><details id="aca-ogTownsBox"><summary id="aca-ogTownsSum">All towns</summary><div class="og-townlist" id="aca-ogTownList"></div></details></div>
+          <label class="og-f"><span>Part of</span><select id="aca-ogParent"><option value="">Any</option></select></label>
           <label class="og-f"><span>School photos</span><select id="aca-ogSp"><option value="">Any</option>${SP.map((x) => `<option value="${x[0]}">${x[1]}</option>`).join("")}<option value="__none">Not set</option></select></label>
           <div class="og-f og-fdone"><button type="button" class="small" id="aca-ogFClose">Done</button></div>
         </div>
@@ -553,6 +567,20 @@
     render();
   }
 
+  // group id -> its members, rebuilt on every render (the list is small and links change from the partner page)
+  let kidsBy = new Map();
+  function buildKids() {
+    kidsBy = new Map();
+    orgs.forEach((o) => { if (o.parent_id && byId.has(o.parent_id)) { if (!kidsBy.has(o.parent_id)) kidsBy.set(o.parent_id, []); kidsBy.get(o.parent_id).push(o); } });
+  }
+  function fillParents() {
+    const sel = el("ogParent");
+    const groups = [...kidsBy.keys()].map((id) => byId.get(id)).filter(Boolean).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    sel.innerHTML = '<option value="">Any</option><option value="__in">In a group</option><option value="__none">Not in a group</option>' +
+      groups.map((g) => `<option value="${esc(g.id)}">${esc(g.name)} (${kidsBy.get(g.id).length})</option>`).join("");
+    if (st.parent && st.parent[0] !== "_" && !kidsBy.has(st.parent) && byId.has(st.parent)) sel.insertAdjacentHTML("beforeend", `<option value="${esc(st.parent)}">${esc(byId.get(st.parent).name)}</option>`);
+    sel.value = st.parent || "";
+  }
   function fillSelects() {
     const sportSel = el("ogSport");
     sportSel.innerHTML = '<option value="">Any</option><option value="__none">No sport tagged</option>' +
@@ -587,7 +615,7 @@
     return true;
   }
   // Search is global: while there's search text, filters and quick buttons are paused (Jeremiah 2026-09-27)
-  const filtersActive = () => !!(st.stage || st.sport || st.season || st.audience || st.service || st.svs || st.month || st.sp || st.county || (st.towns || []).length || st.flag);
+  const filtersActive = () => !!(st.stage || st.sport || st.season || st.audience || st.service || st.svs || st.month || st.sp || st.county || (st.towns || []).length || st.flag || st.parent);
   function matches(o) {
     if (st.q) return searchHit(o);
     if (st.group && GROUP_OF[st.group] && !GROUP_OF[st.group][2].includes(o.stage)) return false;
@@ -606,10 +634,14 @@
     if (st.county && st.county !== "__none" && o.county !== st.county) return false;
     if ((st.towns || []).length && !st.towns.includes(o.town || "")) return false;
     if (st.flag && !flagOf(o, st.flag)) return false;
+    if (st.parent === "__in" && !o.parent_id && !kidsBy.has(o.id)) return false;
+    if (st.parent === "__none" && (o.parent_id || kidsBy.has(o.id))) return false;
+    if (st.parent && st.parent[0] !== "_" && o.id !== st.parent && o.parent_id !== st.parent) return false;
     return true;
   }
   function searchHit(o) {
-    const hay = (o.search_text || "") + " " + (o.name || "").toLowerCase();
+    const par = o.parent_id && byId.get(o.parent_id);
+    const hay = (o.search_text || "") + " " + (o.name || "").toLowerCase() + (par ? " " + (par.name || "").toLowerCase() : "");
     return st.q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
   }
   const SORTS = {
@@ -708,12 +740,27 @@
     const late = o.next_action_at && new Date(o.next_action_at).getTime() < Date.now() - 864e5 / 2 && /^Follow up/.test(o.next_action);
     return `<div class="og-cell${late ? " og-late" : ""}">${esc(o.next_action_at ? fmtDay(o.next_action_at) : "")}</div><div class="og-sub" title="${esc(o.next_action)}">${esc(o.next_action)}</div>`;
   }
+  // Grouped: each group's members right under it, in the same sort; a member whose group isn't shown stays on its own.
+  const folded = new Set();
+  function arrange(list) {
+    if (!st.grouped) return list;
+    const shownIds = new Set(list.map((o) => o.id)), out = [];
+    list.forEach((o) => {
+      if (o.parent_id && shownIds.has(o.parent_id)) return;
+      out.push(o);
+      if (kidsBy.has(o.id) && !folded.has(o.id)) list.forEach((k) => { if (k.parent_id === o.id) out.push(k); });
+    });
+    return out;
+  }
   function render() {
-    const list = sorted(orgs.filter(matches));
+    buildKids();
+    if (loaded) fillParents();
+    const matched = sorted(orgs.filter(matches)), list = arrange(matched);
     visible = list;
     el("ogCount").textContent = st.q && filtersActive()
-      ? `${list.length} found in all ${orgs.length} (filters paused while searching)`
-      : `${list.length} of ${orgs.length}`;
+      ? `${matched.length} found in all ${orgs.length} (filters paused while searching)`
+      : `${matched.length} of ${orgs.length}`;
+    el("ogGrouped").setAttribute("aria-pressed", String(!!st.grouped));
     el("ogFlags").classList.toggle("og-paused", !!st.q);
     el("ogGroups").parentElement.classList.toggle("og-paused", !!st.q);
     const inAud = (o) => !st.audience || o.audience === st.audience;
@@ -738,14 +785,17 @@
     });
     const jobDay = (d) => d ? esc(fmtDay(new Date(d + "T12:00:00").toISOString())) : "";
     const rows = list.slice(0, shown);
+    const shownIds = new Set(list.map((o) => o.id));
     el("ogBody").innerHTML = rows.length ? rows.map((o) => {
-      const sub = [o.audience === "school" ? "School" : "League", spText(o), o.name_known === false ? "name from email handle" : ""].filter(Boolean).join(" \u00b7 ");
+      const kids = kidsBy.get(o.id), par = o.parent_id && byId.get(o.parent_id);
+      const nested = st.grouped && par && shownIds.has(par.id), grp = st.grouped && kids;
+      const sub = [o.audience === "school" ? "School" : "League", kids ? kids.length + " " + memberWord(o, kids.length) : "", par && !nested ? "Part of " + par.name : "", spText(o), o.name_known === false ? "name from email handle" : ""].filter(Boolean).join(" \u00b7 ");
       const flags = ((o.services || []).includes("action") ? '<span class="pill accent og-flag" title="We shoot action for them">Action</span>' : "") + (o.needs_new_contact ? '<span class="pill err og-flag">Needs contact</span>' : "") +
         (readyOrgs.has(o.id) ? '<span class="pill warn og-flag">Waiting for your OK</span>' : "");
       const mmeta = [(o.sports || []).join(", "), o.county ? o.county + (o.town ? " (" + o.town + ")" : "") : o.town, o.last_result, spText(o)].filter(Boolean).join(" \u00b7 ");
-      return `<tr class="og-row${o.id === openId ? " open" : ""}" data-id="${esc(o.id)}">
+      return `<tr class="og-row${o.id === openId ? " open" : ""}${grp ? " og-grp" : ""}${nested ? " og-kid" : ""}" data-id="${esc(o.id)}">
         <td class="c-ck"><input type="checkbox" class="og-ck" ${selected.has(o.id) ? "checked" : ""} aria-label="Select ${esc(o.name)}" /></td>
-        <td class="c-org"><div class="og-name" title="${esc(o.name)}">${esc(o.name)}${flags}</div><div class="og-sub og-dsk">${esc(sub)}</div>
+        <td class="c-org"><div class="og-name" title="${esc(o.name)}">${grp ? `<button type="button" class="og-fold" data-fold="${esc(o.id)}" aria-expanded="${!folded.has(o.id)}" aria-label="${folded.has(o.id) ? "Show" : "Hide"} its ${memberWord(o)}">${folded.has(o.id) ? "&#9656;" : "&#9662;"}</button>` : ""}${esc(o.name)}${flags}</div><div class="og-sub og-dsk">${esc(sub)}</div>
           <div class="og-sub og-mob">${esc(mmeta || sub)}</div></td>
         <td class="c-stage">${stagePill(o.stage, o)}</td>
         <td class="c-sports"><div class="og-cell" title="${esc((o.sports || []).join(", "))}">${esc((o.sports || []).join(", ")) || '<span class="muted">&mdash;</span>'}</div><div class="og-sub" title="${esc(monthsText(o) ? "Shoots: " + monthsText(o) : "")}">${esc(monthsText(o) || (o.seasons || []).join(", "))}</div></td>
@@ -779,6 +829,7 @@
     el("ogQ").value = st.q; el("ogStage").value = st.stage; el("ogSport").value = st.sport;
     el("ogSeason").value = st.season; el("ogAud").value = st.audience; el("ogSp").value = st.sp || ""; el("ogMonth").value = st.month || ""; el("ogService").value = st.service || ""; el("ogSvs").value = st.svs || "";
     el("ogCounty").value = st.county || "";
+    if (loaded) fillParents();
     fillTowns();
   }
   // Towns: the towns we have orgs in, inside the chosen county (all counties when none is chosen)
@@ -792,14 +843,14 @@
   }
   // Phone: filters fold behind one button (count shows what's active); column headers become a Sort menu.
   function syncMobile() {
-    const n = [st.stage, st.sport, st.season, st.audience, st.sp, st.month, st.service, st.svs, st.county].filter(Boolean).length + ((st.towns || []).length ? 1 : 0);
+    const n = [st.stage, st.sport, st.season, st.audience, st.sp, st.month, st.service, st.svs, st.county, st.parent].filter(Boolean).length + ((st.towns || []).length ? 1 : 0);
     el("ogFCount").textContent = n; el("ogFCount").classList.toggle("hidden", !n);
     const v = st.sort.key + ":" + st.sort.dir, sel = el("ogSortM");
     if (![...sel.options].some((o) => o.value === v)) sel.insertAdjacentHTML("beforeend", `<option value="${esc(v)}">Sort: ${esc(st.sort.key)}</option>`);
     sel.value = v;
   }
   const FILTER_KEYS = [["stage", "ogStage", "Stage"], ["sport", "ogSport", "Sport"], ["season", "ogSeason", "Season"], ["audience", "ogAud", "Type"],
-    ["service", "ogService", "Service"], ["svs", "ogSvs", "Service status"], ["month", "ogMonth", "Shoots in"], ["sp", "ogSp", "School photos"], ["county", "ogCounty", "County"]];
+    ["service", "ogService", "Service"], ["svs", "ogSvs", "Service status"], ["month", "ogMonth", "Shoots in"], ["sp", "ogSp", "School photos"], ["county", "ogCounty", "County"], ["parent", "ogParent", "Part of"]];
   function renderActive() {
     const tags = FILTER_KEYS.filter(([k]) => st[k]).map(([k, id, label]) => {
       const sel = el(id), opt = sel && [...sel.options].find((o) => o.value === String(st[k]));
@@ -838,7 +889,7 @@
     st.towns = [...el("ogTownList").querySelectorAll("input:checked")].map((i) => i.value);
     shown = PAGE; fillTowns(); render();
   });
-  [["ogStage", "stage"], ["ogSport", "sport"], ["ogSeason", "season"], ["ogAud", "audience"], ["ogSp", "sp"], ["ogMonth", "month"], ["ogService", "service"], ["ogSvs", "svs"]].forEach(([id, k]) =>
+  [["ogStage", "stage"], ["ogSport", "sport"], ["ogSeason", "season"], ["ogAud", "audience"], ["ogSp", "sp"], ["ogMonth", "month"], ["ogService", "service"], ["ogSvs", "svs"], ["ogParent", "parent"]].forEach(([id, k]) =>
     el(id).addEventListener("change", () => { st[k] = el(id).value; shown = PAGE; render(); }));
   el("ogFlags").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-flag]"); if (!b) return;
@@ -861,9 +912,12 @@
     render();
   });
   el("ogMore").addEventListener("click", () => { shown += PAGE; render(); });
+  el("ogGrouped").addEventListener("click", () => { st.grouped = !st.grouped; render(); });
   el("ogRefresh").addEventListener("click", () => load(true));
   el("ogBody").addEventListener("click", (e) => {
     const tr = e.target.closest("tr.og-row"); if (!tr) return;
+    const fold = e.target.closest(".og-fold");
+    if (fold) { if (folded.has(fold.dataset.fold)) folded.delete(fold.dataset.fold); else folded.add(fold.dataset.fold); render(); return; }
     if (e.target.closest(".og-ck")) {
       const ck = e.target.closest(".og-ck");
       if (ck.checked) selected.add(tr.dataset.id); else selected.delete(tr.dataset.id);
@@ -2376,5 +2430,5 @@ ${order.map((k) => sec[k]).join("")}
   }
 
   return { load: () => load(false), reload: () => load(true), quickAdd, loadReady: () => loadReady(true), mountHeld, editEmail, sendNow, emailPeople, measureTop: () => measureTop(), loadAttention, showFlag, open: (id) => (GROUP_OF[id] && id ? setGroup(id, true) : openOrg(id)), hide: () => { if (openId && !inline) closePanel(true); },
-    embed, unembed, get: (id) => byId.get(id) || null, changed: (id) => reloadOrg(id), stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
+    embed, unembed, get: (id) => byId.get(id) || null, memberWord, changed: (id) => reloadOrg(id), stageName: (s) => STAGE_NAME[s] || s || "", spText, monthsText, SERVICE_NAME };
   })();

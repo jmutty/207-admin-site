@@ -2690,6 +2690,61 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.close();
   }
 
+  console.log("Partner groups: schools under a district (owner)");
+  {
+    const D = "55555555-5555-5555-5555-555555555555", H = "22222222-2222-2222-2222-222222222222";
+    const { page, errors } = await open(browser, port, "?groups=1", "#partners/org/" + D + "/members");
+    await page.waitForSelector("#aca-opBody .op-gp-sum");
+    const tabs = await page.$$eval("#aca-opTabs button", (bs) => bs.map((b) => b.textContent));
+    check(tabs.includes("Schools 2") && tabs.indexOf("Schools 2") === tabs.indexOf("Contacts") + 1, "the district has a Schools tab right after Contacts: " + tabs.join(","));
+    const body = await page.textContent("#aca-opBody");
+    check(body.includes("Hancock Grammar School") && body.includes("Reeds Brook Middle School") && !body.includes("Wagner"), "it lists its two schools");
+    check(!!(await page.$('#aca-panel-org [data-o="addmem"]')) && !(await page.$('#aca-panel-org [data-o="partof"]')), "a group gets Add schools instead of Part of…");
+    await page.click('#aca-opBody [data-rm="66666666-6666-6666-6666-666666666666"]');
+    await page.waitForTimeout(250);
+    const w = await page.evaluate(() => (window.__writes || []).filter((x) => x[0] === "prospect_orgs" && x[1] === "update").pop());
+    check(w && w[2].parent_id === null, "Remove takes a school out of the group: " + JSON.stringify(w && w[2]));
+    await page.click('#aca-opTabs button[data-t="agreements"]');
+    await page.waitForSelector("#aca-opCovers");
+    check(await page.$eval("#aca-opCovers", (x) => x.checked), "the district's signed agreement says it covers its schools");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  {
+    const D = "55555555-5555-5555-5555-555555555555", H = "22222222-2222-2222-2222-222222222222";
+    const { page, errors } = await open(browser, port, "?groups=1", "#partners/org/" + H + "/contacts");
+    await page.waitForSelector("#aca-opFrom ul");
+    check((await page.textContent("#aca-panel-org .op-meta")).includes("Part of RSU 22") && !!(await page.$('#aca-panel-org .op-meta a[href="#partners/org/' + D + '"]')), "a school says which district it's part of, with a link");
+    const from = await page.textContent("#aca-opFrom");
+    check(from.includes("From RSU 22") && from.includes("Regan Nickels") && from.includes("not copied"), "the district's contacts show on the school's Contacts tab, read only");
+    await page.click('#aca-opTabs button[data-t="agreements"]');
+    await page.waitForSelector("#aca-opBody .op-covered");
+    check((await page.textContent("#aca-opBody .op-covered")).includes("Covered by RSU 22"), "a school with no agreement is covered by the district's");
+    await page.click('#aca-panel-org [data-o="partof"]');
+    await page.waitForSelector('[data-g="off"]');
+    await page.click('[data-g="off"]');
+    await page.waitForTimeout(250);
+    const w = await page.evaluate(() => (window.__writes || []).filter((x) => x[0] === "prospect_orgs" && x[1] === "update").pop());
+    check(w && w[2].parent_id === null, "Part of… > Remove from RSU 22 unlinks it");
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+  {
+    const { page, errors } = await open(browser, port, "?groups=1", "#partners/orgs/everyone");
+    await page.waitForSelector("#aca-ogBody tr.og-row");
+    await page.click("#aca-ogGrouped");
+    await page.waitForSelector("#aca-ogBody tr.og-grp");
+    const order = await page.$$eval("#aca-ogBody tr.og-row", (rs) => rs.map((r) => r.querySelector(".og-name").textContent.trim() + (r.classList.contains("og-kid") ? " (kid)" : "")));
+    const i = order.findIndex((x) => x.replace(/^\W+/, "").startsWith("RSU 22"));
+    check(i >= 0 && order[i + 1].endsWith("(kid)") && order[i + 2].endsWith("(kid)"), "Grouped puts the schools right under RSU 22: " + order.join(" | "));
+    await page.fill("#aca-ogQ", "rsu 22");
+    await page.waitForTimeout(250);
+    const found = await page.$$eval("#aca-ogBody tr.og-row .og-name", (xs) => xs.map((x) => x.textContent.trim()));
+    check(found.length === 3, "searching RSU 22 finds the district and its schools: " + found.join(", "));
+    check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");

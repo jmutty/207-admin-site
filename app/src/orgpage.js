@@ -7,6 +7,10 @@
   // The Contacts tab is the old Organizations side panel, moved in (Orgs.embed / Orgs.unembed).
   // 2026-10-23: Contacts comes right after Overview (Jeremiah).
   // Old tab addresses still work: /galleries and /payouts open Sales.
+  // Groups (2026-10-24, Jeremiah's "Link and share"): a partner can be part of one group (a school under its district,
+  // RSU 22; a league under a bigger league) through prospect_orgs.parent_id, one level deep. The group gets a
+  // Schools / Teams tab and its members' jobs on Overview and Jobs; each member shows "Part of <group>", the group's
+  // contacts on its Contacts tab and the group's agreement when that agreement covers its members. Nothing is copied.
   //
   // Other modules add a tab from their own file, the same way as job tabs:
   //   if (typeof registerOrgTab === "function") registerOrgTab({ id: "x", label: "X", order: 55, module: "inventory", render: (org, el, data) => { ... } });
@@ -103,6 +107,13 @@
     .aca .op-mg-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 4px; margin-top: 6px; max-height: 260px; overflow-y: auto; }
     .aca .op-mg-list button { text-align: left; border: 0; border-bottom: 1px solid var(--line2); border-radius: 0; background: var(--surface); padding: 8px 12px; height: auto; white-space: normal; font-weight: 400; }
     .aca .op-mg-list button:last-child { border-bottom: 0; }
+    .aca .op-gp-picked { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .aca .op-gp-sum { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 14px; }
+    .aca .op-gp-sum .op-card { color: var(--muted); font-size: 13px; } .aca .op-gp-sum .op-card b { display: block; color: var(--text); font-size: 18px; font-variant-numeric: tabular-nums; }
+    .aca .op-from { margin-top: 18px; border: 1px dashed var(--border); border-radius: 4px; padding: 12px 14px; font-size: 13.5px; }
+    .aca .op-from h3 { margin-top: 0; }
+    .aca .op-from ul { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+    .aca .op-covered { border-left: 3px solid var(--accent); background: var(--surface-2); padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 14px; font-size: 13.5px; }
     .aca .op-mg-list button:hover { background: var(--surface-2); }
     .aca .op-mg-list .s { color: var(--muted); font-size: 12.5px; margin-left: 6px; }
     .aca .op-mg-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: center; margin: 4px 0 14px; }
@@ -127,6 +138,11 @@
     const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
 
     let O = null, curTab = "overview", seq = 0, loadingId = null, cache = {};
+    // G: the group this partner is part of (parent) and the partners that are part of it (members)
+    let G = { parent: null, members: [] };
+    const MEMBER_COLS = "id,name,town,stage,audience,job_count,last_job_at,next_job_at,client_since,parent_id";
+    const word = (n) => Orgs.memberWord(O, n);
+    const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
     const root = () => el("panel-org");
     const parseHash = () => { const m = /^#partners\/org\/([0-9a-f-]{36})(?:\/([a-z0-9_-]+))?/i.exec(location.hash); return m ? { id: m[1], tab: m[2] || "" } : null; };
     const ALIAS = { galleries: "sales", payouts: "sales" };
@@ -200,6 +216,38 @@
           bks.forEach((b) => { if (b.gotphoto_job_id) keys.add("sports:" + b.gotphoto_job_id); if (b.hub_school_id) keys.add("school:" + b.hub_school_id); });
           return (d || []).filter((x) => keys.has(x.hub + ":" + x.org_id) || (x.org || "").toLowerCase() === name);
         },
+        // The members' booked jobs, for the group's Overview and Jobs tab.
+        groupBookings: async () => {
+          if (!canSee("bookings") || !G.members.length) return [];
+          const ids = new Set(G.members.map((m) => m.id));
+          const { data: d, error } = await sb.rpc("admin_bookings", { p_from: "2000-01-01", p_to: null });
+          if (error) throw error;
+          return (d || []).filter((x) => ids.has(x.org_id)).sort((a, c) => String(c.picture_day || "").localeCompare(String(a.picture_day || "")));
+        },
+        // The group's agreements, for a member page (shown when one covers its members).
+        groupAgreements: async () => {
+          if (!canSee("agreements") || !G.parent) return [];
+          const { data: d } = await sb.rpc("agreements_list");
+          return (d || []).filter((x) => x.org_id === G.parent.id);
+        },
+        groupContacts: async () => {
+          if (!G.parent) return [];
+          const { data: d } = await sb.from("prospect_contacts").select("id,first_name,last_name,email,phone,role,bounced_at,unsubscribed_at").eq("org_id", G.parent.id).order("is_primary", { ascending: false }).order("created_at");
+          return d || [];
+        },
+        memberRebook: async () => {
+          if (!canSee("partners")) return [];
+          const ids = new Set(G.members.map((m) => m.id));
+          const { data: d } = await sb.rpc("partner_rebook_list");
+          return (d || []).filter((x) => ids.has(x.org_id));
+        },
+        memberSales: async () => {
+          if (!canSee("results")) return null;
+          const ids = new Set(G.members.map((m) => m.id));
+          const { data: d } = await sb.rpc("results_jobs");
+          const m = {}; (d || []).forEach((j) => { if (ids.has(j.org_id)) m[j.org_id] = (m[j.org_id] || 0) + num(j.sales); });
+          return m;
+        },
         contact: async () => {
           const { data: d } = await sb.from("prospect_contacts").select("first_name,last_name,email,phone,role,is_primary,bounced_at,unsubscribed_at").eq("org_id", id).order("is_primary", { ascending: false }).order("created_at").limit(5);
           return (d || []).find((c) => !c.bounced_at && !c.unsubscribed_at) || (d || [])[0] || null;
@@ -229,6 +277,7 @@
         { id: "jobs", label: "Jobs", order: 20, show: () => canSee("bookings") || canSee("results"), render: renderJobs },
         { id: "sales", label: "Sales", order: 30, module: "results", render: renderSales },
         { id: "contacts", label: "Contacts", order: 15, module: "partners", render: renderContacts },
+        { id: "members", label: cap(word()) + " " + G.members.length, order: 17, show: () => G.members.length > 0, render: renderMembers },
         { id: "emails", label: "Emails & hub", order: 50, module: "partners", render: renderEmails },
         { id: "agreements", label: "Agreement & rebooking", order: 60, show: () => canSee("agreements") || canSee("partners"), render: renderAgreements },
         { id: "history", label: "Notes & history", order: 90, render: renderHistory },
@@ -262,7 +311,12 @@
         root().innerHTML = '<div class="inline-error">' + esc(error ? (error.code === "42501" ? "You don't have access to partners. Ask Jeremiah to add the area on the Team page." : cleanErr(error)) : "That partner doesn't exist any more.") + "</div>";
         return;
       }
+      const [par, mem] = await Promise.all([
+        row.parent_id ? sb.from("prospect_orgs").select("id,name,audience").eq("id", row.parent_id).maybeSingle() : Promise.resolve({ data: null }),
+        sb.from("prospect_orgs").select(MEMBER_COLS).eq("parent_id", id).is("merged_into", null).order("name")]);
+      if (my !== seq) return;
       O = row; cache = {};
+      G = { parent: (par && par.data) || null, members: (mem && mem.data) || [] };
       renderShell();
       pick(tab || "overview");
     }
@@ -279,12 +333,17 @@
         '<p class="op-trail"><a href="#partners/orgs">Partners</a></p>' +
         '<div class="jp-head"><div><h2>' + esc(O.name) + (canEdit("partners") && !O.merged_into ? ' <button type="button" class="small quiet op-rename" data-o="rename" title="Change the partner\'s name">Rename</button>' : "") + '</h2><div class="op-meta"><span class="pill ' + stCls + '">' + esc(Orgs.stageName(O.stage)) +
         (O.client_since && (O.stage === "client" || O.stage === "booked") ? " since " + esc(String(O.client_since).slice(0, 4)) : "") + "</span>" +
-        facts.map((f) => "<span>" + esc(f) + "</span>").join("") + (O.website ? '<a href="' + esc(/^https?:/.test(O.website) ? O.website : "https://" + O.website) + '" target="_blank" rel="noopener">website</a>' : "") + "</div></div>" +
-        '<div class="acts">' + (O.merged_into ? "" : (canEdit("partners") ? '<button type="button" class="small" data-o="merge">Merge into&#8230;</button>' : "") +
+        facts.map((f) => "<span>" + esc(f) + "</span>").join("") +
+        (G.parent ? '<span>Part of <a href="' + esc(orgLink(G.parent.id)) + '">' + esc(G.parent.name) + "</a></span>" : "") +
+        (G.members.length ? '<a href="' + esc(orgLink(O.id, "members")) + '" data-o="members">' + G.members.length + " " + esc(word(G.members.length)) + "</a>" : "") + (O.website ? '<a href="' + esc(/^https?:/.test(O.website) ? O.website : "https://" + O.website) + '" target="_blank" rel="noopener">website</a>' : "") + "</div></div>" +
+        '<div class="acts">' + (O.merged_into ? "" : (canEdit("partners") ? (G.members.length ? '<button type="button" class="small" data-o="addmem">Add ' + esc(word()) + "</button>"
+            : '<button type="button" class="small" data-o="partof" title="Put this partner under its district or league">Part of&#8230;</button>') + '<button type="button" class="small" data-o="merge">Merge into&#8230;</button>' : "") +
           (canEdit("bookings") ? '<button type="button" class="small primary" data-o="book">Book a job for them</button>' : "")) + "</div></div>" +
         (O.merged_into ? '<p class="op-merged">This partner was merged into another one, and everything moved there. <a href="' + esc(orgLink(O.merged_into)) + '">Open the partner we kept</a></p>' : "") +
         '<div class="jp-tabs" role="tablist" id="aca-opTabs"></div><div id="aca-opBody"></div>';
-      root().querySelector(".jp-head").addEventListener("click", (e) => { if (e.target.closest('[data-o="book"]')) bookHere(); if (e.target.closest('[data-o="merge"]')) mergeInto(); if (e.target.closest('[data-o="rename"]')) renameStart(); });
+      root().querySelector(".jp-head").addEventListener("click", (e) => { if (e.target.closest('[data-o="book"]')) bookHere(); if (e.target.closest('[data-o="merge"]')) mergeInto(); if (e.target.closest('[data-o="rename"]')) renameStart();
+        if (e.target.closest('[data-o="partof"]')) partOf(); if (e.target.closest('[data-o="addmem"]')) addMembers();
+        const mt = e.target.closest('[data-o="members"]'); if (mt) { e.preventDefault(); pick("members"); } });
       el("opTabs").innerHTML = tabs().map((t) => '<button type="button" role="tab" data-t="' + esc(t.id) + '">' + esc(t.label) + "</button>").join("");
       el("opTabs").addEventListener("click", (e) => { const t = e.target.closest("button[data-t]"); if (t) pick(t.dataset.t); });
     }
@@ -407,6 +466,145 @@
       pickStep();
     }
 
+
+    // ---------------------------------------------------------------- groups (2026-10-24)
+    // Draws the page again after a link changed, on the same tab when it still exists.
+    function reloadHere() { const id = O.id, t = curTab; O = null; load(id, t); safe(() => Orgs.reload()); }
+    async function setParent(ids, parentId) {
+      const { error } = await sb.from("prospect_orgs").update({ parent_id: parentId }).in("id", ids);
+      if (error) throw error;
+    }
+    // Search box over partners for the group dialogs. filter(o) drops rows; pickFn(o) runs on a click.
+    function orgSearch(m, opts) {
+      let timer = null;
+      const q = m.querySelector("#aca-gpQ"), list = m.querySelector("#aca-gpList");
+      const draw = (rows, emptyText) => {
+        list.classList.remove("hidden");
+        list.innerHTML = rows.length ? rows.map((o) => '<button type="button" data-org="' + esc(o.id) + '"><strong>' + esc(o.name) + "</strong>" +
+          '<span class="s">' + esc([o.town, Orgs.stageName(o.stage)].filter(Boolean).join(", ")) + "</span></button>").join("")
+          : '<div class="empty" style="padding:10px 12px">' + esc(emptyText) + "</div>";
+        list.querySelectorAll("button[data-org]").forEach((b) => b.addEventListener("click", () => opts.pick(rows.find((o) => o.id === b.dataset.org), b)));
+      };
+      const base = () => sb.from("prospect_orgs").select("id, name, town, stage, audience, parent_id").is("merged_into", null).neq("id", O.id);
+      if (opts.suggest) opts.suggest(base).then((rows) => { if (!q.value.trim() && rows && rows.length) draw(rows.filter(opts.filter), ""); });
+      q.addEventListener("input", () => {
+        clearTimeout(timer);
+        const v = q.value.trim();
+        if (v.length < 2) { list.classList.add("hidden"); return; }
+        timer = setTimeout(async () => {
+          const { data } = await base().ilike("search_text", "%" + v.replace(/[%_]/g, "") + "%").order("name").limit(15);
+          if (!q.isConnected || q.value.trim() !== v) return;
+          draw((data || []).filter(opts.filter), "No partner matches.");
+        }, 220);
+      });
+      q.focus();
+    }
+    // "Part of…": put this partner under a group, change it, or take it out. A partner with no group can also
+    // become one from here (Add schools under it).
+    function partOf() {
+      const m = openModal('<div style="max-width:560px"><h2>' + esc(O.name) + " is part of&#8230;</h2>" +
+        '<p class="op-intro">Pick its district or league. It stays its own partner; the group&#8217;s page lists it, and its contacts and agreement show here.</p>' +
+        (G.parent ? '<div class="op-line"><span>Now part of <b>' + esc(G.parent.name) + '</b></span><span class="grow"></span><button type="button" class="small" data-g="off">Remove from ' + esc(G.parent.name) + "</button></div>" : "") +
+        '<div class="field"><label for="aca-gpQ">' + (G.parent ? "Move it to another group" : "The group") + '</label><input type="search" id="aca-gpQ" autocomplete="off" placeholder="Type a name or town, like RSU 22" style="width:100%" /></div>' +
+        '<div class="op-mg-list hidden" id="aca-gpList"></div>' +
+        '<div class="modal-actions">' + (G.parent ? "" : '<button type="button" class="link" data-g="asgroup">Or make ' + esc(O.name) + " a group and add its " + esc(word()) + "</button>") +
+        '<span class="grow"></span><button type="button" class="small" data-g="cancel">Cancel</button></div></div>');
+      orgSearch(m, {
+        filter: (o) => o.id !== O.id && !o.parent_id && (!G.parent || o.id !== G.parent.id),
+        pick: async (o, b) => {
+          b.disabled = true;
+          try { await setParent([O.id], o.id); } catch (e) { b.disabled = false; return toast(cleanErr(e), true); }
+          m.close(); toast(O.name + " is now part of " + o.name + "."); reloadHere();
+        },
+      });
+      m.addEventListener("click", async (ev) => {
+        const t = ev.target.closest("[data-g]"); if (!t) return;
+        if (t.dataset.g === "cancel") m.close();
+        if (t.dataset.g === "asgroup") { m.close(); addMembers(); }
+        if (t.dataset.g === "off") {
+          t.disabled = true;
+          try { await setParent([O.id], null); } catch (e) { t.disabled = false; return toast(cleanErr(e), true); }
+          m.close(); toast("Removed " + O.name + " from " + G.parent.name + "."); reloadHere();
+        }
+      });
+    }
+    // Add schools / teams under this partner: tick several, then Add. Partners in the same towns come first.
+    function addMembers() {
+      if (G.parent) return toast(O.name + " is part of " + G.parent.name + ", so it can't have its own " + word() + ". Remove it from " + G.parent.name + " first.", true);
+      const picked = new Map();
+      const m = openModal('<div style="max-width:560px"><h2>Add ' + esc(word()) + " to " + esc(O.name) + "</h2>" +
+        '<p class="op-intro">Each one stays its own partner. Tick the ones that belong to ' + esc(O.name) + ", then Add.</p>" +
+        '<div class="field"><label for="aca-gpQ">Find a partner</label><input type="search" id="aca-gpQ" autocomplete="off" placeholder="Type a name or town" style="width:100%" /></div>' +
+        '<div class="op-mg-list hidden" id="aca-gpList"></div><div class="op-gp-picked" id="aca-gpPicked"></div>' +
+        '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-g="cancel">Cancel</button><button type="button" class="primary" data-g="add" disabled>Add</button></div></div>');
+      const drawPicked = () => {
+        m.querySelector("#aca-gpPicked").innerHTML = [...picked.values()].map((o) => '<span class="og-atag">' + esc(o.name) + '<button type="button" data-un="' + esc(o.id) + '" aria-label="Take ' + esc(o.name) + ' off">&times;</button></span>').join("");
+        const add = m.querySelector('[data-g="add"]'); add.disabled = !picked.size;
+        add.textContent = picked.size ? "Add " + picked.size + " " + word(picked.size) : "Add";
+      };
+      const memberIds = new Set(G.members.map((x) => x.id));
+      const towns = [...new Set([O.town].concat(G.members.map((x) => x.town)).filter(Boolean))];
+      orgSearch(m, {
+        filter: (o) => o.id !== O.id && !memberIds.has(o.id) && !picked.has(o.id),
+        suggest: async (base) => {
+          if (!towns.length) return [];
+          const { data } = await base().in("town", towns).is("parent_id", null).order("name").limit(20);
+          // the same kind (schools for a district) first
+          return (data || []).sort((a, b) => (a.audience === O.audience ? 0 : 1) - (b.audience === O.audience ? 0 : 1));
+        },
+        pick: (o, b) => { picked.set(o.id, o); b.remove(); drawPicked(); },
+      });
+      m.addEventListener("click", async (ev) => {
+        const u = ev.target.closest("[data-un]"); if (u) { picked.delete(u.dataset.un); drawPicked(); return; }
+        const t = ev.target.closest("[data-g]"); if (!t) return;
+        if (t.dataset.g === "cancel") m.close();
+        if (t.dataset.g === "add") {
+          t.disabled = true;
+          try { await setParent([...picked.keys()], O.id); } catch (e) { t.disabled = false; return toast(cleanErr(e), true); }
+          m.close(); toast("Added " + picked.size + " " + word(picked.size) + " to " + O.name + "."); curTab = "members"; reloadHere();
+        }
+      });
+    }
+    // The group's own tab: every member with its stage, jobs, picture days and rebooking.
+    async function renderMembers(o, box) {
+      loading(box);
+      const [rebook, sales] = await Promise.all([quiet(data("memberRebook")), quiet(data("memberSales"))]);
+      if (O !== o) return;
+      const ed = canEdit("partners"), t = today();
+      const due = {}; (rebook || []).forEach((r) => { if (r.open && r.status === "todo" && (!due[r.org_id] || r.due_on < due[r.org_id])) due[r.org_id] = r.due_on; });
+      const clients = G.members.filter((x) => x.stage === "client" || x.stage === "booked").length;
+      const jobs = G.members.reduce((n, x) => n + num(x.job_count), 0);
+      const nDue = Object.keys(due).length;
+      const totSales = sales ? Object.values(sales).reduce((n, v) => n + v, 0) : null;
+      const pd = (d) => (d ? esc(day(d)) : '<span class="muted">&mdash;</span>');
+      box.innerHTML = '<p class="op-intro">The ' + esc(word()) + " that are part of " + esc(O.name) + ". Each one is its own partner with its own contacts, jobs and emails. " +
+        esc(O.name) + "&#8217;s contacts and agreement show on their pages." + (ed ? ' <button type="button" class="link" data-m="add">Add ' + esc(word()) + "</button>" : "") + "</p>" +
+        '<div class="op-cards op-gp-sum">' +
+          '<div class="op-card"><b>' + clients + " of " + G.members.length + "</b>" + esc(word(G.members.length)) + (clients === 1 ? " is a client" : " are clients") + "</div>" +
+          '<div class="op-card"><b>' + jobs + "</b>" + (jobs === 1 ? "job" : "jobs") + " across them</div>" +
+          '<div class="op-card"><b>' + nDue + "</b>due to rebook</div>" +
+          (totSales != null ? '<div class="op-card"><b>' + esc(money(totSales)) + "</b>in sales, all jobs</div>" : "") + "</div>" +
+        '<div class="op-wrap"><table class="op-table op-phone"><thead><tr><th>' + esc(cap(word(1))) + "</th><th>Town</th><th>Stage</th><th class=\"n\">Jobs</th><th>Last picture day</th><th>Next picture day</th><th>Rebook</th>" +
+          (sales ? '<th class="n">Sales</th>' : "") + (ed ? "<th></th>" : "") + "</tr></thead><tbody>" +
+        G.members.map((x) => '<tr><td data-l="' + esc(cap(word(1))) + '"><a href="' + esc(orgLink(x.id)) + '"><b>' + esc(x.name) + "</b></a></td>" +
+          '<td data-l="Town">' + esc(x.town || "") + '</td><td data-l="Stage">' + esc(Orgs.stageName(x.stage)) + '</td><td data-l="Jobs" class="n">' + num(x.job_count) + "</td>" +
+          '<td data-l="Last picture day">' + pd(x.last_job_at) + '</td><td data-l="Next picture day">' + (x.next_job_at && String(x.next_job_at) >= t ? pd(x.next_job_at) : '<span class="muted">Not booked</span>') + "</td>" +
+          '<td data-l="Rebook">' + (due[x.id] ? '<span class="pill warn">Due ' + esc(day(due[x.id])) + "</span>" : '<span class="muted">&mdash;</span>') + "</td>" +
+          (sales ? '<td data-l="Sales" class="n">' + esc(money(sales[x.id] || 0)) + "</td>" : "") +
+          (ed ? '<td class="op-acts"><button type="button" class="small quiet" data-rm="' + esc(x.id) + '">Remove</button></td>' : "") + "</tr>").join("") +
+        "</tbody></table></div>";
+      box.onclick = async (e) => {
+        if (e.target.closest('[data-m="add"]')) return addMembers();
+        const r = e.target.closest("[data-rm]"); if (!r) return;
+        const x = G.members.find((y) => y.id === r.dataset.rm); if (!x) return;
+        r.disabled = true;
+        try { await setParent([x.id], null); } catch (er) { r.disabled = false; return toast(cleanErr(er), true); }
+        toast("Removed " + x.name + " from " + O.name + ".");
+        if (G.members.length > 1) curTab = "members";
+        reloadHere();
+      };
+    }
+
     function pick(id) {
       id = ALIAS[id] || id;
       const list = tabs();
@@ -455,9 +653,9 @@
     // ---------------------------------------------------------------- overview
     async function renderOverview(o, box) {
       loading(box);
-      const [bks, res, rebook, reviews, ags, outbox, hub, contact, acts] = await Promise.all([
+      const [bks, res, rebook, reviews, ags, outbox, hub, contact, acts, gbks, gags] = await Promise.all([
         quiet(data("bookings")), quiet(data("results")), quiet(data("rebook")), quiet(data("reviews")), quiet(data("agreements")),
-        quiet(data("outbox")), quiet(data("hub")), quiet(data("contact")), quiet(data("activity"))]);
+        quiet(data("outbox")), quiet(data("hub")), quiet(data("contact")), quiet(data("activity")), quiet(data("groupBookings")), quiet(data("groupAgreements"))]);
       if (O !== o) return;
       const t = today();
       const within = (d, n) => d && T.daysBetween(t, String(d).slice(0, 10)) <= n;
@@ -480,7 +678,9 @@
       if (owed.length) needs.push(["warn", "Payout", money(owed.reduce((n, j) => n + num(j.balance), 0)) + " is owed for a season that is over.", edR ? [["Record payment", "pay"], ["Copy statement", "stmt"]] : [["Open Sales", "tab:sales"]]]);
       (bks || []).filter((b) => b.status !== "cancelled" && num(b.progress && b.progress.overdue)).forEach((b) => needs.push(["err", "Deliverable", (b.title || "A job") + " has " + num(b.progress.overdue) + " overdue deliverable" + (num(b.progress.overdue) === 1 ? "" : "s") + ".", [["Open the job", "job:" + b.id]]]));
 
-      const upcoming = (bks || []).filter((b) => b.status !== "cancelled" && String(b.picture_day || "") >= t).sort((a, b) => String(a.picture_day).localeCompare(String(b.picture_day)));
+      // A group's Coming up includes its members' jobs, each with the member's name.
+      const upcoming = (bks || []).concat(gbks || []).filter((b) => b.status !== "cancelled" && String(b.picture_day || "") >= t).sort((a, b) => String(a.picture_day).localeCompare(String(b.picture_day)));
+      const covering = (gags || []).find((a) => a.status === "accepted" && a.covers_members);
       const recent = (bks || []).filter((b) => b.status !== "cancelled" && String(b.picture_day || "") < t)[0];
       const jobs = (res && res.jobs) || [];
       const sales = jobs.reduce((n, j) => n + num(j.sales), 0);
@@ -494,16 +694,19 @@
         res && canSee("results") ? ["Payout", payoutText(res.terms)] : null,
         Orgs.monthsText(O) ? ["Shoots in", Orgs.monthsText(O)] : null,
         Orgs.spText(O) ? ["School photos", Orgs.spText(O).replace(/^School photos: /, "")] : null,
+        G.parent ? ["Part of", G.parent.name] : null,
+        G.members.length ? [cap(word()), G.members.length + " (" + G.members.filter((x) => x.stage === "client" || x.stage === "booked").length + " clients)"] : null,
+        !(ags || []).some((a) => a.status === "accepted") && covering ? ["Agreement", "Covered by " + G.parent.name + "'s"] : null,
       ].filter(Boolean);
       const cName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "";
-      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(Fmt.days(b)) +
+      const jobCard = (b) => '<a class="op-job" href="' + jobLink(b.id) + '"><div class="h"><span>' + (b.org_id && b.org_id !== O.id ? esc(b.org_name || "") + ": " : "") + esc(b.title || b.title_label || "Job") + '</span><span class="muted">' + esc(Fmt.days(b)) +
         (b.location ? " · " + esc(b.location) : "") + '</span></div><div class="s">' + esc([b.stage ? "Stage: " + b.stage : b.status === "tracked" ? "Tracking only" : "",
           b.status === "booked" ? num(b.emails_sent) + " of " + num(b.emails_total) + " booking emails sent" : ""].filter(Boolean).join(" · ")) + "</div></a>";
       box.innerHTML = '<div class="op-grid"><div>' +
         '<div class="jp-sec"><h3>Needs you here</h3>' + (needs.length ? '<ul class="op-need">' + needs.map((n) => '<li class="' + n[0] + '"><span class="tag">' + esc(n[1]) + '</span><span class="t">' + esc(n[2]) +
           '</span><span class="b">' + n[3].map((x, i) => '<button type="button" class="small' + (i === 0 ? " primary" : "") + '" data-go="' + esc(x[1]) + '">' + esc(x[0]) + "</button>").join("") + "</span></li>").join("") + "</ul>"
           : '<div class="empty" style="padding:4px 0">Nothing needs you for ' + esc(O.name) + " right now.</div>") + "</div>" +
-        '<div class="jp-sec"><h3>' + (upcoming.length ? "Coming up" : "Last job") + "</h3>" + (upcoming.length ? upcoming.slice(0, 3).map(jobCard).join("") : recent ? jobCard(recent)
+        '<div class="jp-sec"><h3>' + (upcoming.length ? "Coming up" : "Last job") + "</h3>" + (upcoming.length ? upcoming.slice(0, G.members.length ? 5 : 3).map(jobCard).join("") : recent ? jobCard(recent)
           : '<div class="empty" style="padding:4px 0">No jobs yet.' + (edB ? ' <button type="button" class="link" data-go="book">Book one</button>' : "") + "</div>") + "</div>" +
         ((acts || []).length ? '<div class="jp-sec"><h3>Recent activity</h3><ul class="jp-rows">' + acts.slice(0, 6).map((a) => '<li><span class="t">' + esc(actText(a)) + '</span><span class="r">' + esc(fmtAgo(a.occurred_at)) + "</span></li>").join("") +
           '</ul><button type="button" class="link small" data-go="tab:history">All notes and history</button></div>' : "") +
@@ -609,11 +812,14 @@
     // ---------------------------------------------------------------- jobs
     async function renderJobs(o, box) {
       loading(box);
-      const [bks, res] = await Promise.all([quiet(data("bookings")), quiet(data("results"))]);
+      const [bks, res, gbks] = await Promise.all([quiet(data("bookings")), quiet(data("results")), quiet(data("groupBookings"))]);
       if (O !== o) return;
-      const all = (bks || []), aj = allJobs(bks, res);
+      // A group shows its members' jobs too, unless "Only <group>'s own" is ticked.
+      const withMembers = (gbks || []).length > 0 && !renderJobs.ownOnly;
+      const all = (bks || []).concat(withMembers ? gbks : []), aj = allJobs(bks, res);
       const rows = all.map((b) => ({ d: String(b.picture_day || ""), html:
-          '<tr><td data-l="Job"><a href="' + jobLink(b.id) + '"><b>' + esc(b.title || b.title_label || "Job") + "</b></a>" + (b.status !== "booked" ? ' <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>" : "") +
+          '<tr><td data-l="Job"><a href="' + jobLink(b.id) + '"><b>' + esc(b.title || b.title_label || "Job") + "</b></a>" +
+          (b.org_id !== O.id ? ' <a class="pill muted" href="' + esc(orgLink(b.org_id)) + '">' + esc(b.org_name || "Member") + "</a>" : "") + (b.status !== "booked" ? ' <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>" : "") +
           '<div class="muted" style="font-size:12.5px">' + esc(b.type_label || "") + '</div></td><td data-l="Picture day">' + esc(Fmt.days(b)) + '</td><td data-l="Stage">' + esc(b.stage || "") +
           (num(b.progress && b.progress.overdue) ? ' <span class="pill err">' + num(b.progress.overdue) + " overdue</span>" : "") + '</td><td data-l="Booking emails">' +
           (b.status === "booked" ? esc(num(b.emails_sent) + " of " + num(b.emails_total) + " sent") + (num(b.emails_failed) ? ' <span class="pill err">' + num(b.emails_failed) + " failed</span>" : "") : '<span class="muted">none</span>') +
@@ -623,10 +829,12 @@
           '<div class="muted" style="font-size:12.5px">No booking in the app' + (j.sales != null ? " · " + money(j.sales) + " in sales" : "") + '</div></td><td data-l="Picture day">' + esc(day(j.picture_day, { weekday: "short" })) +
           '</td><td data-l="Stage">' + esc(j.gallery_status ? "Gallery " + j.gallery_status : "") + '</td><td data-l="Booking emails"><span class="muted">none</span></td><td data-l="Where"></td></tr>' })))
         .sort((a, b) => b.d.localeCompare(a.d));
-      box.innerHTML = '<p class="op-intro">Every job for ' + esc(O.name) + ", newest first: booked, tracked, and older GotPhoto jobs with no booking. Click one to open it." + (canEdit("bookings") ? ' <button type="button" class="link" data-o="book">Book a job</button>' : "") + "</p>" +
+      box.innerHTML = '<p class="op-intro">Every job for ' + esc(O.name) + (withMembers ? " and its " + esc(word()) : "") + ", newest first: booked, tracked, and older GotPhoto jobs with no booking. Click one to open it." + (canEdit("bookings") ? ' <button type="button" class="link" data-o="book">Book a job</button>' : "") + "</p>" +
+        ((gbks || []).length ? '<label class="op-line" style="gap:6px"><input type="checkbox" id="aca-opOwnOnly"' + (renderJobs.ownOnly ? " checked" : "") + " /> Only " + esc(O.name) + "&#8217;s own jobs</label>" : "") +
         (rows.length ? '<div class="op-wrap"><table class="op-table op-phone"><thead><tr><th>Job</th><th>Picture day</th><th>Stage</th><th>Booking emails</th><th>Where</th></tr></thead><tbody>' + rows.map((r) => r.html).join("") + "</tbody></table></div>"
           : '<div class="empty">No jobs for ' + esc(O.name) + " yet.</div>");
       box.onclick = (e) => { if (e.target.closest('[data-o="book"]')) bookHere(); };
+      const own = el("opOwnOnly"); if (own) own.onchange = () => { renderJobs.ownOnly = own.checked; renderJobs(o, box); };
     }
 
     // ---------------------------------------------------------------- sales (galleries and payouts, 2026-10-24)
@@ -672,8 +880,21 @@
 
     // ---------------------------------------------------------------- contacts (the old side panel, contacts first)
     async function renderContacts(o, box) {
-      box.innerHTML = '<p class="op-intro">The people at ' + esc(O.name) + ", who gets booking emails and hub reminders, and the coaches on their jobs. Notes and the history are on Notes & history.</p><div id=\"aca-opPanel\"></div>";
-      await Orgs.embed(o.id, el("opPanel"));
+      box.innerHTML = '<p class="op-intro">The people at ' + esc(O.name) + ", who gets booking emails and hub reminders, and the coaches on their jobs. Notes and the history are on Notes & history.</p><div id=\"aca-opPanel\"></div>" +
+        (G.parent ? '<div class="op-from" id="aca-opFrom"></div>' : "");
+      await Promise.all([Orgs.embed(o.id, el("opPanel")), G.parent ? renderFromGroup(o) : null]);
+    }
+    // A member's Contacts tab shows its group's people, read only: shown here, never copied (2026-10-24).
+    async function renderFromGroup(o) {
+      const cs = await quiet(data("groupContacts"));
+      const box = el("opFrom"); if (O !== o || !box) return;
+      const p = G.parent, who = (c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || "Someone";
+      box.innerHTML = "<h3>From " + esc(p.name) + '</h3><p class="op-intro" style="margin:0 0 8px">Shown here, not copied. They aren&#8217;t on ' + esc(O.name) + "&#8217;s booking emails unless you add them above.</p>" +
+        ((cs || []).length ? "<ul>" + cs.map((c) => "<li><b>" + esc(who(c)) + "</b>" + (c.role ? ", " + esc(c.role) : "") +
+          (c.email ? ' &middot; <span class="mono">' + esc(c.email) + "</span>" : "") + (c.phone ? " &middot; " + esc(c.phone) : "") +
+          (c.bounced_at ? ' <span class="pill err">bounced</span>' : c.unsubscribed_at ? ' <span class="pill muted">unsubscribed</span>' : "") + "</li>").join("") + "</ul>"
+          : '<p class="muted" style="margin:0 0 6px">' + esc(p.name) + " has no contacts yet.</p>") +
+        '<a href="' + esc(orgLink(p.id, "contacts")) + '">Open ' + esc(p.name) + "&#8217;s contacts</a>";
     }
 
     // ---------------------------------------------------------------- emails & hub
@@ -727,12 +948,19 @@
     const AG_ST = { draft: ["muted", "Draft"], sent: ["accent", "Sent"], viewed: ["accent", "Viewed"], accepted: ["ok", "Signed"], declined: ["err", "Declined"], void: ["muted", "Withdrawn"] };
     async function renderAgreements(o, box) {
       loading(box);
-      const [ags, rebook] = await Promise.all([canSee("agreements") ? data("agreements") : Promise.resolve([]), quiet(data("rebook"))]);
+      const [ags, rebook, gags] = await Promise.all([canSee("agreements") ? data("agreements") : Promise.resolve([]), quiet(data("rebook")), quiet(data("groupAgreements"))]);
       if (O !== o) return;
       const t = today();
       const cur = ags.find((a) => a.status === "accepted") || ags[0];
+      // A member with no signed agreement of its own is covered by its group's when that one covers its members.
+      const covering = !ags.some((a) => a.status === "accepted") && (gags || []).find((a) => a.status === "accepted" && a.covers_members);
+      const signed = ags.find((a) => a.status === "accepted");
+      const coverLine = covering ? '<div class="op-covered">Covered by ' + esc(G.parent.name) + "&#8217;s agreement: " + esc(covering.title || "Agreement") +
+          (covering.renewal_date ? ", renews " + esc(day(covering.renewal_date)) : "") + '. <button type="button" class="link" data-ag="' + esc(covering.id) + '">Open it</button></div>' : "";
+      const coverBox = G.members.length && signed ? '<label class="op-line" style="gap:6px;margin-top:10px"><input type="checkbox" id="aca-opCovers"' + (signed.covers_members ? " checked" : "") +
+          (canEdit("agreements") ? "" : " disabled") + " /> " + esc(signed.title || "This agreement") + " covers all " + G.members.length + " " + esc(word(G.members.length)) + " (their pages show it when they have none of their own)</label>" : "";
       const curSt = cur ? (AG_ST[cur.status] || ["muted", cur.status])[1] : "";
-      box.innerHTML = (canSee("agreements") ? '<div class="jp-sec"><h3>Agreement</h3><div class="op-line"><span>' + (cur ? "<b>" + esc(curSt) + "</b>: " + esc(cur.title || "Agreement") + (cur.renewal_date ? ", renews " + esc(day(cur.renewal_date)) : "") : "No agreement with " + esc(O.name) + " yet.") + '</span><span class="grow"></span>' +
+      box.innerHTML = (canSee("agreements") ? '<div class="jp-sec"><h3>Agreement</h3><div class="op-line"><span>' + (cur ? "<b>" + esc(curSt) + "</b>: " + esc(cur.title || "Agreement") + (cur.renewal_date ? ", renews " + esc(day(cur.renewal_date)) : "") : covering ? "No agreement of its own." : "No agreement with " + esc(O.name) + " yet.") + '</span><span class="grow"></span>' +
           (canEdit("agreements") ? '<button type="button" class="small primary" data-a="new">New agreement</button>' : "") + trailA("#partners/agreements", "All agreements", "font-size:13px") + "</div>" +
         (ags.length ? '<div class="op-cards">' + ags.map((a) => {
           const s = AG_ST[a.status] || ["muted", a.status];
@@ -744,7 +972,7 @@
             (a.w9_status ? "<dt>W-9</dt><dd>" + esc(String(a.w9_status).replace(/_/g, " ")) + "</dd>" : "") +
             (a.coi_status ? "<dt>Insurance</dt><dd" + (coiLate ? ' style="color:var(--err-fg);font-weight:600"' : "") + ">" + esc(String(a.coi_status).replace(/_/g, " ")) + (a.coi_expires ? ", expires " + esc(day(a.coi_expires)) : "") + "</dd>" : "") +
             "</dl></button>";
-        }).join("") + "</div>" : "") + "</div>" : "") +
+        }).join("") + "</div>" : "") + coverBox + coverLine + "</div>" : "") +
         (canSee("partners") ? '<div class="jp-sec" style="margin-top:20px"><h3>Rebooking</h3>' + (rebook ? '<dl class="jp-dl"><dt>Last picture day</dt><dd>' + esc(day(rebook.last_date) || "—") + "</dd><dt>Ask by</dt><dd>" + esc(day(rebook.due_on) || "—") + "</dd><dt>Status</dt><dd>" +
           esc({ todo: "To do", asked: "Asked", booked: "Booked", not_this_year: "Not this year", lost: "Lost" }[rebook.status] || rebook.status || "") + "</dd></dl>" : '<p class="op-intro">Not on the rebook list yet: it fills in after their next picture day.</p>') +
           '<div class="op-line" style="margin-top:10px">' + (canEdit("partners") ? '<button type="button" class="small" data-a="rebook">Draft rebook email</button>' : "") + trailA("#partners/rebook", "Due to rebook, everyone", "font-size:13px") + "</div></div>" : "");
@@ -753,6 +981,15 @@
         const b = e.target.closest("[data-a]"); if (!b) return;
         if (b.dataset.a === "new") newAgreement();
         if (b.dataset.a === "rebook") Follow.compose("rebook", O.id, () => refresh(["rebook", "outbox"]));
+      };
+      const cv = el("opCovers");
+      if (cv) cv.onchange = async () => {
+        cv.disabled = true;
+        const { error } = await sb.rpc("agreement_set_covers", { p_id: signed.id, p_on: cv.checked });
+        cv.disabled = false;
+        if (error) { cv.checked = !cv.checked; return toast(cleanErr(error), true); }
+        signed.covers_members = cv.checked;
+        toast(cv.checked ? "Saved. Its " + word() + " show this agreement now." : "Saved. Its " + word() + " no longer show it.");
       };
     }
 
