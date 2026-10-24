@@ -1824,6 +1824,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     check(!(await visible(page, "#aca-ojOffer")) && !(await visible(page, "#aca-ojPosted")), "no manager controls");
     check((await page.$$("#aca-ojMine [data-take]")).length === 1 && (await page.$$("#aca-ojMine [data-pass]")).length === 1, "open offer has Take it + Pass; filled one has neither");
     check((await page.textContent("#aca-ojMine")).includes("35 min drive") && (await page.textContent("#aca-ojMine")).includes("You said: Busy"), "shows drive and past answer");
+    const mine1 = await page.textContent('#aca-ojMine [data-offer="of1"] .oj-facts');
+    check(mine1.includes("at 89 Western Ave") && mine1.includes("(about 35 min drive from home)") && mine1.includes("at Reeds Brook Middle School") && mine1.includes("(about 50 min drive from home)"),
+      "a job at two places shows each day's place and the drive from home to it: " + mine1);
     await page.click('#aca-ojMine [data-pass="of1"]');
     await page.fill("#aca-ojReason", "Too far");
     await page.click('.modal [data-m="pass"]');
@@ -1906,6 +1909,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.selectOption("#aca-ojJob", "bk2");
     await page.waitForSelector("#aca-ojCands .oj-cand");
     check(await page.evaluate(() => (window.__offerDriveCalls || []).some((c) => c.booking_id === "bk2")), "asks for drive times");
+    check((await page.textContent("#aca-ojJobFacts")).includes("at Brewer Auditorium"), "the job's facts name each day's place");
+    check((await page.textContent('.oj-pick li:first-child')).includes("35 min to Brewer, 38 min to Brewer Auditorium"), "each person's drive to each place: " + (await page.textContent('.oj-pick li:first-child')));
     const ticked = await page.$$eval(".oj-cand:checked", (xs) => xs.map((x) => x.value));
     check(JSON.stringify(ticked) === JSON.stringify(["u6"]), "only in-range, free part-timers start ticked: " + ticked.join(","));
     check(await page.$eval('.oj-cand[value="u9"]', (x) => x.disabled), "no-access person can't be picked");
