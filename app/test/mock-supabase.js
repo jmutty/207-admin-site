@@ -432,7 +432,7 @@
       people: [{ user_id: "u1", name: "Jeremiah Mutty", weekly_hours: 40 }, { user_id: "u2", name: "Sam Helper", weekly_hours: 24 }, { user_id: "u5", name: "Alex Assistant", weekly_hours: null, from_home: true }],
       bookings: [{ booking_id: "bk1", day: add(sun, 2), start_at: at(add(sun, 2), "09:00"), end_at: at(add(sun, 2), "12:00"), title: "Hampden Academy \u2022 School Photos", type_label: "School Photos", location: "89 Western Ave, Hampden ME", status: "booked", day_label: "" },
         { booking_id: "bk2", day: add(sun, 4), start_at: at(add(sun, 4), "16:00"), end_at: at(add(sun, 4), "19:00"), title: "Brewer Travel Basketball Club \u2022 Winter Sports", type_label: "Sports", location: "", status: "booked", day_label: "" },
-        { booking_id: "bk4", day: add(sun, 2), start_at: at(add(sun, 2), "14:00"), end_at: at(add(sun, 2), "15:30"), title: "Hampden Rec \u2022 Fall Soccer", type_label: "Sports", location: "Dorothea Dix Park, Hampden ME", status: "booked", day_label: "" },
+        { booking_id: "bk4", day: add(sun, 2), start_at: at(add(sun, 2), "14:00"), end_at: at(add(sun, 2), "15:30"), title: "Hampden Rec \u2022 Fall Soccer", type_label: "Sports", location: "Dorothea Dix Park, Hampden ME", status: "booked", day_label: "", shoot_setting: "outdoors", weather: { pop: 70, gust: 18, bad: true, checked_at: new Date().toISOString() } },
         { booking_id: "bk5", day: add(sun, 5), start_at: at(add(sun, 5), "08:30"), end_at: at(add(sun, 5), "11:00"), title: "Ellsworth Elementary \u2022 School Photos", type_label: "School Photos", location: "Ellsworth ME", status: "booked", day_label: "" },
         { booking_id: "bk6", day: add(sun, 5), start_at: at(add(sun, 5), "12:30"), end_at: at(add(sun, 5), "14:30"), title: "Bucksport Middle \u2022 School Photos", type_label: "School Photos", location: "Bucksport ME", status: "booked", day_label: "" },
         { booking_id: "bk3", day: add(sun, 6), start_at: null, end_at: null, title: "Island Cheer & Tumbling \u2022 Cheer", type_label: "Sports", location: "Deer Isle", status: "booked", day_label: "" }],
@@ -444,7 +444,13 @@
         { id: "se7", user_id: "u1", kind: "job", booking_id: "bk5", batch_id: "trip1", starts_at: at(add(sun, 5), "08:30"), ends_at: at(add(sun, 5), "11:00"), drive_before_min: 45, drive_after_min: 0, drive_before_m: 70000, drive_after_m: 0, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Ellsworth Elementary \u2022 School Photos", booking_location: "Ellsworth ME", booking_status: "booked" },
         { id: "se8", user_id: "u1", kind: "job", booking_id: "bk6", batch_id: "trip1", starts_at: at(add(sun, 5), "12:30"), ends_at: at(add(sun, 5), "14:30"), drive_before_min: 25, drive_after_min: 25, drive_before_m: 30000, drive_after_m: 32000, setup_min: 30, teardown_min: 30, title: "", note: "", booking_title: "Bucksport Middle \u2022 School Photos", booking_location: "Bucksport ME", booking_status: "booked" },
         { id: "se5", user_id: "u5", kind: "off", booking_id: null, starts_at: at(add(sun, 3), "00:00"), ends_at: at(add(sun, 5), "00:00"), drive_before_min: 0, drive_after_min: 0, title: "Vacation", note: "", booking_title: null }],
-      tasks: [{ user_id: "u2", day: add(sun, 1), n: 2 }, { user_id: "u2", day: add(sun, 2), n: 1 }, { user_id: "u1", day: add(sun, 5), n: 1 }] };
+      tasks: [{ user_id: "u2", day: add(sun, 1), n: 2 }, { user_id: "u2", day: add(sun, 2), n: 1 }, { user_id: "u1", day: add(sun, 5), n: 1 }],
+      calendar_synced_at: new Date(Date.now() - 12 * 6e4).toISOString(), punches: [] };
+    // Schedule views (2026-10-24): saved-up changes, the phone calendar link
+    RPC.schedule_changes_pending = AS_STAFF ? [] : [{ user_id: "u2", name: "Sam Helper", days: [add(sun, 2)], n: 2, has_email: true }, { user_id: "u5", name: "Alex Assistant", days: [add(sun, 4), add(sun, 2)], n: 1, has_email: false }];
+    RPC.schedule_changes_preview = { subject: "Your schedule changed: Tue", text: "Hampden Academy 9am-12pm\nTaken off: Editing", html: "" };
+    RPC.schedule_changes_send = { ok: true, sent: 1, no_email: 0 };
+    RPC.staff_cal_link = { ok: true, token: "a".repeat(40) };
     RPC.schedule_attention = { unstaffed: 2 };
     RPC.schedule_save = { ok: true, id: "se9", overlaps: 0 }; RPC.schedule_remove = { ok: true }; RPC.schedule_settings_save = { ok: true }; RPC.schedule_batch_save = { ok: true }; RPC.schedule_setup_save = { ok: true, changed: 0 };
     const task = (id, title, repeat, extra) => Object.assign({ task_id: id, user_id: "u2", user_name: "Sam Helper", title, notes: "", repeat, priority: "normal", est_minutes: null, on_date: today, overdue: false, done_at: null, done_by: null }, extra || {});
@@ -816,6 +822,11 @@
     if (String(url).includes("/functions/v1/admin/sales")) {
       window.__salesCalls = (window.__salesCalls || 0) + 1;
       return new Response(JSON.stringify({ ok: true, jobs: 3, left: 0, errors: {} }), { status: 200 });
+    }
+    if (String(url).includes("/functions/v1/schedule-map")) {
+      window.__mapCalls = (window.__mapCalls || []).concat([JSON.parse(opts.body)]);
+      return new Response(JSON.stringify({ ok: true, image: null, map_error: "Turn on \"Maps Static API\" for the Google Maps key in Google Cloud to see the map picture.",
+        places: [{ id: "studio", kind: "studio", label: "Studio", lat: 44.74, lng: -68.84 }, { id: "job:bk1", kind: "job", label: "Hampden Academy", lat: 44.745, lng: -68.85 }, { id: "job:bk4", kind: "job", label: "Hampden Rec", lat: 44.76, lng: -68.83 }] }), { status: 200 });
     }
     if (String(url).includes("/functions/v1/drive-time")) {
       window.__driveCalls = (window.__driveCalls || []).concat([JSON.parse(opts.body)]);
