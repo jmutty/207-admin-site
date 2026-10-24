@@ -730,7 +730,8 @@
         G.members.length ? [cap(word()), G.members.length + " (" + G.members.filter((x) => x.stage === "client" || x.stage === "booked").length + " clients)"] : null,
         !(ags || []).some((a) => a.status === "accepted") && covering ? ["Agreement", "Covered by " + G.parent.name + "'s"] : null,
       ].filter(Boolean);
-      const others = (acts || []).filter((a) => a.kind !== "note"); // notes are in the box at the top
+      // notes are in the box at the top; what the system wrote (contacts found in Gmail and the like) stays on Notes & history
+      const others = (acts || []).filter((a) => a.kind !== "note" && a.kind !== "system_note");
       const cName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "";
       // Coming up (2026-10-24 tidy): the date on the left, then the job, where, and how it's going, each on its own line.
       // The partner's name is left off the job name here since we're on their page; a member's job (on a group's page) starts with the member's name.
@@ -842,7 +843,8 @@
     }
     // Plain words for every activity kind; one we don't know yet still reads as a sentence-case label.
     const KIND = { email_sent: "Email sent", history_email: "Earlier email", reply: "Reply", note: "Note", followup_set: "Follow-up set", followup_done: "Follow-up done",
-      stage: "Stage changed", stage_change: "Stage changed", call: "Call", bounce: "Bounced", unsubscribe: "Unsubscribed", open: "Opened an email", email_opened: "Opened an email" };
+      stage: "Stage changed", stage_change: "Stage changed", call: "Call", bounce: "Bounced", unsubscribe: "Unsubscribed", open: "Opened an email", email_opened: "Opened an email",
+      merge: "Merged", system_note: "Added by the system" };
     function kindName(k) { const s = String(k || "").replace(/_/g, " ").trim(); return KIND[k] || (s ? s[0].toUpperCase() + s.slice(1) : "Activity"); }
     function actText(a) {
       const k = kindName(a.kind);
