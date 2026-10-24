@@ -820,7 +820,8 @@
     list.forEach((b) => {
       calDays(b).forEach((x) => { if (x.day >= r.start && x.day <= r.end) {
         const crew = crewOf(b, x), it = { b, x, crew };
-        it.probs = problemsOf(b, x, crew, today); it.color = colorOf(it);
+        // Nobody on it / Needs N more already shows as the red crew line (and its own count), so it isn't also a problem dot.
+        it.probs = problemsOf(b, x, crew, today).filter((t) => !shows("crew") || !/^(Nobody on it|Needs \d)/.test(t)); it.color = colorOf(it);
         (byDay[x.day] = byDay[x.day] || []).push(it); used.add(calColor === "type" ? b.type_key : calColor === "stage" ? stageKey(b) : crew ? crew.state : "na"); } });
       if (scope !== "cancelled") marksOf(b).forEach((m) => { if (m.day >= r.start && m.day <= r.end) (marks[m.day] = marks[m.day] || []).push(m); });
     });
