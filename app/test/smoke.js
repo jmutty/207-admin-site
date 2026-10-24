@@ -782,8 +782,15 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const mc = await page.evaluate(() => window.__mapCalls && window.__mapCalls[0]);
     check(mc && mc.days === 7 && mc.image === true && mc.markers.length >= 4, "map asks for the week's jobs: " + JSON.stringify(mc && { days: mc.days, n: mc.markers.length }));
     check((await page.textContent("#aca-scMap")).includes("Maps Static API") && (await page.textContent("#aca-scMap .sc-maplist")).includes("Hampden Academy"), "no Google picture yet: pins drawn here, says what to turn on, lists the jobs");
+    const gb = await page.$eval("#aca-panel-schedule .sc-scroll", (n) => n.getBoundingClientRect()), mb = await page.$eval("#aca-scMap", (n) => n.getBoundingClientRect());
+    check(mb.top >= gb.bottom && Math.abs(mb.width - gb.width) < 2 && await page.$eval("#aca-scMap .sc-mapsvg", (n) => n.getBoundingClientRect().width > 600), "the map is under the schedule, as wide as it");
     await page.uncheck("#aca-scMapOn");
     check(!(await visible(page, "#aca-scMap")), "map off");
+    // Ctrl-click works on job cards (jobs that already have people) and month chips, not just Jobs not assigned
+    await page.click("#aca-scGrid .scc-card[data-bk] >> nth=0", { modifiers: ["Control"] });
+    await page.click('#aca-scGrid .sc-jobs [data-booking="bk3"]', { modifiers: ["Control"] });
+    check(!(await page.$(".modal")) && (await page.$$("#aca-scGrid .sel")).length >= 2 && (await page.textContent("#aca-scBulk")).includes("2 jobs picked"), "Ctrl-click a job card and an open job: both picked");
+    await page.click("[data-bulkclear]");
     // send changes
     await page.waitForSelector("#aca-scChg:not(.hidden)");
     check((await page.textContent("#aca-scChg")).includes("(2)"), "Send changes counts the people with changes");
@@ -810,6 +817,9 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     const md = (await page.$$("#aca-scGrid .scm-day")).length;
     check(md % 7 === 0 && md >= 28 && (await page.$$("#aca-scGrid .scm-chip.need")).length >= 1 && (await page.$$("#aca-scGrid .scm-chip.ok")).length >= 1, "month: whole weeks, jobs that need people in red, covered ones: " + md);
     check(!(await visible(page, "#aca-scJump")) && await visible(page, "#aca-scNeedOnly"), "month: no week jump, a Needs people tick");
+    await page.click("#aca-scGrid .scm-chip.ok[data-booking] >> nth=0", { modifiers: ["Meta"] });
+    check(!(await page.$(".modal")) && (await page.$$("#aca-scGrid .scm-chip.sel")).length === 1 && (await page.textContent("#aca-scBulk")).includes("1 job picked"), "month: Cmd-click picks a job");
+    await page.click("[data-bulkclear]");
     await page.check("#aca-scNeedOnly");
     check((await page.$$("#aca-scGrid .scm-chip.ok")).length === 0 && (await page.$$("#aca-scGrid .scm-chip.gcal")).length === 0, "Needs people shows only jobs that still need people");
     await page.uncheck("#aca-scNeedOnly");
@@ -886,6 +896,8 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector(".sc-modal .sc-pick");
     check(await page.isChecked('input[name="aca-scView"][value="week"]') && (await page.$$("#aca-scGrid .sc-head.hl")).length === 1, "a job in the 8 weeks view opens its week, day outlined, and its assign dialog");
     await page.click('.sc-modal [data-m="cancel"]');
+    check(!(await page.$eval("#aca-scMore", (n) => n.open)) && !(await page.isVisible("#aca-scPeak")), "back on the week, hours and busiest days are folded away");
+    await page.click("#aca-scMore > summary");
     await page.click("#aca-scPeak [data-peak] >> nth=0");
     await page.waitForTimeout(150);
     check(await page.isChecked('input[name="aca-scView"][value="week"]') && (await page.$$("#aca-scGrid .sc-head.hl")).length === 1, "a Busiest day jumps to its week");

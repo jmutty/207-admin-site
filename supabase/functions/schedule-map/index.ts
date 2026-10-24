@@ -7,7 +7,7 @@
 // each job and, for Scheduling edit only, each person's home, with any coordinates already looked up. The rest
 // are looked up once with Google Places text search (biased to Maine) and kept through schedule_geo_store
 // (service role). With image: true the map itself comes back as a PNG data URL from the Maps Static API
-// (pins plus each person's route as a line), so the page needs no map scripts or outside images.
+// (pins plus each person's route along the roads, from the Routes API), so the page needs no map scripts or outside images.
 // Returns {ok, places: [{id, kind, label, lat, lng}], image: "data:image/png;base64,..." | null, map_error}.
 // Same GOOGLE_MAPS_API_KEY as drive-time; the picture needs "Maps Static API" turned on for that key. When it
 // isn't, the page draws the pins itself and says so.
@@ -60,6 +60,19 @@ const COLOR = /^[0-9a-f]{6}$/i;
 const ID = /^(studio|(job|home):[0-9a-f-]{36})$/i;
 const LABEL = /^[A-Z0-9]$/;
 
+// The road a route takes (Routes API, the same one drive-time uses), as an encoded polyline for the picture.
+// null when Google has no route, so the line is drawn straight instead.
+async function roadPath(pts: { lat: number; lng: number }[]): Promise<string | null> {
+  const ll = (p: { lat: number; lng: number }) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } } });
+  const r = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": MAPS_KEY, "X-Goog-FieldMask": "routes.polyline.encodedPolyline" },
+    body: JSON.stringify({ origin: ll(pts[0]), destination: ll(pts[pts.length - 1]), intermediates: pts.slice(1, -1).map(ll), travelMode: "DRIVE", polylineQuality: "OVERVIEW" }),
+  });
+  if (!r.ok) { console.error("schedule-map route:", r.status, (await r.text().catch(() => "")).slice(0, 300)); return null; }
+  return (await r.json())?.routes?.[0]?.polyline?.encodedPolyline ?? null;
+}
+
 function b64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let s = "";
@@ -92,6 +105,7 @@ Deno.serve(async (req) => {
     }
     const found = places.filter((p) => p.lat != null && p.lng != null);
     const at = new Map(found.map((p) => [p.id, `${p.lat!.toFixed(5)},${p.lng!.toFixed(5)}`]));
+    const coord = new Map(found.map((p) => [p.id, { lat: p.lat!, lng: p.lng! }]));
     const out = found.map(({ id, kind, label, lat, lng }) => ({ id, kind, label, lat, lng }));
     if (!body.image || !found.length) return json({ ok: true, places: out, image: null, map_error: null });
 
@@ -110,10 +124,19 @@ Deno.serve(async (req) => {
       if (!marked.has(p.id)) marked.set(p.id, p.kind === "studio" ? { label: "S", color: "222222" } : p.kind === "home" ? { label: "H", color: "8a8580" } : { label: "", color: "2f6db5" });
     }
     for (const [id, m] of marked) u.searchParams.append("markers", `size:mid|color:0x${m.color}|${m.label ? "label:" + m.label + "|" : ""}${at.get(id)}`);
-    for (const r of Array.isArray(body.routes) ? body.routes.slice(0, 12) : []) {
-      const pts = (Array.isArray(r?.stops) ? r.stops : []).filter((s: string) => at.has(s)).map((s: string) => at.get(s));
-      if (pts.length < 2) continue;
-      u.searchParams.append("path", `color:0x${COLOR.test(String(r.color ?? "")) ? r.color : "2f6db5"}cc|weight:4|${pts.join("|")}`);
+    // each person's route along the roads (a straight line between stops if Google has no route)
+    const routes = Array.isArray(body.routes) ? body.routes.slice(0, 12) : [];
+    const paths = await Promise.all(routes.map(async (r: any) => {
+      const ids = (Array.isArray(r?.stops) ? r.stops : []).filter((s: string) => at.has(s)).slice(0, 25);
+      if (ids.length < 2) return null;
+      const color = `color:0x${COLOR.test(String(r.color ?? "")) ? r.color : "2f6db5"}cc|weight:4|`;
+      const enc = await roadPath(ids.map((s: string) => coord.get(s)!)).catch(() => null);
+      return { road: enc ? color + "enc:" + enc : null, straight: color + ids.map((s: string) => at.get(s)).join("|") };
+    }));
+    // Google takes up to about 16k characters of URL; long road lines fall back to straight ones
+    for (const p of paths) {
+      if (!p) continue;
+      u.searchParams.append("path", p.road && u.toString().length + p.road.length * 1.3 < 15000 ? p.road : p.straight);
     }
     u.searchParams.set("key", MAPS_KEY);
     const g = await fetch(u.toString());
