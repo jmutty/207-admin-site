@@ -1,13 +1,13 @@
   // ================================================================ STAFF: Open jobs (2026-10-22)
-  // Jobs offered to part-time photographers and 1099 contractors near them (employment type on the Team page). A manager (Edit) picks a booked job, sees each
-  // part-timer's drive from home (offer-drive edge function, Google Maps) and who is busy, and sends it to
-  // the ones they tick. Each gets a push and answers here: I'm available, or Can't make it. The manager sees
+  // Ask who's available: a manager (Edit) picks a booked job, sees each person's drive from home (offer-drive edge
+  // function, Google Maps) and who is busy, and asks the ones they tick (anyone on the team since 2026-10-23; Part
+  // time and 1099 people in range start ticked). Each gets an email and a push and answers here: I'm available, or Can't make it. The manager sees
   // who said yes and picks (2026-10-23, Jeremiah: not first come, first served); picking puts that person on
   // the schedule with their own drive time, and once every spot is picked the offer is filled.
   // View = a part-timer (only the offers sent to you); Edit = post offers, see answers, set up part-timers.
   // RPCs: openjobs_mine / openjobs_answer / openjobs_attention (view); openjobs_upcoming / openjobs_candidates /
   // openjobs_post / openjobs_list / openjobs_pick / openjobs_close / openjobs_people / openjobs_person_save (edit).
-  // Link #staff/openjobs/<booking id> opens "Offer a job" on that booking.
+  // Link #staff/openjobs/<booking id> opens "Ask who's available" on that booking.
   registerPage({ id: "openjobs", group: "Staff", section: "staff", module: "openjobs", title: "Open jobs", selfService: true, // View = answer your own offers
                  tabs: [["openjobs", "Open jobs"]], onShow: () => OpenJobs.load() });
   registerAttention("openJobsWaiting", { module: "openjobs", level: "warn", name: "open job offers",
@@ -65,10 +65,10 @@
 
     const root = el("panel-openjobs");
     root.innerHTML =
-      '<div class="oj-bar hidden" id="aca-ojBar"><button type="button" class="primary" id="aca-ojOffer">Offer a job</button><button type="button" class="small" id="aca-ojPeople">Part-timers &amp; 1099</button><span class="grow"></span></div>' +
+      '<div class="oj-bar hidden" id="aca-ojBar"><button type="button" class="primary" id="aca-ojOffer">Ask who&#39;s available</button><button type="button" class="small" id="aca-ojPeople">Part-timers &amp; 1099</button><span class="grow"></span></div>' +
       '<div id="aca-ojErr" class="inline-error hidden"></div>' +
-      '<div class="oj-sec" id="aca-ojMineSec"><h3>Offered to you</h3><div id="aca-ojMine"><p class="empty">Loading&#8230;</p></div></div>' +
-      '<div class="oj-sec hidden" id="aca-ojPostedSec"><h3>Offers you sent</h3><div id="aca-ojPosted"></div></div>';
+      '<div class="oj-sec" id="aca-ojMineSec"><h3>Asked of you</h3><div id="aca-ojMine"><p class="empty">Loading&#8230;</p></div></div>' +
+      '<div class="oj-sec hidden" id="aca-ojPostedSec"><h3>Who&#39;s available</h3><div id="aca-ojPosted"></div></div>';
 
     // "Sat Oct 25, 9am-12pm; Sun Oct 26, time not set yet"
     function daysText(days) {
@@ -108,7 +108,7 @@
     // ---------------------------------------------------------------- part-timer: offers to me
     function renderMine(offers, edit) {
       el("ojMineSec").classList.toggle("hidden", edit && !offers.length);
-      if (!offers.length) { el("ojMine").innerHTML = '<p class="empty">No jobs offered to you right now. When one comes up near you, you get a notification and it shows here.</p>'; return; }
+      if (!offers.length) { el("ojMine").innerHTML = '<p class="empty">Nobody has asked you about a job right now. When they do, you get an email and a notification, and it shows here.</p>'; return; }
       el("ojMine").innerHTML = offers.map((o) => {
         const me = o.mine || {};
         const open = o.status === "open" && !me.answer, picked = !!me.picked_at;
@@ -187,7 +187,7 @@
       "&body=" + encodeURIComponent("Hi,\n\nAre you available for this job?\n\n" + o.title + "\n" + daysText(o.days) + (o.location ? "\n" + o.location : "") + (o.pay ? "\nPay: " + o.pay : "") +
         (o.note ? "\n\n" + o.note : "") + "\n\nReply to this email, or answer it in 207 Admin under Open jobs.\n\nThanks!");
     function renderPosted(offers) {
-      if (!offers.length) { el("ojPosted").innerHTML = '<p class="empty">Nothing offered yet. Use Offer a job to send a booked job to part-timers and 1099 contractors near it.</p>'; return; }
+      if (!offers.length) { el("ojPosted").innerHTML = '<p class="empty">Nothing asked yet. Use Ask who&#39;s available on a booked job: the people you pick say if they can make it, and you pick one.</p>'; return; }
       el("ojPosted").innerHTML = offers.map((o) => {
         const live = o.status === "open" && o.booking_status === "booked" && o.days.length;
         const state = o.booking_status !== "booked" ? '<span class="oj-tag err">Job ' + esc(o.booking_status) + "</span>"
@@ -196,7 +196,7 @@
         const who = (o.recipients || []).map((r) => {
           const a = r.picked_at ? '<span class="oj-tag ok">Picked</span>' : r.answer === "accepted" ? '<span class="oj-tag ok">Available</span>' + (live && o.taken < o.spots ? '<button type="button" class="small" data-offer="' + esc(o.id) + '" data-pick="' + esc(r.user_id) + '">Pick</button>' : "")
             : r.answer === "declined" ? '<span class="oj-tag">Can\u2019t make it</span>'
-            : r.seen_at ? '<span class="oj-tag">Seen, no answer</span>' : r.notified ? '<span class="oj-tag">Notified</span>'
+            : r.seen_at ? '<span class="oj-tag">Seen, no answer</span>' : r.notified ? '<span class="oj-tag">Notified</span>' : r.emailed ? '<span class="oj-tag">Emailed</span>'
             : '<span class="oj-tag warn" title="They have not turned on notifications (account menu, Notifications), so the offer only shows when they open Open jobs.">No notifications on</span>' +
               (emails[r.user_id] ? '<a class="s" href="' + esc(mailto(emails[r.user_id], o)) + '">Email them instead</a>' : '<span class="s">Ask them to turn on notifications: account menu, Notifications.</span>');
           return '<li><span class="n">' + esc(T.shortName(r.name)) + "</span>" + a + (r.drive_min != null ? '<span class="s">' + num(r.drive_min) + " min</span>" : "") +
@@ -206,7 +206,7 @@
           '<p class="oj-facts"><b>' + esc(daysText(o.days)) + "</b>" + (o.location ? "<br>" + esc(o.location) : "") + "<br>" + esc(spotsText(o)) +
           (o.pay ? " &middot; Pay: " + esc(o.pay) : "") + " &middot; Sent " + esc(fmtAgo(o.created_at)) + (o.created_by ? " by " + esc(T.shortName(o.created_by)) : "") + "</p>" +
           (o.note ? '<p class="oj-note">' + esc(o.note) + "</p>" : "") + '<ul class="oj-who">' + who + "</ul>" +
-          (live ? '<div class="oj-acts"><button type="button" class="small" data-again="' + esc(o.booking_id) + '">Offer to more people</button><button type="button" class="small" data-close="' + esc(o.id) + '">Close offer</button></div>' : "") +
+          (live ? '<div class="oj-acts"><button type="button" class="small" data-again="' + esc(o.booking_id) + '">Ask more people</button><button type="button" class="small" data-close="' + esc(o.id) + '">Close</button></div>' : "") +
           "</div>";
       }).join("");
     }
@@ -221,14 +221,14 @@
       return j;
     }
     async function openOffer(bookingId) {
-      const m = openModal('<div class="oj-modal"><h2>Offer a job to part-timers and 1099</h2>' +
+      const m = openModal('<div class="oj-modal"><h2>Ask who&#39;s available</h2><p class="oj-facts" style="margin:0 0 12px">Everyone you tick gets an email and a notification asking if they can make it. You pick who gets it.</p>' +
         '<div class="field"><label for="aca-ojJob">Job</label><select id="aca-ojJob"><option value="">Loading jobs&#8230;</option></select></div>' +
         '<div id="aca-ojJobFacts" class="oj-facts" style="margin:-4px 0 12px"></div>' +
-        '<div class="field"><label>Who gets it</label><div id="aca-ojCands"><p class="empty">Pick a job first.</p></div></div>' +
+        '<div class="field"><label>Who to ask</label><div id="aca-ojCands"><p class="empty">Pick a job first.</p></div></div>' +
         '<div class="row2"><div class="field"><label for="aca-ojSpots">People needed</label><select id="aca-ojSpots">' + [1, 2, 3, 4, 5].map((n) => '<option value="' + n + '">' + n + "</option>").join("") + "</select></div>" +
         '<div class="field"><label for="aca-ojPay">Pay (optional)</label><input type="text" id="aca-ojPay" maxlength="80" placeholder="$150 flat, $25/hr, ..." /></div></div>' +
         '<div class="field"><label for="aca-ojNote">Note (optional)</label><textarea id="aca-ojNote" maxlength="500" placeholder="What to bring, where to park, who to ask for"></textarea></div>' +
-        '<div class="inline-error hidden" id="aca-ojMErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="send" disabled>Send offer</button></div></div>');
+        '<div class="inline-error hidden" id="aca-ojMErr"></div><div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="send" disabled>Ask</button></div></div>');
       const mErr = (t) => { const n = el("ojMErr"); n.textContent = t; n.classList.toggle("hidden", !t); };
       const send = m.querySelector('[data-m="send"]');
       let jobs = [];
@@ -260,23 +260,23 @@
         const b = d.booking;
         el("ojJobFacts").innerHTML = esc(daysText(b.days)) + (b.location ? "<br>" + esc(b.location) : "") + (driveNote ? '<br><span class="oj-tag warn">' + esc(driveNote) + "</span>" : "");
         const ppl = d.people || [];
-        if (!ppl.length) { el("ojCands").innerHTML = '<p class="empty">Nobody is Part time or 1099 yet. Set their employment type on the Team page (or under Part-timers &amp; 1099) and add their home address.</p>'; return; }
+        if (!ppl.length) { el("ojCands").innerHTML = '<p class="empty">Nobody on the team yet.</p>'; return; }
         el("ojCands").innerHTML = '<ul class="oj-pick">' + ppl.map((p) => {
           const flags = [];
           if (p.on_job) flags.push('<span class="oj-tag ok">Already on this job</span>');
           if (p.offered) flags.push('<span class="oj-tag">Already offered</span>');
           if (p.busy && p.busy.length) flags.push('<span class="oj-tag warn">Busy ' + esc(p.busy.map((x) => T.fmtDay(x, { month: undefined, day: undefined })).join(", ")) + "</span>");
           if (!p.has_access) flags.push('<span class="oj-tag err">No Open jobs access</span>');
-          else if (!p.has_device) flags.push('<span class="oj-tag warn">No notifications on</span>');
+          else if (!p.has_device) flags.push('<span class="oj-tag">Email only</span>');
           const drive = !p.home_set ? "No home address" : p.drive_min == null ? "Drive unknown" : p.drive_min + " min drive" + (p.in_range ? "" : " (farther than their " + p.max_drive_min + " min)");
-          const pre = p.in_range && !p.on_job && !p.offered && !(p.busy && p.busy.length) && p.has_access;
+          const pre = p.part_time !== false && p.in_range && !p.on_job && !p.offered && !(p.busy && p.busy.length) && p.has_access;
           return '<li><label><input type="checkbox" class="oj-cand" value="' + esc(p.user_id) + '"' + (pre ? " checked" : "") + (p.has_access ? "" : " disabled") + " /><span>" +
             esc(T.shortName(p.name)) + flags.join("") + '<span class="s">' + esc(drive) + "</span></span></label></li>";
         }).join("") + "</ul>";
         syncSend();
       }
       const picked = () => [...m.querySelectorAll(".oj-cand:checked")].map((x) => x.value);
-      function syncSend() { const n = picked().length; send.disabled = !n; send.textContent = n ? "Send to " + n + (n === 1 ? " person" : " people") : "Send offer"; }
+      function syncSend() { const n = picked().length; send.disabled = !n; send.textContent = n ? "Ask " + n + (n === 1 ? " person" : " people") : "Ask"; }
       el("ojJob").addEventListener("change", pickJob);
       m.addEventListener("change", (ev) => { if (ev.target.classList.contains("oj-cand")) syncSend(); });
       if (el("ojJob").value) pickJob();
@@ -289,7 +289,7 @@
           if (error) throw error;
           m.close();
           const off = data.sent - data.pushed;
-          toast("Offered to " + data.sent + (data.sent === 1 ? " person." : " people.") + (off ? " " + off + " won't get a notification (not turned on), so it waits on their Open jobs page." : ""));
+          toast("Asked " + data.sent + (data.sent === 1 ? " person." : " people.") + (data.emailed ? " They got an email" + (data.pushed ? " and a notification" : "") + "." : off ? " " + off + " won't get a notification (not turned on), so it waits on their Open jobs page." : ""));
           load();
         } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
       });
@@ -303,7 +303,7 @@
     // Part-timers & 1099: read-only (ws/settings 2026-10-24). Type, home address and longest drive are set on each
     // person's Team record (one person record); Edit opens it.
     async function openPeople() {
-      const m = openModal('<div class="oj-modal" style="max-width:860px"><h2>Part-timers and 1099</h2><p class="oj-facts">Part time and 1099 people get Open jobs offers. Their home address is where the drive to a job is measured from; offers start ticked for jobs within their longest drive. ' +
+      const m = openModal('<div class="oj-modal" style="max-width:860px"><h2>Part-timers and 1099</h2><p class="oj-facts">Anyone on the team can be asked if they&#39;re available; Part time and 1099 people in range start ticked. A home address is where the drive to a job is measured from; offers start ticked for jobs within their longest drive. ' +
         (ACCESS.is_admin ? "Change these on each person&#39;s Team record." : "Someone with full access changes these on the Team page.") + "</p>" +
         '<div id="aca-ojPplBody"><p class="empty">Loading&#8230;</p></div><div class="modal-actions"><span class="grow"></span><button type="button" class="primary" data-m="done">Done</button></div></div>', { onClose: load });
       m.querySelector('[data-m="done"]').addEventListener("click", () => m.close());

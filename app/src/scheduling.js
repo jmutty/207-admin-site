@@ -128,6 +128,15 @@
     .aca .sc-chip.none small::after { content: " \\00b7  nobody on it"; color: var(--accent); font-weight: 600; }
     .aca .sc-chip.tracked { border-left-color: var(--faint); opacity: .8; }
     .aca .sc-chip.gcal { border-left-color: #8a8580; }
+    .aca .sc-chip.sel, .aca .scl-item.sel { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface-2); }
+    .aca .sc-pickmany { border: 0; background: none; padding: 0; margin-left: 6px; color: var(--accent); font-size: 11.5px; font-weight: 600; cursor: pointer; text-decoration: underline; }
+    .aca .sc-bulk { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 40; display: flex; gap: 10px; align-items: center; padding: 10px 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; max-width: calc(100vw - 32px); flex-wrap: wrap; }
+    .aca .sc-bulk.hidden { display: none; }
+    .aca .sc-bulkjobs { list-style: none; margin: 0 0 12px; padding: 0; font-size: 13.5px; max-height: 180px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+    .aca .sc-bulkjobs li { padding: 6px 10px; border-bottom: 1px solid var(--line2); }
+    .aca .sc-bulkjobs li:last-child { border-bottom: 0; }
+    .aca .sc-bulkjobs .s { color: var(--muted); font-size: 12.5px; }
     .aca .sc-cell { position: relative; min-height: 46px; cursor: default; }
     .aca .sc-cell.edit { cursor: copy; }
     .aca .sc-cell.today { background: #fffaf4; }
@@ -288,7 +297,7 @@
       '<div class="sc-scroll"><div id="aca-scGrid"><p class="empty" style="padding:16px">Loading&#8230;</p></div></div>' +
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
       '<div class="sc-sum hidden" id="aca-scPeak"></div>' +
-      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. Part time and 1099 people with a home address on the Team page start and end at home instead of the studio.</span> People put on a booked job get an email and a notification to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting. Someone who can&#39;t make it comes off the job, and it goes back under Jobs not assigned. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
+      '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the Google Calendar that aren&#39;t bookings show under From Google Calendar, and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     // Phones open on a list of today and tomorrow (2026-10-23, Jeremiah's pick); the grids are one tap away.
@@ -306,6 +315,14 @@
     const personName = (id) => { const p = data && data.people.find((x) => x.user_id === id); return p ? p.name : "Someone"; };
     const bookingLabel = (b) => b.title + (b.day_label ? " (" + b.day_label + ")" : "");
     const shortTitle = (s) => String(s || "").split(" \u2022 ")[0];
+    // Bulk assign (2026-10-23): Ctrl / Cmd / Shift-click jobs under Jobs not assigned (or turn on "Pick several",
+    // which phones need) to pick several, then put the same people on all of them at once. Picks are kept by
+    // booking + day, across weeks, until they're assigned or cleared.
+    const bulk = new Map();
+    let bulkMode = false;
+    const bulkKey = (id, day) => id + "|" + day;
+    const selCls = (b, d) => (bulk.has(bulkKey(b.booking_id, d)) ? " sel" : "");
+    const pickManyBtn = () => editable() ? '<button type="button" class="sc-pickmany" data-bulkmode>' + (bulkMode ? "Done picking" : "Pick several") + "</button>" : "";
 
     async function load() {
       if (view === "weeks8") return loadWeeks();
@@ -409,6 +426,8 @@
     }
 
     // ---------------------------------------------------------------- crew counts
+    // Ask people to confirm (Settings, Scheduling) is off by default: putting someone on a job just assigns it.
+    const confirmOn = () => !!(data && data.crew && data.crew.settings && data.crew.settings.crew_confirm_on === true);
     const neededOf = (bookingId) => num((data.crew.needed || {})[bookingId]) || 1;
     // people on a booking that day
     const staffedCount = (bookingId, d) => new Set(data.entries.filter((e) => e.booking_id === bookingId && T.local(e.starts_at).day <= d && T.local(e.ends_at).day >= d).map((e) => e.user_id)).size;
@@ -471,13 +490,13 @@
       }
       // Jobs not assigned: a job stays in this lane until it has as many people as it needs that day.
       const open = data.bookings.filter((b) => days.includes(b.day) && staffedCount(b.booking_id, b.day) < neededOf(b.booking_id));
-      h += '<div class="sc-name"><b>Jobs not assigned</b><span class="sc-hrs">' + (open.length ? num(open.length) + " this " + (view === "week" ? "week" : "day") : "All jobs have someone") + "</span></div>";
+      h += '<div class="sc-name"><b>Jobs not assigned</b><span class="sc-hrs">' + (open.length ? num(open.length) + " this " + (view === "week" ? "week" : "day") + pickManyBtn() : "All jobs have someone") + "</span></div>";
       days.forEach((d) => {
         const list = open.filter((b) => b.day === d);
         h += '<div class="sc-jobs">' + list.map((b) => {
           const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id);
           const no = (data.crew.declined || []).filter((x) => x.booking_id === b.booking_id);
-          return '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : b.status === "booked" && !have ? " none" : have ? " part" : "") + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "") + no.map((x) => "\n" + T.shortName(x.name) + " can't make it" + (x.reason ? ": " + x.reason : "")).join("")) + '">' +
+          return '<button type="button" class="sc-chip' + (b.status === "tracked" ? " tracked" : b.status === "booked" && !have ? " none" : have ? " part" : "") + selCls(b, d) + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '" title="' + esc(bookingLabel(b) + (b.location ? "\n" + b.location : "") + no.map((x) => "\n" + T.shortName(x.name) + " can't make it" + (x.reason ? ": " + x.reason : "")).join("")) + '">' +
             esc(view === "week" ? shortTitle(b.title) : bookingLabel(b)) + "<small>" + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "time not set yet") +
             (have ? ' <span class="sc-need">&middot; ' + num(have) + " of " + num(need) + "</span>" : need > 1 ? ' <span class="sc-need">&middot; needs ' + num(need) + "</span>" : "") + "</small>" +
             no.map((x) => '<span class="sc-no">' + esc(T.shortName(x.name)) + " can&#39;t make it</span>").join("") + "</button>"; }).join("") + "</div>";
@@ -579,9 +598,9 @@
       days.forEach((d) => {
         h += '<section class="scl-day"><h3>' + (d === today ? "Today, " : d === T.addDays(today, 1) ? "Tomorrow, " : "") + esc(T.fmtDay(d, { calendar: true })) + "</h3>";
         const open = data.bookings.filter((b) => b.day === d && staffedCount(b.booking_id, d) < neededOf(b.booking_id));
-        if (open.length) h += '<div class="scl-open"><div class="scl-lbl">Nobody on it yet</div>' + open.map((b) => {
+        if (open.length) h += '<div class="scl-open"><div class="scl-lbl">Nobody on it yet' + pickManyBtn() + "</div>" + open.map((b) => {
           const have = staffedCount(b.booking_id, d), need = neededOf(b.booking_id);
-          return '<button type="button" class="scl-item open" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '"><span class="t">' + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "Time not set") + "</span>" +
+          return '<button type="button" class="scl-item open' + selCls(b, d) + '" data-booking="' + esc(b.booking_id) + '" data-day="' + esc(d) + '"><span class="t">' + esc(b.start_at ? T.fmtTs(b.start_at) + (b.end_at ? "\u2013" + T.fmtTs(b.end_at) : "") : "Time not set") + "</span>" +
             '<span class="w"><b>' + esc(bookingLabel(b)) + "</b>" + (b.location ? "<small>" + esc(b.location) + "</small>" : "") + "<small>" + (have ? num(have) + " of " + num(need) + " people" : need > 1 ? "Needs " + num(need) + " people" : "Needs someone") + "</small></span></button>";
         }).join("") + "</div>";
         const people = (mineOnly ? data.people.filter((p) => p.user_id === data.me) : data.people);
@@ -634,6 +653,19 @@
     el("scJump").addEventListener("change", (e) => { if (!e.target.value) return; anchor = e.target.value; load(); });
     root.addEventListener("click", (e) => {
       if (pressed) { pressed = false; e.preventDefault(); return; } // the click after a long-press opened the menu
+      if (e.target.closest("[data-bulkmode]")) { bulkMode = !bulkMode; render(); return; }
+      if (e.target.closest("[data-bulkclear]")) { bulk.clear(); bulkMode = false; render(); bulkBar(); return; }
+      if (e.target.closest("[data-bulkgo]")) { openBulkAssign(); return; }
+      const pk0 = e.target.closest(".sc-jobs [data-booking], .scl-open [data-booking]");
+      if (pk0 && editable() && (bulkMode || e.ctrlKey || e.metaKey || e.shiftKey)) {
+        e.preventDefault();
+        const k = bulkKey(pk0.dataset.booking, pk0.dataset.day);
+        const b = data.bookings.find((x) => x.booking_id === pk0.dataset.booking && x.day === pk0.dataset.day);
+        if (bulk.has(k)) bulk.delete(k); else if (b) bulk.set(k, Object.assign({}, b, { on: data.entries.filter((x) => x.kind === "job" && x.booking_id === b.booking_id && T.local(x.starts_at).day === b.day).map((x) => x.user_id) }));
+        pk0.classList.toggle("sel", bulk.has(k));
+        bulkBar();
+        return;
+      }
       const v = e.target.closest("[data-v]");
       if (v) {
         const a = v.dataset.v, step = view === "week" ? 7 : 1, oneDay = view === "day" || view === "list";
@@ -746,7 +778,7 @@
     }
 
     // ---------------------------------------------------------------- drive time
-    // With a person, the drive is from where they start: home for Part time / 1099 people with a home address.
+    // With a person, the drive is from where they start: home for anyone with a home address.
     const fromHome = (uid) => !!(data && data.people.some((p) => p.user_id === uid && p.from_home));
     async function lookupDrive(bookingId, userId) {
       const { data: { session } } = await sb.auth.getSession();
@@ -757,7 +789,7 @@
       return j;
     }
     // Wires the drive inputs + "Look up" button inside a modal. getBooking() returns the picked booking id,
-    // getUser() (optional) the person, so a Part time / 1099 person's drive is from their home.
+    // getUser() (optional) the person, so the drive is from their home when they have one.
     function driveControls(m, getBooking, auto, getUser) {
       const msg = m.querySelector(".sc-drivemsg"), btn = m.querySelector('[data-m="drive"]');
       async function go() {
@@ -791,6 +823,64 @@
     // ---------------------------------------------------------------- put people on a job
     // The booking day a job bar belongs to (bookings on screen this week).
     const jobOf = (e) => data.bookings.find((b) => b.booking_id === e.booking_id && b.day === T.local(e.starts_at).day);
+    // The floating "N jobs picked" bar.
+    function bulkBar() {
+      let bar = el("scBulk");
+      if (!bar) { bar = document.createElement("div"); bar.className = "sc-bulk hidden"; bar.id = "aca-scBulk"; root.appendChild(bar); }
+      const n = bulk.size;
+      bar.classList.toggle("hidden", !n || !editable());
+      bar.innerHTML = n ? "<span><b>" + num(n) + "</b> job" + (n === 1 ? "" : "s") + ' picked</span><button type="button" class="primary" data-bulkgo>Assign people</button><button type="button" class="small" data-bulkclear>Clear</button>' : "";
+    }
+    // Put the same people on every picked job, each at the job's own time, with drive from where they start.
+    function openBulkAssign() {
+      const jobs = [...bulk.values()].sort((x, y) => (x.day + (x.start_at || "")).localeCompare(y.day + (y.start_at || "")));
+      if (!jobs.length) return;
+      const roles = data.crew.roles || [];
+      const roleSel = '<select class="sc-role" aria-label="Role"><option value="">No role</option>' + roles.map((r) => '<option value="' + esc(r.id) + '">' + esc(r.label) + "</option>").join("") + "</select>";
+      const timed = (b) => !!(b.start_at && b.end_at);
+      const m = openModal('<div class="sc-modal"><h2>Assign ' + num(jobs.length) + " job" + (jobs.length === 1 ? "" : "s") + "</h2>" +
+        '<ul class="sc-bulkjobs">' + jobs.map((b) => "<li><b>" + esc(T.fmtDay(b.day)) + "</b> " + esc(bookingLabel(b)) + '<br><span class="s">' +
+          esc(timed(b) ? T.fmtTs(b.start_at) + "–" + T.fmtTs(b.end_at) : "Time not set yet, so it's skipped") + (b.location ? " · " + esc(b.location) : "") + "</span></li>").join("") + "</ul>" +
+        '<div class="field"><label>Who</label><ul class="sc-pick" id="aca-scBulkPick">' + data.people.map((p) =>
+          '<li><input type="checkbox" value="' + esc(p.user_id) + '" aria-label="' + esc(p.name) + '" /><span><span class="n">' + esc(p.name) + "</span>" +
+          '<span class="s">' + (p.from_home ? "Drives from home" : "Drives from the studio") + "</span></span>" + roleSel + "</li>").join("") + "</ul></div>" +
+        '<p class="sc-note">Each person goes on every job at its booked time, with the usual setup and teardown. Drive time is looked up for each job from their home (or the studio if they have no home address). Anyone already on a job stays as they are.</p>' +
+        '<div class="inline-error hidden" id="aca-scMErr"></div>' +
+        '<div class="modal-actions"><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Assign</button></div></div>');
+      m.addEventListener("click", async (ev) => {
+        const t = ev.target.closest("[data-m]"); if (!t) return;
+        if (t.dataset.m === "cancel") return m.close();
+        if (t.dataset.m !== "save") return;
+        const who = [...m.querySelectorAll("#aca-scBulkPick li")].filter((li) => li.querySelector("input:checked")).map((li) => ({ user_id: li.querySelector("input").value, role_id: li.querySelector(".sc-role").value || null }));
+        if (!who.length) return mErr("Pick at least one person.");
+        const todo = jobs.filter(timed);
+        if (!todo.length) return mErr("None of these jobs have a time yet. Set the times on the bookings first.");
+        t.disabled = true;
+        let added = 0, clashes = 0, n = 0;
+        const total = todo.length * who.length;
+        try {
+          for (const b of todo) {
+            for (const w of who) {
+              t.textContent = "Assigning " + (++n) + " of " + total + "…";
+              if ((b.on || []).includes(w.user_id)) continue;
+              const st = T.hhmm(T.local(b.start_at).min), et = T.hhmm(T.local(b.end_at).min);
+              const v = { setup_min: setupDefault(), teardown_min: teardownDefault(), drive_before_min: 30, drive_after_min: 30 };
+              try { v.drive_before_min = v.drive_after_min = round5((await lookupDrive(b.booking_id, w.user_id)).minutes); } catch (_e) { /* keep 30 */ }
+              const { data: r, error } = await sb.rpc("schedule_save", { p: Object.assign({ user_id: w.user_id, kind: "job", booking_id: b.booking_id, role_id: w.role_id, starts_at: T.toIso(b.day, st), ends_at: T.toIso(et <= st ? T.addDays(b.day, 1) : b.day, et) }, v) });
+              if (error) throw error;
+              added += 1; clashes += num(r && r.overlaps);
+            }
+            bulk.delete(bulkKey(b.booking_id, b.day));
+          }
+          m.close();
+          bulkMode = bulk.size > 0 && bulkMode;
+          const skipped = jobs.length - todo.length;
+          toast("Assigned " + num(todo.length) + " job" + (todo.length === 1 ? "" : "s") + (added ? "" : " (everyone was already on them)") + "." +
+            (skipped ? " " + skipped + " without a time " + (skipped === 1 ? "is" : "are") + " still picked." : "") + (clashes ? " Heads up: " + clashes + " overlap other time on their schedule." : ""));
+          bulkBar(); load(); loadAttention();
+        } catch (e) { mErr(cleanErr(e)); t.disabled = false; t.textContent = "Assign"; load(); bulkBar(); }
+      });
+    }
     function openAssign(b) {
       const already = data.entries.filter((e) => e.booking_id === b.booking_id && T.local(e.starts_at).day === b.day);
       const s = b.start_at ? T.local(b.start_at).min : 9 * 60, en = b.end_at ? T.local(b.end_at).min : s + 120;
@@ -804,16 +894,16 @@
         (already.length ? '<h3 class="sc-sub">On it</h3><ul class="sc-onit">' + already.map((e) => "<li><b>" + esc(personName(e.user_id)) + "</b>" + (e.role ? " (" + esc(e.role) + ")" : "") + " " + cf(e) +
           ' <span class="s">' + esc(T.fmtTs(e.starts_at)) + "–" + esc(T.fmtTs(e.ends_at)) + ", drive " + num(e.drive_before_min) + "/" + num(e.drive_after_min) + " min" + (e.batch_id ? ", batched" : "") + "</span>" +
           ' <button type="button" class="link" data-m="edit" data-id="' + esc(e.id) + '">change</button>' +
-          (!e.confirm || e.confirm.status !== "confirmed" ? ' <button type="button" class="link" data-m="ask" data-user="' + esc(e.user_id) + '">' + (e.confirm && e.confirm.asked_at ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</li>").join("") + "</ul>" : "") +
+          (confirmOn() && (!e.confirm || e.confirm.status !== "confirmed") ? ' <button type="button" class="link" data-m="ask" data-user="' + esc(e.user_id) + '">' + (e.confirm && e.confirm.asked_at ? "Ask again" : "Ask to confirm") + "</button>" : "") + "</li>").join("") + "</ul>" : "") +
         (no.length ? '<p class="sc-facts"><b>Can&#39;t make it:</b> ' + no.map((x) => esc(x.name) + (x.reason ? ' <span class="muted">(' + esc(x.reason) + ")</span>" : "")).join(", ") + "</p>" : "") +
         '<div class="field"><label>Add people</label><ul class="sc-pick" id="aca-scPick"><li><span></span><span class="muted">Checking who is free&#8230;</span><span></span></li></ul></div>' +
-        (canEdit("openjobs") ? '<p class="sc-note">Nobody free? <a href="#staff/openjobs/' + esc(b.booking_id) + '" data-m="offer">Offer to part-timers</a>: Part time and 1099 people nearby get it in Open jobs.</p>' : "") +
+        (canEdit("openjobs") ? '<p class="sc-note">Not sure who can make it? <a href="#staff/openjobs/' + esc(b.booking_id) + '" data-m="offer">Ask who&#39;s available</a>: ask several people at once, they say if they can make it, and you pick one.</p>' : "") +
         // B8: times, setup and drive are rarely changed here once the Drive & setup defaults are set
         '<details class="sc-fold" id="aca-scTimes"' + (b.start_at ? "" : " open") + '><summary>Times and drive <span class="s" id="aca-scTimesTxt"></span></summary>' +
         '<div class="row2"><div class="field"><label for="aca-scS">Start</label><input type="time" id="aca-scS" step="300" value="' + T.hhmm(s) + '" /></div><div class="field"><label for="aca-scE">End</label><input type="time" id="aca-scE" step="300" value="' + T.hhmm(en) + '" /></div></div>' +
         driveHtml(already[0] && !already[0].batch_id ? already[0].drive_before_min : 30, already[0] && !already[0].batch_id ? already[0].drive_after_min : 30,
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
-        (data.people.some((p) => p.from_home) ? '<p class="sc-note">Part time and 1099 people drive from home: theirs is looked up for each of them when you add them.</p>' : "") + "</details>" +
+        (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home: theirs is looked up for each of them when you add them.</p>' : "") + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">Add to the schedule</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
@@ -883,7 +973,7 @@
               clashes += num(r && r.overlaps);
             }
             m.close();
-            toast((who.length === 1 ? "Added to the schedule." : who.length + " people added.") + (data.crew.settings.crew_confirm_on !== false && (!b.status || b.status === "booked") ? " They'll be asked to confirm." : "") + (clashes ? " Heads up: it overlaps other time on their schedule." : ""));
+            toast((who.length === 1 ? "Added to the schedule." : who.length + " people added.") + (confirmOn() && (!b.status || b.status === "booked") ? " They'll be asked to confirm." : "") + (clashes ? " Heads up: it overlaps other time on their schedule." : ""));
             load(); loadAttention();
           } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
         }
@@ -912,7 +1002,7 @@
       const m = openModal('<div class="sc-modal"><h2>' + (opts.only === "roles" ? "Crew roles" : opts.only === "emails" ? "Asking the crew and the weekly email" : "Crew settings") + '</h2>' +
         (roles ? '<h3 class="sc-sub">Roles</h3><p class="sc-note">What someone does on a job. Pick each person&#39;s roles on the Team page; the crew picker suggests their first one.</p>' +
         '<ul class="sc-roles" id="aca-scRoles"></ul><div class="sc-drive"><div class="field" style="flex:1"><label for="aca-scRoleNew">New role</label><input type="text" id="aca-scRoleNew" maxlength="40" placeholder="Lighting, Group photos&#8230;" style="width:100%" /></div><button type="button" class="small" data-m="addrole">Add</button></div>' : "") +
-        (mails ? '<h3 class="sc-sub">Asking the crew</h3><label class="sc-chk"><input type="checkbox" id="aca-scCfOn"' + (st.crew_confirm_on !== false ? " checked" : "") + ' /> Ask people to confirm when they&#39;re put on a booked job (email and app notification, 7am to 9pm)</label>' +
+        (mails ? '<h3 class="sc-sub">Asking the crew</h3><label class="sc-chk"><input type="checkbox" id="aca-scCfOn"' + (st.crew_confirm_on === true ? " checked" : "") + ' /> Ask people to confirm when they&#39;re put on a booked job (email and app notification, 7am to 9pm). Off: putting someone on a job just assigns it.</label>' +
         '<h3 class="sc-sub">Weekly schedule email</h3><label class="sc-chk"><input type="checkbox" id="aca-scWkOn"' + (st.week_email_auto ? " checked" : "") + ' /> Email everyone their next week automatically</label>' +
         '<div class="row2"><div class="field"><label for="aca-scWkD">Day</label><select id="aca-scWkD">' + DOWS.map((d, i) => '<option value="' + i + '"' + (i === num(st.week_email_dow == null ? 5 : st.week_email_dow) ? " selected" : "") + ">" + d + "</option>").join("") + "</select></div>" +
         '<div class="field"><label for="aca-scWkH">Time</label><select id="aca-scWkH">' + Array.from({ length: 15 }, (_, i) => i + 6).map((h) => '<option value="' + h + '"' + (h === num(st.week_email_hour == null ? 15 : st.week_email_hour) ? " selected" : "") + ">" + T.fmtMin(h * 60) + "</option>").join("") + "</select></div></div>" : "") +
@@ -1338,7 +1428,7 @@
       try { src = await scheduleData(); } catch (e) { toast(cleanErr(e), true); return; }
       const setupDefault = () => src.setup_default != null ? src.setup_default : 30;
       const teardownDefault = () => src.teardown_default != null ? src.teardown_default : 30;
-      const m = openModal('<div class="sc-modal"><h2>Drive &amp; setup</h2><p>Drive times are measured from the studio to each job&#39;s location (or the organization and town when a booking has no location), using Google Maps. Batched jobs drive job to job. Part time and 1099 people with a home address on the Team page are measured from home.</p>' +
+      const m = openModal('<div class="sc-modal"><h2>Drive &amp; setup</h2><p>Drive times are measured from the studio to each job&#39;s location (or the organization and town when a booking has no location), using Google Maps. Batched jobs drive job to job. Anyone with a home address on the Team page is measured from home instead of the studio.</p>' +
         '<div class="field"><label for="aca-scAddr">Studio address</label><input type="text" id="aca-scAddr" maxlength="300" value="' + esc(src.studio_address || "") + '" placeholder="Search Google Maps or type street, town, state" /><div id="aca-scAddrNote" style="margin-top:4px;font-size:12px;color:var(--muted)"></div></div>' +
         '<div class="row2"><div class="field"><label for="aca-scSuD">Setup before each job (min)</label><input type="number" id="aca-scSuD" min="0" max="240" step="5" value="' + num(setupDefault()) + '" /></div>' +
         '<div class="field"><label for="aca-scTdD">Teardown after each job (min)</label><input type="number" id="aca-scTdD" min="0" max="240" step="5" value="' + num(teardownDefault()) + '" /></div></div>' +
@@ -1373,7 +1463,7 @@
       const { data: d, error } = await sb.rpc("schedule_week", { p_start: fromDay, p_days: Math.min(42, T.daysBetween(fromDay, toDay) + 1) });
       if (error) throw error;
       const days = (d.bookings || []).filter((b) => b.booking_id === bookingId);
-      // the drive from the studio, or from home for Part time / 1099 people with a home address
+      // the drive from the studio, or from home for anyone with a home address
       const driveFor = {};
       for (const uid of days.some((b) => b.start_at) ? userIds : []) {
         const home = (d.people || []).some((p) => p.user_id === uid && p.from_home);
