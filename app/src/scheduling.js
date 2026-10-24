@@ -339,8 +339,35 @@
     .aca .scm-key i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: #2f6db5; }
     .aca .scm-key i.need { background: #c2412d; } .aca .scm-key i.wait { background: #b07a00; } .aca .scm-key i.gcal { background: #8a8580; }
     .aca .modal:has(.sc-viewmodal) { width: min(760px, calc(100vw - 32px)); max-width: none; }
-    .aca .sc-vwframe { display: block; width: 100%; height: 52vh; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
-    .aca .sc-vwsub { margin: 0 0 6px; font-size: 13.5px; }
+    .aca .sc-vwtop { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; }
+    .aca .sc-vwtop h2 { margin: 0; flex: 1 1 auto; }
+    .aca .sc-vwtop select { flex: 0 1 260px; min-width: 0; }
+    .aca .sc-vwsum { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+    .aca .sc-vwsum .p { padding: 2px 9px; border-radius: 999px; background: var(--surface-2); color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .aca .sc-vwsum .p.amber { background: var(--warn-bg); color: var(--warn-fg); }
+    .aca .sc-vwsum .to { margin-left: auto; }
+    .aca .sc-vwlist { max-height: 56vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+    .aca .sc-vwday { display: grid; grid-template-columns: 76px 1fr; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--border); }
+    .aca .sc-vwday:first-child { border-top: 0; }
+    .aca .sc-vwday.chg { background: linear-gradient(90deg, var(--warn-bg), transparent 40%); }
+    .aca .sc-vwdate .w { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .aca .sc-vwdate .n { display: block; font-size: 20px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .aca .sc-vwdate .chgp { display: inline-block; margin-top: 4px; padding: 1px 7px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-fg); font-size: 11px; font-weight: 600; }
+    .aca .sc-vwitems { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .aca .sc-vwitem { --cc: #2f6db5; border-left: 4px solid var(--cc); border-radius: 4px; background: var(--surface-2); padding: 7px 10px; }
+    .aca .sc-vwitem.k-studio { --cc: #7b5cc4; } .aca .sc-vwitem.k-admin { --cc: #3f8f5a; } .aca .sc-vwitem.k-flex { --cc: #1f8a84; } .aca .sc-vwitem.k-work { --cc: #6b7a8f; }
+    .aca .sc-vwitem.k-off { --cc: #a39d93; background: repeating-linear-gradient(135deg, #ece8e1 0 6px, #f5f2ec 6px 12px); color: var(--muted); }
+    .aca .sc-vwitem .t { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .aca .sc-vwitem .n { font-weight: 600; overflow-wrap: anywhere; }
+    .aca .sc-vwitem .d { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+    .aca .sc-vwitem .ok { color: var(--ok-fg); font-weight: 600; } .aca .sc-vwitem .wait { color: #8a6100; font-weight: 600; }
+    .aca .sc-vwgone { font-size: 12.5px; color: var(--err-fg); }
+    .aca .sc-vwnone { font-size: 13px; color: var(--muted); }
+    .aca .sc-vwempty { padding: 28px 16px; text-align: center; color: var(--muted); }
+    .aca .sc-vwmail { margin: 10px 0 0; font-size: 13px; }
+    .aca .sc-vwmail summary { cursor: pointer; color: var(--muted); }
+    .aca .sc-vwframe { display: block; width: 100%; height: 50vh; margin-top: 8px; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+    @media (max-width: 560px) { .aca .sc-vwday { grid-template-columns: 1fr; gap: 6px; } .aca .sc-vwdate .n { display: inline; font-size: 16px; margin-left: 6px; } .aca .sc-vwdate .w { display: inline; } .aca .sc-vwsum .to { margin-left: 0; } }
     .aca .sc-bad { color: var(--err-fg); }
     .aca .sc-chgprev { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 10px 0; font-size: 13px; }
     .aca .sc-chgprev pre { white-space: pre-wrap; font: inherit; margin: 6px 0 0; max-height: 220px; overflow: auto; }
@@ -1170,27 +1197,47 @@
       const changed = (uid) => changes.find((c) => c.user_id === uid);
       const people = data.people.slice().sort((a, b) => (changed(b.user_id) ? 1 : 0) - (changed(a.user_id) ? 1 : 0));
       if (!people.length) return toast("Nobody on the team yet.");
-      const m = openModal('<div class="sc-modal sc-viewmodal"><h2>View schedule</h2>' +
-        '<div class="field"><label for="aca-scVwWho">Whose schedule</label><select id="aca-scVwWho">' + people.map((p) => '<option value="' + esc(p.user_id) + '">' + esc(p.name) +
+      const m = openModal('<div class="sc-modal sc-viewmodal"><div class="sc-vwtop"><h2>View schedule</h2>' +
+        '<select id="aca-scVwWho" aria-label="Whose schedule">' + people.map((p) => '<option value="' + esc(p.user_id) + '">' + esc(p.name) +
           (changed(p.user_id) ? " \u00b7 changed" : "") + "</option>").join("") + "</select></div>" +
-        '<p class="sc-note" id="aca-scVwInfo"></p><div id="aca-scVwBox"></div><div class="inline-error hidden" id="aca-scMErr"></div>' +
+        '<div class="sc-vwsum" id="aca-scVwInfo"></div><div id="aca-scVwBox"></div><div class="inline-error hidden" id="aca-scMErr"></div>' +
         '<div class="modal-actions"><button type="button" class="small hidden" data-m="drop" title="Count their changes as told without emailing them">Don&#39;t send their changes</button><span class="grow"></span>' +
         '<button type="button" class="small" data-m="cancel">Close</button><button type="button" class="primary" data-m="send">Send to them</button></div></div>');
       const who = m.querySelector("#aca-scVwWho"), info = m.querySelector("#aca-scVwInfo"), box = m.querySelector("#aca-scVwBox"), send = m.querySelector('[data-m="send"]');
-      let cur = null, seq = 0;
+      const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const md = (iso) => { const p = String(iso).split("-"); return +p[1] + "/" + +p[2]; };
+      const wd = (iso) => { const p = String(iso).split("-"); return WD[new Date(+p[0], p[1] - 1, +p[2]).getDay()]; };
+      const item = (it) => {
+        const sub = [it.place, it.leave, it.role, it.note].filter(Boolean).map(esc);
+        if (it.ask === "confirmed") sub.push('<span class="ok">Confirmed</span>');
+        if (it.ask === "pending") sub.push('<span class="wait">Waiting to confirm</span>');
+        return '<div class="sc-vwitem k-' + esc(it.kind || "work") + '"><div class="t">' + esc(it.time) + '</div><div class="n">' + esc(it.title) + "</div>" +
+          (sub.length ? '<div class="d">' + sub.join(" \u00b7 ") + "</div>" : "") + "</div>";
+      };
+      let seq = 0;
       async function show() {
         const uid = who.value, my = ++seq, name = personName(uid);
         el("scMErr").classList.add("hidden");
-        box.innerHTML = '<p class="sc-note">Loading&#8230;</p>'; info.textContent = ""; send.disabled = true;
+        box.innerHTML = '<p class="sc-note">Loading&#8230;</p>'; info.innerHTML = ""; send.disabled = true;
         m.querySelector('[data-m="drop"]').classList.toggle("hidden", !changed(uid));
         const { data: d, error } = await sb.rpc("schedule_view_preview", { p_user: uid });
         if (my !== seq) return;
         if (error) { box.innerHTML = ""; return mErr(cleanErr(error)); }
-        cur = d;
-        info.innerHTML = "What " + esc(name) + " would get for the next two weeks" + (d.changed ? ", with " + num(d.changed) + " changed day" + (d.changed === 1 ? "" : "s") + " marked" : "") + ". " +
-          (d.has_email ? "To: " + esc(d.email) : '<b class="sc-bad">No email address on the Team page.</b>');
-        box.innerHTML = '<p class="sc-vwsub"><b>' + esc(d.subject) + '</b></p><iframe class="sc-vwframe" sandbox="" title="' + esc("The email " + name + " would get") + '"></iframe>';
-        box.querySelector("iframe").srcdoc = d.html;
+        const agenda = d.agenda || [];
+        info.innerHTML = "<span>" + esc(md(d.start) + " to " + md(d.end)) + "</span>" +
+          '<span class="p">' + num(d.jobs) + " job" + (d.jobs === 1 ? "" : "s") + "</span>" +
+          '<span class="p">' + num(d.hours) + " hour" + (d.hours === 1 ? "" : "s") + "</span>" +
+          (d.pending ? '<span class="p amber">' + num(d.pending) + " to confirm</span>" : "") +
+          (d.changed ? '<span class="p amber">' + num(d.changed) + " changed day" + (d.changed === 1 ? "" : "s") + "</span>" : "") +
+          '<span class="to">' + (d.has_email ? "To: " + esc(d.email) : '<b class="sc-bad">No email address on the Team page.</b>') + "</span>";
+        box.innerHTML = '<div class="sc-vwlist">' + (agenda.length ? agenda.map((g) =>
+          '<div class="sc-vwday' + (g.changed ? " chg" : "") + '"><div class="sc-vwdate"><span class="w">' + wd(g.day) + '</span><span class="n">' + md(g.day) + "</span>" +
+            (g.changed ? '<span class="chgp">Changed</span>' : "") + '</div><div class="sc-vwitems">' +
+            ((g.items || []).length ? g.items.map(item).join("") : '<div class="sc-vwnone">Nothing scheduled now</div>') +
+            (g.gone ? '<div class="sc-vwgone">Taken off: ' + esc(g.gone) + "</div>" : "") + "</div></div>").join("")
+          : '<div class="sc-vwempty">Nothing scheduled for ' + esc(name) + " in the next two weeks.</div>") + "</div>" +
+          '<details class="sc-vwmail"><summary>See the email: <b>' + esc(d.subject) + '</b></summary><iframe class="sc-vwframe" sandbox="" title="' + esc("The email " + name + " would get") + '"></iframe></details>';
+        box.querySelector("iframe").srcdoc = d.html || "";
         send.disabled = !d.has_email;
         send.textContent = "Send to " + name;
       }

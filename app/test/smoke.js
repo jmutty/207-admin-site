@@ -798,8 +798,10 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
     await page.waitForSelector("#aca-scVwWho");
     const vwOpts = await page.$$eval("#aca-scVwWho option", (os) => os.map((o) => o.textContent));
     check(vwOpts.length === 3 && vwOpts[0].includes("changed") && vwOpts[1].includes("changed") && !vwOpts[2].includes("changed"), "everyone on the team is in the list, people with changes first: " + vwOpts.join(" | "));
-    await page.waitForFunction(() => { const f = document.querySelector(".sc-vwframe"); return f && f.srcdoc.includes("next two weeks"); });
-    check((await page.textContent("#aca-scVwInfo")).includes("To: sam@example.com") && await page.$eval(".sc-vwframe", (f) => f.getAttribute("sandbox") === ""), "shows the email they'd get, in a sandboxed frame, and who it goes to");
+    await page.waitForSelector(".sc-vwday");
+    const vwDays = await page.$$eval(".sc-vwday", (ds) => ds.map((d) => d.textContent));
+    check(vwDays.length === 3 && vwDays[0].startsWith("Tue10/27Changed") && vwDays[0].includes("Taken off: Brewer Youth Soccer") && vwDays[0].includes("Waiting to confirm") && vwDays[1].includes("Leave Studio 1:50pm") && !!(await page.$(".sc-vwday.chg .sc-vwitem.k-job")) && !!(await page.$(".sc-vwitem.k-off")), "shows their two weeks day by day, with changed days and what was taken off: " + vwDays[0]);
+    check((await page.textContent("#aca-scVwInfo")).includes("To: sam@example.com") && (await page.textContent("#aca-scVwInfo")).includes("17.5 hours") && await page.$eval(".sc-vwframe", (f) => f.getAttribute("sandbox") === "" && f.srcdoc.includes("next two weeks")), "says who it goes to, and the email itself is there in a sandboxed frame");
     await page.selectOption("#aca-scVwWho", "u1");
     await page.waitForTimeout(150);
     check(await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_view_preview").map((c) => c[1].p_user).join() === "u2,u1"), "picking another person shows theirs");
