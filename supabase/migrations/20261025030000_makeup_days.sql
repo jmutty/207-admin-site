@@ -15,8 +15,9 @@
 -- 3. admin_bookings and job_get return the picture days as 'days' (as before) and the makeup day as 'makeup'.
 -- 4. booking_set_makeup(booking, {day, start_time, end_time}): add, move or take off the makeup day (an empty day
 --    takes it off, with its crew bars). Booked and tracking-only jobs: a tracked job's makeup day gets its calendar
---    event and Schedule card, and still nothing is emailed. bookings.retake_day follows it, so the existing makeup-day reminder emails,
---    the school hub's date and the agreement builder keep working.
+--    event and Schedule card, and no booking emails come from it. One date everywhere: bookings.retake_day and the
+--    school's hub row follow it, and a date set on the hub row comes back to the job. The hub's existing makeup
+--    dates are carried in (upcoming ones become makeup days).
 -- 5. Words: "Retake day" becomes "Makeup day" in the hub reminder titles and details and on the director page.
 
 alter table public.booking_days add column if not exists kind text not null default 'shoot';
@@ -188,22 +189,39 @@ select pg_temp.reword('booking_director_facts',
   $t$'Students who are absent on picture day can be photographed on a makeup day; we''ll set one with you if it''s needed.'$t$);
 
 -- ---------------------------------------------------------------- 4. add, move or take off the makeup day
--- p = {day, start_time?, end_time?}; an empty day takes it off. Times can wait (an all-day event until set).
-create or replace function public.booking_set_makeup(p_booking uuid, p jsonb)
+-- One makeup date everywhere (Jeremiah, 2026-10-24: "make sure we are auto-populating that everywhere once it gets
+-- added somewhere"). It lives on the booking's makeup row and is copied to bookings.retake_day (booking emails, the
+-- director page, the agreement builder) and to the school's hub row comm_hub_schools.retake_day (hub reminders,
+-- parent retake requests, the Retakes list and digest). A date typed on the hub row comes back the other way.
+
+-- The school's hub row for a booking: its link, else the hub row with the same school name and picture day (the
+-- tracking-only schools' rows were made by hand on the old Schools tab and were never linked).
+create or replace function public.booking_hub_school(p_booking uuid) returns uuid
+language sql stable security definer set search_path = public as $$
+  select coalesce(b.hub_school_id,
+           (select h.id from comm_hub_schools h join prospect_orgs o on o.id = b.org_id
+             where public.hub_norm_name(h.name) = public.hub_norm_name(o.name) and h.picture_day = b.picture_day
+             order by h.active desc, h.created_at desc limit 1))
+    from bookings b where b.id = p_booking
+$$;
+revoke all on function public.booking_hub_school(uuid) from public, anon, authenticated;
+
+-- The work behind booking_set_makeup and the hub sync. p_day null takes it off. p_keep_times: a hub date change
+-- keeps the makeup day's start and end times. p_from_hub: the hub row already has the date.
+create or replace function public.booking_makeup_apply(p_booking uuid, p_day date, p_st time, p_en time,
+                                                       p_keep_times boolean default false, p_from_hub boolean default false)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare b bookings; m booking_days; v_day date; v_st time; v_en time; v_start timestamptz; v_end timestamptz;
-        v_delta int; v_moved int := 0; v_off int := 0; v_tz text := 'America/New_York';
+declare b bookings; m booking_days; v_st time := p_st; v_en time := p_en; v_start timestamptz; v_end timestamptz;
+        v_delta int; v_moved int := 0; v_off int := 0; v_hub uuid; v_tz text := 'America/New_York';
 begin
-  if not public.can_any('{bookings}', 'edit') then raise exception 'admin only' using errcode = '42501'; end if;
   select * into b from bookings where id = p_booking;
   if b.id is null then raise exception 'Booking not found.'; end if;
   -- a tracking-only job (it never went through Book a job, often already launched) gets one too: the makeup day goes
-  -- on the calendar and the Schedule, and the job itself still sends nothing
+  -- on the calendar and the Schedule, and no booking emails come from the job
   if b.status not in ('booked', 'tracked') then raise exception 'Only a booked or tracked job can have a makeup day.'; end if;
   select * into m from booking_days where booking_id = p_booking and kind = 'makeup' and not removed;
-  v_day := nullif(p->>'day', '')::date;
 
-  if v_day is null then
+  if p_day is null then
     if m.id is not null then
       -- its crew bars come off with it
       delete from schedule_entries where booking_id = p_booking and kind = 'job' and (starts_at at time zone v_tz)::date = m.day;
@@ -213,23 +231,24 @@ begin
       delete from booking_days where id = m.id and google_event_id is null;
     end if;
   else
-    if v_day <= b.picture_day then raise exception 'The makeup day has to be after picture day (%).', to_char(b.picture_day, 'FMMM/FMDD'); end if;
-    if exists (select 1 from booking_days where booking_id = p_booking and kind = 'shoot' and not removed and day = v_day) then
-      raise exception '% is already a picture day on this job. Pick another day for the makeup day.', to_char(v_day, 'FMMM/FMDD');
+    if p_day <= b.picture_day then raise exception 'The makeup day has to be after picture day (%).', to_char(b.picture_day, 'FMMM/FMDD'); end if;
+    if exists (select 1 from booking_days where booking_id = p_booking and kind = 'shoot' and not removed and day = p_day) then
+      raise exception '% is already a picture day on this job. Pick another day for the makeup day.', to_char(p_day, 'FMMM/FMDD');
     end if;
-    if exists (select 1 from booking_days where booking_id = p_booking and day = v_day and removed) then
+    if exists (select 1 from booking_days where booking_id = p_booking and day = p_day and removed) then
       raise exception 'That day was just taken off this job and its calendar event is still being removed. Try again in a minute.';
     end if;
-    v_st := nullif(p->>'start_time', '')::time;
-    v_en := nullif(p->>'end_time', '')::time;
+    if p_keep_times and m.id is not null then
+      v_st := (m.start_at at time zone v_tz)::time; v_en := (m.end_at at time zone v_tz)::time;
+    end if;
     if v_st is not null and v_en is not null and v_en <= v_st then raise exception 'The end time has to be after the start time.'; end if;
-    v_start := case when v_st is not null then (v_day + v_st) at time zone v_tz end;
-    v_end := case when v_st is not null and v_en is not null then (v_day + v_en) at time zone v_tz end;
+    v_start := case when v_st is not null then (p_day + v_st) at time zone v_tz end;
+    v_end := case when v_st is not null and v_en is not null then (p_day + v_en) at time zone v_tz end;
     if m.id is null then
       insert into booking_days (booking_id, day, start_at, end_at, label, sort, kind, calendar_status)
-      values (p_booking, v_day, v_start, v_end, 'Makeup day', 1000, 'makeup', 'pending');
+      values (p_booking, p_day, v_start, v_end, 'Makeup day', 1000, 'makeup', 'pending');
     else
-      v_delta := v_day - m.day;
+      v_delta := p_day - m.day;
       if v_delta <> 0 then   -- whoever was on it moves with it
         update schedule_entries
            set starts_at = ((starts_at at time zone v_tz) + make_interval(days => v_delta)) at time zone v_tz,
@@ -238,20 +257,72 @@ begin
          where booking_id = p_booking and kind = 'job' and (starts_at at time zone v_tz)::date = m.day;
         get diagnostics v_moved = row_count;
       end if;
-      update booking_days set day = v_day, start_at = v_start, end_at = v_end, updated_at = now(),
-             calendar_status = case when (m.day, m.start_at, m.end_at) is distinct from (v_day, v_start, v_end) or calendar_status = 'error' then 'pending'
+      update booking_days set day = p_day, start_at = v_start, end_at = v_end, updated_at = now(),
+             calendar_status = case when (m.day, m.start_at, m.end_at) is distinct from (p_day, v_start, v_end) or calendar_status = 'error' then 'pending'
                                     else calendar_status end
        where id = m.id;
     end if;
   end if;
 
-  update bookings set retake_day = v_day, updated_at = now() where id = p_booking and retake_day is distinct from v_day;
-  if b.status = 'booked' then   -- the hub date and the makeup-day reminder emails; a tracked job sends nothing
+  update bookings set retake_day = p_day, updated_at = now() where id = p_booking and retake_day is distinct from p_day;
+  if not p_from_hub then
+    v_hub := public.booking_hub_school(p_booking);
+    if v_hub is not null then update comm_hub_schools set retake_day = p_day, updated_at = now() where id = v_hub and retake_day is distinct from p_day; end if;
+  end if;
+  if b.status = 'booked' then   -- the booked job's hub row and its makeup-day reminder emails
     perform public.booking_hub_setup(p_booking);
     perform public.booking_reschedule(p_booking);
   end if;
   perform public.booking_poke('calendar-write', jsonb_build_object('booking_id', p_booking));
-  return jsonb_build_object('ok', true, 'day', v_day, 'crew_moved', v_moved, 'crew_removed', v_off);
+  return jsonb_build_object('ok', true, 'day', p_day, 'crew_moved', v_moved, 'crew_removed', v_off);
+end $$;
+revoke all on function public.booking_makeup_apply(uuid, date, time, time, boolean, boolean) from public, anon, authenticated;
+
+-- p = {day, start_time?, end_time?}; an empty day takes it off. Times can wait (an all-day event until set).
+create or replace function public.booking_set_makeup(p_booking uuid, p jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  if not public.can_any('{bookings}', 'edit') then raise exception 'admin only' using errcode = '42501'; end if;
+  return public.booking_makeup_apply(p_booking, nullif(p->>'day', '')::date, nullif(p->>'start_time', '')::time, nullif(p->>'end_time', '')::time);
 end $$;
 revoke all on function public.booking_set_makeup(uuid, jsonb) from public, anon;
 grant execute on function public.booking_set_makeup(uuid, jsonb) to authenticated;
+
+-- A makeup date set or changed on a school's hub row reaches its job (booked or tracked): the makeup day appears,
+-- moves (keeping its times) or comes off. A date the job can't take (before picture day) is skipped, not refused.
+create or replace function public.hub_school_makeup_sync() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare r record;
+begin
+  for r in select b.id from bookings b join booking_types t on t.key = b.type_key
+            where t.audience = 'school' and b.status in ('booked', 'tracked') and b.retake_day is distinct from new.retake_day
+              and b.picture_day between new.picture_day - 60 and new.picture_day + 60
+              and public.booking_hub_school(b.id) = new.id loop
+    begin
+      perform public.booking_makeup_apply(r.id, new.retake_day, null, null, true, true);
+    exception when others then raise warning 'hub makeup date for booking %: %', r.id, sqlerrm;
+    end;
+  end loop;
+  return null;
+end $$;
+revoke all on function public.hub_school_makeup_sync() from public, anon, authenticated;
+drop trigger if exists hub_school_makeup_sync on public.comm_hub_schools;
+create trigger hub_school_makeup_sync after update of retake_day on public.comm_hub_schools
+  for each row when (old.retake_day is distinct from new.retake_day) execute function public.hub_school_makeup_sync();
+
+-- The makeup dates already on the hub: upcoming ones become makeup days (on the calendar and the Schedule to assign);
+-- past ones are only copied onto the job.
+do $$
+declare r record;
+begin
+  for r in select b.id, h.retake_day from bookings b join booking_types t on t.key = b.type_key and t.audience = 'school'
+             join comm_hub_schools h on h.id = public.booking_hub_school(b.id)
+            where b.status in ('booked', 'tracked') and h.retake_day is not null and b.retake_day is null
+              and not exists (select 1 from booking_days d where d.booking_id = b.id and d.kind = 'makeup' and not d.removed) loop
+    if r.retake_day >= (now() at time zone 'America/New_York')::date then
+      perform public.booking_makeup_apply(r.id, r.retake_day, null, null, false, true);
+    else
+      update bookings set retake_day = r.retake_day where id = r.id;
+    end if;
+  end loop;
+end $$;
