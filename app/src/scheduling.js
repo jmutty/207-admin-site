@@ -263,7 +263,7 @@
     .aca .sc-pill.quiet { font-weight: 400; color: var(--faint); }
     .aca .sc-pill.bad { background: var(--err-bg); border-color: transparent; color: var(--err-fg); }
     .aca .sc-pill.wx { background: #e8f0fb; border-color: transparent; color: #24528a; }
-    .aca .sc-wx { color: #24528a; }
+    .aca .sc-wx { color: #24528a; } .aca .sc-late { color: var(--err-fg); font-weight: 600; }
     .aca .sc-st { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: 0; background: #fff; }
     .aca .sc-st.on { background: #4cd07a; box-shadow: 0 0 0 1px #fff; } .aca .sc-st.done { background: #c9d4e2; } .aca .sc-st.late { background: #ff6b5a; box-shadow: 0 0 0 1px #fff; }
     .aca .sc-edge { position: absolute; bottom: 3px; transform: translateX(-100%); font-size: 11px; color: var(--muted); white-space: nowrap; padding-right: 2px; }
@@ -305,7 +305,7 @@
     .aca button.scc-card .d { display: block; font-size: 11px; color: var(--muted); }
     .aca button.scc-card .d .dr { color: #8a6100; } .aca button.scc-card .d .dr.far { color: var(--err-fg); font-weight: 600; }
     .aca button.scc-card .d .ok { color: var(--ok-fg); } .aca button.scc-card .d .wait { color: #b07a00; }
-    .aca button.scc-card .d .wx { color: #24528a; }
+    .aca button.scc-card .d .wx { color: #24528a; } .aca button.scc-card .d .due { color: var(--muted, #666); } .aca button.scc-card .d .due.bad { color: var(--err-fg); font-weight: 600; }
     .aca button.scc-card .d .st.on { color: var(--ok-fg); font-weight: 600; } .aca button.scc-card .d .st.late { color: var(--err-fg); font-weight: 600; }
     .aca button.scc-card.scc-studio { --cc: #7b5cc4; } .aca button.scc-card.scc-admin { --cc: #3f8f5a; } .aca button.scc-card.scc-flex { --cc: #1f8a84; } .aca button.scc-card.scc-work { --cc: #6b7a8f; }
     .aca button.scc-card.scc-off, .aca button.scc-card.scc-asked { --cc: #a39d93; background: repeating-linear-gradient(135deg, #ece8e1 0 6px, #f5f2ec 6px 12px); color: var(--muted); }
@@ -463,7 +463,7 @@
       '<div class="sc-sum hidden" id="aca-scSum"></div>' +
       '<div class="sc-sum hidden" id="aca-scPeak"></div></details>' +
       '<details class="sc-help"><summary>How the schedule works</summary><p>Weeks run Sunday to Saturday. Hours count jobs, drive time, setup, teardown and work, not time off, against each person&#39;s default hours per week (set on the Team page). A day of 6 hours or more is marked &#8220;lunch&#8221;: plan a lunch break. <span class="sc-ed">Click an empty spot to add time; click a job under Jobs not assigned to put people on it. To add someone to a job that already has people, click its blue bar and choose More people. Every job has setup before it and teardown after it (light blue). When a crew does two jobs in one trip, right-click a job (on a phone, press and hold it) and choose Batch with another job: the drive then goes from the studio to the first job, job to job, and back from the last one. A dashed line joins the jobs of a trip. People with a home address on the Team page start and end at home; anyone without one starts at the studio.</span> Putting someone on a job just puts them on it. To ask several people at once, use Ask who&#39;s available on the job: they say if they can make it and you pick one. If Ask people to confirm is turned on (Settings, Scheduling), people put on a booked job also get an email to confirm it: a white &#10003; on the bar means confirmed, a yellow ? means still waiting, and someone who can&#39;t make it comes off the job. The strip under the days counts who is free against the people the day&#39;s jobs still need. Flex time is for work that isn&#39;t tied to a set hour: everyone can add and move their own. Events on the 207 Photo Booking Google Calendar that aren&#39;t bookings show under From Google Calendar (bookings are never shown twice), and ones named like &#8220;Ryan Off&#8221; show as that person&#39;s time off. Untick Google Calendar to hide them.</p>' +
-        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">View schedule shows the email a person would get with their next two weeks (days that changed since they were last told are marked) and sends it to them from there.</span> Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
+        '<p>Week and 2 weeks show a card for each job and time with the drive and who has answered; Day shows bars to scale with when each person leaves and gets back, and a line at the time now. Month shows every job colored by whether it still needs people (red), is waiting on an answer (yellow) or is covered (blue); click a day to open it or the week total to open the week. Problems lists things to look at from today on: jobs short of people or with no start time, two things at once, someone on a job during time off, long drives, very long days, bad weather for an outdoor job, and Google Calendar events nobody is on. Color by changes the bar colors. Map shows where the jobs are, and on Day each person&#39;s route. <span class="sc-ed">View schedule shows the email a person would get with their next two weeks (days that changed since they were last told are marked) and sends it to them from there.</span> Each job&#39;s Lead (or its Editor, picked on the job page) gets Flex time for editing (an hour for the first hour of shooting, 30 minutes for each hour after), due 24 hours after the shoot. It goes right after they get home if there&#39;s room before 9pm, otherwise the next morning; they can move it. Phone calendar gives you a link that puts your own schedule in your phone&#39;s calendar.</p></details>';
 
     const narrow = () => window.innerWidth < 760;
     // Phones open on a list of today and tomorrow (2026-10-23, Jeremiah's pick); the grids are one tap away.
@@ -745,7 +745,7 @@
               (e.kind === "job" ? "\nSetup " + num(e.setup_min) + " min, teardown " + num(e.teardown_min) + " min" : "") +
               (e.kind === "job" && (e.drive_before_min || e.drive_after_min) ? "\nDrive " + e.drive_before_min + " min there" + (stop > 0 ? " (from the last job)" : "") + ", " + e.drive_after_min + " min back" : "") +
               (trip ? "\nStop " + (stop + 1) + " of " + trip.length + " on a batched trip" : "") + (x.late ? "\nNot enough time to get here from the last job" : "") +
-              (e.note ? "\n" + e.note : "") + (bk.clash ? "\nOverlaps another bar" : "") + (editable() && e.kind === "job" ? "\nRight-click or press and hold to batch" : "");
+              dueTip(e) + (e.note ? "\n" + e.note : "") + (bk.clash ? "\nOverlaps another bar" : "") + (editable() && e.kind === "job" ? "\nRight-click or press and hold to batch" : "");
             const cls = "sc-b " + (isTrip ? "trip" : "sc-k-" + (isDrive ? "drive" : isSetup ? "setup" : e.kind)) + (isDrive ? " drive" + (x.first ? " first" : "") + (x.last ? " last" : "") : "") + (isSetup ? " setup" : "") +
               (e.kind === "job" && isBar && x.part === "job" ? " job mid" : "") + (trip ? " batched" : "") + (x.late && x.part === "job" ? " late" : "") + (bk.clash && e.kind !== "asked" ? " clash" : "") + (e.booking_status === "cancelled" ? " cancelled" : "") +
               (e.kind === "asked" ? " asked" : "") + (waitOnly && !waiting(e) ? " dim" : "");
@@ -819,7 +819,8 @@
               const cf = e.kind === "job" && e.confirm ? e.confirm.status : null;
               const wx = e.kind === "job" ? wxOf(data.bookings.find((x) => x.booking_id === e.booking_id && x.day === d)) : null, st = e.kind === "job" && d === today ? dayStatus(e) : null;
               const sub = [esc(e.role || ""), e.kind === "job" && e.drive_before_min ? num(e.drive_before_min) + " min drive" : "", e.kind !== "job" && e.kind !== "off" && e.kind !== "asked" ? KIND[e.kind] : "",
-                wx ? '<span class="sc-wx">' + esc(wx.text) + "</span>" : "", st ? esc(st.text) : ""].filter(Boolean).join(" &middot; ");
+                wx ? '<span class="sc-wx">' + esc(wx.text) + "</span>" : "", st ? esc(st.text) : "",
+                e.edit_due ? (pastDue(e) ? '<span class="sc-late">due ' + esc(dueAt(e)) + "</span>" : "due " + esc(dueAt(e))) : ""].filter(Boolean).join(" &middot; ");
               return '<button type="button" class="scl-item scl-k-' + esc(e.kind) + (e.booking_status === "cancelled" ? " cancelled" : "") + '" data-entry="' + esc(e.id) + '"><span class="t">' + esc(when(e) || "All day") + "</span>" +
                 '<span class="w"><b>' + esc(title) + "</b>" + (sub ? "<small>" + sub + "</small>" : "") +
                 (cf === "confirmed" ? '<small class="ok">Confirmed</small>' : cf === "pending" ? '<small class="wait">Hasn&#39;t confirmed yet</small>' : "") + "</span></button>";
@@ -941,8 +942,9 @@
       if (cf === "pending") sub.push('<b class="wait" title="Hasn’t answered yet">?</b>');
       if (wx) sub.push('<span class="wx">' + esc(wx.text) + "</span>");
       if (st) sub.push('<span class="st ' + st.cls + '">' + esc(st.text) + "</span>");
+      if (e.edit_due) sub.push('<span class="due' + (pastDue(e) ? " bad" : "") + '" title="Editing is due by then">due ' + esc(dueAt(e)) + "</span>");
       const tip = (allDay ? (e.kind === "asked" ? "Asked for time off" : "Time off") : T.fmtTs(e.starts_at) + "–" + T.fmtTs(e.ends_at)) + " " + (isJob ? e.booking_title : title) +
-        (isJob && e.drive_before_min ? "\nLeave " + T.fmtTs(outAt(e)) + ", back " + T.fmtTs(backAt(e)) : "") + (e.note ? "\n" + e.note : "") + (editable() && isJob ? "\nRight-click or press and hold to batch" : "");
+        (isJob && e.drive_before_min ? "\nLeave " + T.fmtTs(outAt(e)) + ", back " + T.fmtTs(backAt(e)) : "") + dueTip(e) + (e.note ? "\n" + e.note : "") + (editable() && isJob ? "\nRight-click or press and hold to batch" : "");
       return '<button type="button" class="scc-card scc-' + esc(e.kind) + (e.booking_status === "cancelled" ? " cancelled" : "") + (waitOnly && !(cf === "pending") ? " dim" : "") + (b ? selCls(b, d) : "") + '" data-entry="' + esc(e.id) + '"' +
         (b ? ' data-bk="' + esc(b.booking_id) + '" data-day="' + esc(d) + '"' : "") +
         (col ? ' style="--cc:' + col + '"' : "") + ' title="' + esc(tip) + '">' +
@@ -1075,6 +1077,8 @@
             add(d, p.name + " is on " + labelOf(e) + " during " + (offs.some((o) => o.kind === "asked") ? "time off they asked for" : "time off"), { person: p.user_id }));
           mine.filter((e) => e.kind === "job" && T.local(e.starts_at).day === d && e.drive_before_min >= 120).forEach((e) =>
             add(d, p.name + " drives " + fmtMins(e.drive_before_min) + " to " + labelOf(e), { person: p.user_id }));
+          mine.filter((e) => pastDue(e) && T.local(e.starts_at).day === d).forEach((e) =>
+            add(d, p.name + "’s " + labelOf(e) + " ends after it’s due (" + dueAt(e) + ")", { person: p.user_id }));
           const hrs = T.workHours(mine, d);
           if (hrs >= 10) add(d, p.name + " has a " + fmtH(hrs) + " hour day", { person: p.user_id });
           if (confirmOn()) mine.filter((e) => e.kind === "job" && e.confirm && e.confirm.status === "pending" && T.local(e.starts_at).day === d && T.daysBetween(today, d) <= 3).forEach((e) =>
@@ -1086,6 +1090,10 @@
       return out;
     }
     const labelOf = (e) => e.kind === "job" ? shortTitle(e.booking_title) : (e.title || KIND[e.kind] || "time");
+    // Editing time for the Lead (flex bars the database adds for each Lead job bar): due 24 hours after the shoot
+    const dueAt = (e) => e.edit_due ? T.fmtDay(T.local(e.edit_due).day) + " " + T.fmtTs(e.edit_due) : "";
+    const pastDue = (e) => !!e.edit_due && new Date(e.ends_at) > new Date(e.edit_due);
+    const dueTip = (e) => e.edit_due ? "\nDue " + dueAt(e) + (pastDue(e) ? " (this ends after it’s due)" : "") : "";
     function renderProblems() {
       const list = problems(), btn = el("scProbBtn"), box = el("scProblems");
       btn.textContent = list.length ? list.length + " problem" + (list.length === 1 ? "" : "s") : "No problems";
@@ -1770,6 +1778,8 @@
       const offEnd = e && e.kind === "off" ? T.addDays(T.local(e.ends_at).day, T.local(e.ends_at).min === 0 ? -1 : 0) : day0;
       const weekBookings = data.bookings;
       const m = openModal('<div class="sc-modal"><h2>' + (isNew ? "Add time" : "Change " + esc(KIND[e.kind].toLowerCase())) + "</h2>" +
+        (e && e.edit_for ? '<p class="sc-note">Editing time, added automatically for the Lead (or the job’s Editor, if one is picked on the job page): the first hour of shooting gets an hour, each hour after that 30 minutes. Due ' + esc(dueAt(e)) + ". " +
+          (e.edit_moved ? "It stays where it was put; if the job changes, only its length follows." : "Move it to whenever suits you and it stays there.") + "</p>" : "") +
         '<div class="row2"><div class="field"><label for="aca-scP">Person</label><select id="aca-scP">' + data.people.filter((p) => !limited || isMine(p.user_id)).map((p) => '<option value="' + esc(p.user_id) + '"' + (p.user_id === (e ? e.user_id : preset.user_id) ? " selected" : "") + ">" + esc(p.name) + "</option>").join("") + "</select></div></div>" +
         '<div class="field"><label>What</label><div class="seg" role="radiogroup" aria-label="What">' + (limited ? ["flex"] : KINDS).map((k) => '<label><input type="radio" name="aca-scK" value="' + k + '"' + (k === kind0 ? " checked" : "") + " /><span>" + KIND[k] + "</span></label>").join("") + "</div></div>" +
         '<div class="field sc-only-job"><label for="aca-scB">Job</label><select id="aca-scB"><option value="">Pick a job this week\u2026</option>' + weekBookings.map((b) => '<option value="' + esc(b.booking_id) + '" data-day="' + esc(b.day) + '"' + (e && e.booking_id === b.booking_id && b.day === day0 ? " selected" : "") + ">" + esc(T.fmtDay(b.day) + " \u00b7 " + bookingLabel(b) + (b.start_at ? " \u00b7 " + T.fmtTs(b.start_at) : "")) + "</option>").join("") +
@@ -2090,7 +2100,7 @@
         (e.kind === "job" ? "<br>" + (e.batch_id && tripOf(e)[0] !== e ? "Leave the last job by " : "Leave by ") + esc(T.fmtTs(new Date(outAt(e)).toISOString())) + " (" + num(e.drive_before_min) + " min drive, " + num(e.setup_min) + " min setup), " +
           (e.drive_after_min ? "back about " + esc(T.fmtTs(new Date(backAt(e)).toISOString())) : "on to the next job after " + num(e.teardown_min) + " min teardown") : "") +
         (e.batch_id ? "<br>" + esc(tripLine(e)) : "") +
-        (e.booking_location ? "<br>" + esc(e.booking_location) : "") + (e.note ? "<br>" + esc(e.note) : "") + "</p>" +
+        (e.booking_location ? "<br>" + esc(e.booking_location) : "") + (e.edit_due ? "<br>Editing time, due " + esc(dueAt(e)) : "") + (e.note ? "<br>" + esc(e.note) : "") + "</p>" +
         '<div class="modal-actions"><span class="grow"></span><button type="button" class="primary" data-m="ok">OK</button></div></div>');
       m.querySelector('[data-m="ok"]').addEventListener("click", () => m.close());
     }
