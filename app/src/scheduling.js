@@ -1139,18 +1139,20 @@
     // ---- map beside the day and week
     const MAP_FN_URL = SUPABASE_URL + "/functions/v1/schedule-map";
     let mapKey = "", mapRes = null, mapSeq = 0;
+    // A map pin: the job, or "job:<booking>:<day>" for a picture day somewhere else (schedule_map_places).
+    const placeId = (b) => "job:" + b.booking_id + (b.own_place ? ":" + b.day : "");
     function mapPlan() {
       const days = view === "day" ? [anchor] : daysOf();
       const jobs = data.bookings.filter((b) => days.includes(b.day)).sort((a, b) => (a.day + (a.start_at || "")).localeCompare(b.day + (b.start_at || "")));
-      const ids = [...new Set(jobs.map((b) => "job:" + b.booking_id))];
+      const ids = [...new Set(jobs.map(placeId))];
       const label = {}; ids.forEach((id, i) => { label[id] = i < 9 ? String(i + 1) : String.fromCharCode(56 + i); });
-      const markers = ids.map((id) => { const b = jobs.find((x) => "job:" + x.booking_id === id); return { id, label: label[id], color: STATUS[statusOf(b.booking_id, b.day)][0].slice(1) }; });
+      const markers = ids.map((id) => { const b = jobs.find((x) => placeId(x) === id); return { id, label: label[id], color: STATUS[statusOf(b.booking_id, b.day)][0].slice(1) }; });
       const routes = [];
       if (view === "day") data.people.forEach((p) => {
         const js = data.entries.filter((e) => e.user_id === p.user_id && e.kind === "job" && T.local(e.starts_at).day === anchor).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
         if (!js.length) return;
         const home = p.from_home && editable() ? "home:" + p.user_id : "studio";
-        routes.push({ user_id: p.user_id, color: PALETTE[hashIdx(p.user_id)].slice(1), stops: [home].concat(js.map((e) => "job:" + e.booking_id), [home]) });
+        routes.push({ user_id: p.user_id, color: PALETTE[hashIdx(p.user_id)].slice(1), stops: [home].concat(js.map((e) => placeId(jobOf(e) || { booking_id: e.booking_id })), [home]) });
       });
       return { start: days[0], days: days.length, ids, label, markers, routes, jobs };
     }
@@ -1206,7 +1208,7 @@
       }
       const gdir = (stops) => { const s = stops.map((id) => at.get(id)).filter(Boolean).map((p) => p.lat.toFixed(5) + "," + p.lng.toFixed(5)); if (s.length < 2) return ""; return "https://www.google.com/maps/dir/" + s.join("/"); };
       const list = plan.ids.map((id) => {
-        const b = plan.jobs.find((x) => "job:" + x.booking_id === id), on = [...new Set(data.entries.filter((e) => e.kind === "job" && e.booking_id === b.booking_id && (view !== "day" || T.local(e.starts_at).day === anchor)).map((e) => e.user_id))];
+        const b = plan.jobs.find((x) => placeId(x) === id), on = [...new Set(data.entries.filter((e) => e.kind === "job" && e.booking_id === b.booking_id && (view !== "day" || T.local(e.starts_at).day === anchor) && (!b.own_place || T.local(e.starts_at).day === b.day)).map((e) => e.user_id))];
         return '<li><span class="pin" style="background:' + STATUS[statusOf(b.booking_id, b.day)][0] + '">' + esc(plan.label[id]) + "</span><span>" + (view === "day" ? "" : esc(T.fmtDay(b.day)) + " ") + esc(shortTitle(b.title)) +
           '<small>' + (on.length ? esc(on.map(personName).join(", ")) : "nobody yet") + (at.has(id) ? "" : " &middot; not on the map") + "</small></span></li>";
       }).join("");
@@ -1484,17 +1486,18 @@
     // ---------------------------------------------------------------- drive time
     // With a person, the drive is from where they start: home for anyone with a home address.
     const fromHome = (uid) => !!(data && data.people.some((p) => p.user_id === uid && p.from_home));
-    async function lookupDrive(bookingId, userId) {
+    // With a day, the drive is to that picture day's own place when it has one (2026-10-24).
+    async function lookupDrive(bookingId, userId, day) {
       const { data: { session } } = await sb.auth.getSession();
       if (!session) throw new Error("Signed out.");
-      const r = await fetch(DRIVE_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" }, body: JSON.stringify(userId ? { booking_id: bookingId, user_id: userId } : { booking_id: bookingId }) });
+      const r = await fetch(DRIVE_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ booking_id: bookingId }, userId ? { user_id: userId } : {}, day ? { day } : {})) });
       const j = await r.json().catch(() => ({}));
       if (!j.ok) throw new Error(j.error || "HTTP " + r.status);
       return j;
     }
     // Wires the drive inputs + "Look up" button inside a modal. getBooking() returns the picked booking id,
-    // getUser() (optional) the person, so the drive is from their home when they have one.
-    function driveControls(m, getBooking, auto, getUser) {
+    // getUser() (optional) the person, so the drive is from their home when they have one; getDay() (optional) the day.
+    function driveControls(m, getBooking, auto, getUser, getDay) {
       const msg = m.querySelector(".sc-drivemsg"), btn = m.querySelector('[data-m="drive"]');
       async function go() {
         const id = getBooking();
@@ -1502,7 +1505,7 @@
         btn.disabled = true; msg.textContent = "Asking Google Maps\u2026";
         try {
           const who = getUser && getUser();
-          const r = await lookupDrive(id, who);
+          const r = await lookupDrive(id, who, getDay && getDay());
           const mins = Math.ceil(r.minutes / 5) * 5;
           m.dataset.lookFrom = r.from === "home" ? "home" : "studio"; m.dataset.lookUser = who || "";
           m.querySelector(".sc-db").value = mins; m.querySelector(".sc-da").value = mins;
@@ -1571,7 +1574,7 @@
               if ((b.on || []).includes(w.user_id)) continue;
               const st = T.hhmm(T.local(b.start_at).min), et = T.hhmm(T.local(b.end_at).min);
               const v = { setup_min: setupDefault(), teardown_min: teardownDefault(), drive_before_min: 30, drive_after_min: 30 };
-              try { v.drive_before_min = v.drive_after_min = round5((await lookupDrive(b.booking_id, w.user_id)).minutes); } catch (_e) { /* keep 30 */ }
+              try { v.drive_before_min = v.drive_after_min = round5((await lookupDrive(b.booking_id, w.user_id, b.day)).minutes); } catch (_e) { /* keep 30 */ }
               const { data: r, error } = await sb.rpc("schedule_save", { p: Object.assign({ user_id: w.user_id, kind: "job", booking_id: b.booking_id, role_id: w.role_id, starts_at: T.toIso(b.day, st), ends_at: T.toIso(et <= st ? T.addDays(b.day, 1) : b.day, et) }, v) });
               if (error) throw error;
               added += 1; clashes += num(r && r.overlaps);
@@ -1621,7 +1624,7 @@
         const ids = [...m.querySelectorAll("#aca-scPick input:checked")].map((x) => x.value);
         return ids.length === 1 ? ids[0] : !ids.length && already.length === 1 ? already[0].user_id : undefined;
       };
-      driveControls(m, () => b.booking_id, !!data.studio_address && !already.length, driveUser);
+      driveControls(m, () => b.booking_id, !!data.studio_address && !already.length, driveUser, () => b.day);
       // what the times and drive boxes started at: with nobody new ticked, the button saves what changed onto who is on it
       const t0 = { st: el("scS").value, et: el("scE").value, v: driveVals(m) };
       const timesTxt = () => {
@@ -1715,7 +1718,7 @@
                 dKeys.forEach((k) => { if (!(e.batch_id && k.startsWith("drive"))) p[k] = v[k]; }); // a trip's drives are worked out below
                 // Never put a studio lookup on someone who drives from home: they get their own home drive instead.
                 if (!e.batch_id && fromHome(e.user_id) && dKeys.some((k) => k.startsWith("drive")) && m.dataset.lookFrom === "studio") {
-                  try { p.drive_before_min = p.drive_after_min = round5((await lookupDrive(b.booking_id, e.user_id)).minutes); }
+                  try { p.drive_before_min = p.drive_after_min = round5((await lookupDrive(b.booking_id, e.user_id, b.day)).minutes); }
                   catch (_e) { p.drive_before_min = e.drive_before_min; p.drive_after_min = e.drive_after_min; }
                 }
                 const { error } = await sb.rpc("schedule_save", { p }); if (error) throw error;
@@ -1736,7 +1739,7 @@
             let clashes = 0;
             for (const w of who) {
               const v = driveVals(m);
-              if (fromHome(w.user_id)) { try { v.drive_before_min = v.drive_after_min = round5((await lookupDrive(b.booking_id, w.user_id)).minutes); } catch (_e) { /* keep the typed minutes */ } }
+              if (fromHome(w.user_id)) { try { v.drive_before_min = v.drive_after_min = round5((await lookupDrive(b.booking_id, w.user_id, b.day)).minutes); } catch (_e) { /* keep the typed minutes */ } }
               const { data: r, error } = await sb.rpc("schedule_save", { p: Object.assign({ user_id: w.user_id, kind: "job", booking_id: b.booking_id, role_id: w.role_id, starts_at: T.toIso(b.day, st), ends_at: T.toIso(endDay, et) }, v) });
               if (error) throw error;
               clashes += num(r && r.overlaps);
@@ -1891,7 +1894,7 @@
         if (b.start_at) { el("scS").value = T.hhmm(T.local(b.start_at).min); el("scE").value = T.hhmm(T.local(b.end_at).min); }
         if (data.studio_address && !(e && e.batch_id)) lookup();
       });
-      const lookup = driveControls(m, () => el("scB").value, false, () => el("scP").value);
+      const lookup = driveControls(m, () => el("scB").value, false, () => el("scP").value, () => el("scD").value);
       m.addEventListener("click", async (ev) => {
         const t = ev.target.closest("[data-m]"); if (!t) return;
         if (t.dataset.m === "cancel") m.close();
@@ -1952,10 +1955,10 @@
     // on one day sharing a batch_id. The first bar's drive there is from the studio, each later bar's from
     // the job before it, and only the last bar drives back (the drive home from the last job is taken as the
     // same as the studio to it). Right-click a job bar, or press and hold it on a phone, to batch it.
-    async function lookupLeg(fromBooking, toBooking) {
+    async function lookupLeg(fromBooking, toBooking, day) {
       const { data: { session } } = await sb.auth.getSession();
       if (!session) throw new Error("Signed out.");
-      const r = await fetch(DRIVE_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" }, body: JSON.stringify({ from_booking_id: fromBooking, booking_id: toBooking }) });
+      const r = await fetch(DRIVE_FN_URL, { method: "POST", headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ from_booking_id: fromBooking, booking_id: toBooking }, day ? { day } : {})) });
       const j = await r.json().catch(() => ({}));
       if (!j.ok) throw new Error(j.error || "HTTP " + r.status);
       return j;
@@ -1970,7 +1973,8 @@
         const from = i ? stops[i - 1] : null;
         const fallback = !from ? to.drive_before_min : !to ? from.drive_after_min || from.drive_before_min : to.drive_before_min;
         try {
-          const r = !from ? await lookupDrive(to.booking_id, to.user_id) : !to ? await lookupDrive(from.booking_id, from.user_id) : await lookupLeg(from.booking_id, to.booking_id);
+          const r = !from ? await lookupDrive(to.booking_id, to.user_id, T.local(to.starts_at).day) : !to ? await lookupDrive(from.booking_id, from.user_id, T.local(from.starts_at).day)
+            : await lookupLeg(from.booking_id, to.booking_id, T.local(to.starts_at).day);
           return { minutes: round5(r.minutes), meters: r.meters != null ? r.meters : null, err: "" };
         } catch (e) { return { minutes: num(fallback), meters: null, err: cleanErr(e) }; }
       }));
@@ -1980,7 +1984,7 @@
       drive_after_min: i === stops.length - 1 ? legs[i + 1].minutes : 0, drive_after_m: i === stops.length - 1 ? legs[i + 1].meters : 0 }));
     async function soloRow(e) {
       let m = e.batch_id && e.drive_after_min ? e.drive_after_min : e.drive_before_min;
-      try { m = round5((await lookupDrive(e.booking_id, e.user_id)).minutes); } catch (_e) { /* keep what it has */ }
+      try { m = round5((await lookupDrive(e.booking_id, e.user_id, T.local(e.starts_at).day)).minutes); } catch (_e) { /* keep what it has */ }
       return { id: e.id, batch_id: null, drive_before_min: m, drive_after_min: m };
     }
     async function saveTripRows(rows) { const { error } = await sb.rpc("schedule_batch_save", { p: { entries: rows } }); if (error) throw error; }
@@ -2238,19 +2242,19 @@
       const { data: d, error } = await sb.rpc("schedule_week", { p_start: fromDay, p_days: Math.min(42, T.daysBetween(fromDay, toDay) + 1) });
       if (error) throw error;
       const days = (d.bookings || []).filter((b) => b.booking_id === bookingId);
-      // the drive from the studio, or from home for anyone with a home address
+      // the drive from the studio, or from home for anyone with a home address, to each place the days are at
       const driveFor = {};
-      for (const uid of days.some((b) => b.start_at) ? userIds : []) {
+      async function driveOf(uid, b) {
         const home = (d.people || []).some((p) => p.user_id === uid && p.from_home);
-        if (!home && !d.studio_address) { driveFor[uid] = 0; continue; }
-        if (!home && "studio" in driveFor) { driveFor[uid] = driveFor.studio; continue; }
-        try { driveFor[uid] = Math.ceil((await lookupDrive(bookingId, home ? uid : null)).minutes / 5) * 5; } catch (e) { driveFor[uid] = 0; }
-        if (!home) driveFor.studio = driveFor[uid];
+        if (!home && !d.studio_address) return 0;
+        const k = (home ? uid : "studio") + "|" + (b.location || "");
+        if (!(k in driveFor)) { try { driveFor[k] = Math.ceil((await lookupDrive(bookingId, home ? uid : null, b.day)).minutes / 5) * 5; } catch (e) { driveFor[k] = 0; } }
+        return driveFor[k];
       }
       let added = 0;
       for (const b of days.filter((x) => x.start_at)) {
         for (const uid of userIds) {
-          const drive = driveFor[uid] || 0;
+          const drive = await driveOf(uid, b);
           const { error: e2 } = await sb.rpc("schedule_save", { p: { user_id: uid, kind: "job", booking_id: bookingId, starts_at: b.start_at, ends_at: b.end_at, drive_before_min: drive, drive_after_min: drive, title: "", note: "" } });
           if (e2) throw e2;
           added++;

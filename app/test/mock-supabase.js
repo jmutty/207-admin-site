@@ -715,6 +715,15 @@
     RPC.me_digest_set = { ok: true };
     if (/[?&]nodevice=1\b/.test(location.search)) RPC.push_my_settings.devices = [];
   }
+  // A place for each picture day (2026-10-24): ?dayplaces=1 gives bk1 three days, the second one somewhere else.
+  if (/[?&]dayplaces=1\b/.test(location.search)) {
+    const b1 = RPC.admin_bookings.find((x) => x.id === "bk1");
+    const ds = [12, 13, 15].map((n, i) => ({ id: "bd1-" + i, day: iso(n).slice(0, 10), start_at: iso(n), end_at: iso(n + 0.125), label: ["U10 and U12", "High school teams", "Makeups"][i],
+      location: i === 1 ? "Brewer High School, 79 Somerset St, Brewer, ME 04412" : null, sort: i, calendar_status: "synced" }));
+    if (b1) { b1.days = ds; b1.location = "Brewer Rec Center"; }
+    RPC.job_get.days = ds;
+    Object.assign(RPC.admin_booking_detail, { days: ds, location: "Brewer Rec Center" });
+  }
   // ws/jobs (2026-10-24): one job screen (the Booking tab), checklists on All jobs, crew links into their job.
   {
     if (/[?&]tracked=1\b/.test(location.search)) RPC.job_get.booking.status = "tracked";

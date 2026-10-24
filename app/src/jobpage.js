@@ -264,6 +264,15 @@
       return days ? days.map((d) => Fmt.day(d.day) + (d.label ? " (" + d.label + ")" : "")).join(", ") : fmtDayIso(b.picture_day) + t;
     }
 
+    // Where (2026-10-24): one place, or each place with its days when a picture day is somewhere else.
+    function whereLine(b) {
+      const days = J.days || [];
+      if (days.length < 2 || !days.some((d) => d.location)) return b.location || "";
+      const by = new Map();
+      days.forEach((d) => { const w = d.location || b.location || "no location yet"; by.set(w, (by.get(w) || []).concat(Fmt.day(d.day))); });
+      return [...by].map(([w, ds]) => ds.join(", ") + ": " + w).join("; ");
+    }
+
     function renderShell() {
       const b = J.booking, c = J.can;
       const status = b.status === "booked" ? "" : ' <span class="pill muted">' + esc(b.status === "tracked" ? "tracking only" : b.status) + "</span>";
@@ -272,7 +281,7 @@
         '<p class="jp-trail">' + (b.org_id && canSee("partners") ? '<a href="#partners/orgs">Partners</a> &#8250; <a href="' + orgLink(b.org_id, "jobs") + '">' + esc(b.org_name || "Organization") + "</a> &#8250; Jobs"
           : '<a href="#jobs/bookings" id="aca-jpBack">&#8592; ' + (canSee("bookings") ? "All jobs" : "Back") + "</a>") + "</p>" +
         '<div class="jp-head"><div><h2>' + esc(b.title) + status + '</h2><div class="s">' + esc(dayLine(b)) + " \u00b7 " + esc(b.type_label || "") +
-        (b.location ? " \u00b7 " + esc(b.location) : "") + "</div></div>" +
+        (whereLine(b) ? " \u00b7 " + esc(whereLine(b)) : "") + "</div></div>" +
         // Edit booking is the page's main action (one Edit button; the Booking tab has none).
         '<div class="acts">' + (c.bookings_edit && b.status === "booked" && typeof Bookings !== "undefined" ? '<button type="button" class="small primary" data-j="edit">Edit booking</button>' : "") +
         (canMail() ? '<button type="button" class="small" data-j="email">Email</button>' : "") +
@@ -331,7 +340,7 @@
       const c = J.can;
       const crew = J.crew || [];
       const facts = [
-        ["When", dayLine(b)], ["Where", b.location || ""], ["Type", b.type_label || ""],
+        ["When", dayLine(b)], ["Where", whereLine(b)], ["Type", b.type_label || ""],
         c.bookings && b.access_code ? ["Access code", b.access_code] : null,
         J.stage ? ["Stage", J.stage.label + " (" + fmtAgo(J.stage.at) + ")"] : null,
         J.deliverables && J.deliverables.length ? ["Deliverables", J.deliverables.filter((d) => d.status !== "todo").length + " of " + J.deliverables.length + " delivered"] : null,
@@ -727,7 +736,7 @@
         "body{font:14px/1.45 -apple-system,Segoe UI,sans-serif;margin:32px;color:#1f1e1b}h1{font-size:20px;margin:0 0 4px}h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#a63f19;margin:22px 0 6px}" +
         "table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:5px 10px 5px 0;border-bottom:1px solid #e6e2db;vertical-align:top}th{width:140px;color:#6b675f;font-weight:600}.s{color:#6b675f}</style></head><body>" +
         "<h1>" + esc(b.title) + '</h1><div class="s">' + esc(dayLine(b)) + "</div>" +
-        "<h2>The job</h2><table>" + row("Where", b.location) + row("Type", b.type_label) + row("Organization", b.org_name + (b.org_town ? ", " + b.org_town : "")) +
+        "<h2>The job</h2><table>" + row("Where", whereLine(b)) + row("Type", b.type_label) + row("Organization", b.org_name + (b.org_town ? ", " + b.org_town : "")) +
         row("Makeup day", J.makeup ? makeupLine(J.makeup) : "") + row("Access code", J.can.bookings ? b.access_code : "") + row("Stage", J.stage ? J.stage.label : "") + "</table>" +
         (b.wifi_network || b.wifi_password || b.notes ? "<h2>On site</h2><table>" + row("WiFi network", b.wifi_network) + row("WiFi password", b.wifi_password) + row("For the crew", b.notes) + "</table>" : "") +
         ((J.contacts || []).length ? "<h2>Contacts</h2><table>" + J.contacts.map((p) => "<tr><th>" + esc(p.name || "") + "</th><td>" + esc([p.role, p.email, p.phone].filter(Boolean).join(" \u00b7 ")) + "</td></tr>").join("") + "</table>" : "") +

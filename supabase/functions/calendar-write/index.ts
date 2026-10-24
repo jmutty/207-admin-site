@@ -137,14 +137,14 @@ export async function buildEvent(b: any, day?: any, dayNo?: number, dayCount?: n
   const { data: org } = await db.from("prospect_orgs").select("name, town").eq("id", b.org_id).single();
   const { data: type } = await db.from("booking_types").select("label").eq("key", b.type_key).single();
   const { data: contacts } = await db.from("prospect_contacts").select("first_name, last_name, email, role").in("id", b.contact_ids ?? []);
-  const { data: days } = await db.from("booking_days").select("label, sort, kind").eq("booking_id", b.id).eq("removed", false).order("day");
+  const { data: days } = await db.from("booking_days").select("label, sort, kind, location").eq("booking_id", b.id).eq("removed", false).order("day");
   const first = (days ?? []).find((x: any) => x.sort === 0);
   const n = dayCount ?? (days ?? []).filter((x: any) => x.kind !== "makeup").length;
   const makeup = day?.kind === "makeup";
   return eventBody({
     orgName: org?.name ?? "", typeLabel: type?.label ?? b.type_key, titleLabel: b.title_label, titleOverride: b.title_override,
     // a makeup day with no time yet has no start_at: noon UTC keeps its all-day event on the right date
-    startAt: day ? (day.start_at ?? `${day.day}T12:00:00Z`) : b.start_at, endAt: day ? (day.end_at ?? day.start_at ?? `${day.day}T13:00:00Z`) : b.end_at, location: b.location, notes: b.notes, accessCode: b.access_code, retakeDay: b.retake_day,
+    startAt: day ? (day.start_at ?? `${day.day}T12:00:00Z`) : b.start_at, endAt: day ? (day.end_at ?? day.start_at ?? `${day.day}T13:00:00Z`) : b.end_at, location: (day ? day.location : first?.location)?.trim() || b.location, notes: b.notes, accessCode: b.access_code, retakeDay: b.retake_day,
     wifiNetwork: b.wifi_network, wifiPassword: b.wifi_password,
     contacts: (contacts ?? []).map((c: any) => ({ name: [c.first_name, c.last_name].filter(Boolean).join(" "), email: c.email, role: c.role })),
     shortId: String(b.id).slice(0, 8),

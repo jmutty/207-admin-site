@@ -7,7 +7,8 @@
 // With {from_booking_id, booking_id} it is the drive from one job to the next (batched jobs): asked through
 // drive_leg_target() / drive_leg_store() instead (Scheduling edit only). With {booking_id, user_id} it is the
 // drive from where that person starts: home for Part time / 1099 people with a home address (drive_from_target(),
-// cached through drive_leg_store()), else the studio. Returns from: "home" | "studio".
+// cached through drive_leg_store()), else the studio. Returns from: "home" | "studio". Any of them can carry
+// {day}: a picture day with its own place is driven to there.
 //
 // Needs the secret GOOGLE_MAPS_API_KEY (a Google Cloud key with the Routes API enabled; restrict it to
 // that API). Without it the Schedule page says so and the minutes are typed in by hand.
@@ -58,12 +59,14 @@ Deno.serve(async (req) => {
   const booking = String(body.booking_id ?? "");
   const from = body.from_booking_id == null ? "" : String(body.from_booking_id);
   const user = body.user_id == null ? "" : String(body.user_id);
-  if (!UUID.test(booking) || (from && !UUID.test(from)) || (user && !UUID.test(user))) return json({ ok: false, error: "Bad request." }, 400);
+  // day (optional, "2026-11-16"): that picture day's own place when it has one (booking_days.location)
+  const day = body.day == null || body.day === "" ? null : String(body.day);
+  if (!UUID.test(booking) || (from && !UUID.test(from)) || (user && !UUID.test(user)) || (day && !/^\d{4}-\d{2}-\d{2}$/.test(day))) return json({ ok: false, error: "Bad request." }, 400);
 
   try {
-    const t = from ? await asCaller(jwt, "drive_leg_target", { p_from: from, p_to: booking })
-            : user ? await asCaller(jwt, "drive_from_target", { p_booking: booking, p_user: user })
-                   : await asCaller(jwt, "drive_time_target", { p_booking: booking });
+    const t = from ? await asCaller(jwt, "drive_leg_target", { p_from: from, p_to: booking, p_day: day })
+            : user ? await asCaller(jwt, "drive_from_target", { p_booking: booking, p_user: user, p_day: day })
+                   : await asCaller(jwt, "drive_time_target", { p_booking: booking, p_day: day });
     const leg = !!from || t.from === "home";
     if (t.ok !== true) return json({ ok: false, error: t.error ?? "No address." });
     if (typeof t.minutes === "number") return json({ ok: true, minutes: t.minutes, meters: t.meters, origin: t.origin, destination: t.destination, from: t.from, cached: true });
