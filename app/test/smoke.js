@@ -1448,6 +1448,16 @@ const shown = (page, sel) => page.$eval(sel, (n) => !n.classList.contains("hidde
       await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "booking_set_makeup"));
       const mc = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "booking_set_makeup").pop());
       check(mc[1].p_booking === "bkM" && mc[1].p.start_time === "11:00" && mc[1].p.end_time === "13:00", "saves the makeup day's time: " + JSON.stringify(mc[1]));
+      // a timed job with someone on it: nobody new ticked, the button saves changed times and drive onto their bar
+      await page.waitForSelector(".modal-wrap", { state: "detached" }).catch(() => {});
+      await page.click("#aca-scGrid .sc-chip.part");
+      await page.waitForSelector(".sc-modal .sc-onit");
+      check((await page.textContent('.sc-modal [data-m="save"]')).trim() === "Save changes", "with people on it and nobody ticked, the button is Save changes");
+      await page.evaluate(() => { const s = document.getElementById("aca-scS"); s.value = "10:00"; s.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector(".sc-modal .sc-db").value = "55"; window.__rpcCalls.length = 0; });
+      await page.click('.sc-modal [data-m="save"]');
+      await page.waitForFunction(() => window.__rpcCalls.some((c) => c[0] === "schedule_save"));
+      const ss = await page.evaluate(() => window.__rpcCalls.filter((c) => c[0] === "schedule_save").map((c) => c[1].p));
+      check(ss.length === 2 && ss.every((p) => p.id && /T14:00:00/.test(new Date(p.starts_at).toISOString()) && p.drive_before_min === 55 && p.drive_after_min === 30), "saves the new start and drive onto both bars: " + JSON.stringify(ss));
     }
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
     await page.close();
