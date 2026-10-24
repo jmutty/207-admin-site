@@ -1586,8 +1586,10 @@
           already[0] ? already[0].setup_min : setupDefault(), already[0] ? already[0].teardown_min : teardownDefault()) +
         (data.people.some((p) => p.from_home) ? '<p class="sc-note">People with a home address drive from home. Ticking one person shows their drive here; with several ticked, each gets their own.</p>' : "") + "</details>" +
         '<div class="inline-error hidden" id="aca-scMErr"></div>' +
-        '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (mkTime ? "Save time" : "Add to the schedule") + '</button></div></div>');
+        '<div class="modal-actions"><a href="' + jobLink(b.booking_id) + '" data-m="job" class="small">Open the job</a><span class="grow"></span><button type="button" class="small" data-m="cancel">Cancel</button><button type="button" class="primary" data-m="save">' + (mkTime ? "Save time" : already.length ? "Save changes" : "Add to the schedule") + '</button></div></div>');
       driveControls(m, () => b.booking_id, !!data.studio_address && !already.length);
+      // what the times and drive boxes started at: with nobody new ticked, the button saves what changed onto who is on it
+      const t0 = { st: el("scS").value, et: el("scE").value, v: driveVals(m) };
       const timesTxt = () => {
         const st = el("scS").value, et = el("scE").value, v = driveVals(m);
         const t = (x) => { const [hh, mm] = x.split(":").map(Number); return T.fmtMin(hh * 60 + mm); };
@@ -1623,7 +1625,10 @@
         timesTxt();
       }
       pick.addEventListener("change", followPick);
-      if (mkTime) pick.addEventListener("change", () => { m.querySelector('[data-m="save"]').textContent = pick.querySelector("input:checked") ? "Save time and add" : "Save time"; });
+      pick.addEventListener("change", () => {
+        const any = !!pick.querySelector("input:checked");
+        m.querySelector('[data-m="save"]').textContent = mkTime ? (any ? "Save time and add" : "Save time") : any || !already.length ? "Add to the schedule" : "Save changes";
+      });
       CrewPick.options(b.booking_id, b.day).then((cp) => {
         const byId = new Map(cp.people.map((p) => [p.user_id, p]));
         cp.people.forEach((p) => { if (p.home_min != null) homeMin[p.user_id] = p.home_min; });
@@ -1659,16 +1664,30 @@
             if (!st || !et) { el("scTimes").open = true; return mErr("Enter the makeup day's start and end time."); }
             if (et <= st) { el("scTimes").open = true; return mErr("The end time has to be after the start time."); }
           }
-          if (!who.length && (mkTime || needIn.value !== need0)) {
+          if (!who.length) {
+            // nobody new: save the changes (people needed, the makeup day's time, times and drive for who is on it)
+            const v = driveVals(m), tChanged = st !== t0.st || et !== t0.et, dKeys = Object.keys(v).filter((k) => v[k] !== t0.v[k]);
+            const edits = already.length > 0 && (tChanged || dKeys.length > 0);
+            if (!mkTime && !edits && needIn.value === need0) return mErr(already.length ? "Nothing changed yet. Tick someone to add them, or change the times or drive." : "Pick at least one person.");
+            if (tChanged && (!st || !et)) { el("scTimes").open = true; return mErr("Enter the start and end time."); }
             t.disabled = true;
             try {
               await saveNeed();
               if (mkTime) await setMakeupTime(b, st, et);
-              m.close(); toast(mkTime ? "Makeup day time set. The calendar event updates in a minute." : "Saved."); load(); loadAttention();
+              if (edits) for (const e of already) {
+                const p = { id: e.id, user_id: e.user_id, kind: "job", booking_id: e.booking_id, title: "", note: e.note || "", starts_at: e.starts_at, ends_at: e.ends_at,
+                  setup_min: e.setup_min, teardown_min: e.teardown_min, drive_before_min: e.drive_before_min, drive_after_min: e.drive_after_min };
+                if (tChanged) { p.starts_at = T.toIso(b.day, st); p.ends_at = T.toIso(et <= st ? T.addDays(b.day, 1) : b.day, et); }
+                dKeys.forEach((k) => { if (!(e.batch_id && k.startsWith("drive"))) p[k] = v[k]; }); // a trip's drives are worked out below
+                const { error } = await sb.rpc("schedule_save", { p }); if (error) throw error;
+              }
+              m.close();
+              toast([mkTime ? "Makeup day time set. The calendar event updates in a minute." : "", edits ? (already.length === 1 ? personName(already[0].user_id) + "'s bar is updated." : already.length + " bars updated.") : "", !mkTime && !edits ? "Saved." : ""].filter(Boolean).join(" "));
+              const trip = edits && already.find((e) => e.batch_id); if (trip) await retrip(trip);
+              load(); loadAttention();
             } catch (e) { mErr(cleanErr(e)); t.disabled = false; }
             return;
           }
-          if (!who.length) return mErr("Pick at least one person.");
           if (!st || !et) { el("scTimes").open = true; return mErr("Enter the start and end time."); }
           const endDay = et <= st ? T.addDays(b.day, 1) : b.day;
           t.disabled = true;
