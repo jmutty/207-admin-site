@@ -159,6 +159,39 @@
   .aca .bk-form .og-grid > label.bk-card { padding-top: 10px; }
   .aca .bk-form .bk-dayhead { display: flex; gap: 6px; font-size: 11.5px; color: var(--muted); margin: 0 0 2px; }
   .aca .bk-form .bk-dayhead span:first-child { width: 150px; } .aca .bk-form .bk-dayhead span.t { width: 108px; } .aca .bk-form .bk-dayhead span.to { width: 14px; }
+  /* Calendar view on All jobs (2026-10-24): display only, the Schedule's month look (scm-* classes from
+     scheduling.js), Monday start, the list's own filters. A job opens its page; nothing to assign here. */
+  .aca .bk-view { flex: none; margin-left: auto; }
+  .aca .bk-cal.hidden, .aca .bk-listwrap.hidden { display: none; }
+  .aca .bk-calbar { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; flex-wrap: wrap; }
+  .aca .bk-calbar h3 { margin: 0 6px; font-size: 15px; min-width: 120px; }
+  .aca .bk-calbar .grow { flex: 1; } .aca .bk-calbar .bk-sub { font-size: 12.5px; }
+  .aca .bk-cal .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line2); border-radius: 4px; overflow: hidden; }
+  .aca .bk-cal .scm-day { cursor: default; }
+  .aca .bk-cal .scm-day:nth-child(8n+9) { border-left: 1px solid var(--line2); }
+  .aca .bk-cal .scm-day:nth-child(7n+8) { border-left: 0; }
+  .aca .bk-cal .scm-dn { cursor: default; }
+  .aca .bk-cal button.scm-chip { border-left-color: var(--tc, #2f6db5); background: var(--tb, #e8f0fb); }
+  .aca .bk-cal button.scm-chip .tm { flex: none; color: var(--muted); font-size: 11px; }
+  .aca .bk-cal button.scm-chip.mk .nm { font-style: italic; }
+  .aca .bk-cal button.scm-chip:hover { filter: brightness(.96); }
+  .aca .bk-cal .scm-key i { background: var(--tc); }
+  .aca #aca-panel-bookings.bk-calmode #aca-bkScope [data-scope="past"] { display: none; }
+  .aca .bk-cal .scm-day.past { opacity: .55; }
+  .aca .bk-cal.bk-week .scm-day { min-height: 260px; gap: 5px; }
+  .aca .bk-cal.bk-week .scm-dn .wd { display: none; }
+  .aca .bk-wcard { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; height: auto; padding: 5px 7px; border: 0; border-left: 3px solid var(--tc, #2f6db5); border-radius: 3px; background: var(--tb, #e8f0fb); color: var(--text); text-align: left; font-weight: 400; font-size: 12.5px; line-height: 16px; cursor: pointer; min-width: 0; max-width: 100%; white-space: normal; overflow: hidden; box-sizing: border-box; }
+  .aca .bk-wcard:hover { filter: brightness(.96); }
+  .aca .bk-wcard .tm { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .aca .bk-wcard strong { font-weight: 600; overflow-wrap: anywhere; }
+  .aca .bk-wcard .sub { font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
+  .aca .bk-wcard.mk strong { font-style: italic; }
+  .aca .bk-wnone { font-size: 11.5px; color: var(--faint); }
+  .aca .bk-calday .bk-wcard { padding: 10px 12px; font-size: 14px; line-height: 19px; margin-bottom: 6px; }
+  .aca .bk-calday .bk-wcard .tm, .aca .bk-calday .bk-wcard .sub { font-size: 12.5px; }
+  .aca .bk-calday { margin-top: 10px; }
+  .aca .bk-calday.hidden { display: none; }
+  .aca .bk-calday h4 { margin: 0 0 6px; font-size: 13.5px; }
   @media (max-width: 900px) {
     .aca #aca-bkPanel { position: fixed; top: var(--og-top, 0px); left: 0; right: 0; bottom: 0; width: 100vw; max-width: none; overflow: auto; -webkit-overflow-scrolling: touch; z-index: 60; background: var(--surface); }
     .aca #aca-bkPanel.hidden { display: none; }
@@ -192,6 +225,24 @@
     .aca #aca-panel-bookings .toolbar > .bk-chips { order: 5; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
     .aca #aca-panel-bookings .toolbar > .bk-chips button { flex: none; }
     .aca #aca-panel-bookings .toolbar > .lv-tools { order: 4; flex: 1 0 100%; }
+    .aca #aca-panel-bookings .toolbar > .bk-view { order: 3; margin-left: 0; }
+    .aca .bk-cal .scm-day { cursor: pointer; }
+    .aca .bk-cal .scm-day.sel { box-shadow: inset 0 0 0 2px var(--text); }
+    .aca .bk-cal button.scm-chip { background: var(--tc, #2f6db5); pointer-events: none; }
+    .aca .bk-cal .scm-key .kl { display: inline; }
+    .aca .bk-cal button.scm-chip .tm { display: none; }
+    .aca .bk-calbar .grow { display: none; } .aca .bk-calbar h3 { min-width: 0; flex: 1 0 auto; }
+    .aca .bk-calbar #aca-bkCalNote { order: 6; flex: 1 0 100%; }
+    .aca .bk-calbar .bk-calmode-seg { order: 5; }
+    /* Week on a phone: the seven days as a list, each with its cards */
+    .aca .bk-cal.bk-week .scm-grid { grid-template-columns: 1fr; }
+    .aca .bk-cal.bk-week .scm-h { display: none; }
+    .aca .bk-cal.bk-week .scm-day { min-height: 0; border-left: 0; padding: 8px 4px 10px; gap: 6px; flex-direction: column; flex-wrap: nowrap; cursor: default; }
+    .aca .bk-cal.bk-week .scm-dn { flex: none; } .aca .bk-cal .scm-dn .wd { color: var(--text); font-size: 12.5px; }
+    .aca .bk-cal.bk-week .scm-dn .wd { display: inline; } .aca .bk-cal.bk-week .scm-dn span { display: inline; }
+    .aca .bk-cal.bk-week .scm-day button.bk-wcard, .aca .bk-calday button.bk-wcard { height: auto; flex: none; }
+    .aca .bk-cal.bk-week .bk-wcard { pointer-events: auto; padding: 9px 11px; font-size: 14px; line-height: 19px; }
+    .aca .bk-cal.bk-week .bk-wcard .tm, .aca .bk-cal.bk-week .bk-wcard .sub { font-size: 12.5px; }
     .aca #aca-panel-bookings .card-head .bk-tools > button.primary { min-height: 44px; flex: 1 1 auto; }
     .aca .bk-tab .bk-stages { display: none; } .aca .bk-tab .bk-stages.open { display: grid; }
     .aca .bk-tab .bk-stage1 { display: flex; }
@@ -225,7 +276,7 @@
     <div class="card">
       <div class="card-head">
         <div><h2>All jobs</h2>
-          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job for a quick look, then Open for its page: stage, deliverables, emails, crew and checklist.</p></div>
+          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job to open its page. Calendar shows the same jobs by month.</p></div>
         <div class="og-actions bk-tools"><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button>
 </div>
       </div>
@@ -241,9 +292,17 @@
           <button type="button" data-scope="owed" aria-pressed="false">Still owed</button>
           <button type="button" data-scope="cancelled" aria-pressed="false">Cancelled</button>
         </div>
+        <div class="seg bk-view" role="radiogroup" aria-label="Show as"><label><input type="radio" name="aca-bkView" value="list" checked /><span>List</span></label><label><input type="radio" name="aca-bkView" value="cal" /><span>Calendar</span></label></div>
       </div>
       <div id="aca-bkErr" class="inline-error hidden"></div>
-      <div class="table-wrap"><table class="bk-table"><thead><tr><th class="bk-c-when">When</th><th class="bk-c-job">Job</th><th class="bk-c-stage">Stage</th><th class="bk-c-who">Contacts</th><th class="bk-c-mail">Emails</th></tr></thead>
+      <div class="bk-cal hidden" id="aca-bkCal">
+        <div class="bk-calbar"><button type="button" class="small" data-cal="prev" aria-label="Previous month">&#8249;</button><h3 id="aca-bkCalTitle"></h3><button type="button" class="small" data-cal="next" aria-label="Next month">&#8250;</button>
+          <button type="button" class="small" data-cal="today" id="aca-bkCalToday">This month</button><span class="bk-sub" id="aca-bkCalNote"></span><span class="grow"></span>
+          <div class="seg bk-calmode-seg" role="radiogroup" aria-label="Calendar"><label><input type="radio" name="aca-bkCalMode" value="month" checked /><span>Month</span></label><label><input type="radio" name="aca-bkCalMode" value="week" /><span>Week</span></label></div></div>
+        <div class="scm-grid" id="aca-bkCalGrid"></div>
+        <div class="bk-calday hidden" id="aca-bkCalDay"></div>
+      </div>
+      <div class="table-wrap bk-listwrap"><table class="bk-table"><thead><tr><th class="bk-c-when">When</th><th class="bk-c-job">Job</th><th class="bk-c-stage">Stage</th><th class="bk-c-who">Contacts</th><th class="bk-c-mail">Emails</th></tr></thead>
         <tbody id="aca-bkBody"><tr><td colspan="5" class="empty">Loading&#8230;</td></tr></tbody></table></div>
     </div>
     <div class="og-panel hidden" id="aca-bkPanel" aria-label="Booking details"></div>`;
@@ -463,19 +522,30 @@
     const open = num(c.open_count), late = num(c.overdue_count);
     return '<div class="bk-chk" title="Checklist">Checklist: ' + (open ? open + " to do" + (late ? ', <span class="late">' + late + " late</span>" : "") : "all done") + "</div>";
   }
-  function render() {
-    filtersLabel();
+  // The list's filters (type, stage, search, the scope chips) on any set of rows: the list's own, or the calendar's.
+  function filterRows(src, sc) {
     const q = el("bkSearch").value.trim().toLowerCase(), tk = el("bkType").value;
-    let list = rows.filter((b) => (scope === "cancelled" ? b.status === "cancelled" : b.status !== "cancelled"));
+    let list = src.filter((b) => (sc === "cancelled" ? b.status === "cancelled" : b.status !== "cancelled"));
     if (tk) list = list.filter((b) => b.type_key === tk);
     const sk = el("bkStage").value, prog = (b) => b.progress || {};
-    if (scope === "owed") list = list.filter((b) => num(prog(b).deliverables_open) > 0);
+    if (sc === "owed") list = list.filter((b) => num(prog(b).deliverables_open) > 0);
     if (sk === ":owed") list = list.filter((b) => num(prog(b).deliverables_open) > 0);
     else if (sk === ":overdue") list = list.filter((b) => num(prog(b).overdue) > 0);
     else if (sk === ":checklist") list = list.filter((b) => checklist[b.id] && num(checklist[b.id].open_count) > 0);
     else if (sk === ":checklate") list = list.filter((b) => checklist[b.id] && num(checklist[b.id].overdue_count) > 0);
     else if (sk) list = list.filter((b) => (stageOf(prog(b).stage_id) || {}).label === sk);
     if (q) list = list.filter((b) => (b.org_name + " " + b.title + " " + (b.org_town || "")).toLowerCase().includes(q));
+    return list;
+  }
+  function render() {
+    filtersLabel();
+    const isCal = view === "cal", pnl = el("panel-bookings");
+    el("bkCal").classList.toggle("hidden", !isCal); pnl.querySelector(".bk-listwrap").classList.toggle("hidden", isCal);
+    // The calendar shows whole months and weeks, so Upcoming / Past 60 days fold into one "All jobs" chip there.
+    pnl.classList.toggle("bk-calmode", isCal);
+    pnl.querySelector('#aca-bkScope [data-scope="upcoming"]').textContent = isCal ? "All jobs" : "Upcoming";
+    if (isCal) { renderCal(); return; }
+    const sk = el("bkStage").value, list = filterRows(rows, scope);
     const body = el("bkBody");
     if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty">' + (scope === "upcoming" && !sk ? "No upcoming bookings. Click <strong>Book a job</strong> to add one." : scope === "owed" ? "Nothing owed. Every deliverable is done or skipped." : "Nothing here.") + "</td></tr>"; return; }
     const who = (b) => { const cs = b.contacts || [];
@@ -492,6 +562,112 @@
       '<td class="bk-c-mail">' + mailSummary(b) + "</td></tr>").join("");
     Notes.fillLines(body); // each job's newest note (or its partner's) under the name, 2026-10-24
   }
+  // ---- Calendar view (2026-10-24, Jeremiah): the same filtered jobs on a Monday-start month or week, each
+  // picture day (and makeup day) as a chip colored by job type. Display only: a chip opens the job page. The
+  // calendar loads its own days (the whole month or week, past days faded), not the list's Upcoming / Past range.
+  // On phones the month's chips are dots (tap a day for its jobs) and the week is a list of days.
+  let view = "list", calMode = "month", calAnchor = "", calPick = "", calData = { key: "", rows: [] }, calSeq = 0;
+  try { if (localStorage.getItem("aca-bk-view") === "cal") view = "cal"; if (localStorage.getItem("aca-bk-calmode") === "week") calMode = "week"; } catch (_e) { /* private mode */ }
+  document.querySelector('#aca-panel-bookings input[name="aca-bkView"][value="' + view + '"]').checked = true;
+  document.querySelector('#aca-bkCal input[name="aca-bkCalMode"][value="' + calMode + '"]').checked = true;
+  const TYPE_COLORS = [["#2f6db5", "#e8f0fb"], ["#2e8b57", "#e6f4ec"], ["#bf4a1f", "#fbebe4"], ["#7a4fb5", "#f0e9fa"], ["#b07a00", "#fdf6e3"], ["#1f8a99", "#e3f4f6"], ["#8a8580", "#f1efec"]];
+  const typeColor = (k) => { const i = types.findIndex((t) => t.key === k); return TYPE_COLORS[(i < 0 ? TYPE_COLORS.length - 1 : i) % TYPE_COLORS.length]; };
+  const calNarrow = () => window.matchMedia("(max-width: 760px)").matches;
+  // Each job's days on the calendar: [{ day, start, makeup, label }], one per picture day plus its makeup day.
+  function calDays(b) {
+    const ds = (b.days && b.days.length ? b.days : [{ day: b.picture_day, start_at: b.start_at, sort: 0 }]).filter((x) => x.day);
+    const out = ds.map((x) => ({ day: x.day, start: (x.sort === 0 ? (b.time_set !== false ? b.start_at : null) : x.start_at) || null, label: x.label || "", loc: x.location || b.location || "" }));
+    if (b.makeup && b.makeup.day) out.push({ day: b.makeup.day, start: b.makeup.start_at || null, makeup: true, loc: b.location || "" });
+    return out;
+  }
+  // The days on screen: a month's whole weeks, or one week.
+  function calRange() {
+    const T = StaffTime;
+    if (!calAnchor) calAnchor = T.today();
+    if (calMode === "week") { const s0 = T.weekStart(calAnchor); return { start: s0, end: T.addDays(s0, 6) }; }
+    const first = calAnchor.slice(0, 8) + "01", next = new Date(first + "T12:00:00Z"); next.setUTCMonth(next.getUTCMonth() + 1);
+    const last = T.addDays(next.toISOString().slice(0, 10), -1);
+    return { start: T.weekStart(first), end: T.addDays(T.weekStart(last), 6) };
+  }
+  // admin_bookings filters on the first picture day, so it reaches a month back for multi-day jobs and makeup days.
+  async function loadCal(r) {
+    const key = r.start + ":" + r.end, my = ++calSeq;
+    try {
+      await ensureMeta();
+      const from = StaffTime.addDays(r.start, -31), none = Promise.resolve({ data: [] });
+      const [{ data, error }, prog, wf] = await Promise.all([sb.rpc("admin_bookings", { p_from: from, p_to: r.end }), sb.rpc("admin_booking_progress", { p_from: from, p_to: r.end }),
+        canSee("workflows") ? sb.rpc("workflow_jobs", { p_from: from }).then((x) => x, () => ({ data: [] })) : none]);
+      if (error) throw error;
+      if (my !== calSeq) return;
+      const pm = {}; (prog.data || []).forEach((x) => { pm[x.booking_id] = x; });
+      (Array.isArray(wf.data) ? wf.data : []).forEach((x) => { checklist[x.booking_id] = x; });
+      calData = { key, rows: (data || []).map((b) => Object.assign(b, { progress: pm[b.id] || null })) };
+      if (view === "cal") renderCal();
+    } catch (e) { if (my === calSeq) { calData = { key, rows: [] }; showError("bkErr", cleanErr(e)); } }
+  }
+  function renderCal() {
+    const T = StaffTime, today = T.today(), r = calRange(), key = r.start + ":" + r.end, week = calMode === "week";
+    const ready = calData.key === key;
+    if (!ready) loadCal(r);
+    const list = filterRows(ready ? calData.rows : rows, scope === "upcoming" || scope === "past" ? "all" : scope);
+    el("bkCal").classList.toggle("bk-week", week);
+    el("bkCalTitle").textContent = week ? "Week of " + Fmt.day(r.start)
+      : new Date(calAnchor.slice(0, 7) + "-15T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long" }) + (calAnchor.slice(0, 4) === today.slice(0, 4) ? "" : " " + calAnchor.slice(0, 4));
+    el("bkCalToday").textContent = week ? "This week" : "This month";
+    el("bkCalNote").textContent = ready ? (scope === "owed" ? "Jobs that still owe deliverables." : scope === "cancelled" ? "Cancelled jobs." : "") : "Loading\u2026";
+    const byDay = {}, used = new Set();
+    list.forEach((b) => calDays(b).forEach((x) => { if (x.day >= r.start && x.day <= r.end) { (byDay[x.day] = byDay[x.day] || []).push({ b, x }); used.add(b.type_key); } }));
+    Object.values(byDay).forEach((a) => a.sort((p, q) => String(p.x.start || "~").localeCompare(String(q.x.start || "~")) || p.b.title.localeCompare(q.b.title)));
+    const name = (b, x) => (x.makeup ? "Makeup: " : "") + b.title + (x.label ? " (" + x.label + ")" : "");
+    const tip = (b, x) => name(b, x) + "\n" + (b.type_label || "") + "\n" + (x.start ? Fmt.time(x.start) : "Time not set") + (x.loc ? "\n" + x.loc : "");
+    const chip = ({ b, x }) => { const [tc, tb] = typeColor(b.type_key);
+      return '<button type="button" class="scm-chip' + (x.makeup ? " mk" : "") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" title="' + esc(tip(b, x)) + '">' +
+        '<span class="nm">' + esc(name(b, x)) + "</span>" + (x.start ? '<span class="tm">' + esc(Fmt.time(x.start).replace(":00", "")) + "</span>" : "") + "</button>"; };
+    // A week's card: time, the job, its type and place, all on view.
+    const card = ({ b, x }) => { const [tc, tb] = typeColor(b.type_key);
+      return '<button type="button" class="bk-wcard' + (x.makeup ? " mk" : "") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" title="' + esc(tip(b, x)) + '">' +
+        '<span class="tm">' + esc(x.start ? Fmt.time(x.start) : "Time not set") + "</span><strong>" + esc(name(b, x)) + "</strong>" +
+        '<span class="sub">' + esc([b.type_label, x.loc].filter(Boolean).join(" \u00b7 ")) + "</span></button>"; };
+    const days = []; for (let d = r.start; d <= r.end; d = T.addDays(d, 1)) days.push(d);
+    let h = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w, i) => '<div class="scm-h">' + w + (week ? " " + esc(Fmt.day(days[i])) : "") + "</div>").join("");
+    days.forEach((d) => {
+      const items = byDay[d] || [];
+      h += '<div class="scm-day' + (!week && d.slice(0, 7) !== calAnchor.slice(0, 7) ? " other" : "") + (d < today ? " past" : "") + (d === today ? " today" : "") + (!week && d === calPick ? " sel" : "") + '" data-calday="' + esc(d) + '">' +
+        '<span class="scm-dn">' + (week ? '<span class="wd">' + esc(T.fmtDay(d, { calendar: true })) + "</span>" : esc(Fmt.day(d))) + (d === today ? " <span>Today</span>" : "") + "</span>" +
+        (week ? (items.length ? items.map(card).join("") : '<span class="bk-wnone">No jobs</span>') : items.map(chip).join("")) + "</div>";
+    });
+    const keyTypes = types.filter((t) => used.has(t.key));
+    h += '<div class="scm-key">' + keyTypes.map((t) => '<span><i style="--tc:' + typeColor(t.key)[0] + '"></i>' + esc(t.label) + "</span>").join("") +
+      '<span class="kl">' + (!week && calNarrow() ? "Tap a day to see its jobs" : "Click a job to open it") + "</span></div>";
+    el("bkCalGrid").innerHTML = h;
+    // Phones, month: the picked day's jobs under the month.
+    const dayBox = el("bkCalDay"), show = !week && calPick, picked = show && byDay[calPick];
+    dayBox.classList.toggle("hidden", !show);
+    if (show) dayBox.innerHTML = "<h4>" + esc(T.fmtDay(calPick, { calendar: true })) + "</h4>" + (picked ? picked.map(card).join("") : '<p class="bk-sub">No jobs this day.</p>');
+  }
+  document.querySelector("#aca-panel-bookings .bk-view").addEventListener("change", (e) => {
+    view = e.target.value; calPick = "";
+    try { localStorage.setItem("aca-bk-view", view); } catch (_e) { /* private mode */ }
+    render();
+  });
+  el("bkCal").querySelector(".bk-calmode-seg").addEventListener("change", (e) => {
+    calMode = e.target.value; calPick = "";
+    try { localStorage.setItem("aca-bk-calmode", calMode); } catch (_e) { /* private mode */ }
+    renderCal();
+  });
+  el("bkCal").addEventListener("click", (e) => {
+    const j = e.target.closest("[data-job]"); if (j) { openJob(j.dataset.job); return; }
+    const a = e.target.closest("button[data-cal]");
+    if (a) {
+      const T = StaffTime;
+      if (a.dataset.cal === "today") calAnchor = T.today();
+      else if (calMode === "week") calAnchor = T.addDays(T.weekStart(calAnchor), a.dataset.cal === "next" ? 7 : -7);
+      else { const d = new Date(calAnchor.slice(0, 8) + "15T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + (a.dataset.cal === "next" ? 1 : -1)); calAnchor = d.toISOString().slice(0, 10); }
+      calPick = ""; renderCal(); return;
+    }
+    const day = e.target.closest("[data-calday]");
+    if (day && calMode === "month" && calNarrow()) { calPick = calPick === day.dataset.calday ? "" : day.dataset.calday; renderCal(); }
+  });
   el("bkSearch").addEventListener("input", render);
   el("bkType").addEventListener("change", render);
   el("bkStage").addEventListener("change", render);
@@ -502,7 +678,7 @@
 
   el("bkScope").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-scope]"); if (!b) return;
-    scope = b.dataset.scope;
+    scope = b.dataset.scope; calPick = "";
     el("bkScope").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
     load(true);
   });
