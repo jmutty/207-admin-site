@@ -200,6 +200,14 @@
   .aca .bk-calbar2 .grow { flex: 1; }
   .aca .bk-calbar2 .bk-tick { display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
   .aca .bk-calbar2 select { width: auto; }
+  .aca .bk-cal.bk-nowt .scm-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .aca .bk-show { position: relative; }
+  .aca .bk-show > summary { list-style: none; cursor: pointer; padding: 4px 10px; border: 1px solid var(--line2); border-radius: 4px; font-size: 13px; background: var(--surface); }
+  .aca .bk-show > summary::-webkit-details-marker { display: none; }
+  .aca .bk-show > summary::after { content: " ▾"; color: var(--muted); }
+  .aca .bk-showpop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; width: 260px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line2); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+  .aca .bk-showpop .bk-tick { display: flex; gap: 7px; align-items: center; }
+  .aca .bk-showft { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; border-top: 1px solid var(--line2); padding-top: 8px; margin-top: 2px; }
   .aca .bk-probbtn.on { border-color: var(--err-fg); color: var(--err-fg); background: var(--err-bg); }
   .aca .bk-calsum { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 13px; }
   .aca .bk-calsum .bk-sumh { font-weight: 600; margin-right: 4px; }
@@ -212,9 +220,11 @@
   .aca .bk-cal button.scm-dn.link { cursor: pointer; text-decoration: none; }
   .aca .bk-cal button.scm-dn.link:hover { text-decoration: underline; }
   .aca .bk-dhead .sc-pill.wx { font-size: 10.5px; padding: 0 5px; line-height: 16px; }
-  .aca .bk-plus { margin-left: auto; width: 20px; height: 20px; min-height: 0; padding: 0; border-radius: 4px; border: 1px solid var(--line2); background: var(--surface); color: var(--muted); font-size: 14px; line-height: 1; opacity: 0; }
+  .aca .bk-dhead { height: 20px; }
+  .aca .bk-dhead .scm-dn { line-height: 20px; }
+  .aca .bk-plus { display: inline-flex; align-items: center; justify-content: center; margin: 0 -2px 0 auto; width: 20px; height: 20px; min-height: 0; padding: 0 0 1px; border-radius: 50%; border: 0; background: none; color: var(--muted); font-size: 16px; font-weight: 400; line-height: 1; opacity: 0; }
   .aca .scm-day:hover .bk-plus, .aca .bk-plus:focus-visible { opacity: 1; }
-  .aca .bk-plus:hover { color: var(--text); border-color: var(--text); }
+  .aca .bk-plus:hover { color: var(--surface); background: var(--text); }
   .aca .bk-plusmenu { position: fixed; z-index: 80; display: flex; flex-direction: column; min-width: 180px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.14); }
   .aca .bk-plusmenu button { height: auto; padding: 7px 10px; border: 0; background: none; text-align: left; font-weight: 400; color: var(--text); }
   .aca .bk-plusmenu button:hover { background: var(--surface-2); }
@@ -357,7 +367,7 @@
     <div class="card">
       <div class="card-head">
         <div><h2>All jobs</h2>
-          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job to open its page. Calendar shows the same jobs by month, week or season: who&#39;s on each one (or Nobody on it), a red dot for a problem (hover for details), holds, the dates after the shoot, Google Calendar events and who&#39;s off. The counts above it filter it. Use + on a day to book or hold it; arrow keys move, T jumps to today, M / W / S switch views.</p></div>
+          <p>Book a job once: the calendar event, the admin email series and (for schools) the hub row are created for you. Click a job to open its page. Calendar shows the same jobs by month, week or season: who&#39;s on each one (or Nobody on it), a red dot for a problem (hover for details), holds, Google Calendar events and who&#39;s off (pick what shows under Show; launch and discount dates start off). The counts above it filter it. Use + on a day to book or hold it; arrow keys move, T jumps to today, M / W / S switch views.</p></div>
         <div class="og-actions bk-tools"><button type="button" class="small primary" id="aca-bkNew">+ Book a job</button>
 </div>
       </div>
@@ -383,8 +393,7 @@
           <div class="seg bk-calmode-seg" role="radiogroup" aria-label="Calendar"><label><input type="radio" name="aca-bkCalMode" value="month" checked /><span>Month</span></label><label><input type="radio" name="aca-bkCalMode" value="week" /><span>Week</span></label><label><input type="radio" name="aca-bkCalMode" value="season" /><span>Season</span></label></div></div>
         <div class="bk-calbar2"><div class="bk-calsum" id="aca-bkCalSum"></div><span class="grow"></span>
           <button type="button" class="small bk-probbtn" id="aca-bkCalProb" data-focus="problems" aria-pressed="false">Problems only</button>
-          <label class="bk-sub bk-tick"><input type="checkbox" id="aca-bkCalDl" /> Deadlines</label>
-          <label class="bk-sub bk-tick" title="Events on the Google Calendar that aren&#39;t bookings"><input type="checkbox" id="aca-bkCalGc" /> Google Calendar</label>
+          <details class="bk-show" id="aca-bkCalShow"><summary class="small">Show</summary><div class="bk-showpop" id="aca-bkCalShowPop"></div></details>
           <select id="aca-bkCalColor" class="small" aria-label="Color by"><option value="type">Color by job type</option><option value="stage">Color by stage</option><option value="crew">Color by crew</option></select></div>
         <div class="scm-grid" id="aca-bkCalGrid"></div>
         <div class="bk-calday hidden" id="aca-bkCalDay"></div>
@@ -663,10 +672,21 @@
   // Season view. Crew, weather, time off and Google Calendar come from schedule_week (people who can see the
   // Schedule); holds from job_holds_list (migration 20261025170000_job_holds.sql).
   let view = "list", calMode = "month", calAnchor = "", calPick = "", calData = { key: "", rows: [], sched: null, holds: [] }, calSeq = 0;
-  let calColor = "type", calFocus = "", calDeadlines = true, calGcal = true;
+  let calColor = "type", calFocus = "";
+  // What the calendar shows (2026-10-24, Jeremiah: "a list of things to show I can check and uncheck, the default for
+  // everyone unless they make changes on their own"). Built-in default < company default (admin_settings.calendar_show,
+  // set by full access) < this person's own picks on this device. The after-the-shoot dates start off.
+  const SHOW = [["crew", "Who's on each job", true], ["problems", "Problem dots", true], ["roster", "Roster in GotPhoto", true], ["weather", "Weather", true], ["off", "Who's off", true],
+    ["holds", "Holds", true], ["gcal", "Google Calendar events", true], ["weektotals", "Week totals (month)", true],
+    ["launch", "Launch day", false], ["discounts", "Free shipping and 20% off end", false], ["gallery", "Gallery closes", false], ["due", "Deliverables due", false]];
+  let showCo = null, showMine = null;
   try { if (localStorage.getItem("aca-bk-view") === "cal") view = "cal"; const cm = localStorage.getItem("aca-bk-calmode"); if (cm === "week" || cm === "season") calMode = cm;
     const cc = localStorage.getItem("aca-bk-calcolor"); if (["type", "stage", "crew"].includes(cc)) calColor = cc;
-    calDeadlines = localStorage.getItem("aca-bk-caldl") !== "0"; calGcal = localStorage.getItem("aca-bk-calgcal") !== "0"; } catch (_e) { /* private mode */ }
+    const sm = JSON.parse(localStorage.getItem("aca-bk-calshow") || "null"); if (sm && typeof sm === "object") showMine = sm; } catch (_e) { /* private mode */ }
+  const showOf = (src, k) => (src && typeof src[k] === "boolean" ? src[k] : null);
+  const showCoOn = (k) => { const c = showOf(showCo, k); return c == null ? SHOW.find((x) => x[0] === k)[2] : c; };
+  const shows = (k) => { const m = showOf(showMine, k); return m == null ? showCoOn(k) : m; };
+  const showAll = () => Object.fromEntries(SHOW.map((x) => [x[0], shows(x[0])]));
   // The month or week on screen and the scope chip last through a reload of this window (sessionStorage), so leaving
   // for a job and coming back, even by the menu or a refresh, lands on the same view. A new window starts on today.
   try { const ss = JSON.parse(sessionStorage.getItem("aca-bk-where") || "{}"); if (/^\d{4}-\d{2}-\d{2}$/.test(ss.anchor || "")) calAnchor = ss.anchor;
@@ -675,7 +695,7 @@
   const pref = (k, v) => { try { localStorage.setItem(k, v); } catch (_e) { /* private mode */ } };
   document.querySelector('#aca-panel-bookings input[name="aca-bkView"][value="' + view + '"]').checked = true;
   document.querySelector('#aca-bkCal input[name="aca-bkCalMode"][value="' + calMode + '"]').checked = true;
-  el("bkCalColor").value = calColor; el("bkCalDl").checked = calDeadlines; el("bkCalGc").checked = calGcal;
+  el("bkCalColor").value = calColor;
   const TYPE_COLORS = [["#2f6db5", "#e8f0fb"], ["#2e8b57", "#e6f4ec"], ["#bf4a1f", "#fbebe4"], ["#7a4fb5", "#f0e9fa"], ["#b07a00", "#fdf6e3"], ["#1f8a99", "#e3f4f6"], ["#8a8580", "#f1efec"]];
   const typeColor = (k) => { const i = types.findIndex((t) => t.key === k); return TYPE_COLORS[(i < 0 ? TYPE_COLORS.length - 1 : i) % TYPE_COLORS.length]; };
   // Color by stage: where the job is after picture day. Stages are per job type, so the color follows what ticks them.
@@ -745,7 +765,7 @@
   }
   // Weather for an outdoor job, when the forecast check has looked (it looks 1 to 3 days out).
   function wxOf(b, d) {
-    const s = sched(); if (!s || b.shoot_setting === "indoors") return null;
+    const s = sched(); if (!s || !shows("weather") || b.shoot_setting === "indoors") return null;
     const r = (s.bookings || []).find((x) => x.booking_id === b.id && x.day === d), w = r && r.weather; if (!w) return null;
     const parts = [w.pop >= 20 ? "Rain " + num(w.pop) + "%" : "", w.gust > 25 ? "Gusts " + num(w.gust) + " mph" : ""].filter(Boolean);
     return parts.length ? { text: parts.join(", "), bad: !!w.bad } : null;
@@ -754,7 +774,7 @@
   // Roster in GotPhoto (2026-10-24): past the deadline (two weeks before picture day) counts as a problem, so it gets the
   // red dot and Problems only; chips and cards also carry a roster line while it's due or late (Roster in shell-top.js).
   const ROSTER_PROB = "No roster in GotPhoto";
-  const rosterOn = (it) => !it.x.makeup && it.x.day >= StaffTime.today() && ["late", "due"].includes(Roster.state(it.b));
+  const rosterOn = (it) => shows("roster") && !it.x.makeup && it.x.day >= StaffTime.today() && ["late", "due"].includes(Roster.state(it.b));
   function problemsOf(b, x, crew, today) {
     if (b.status === "cancelled" || b.status === "tracked") return [];
     const out = [], ahead = x.day >= today, p = b.progress || {}, c = checklist[b.id];
@@ -781,12 +801,12 @@
   }
   // Google Calendar events that aren't bookings, not time off, and nobody has been put on yet (as on the Schedule).
   function gcalOn(d) {
-    const s = sched(); if (!s || !calGcal) return [];
+    const s = sched(); if (!s || !shows("gcal")) return [];
     return (s.calendar || []).filter((c) => !c.off_user && !(s.entries || []).some((e) => e.gcal_event_id === c.event_id) && d >= c.start_date && d <= c.end_date);
   }
   // Who's off that day: time off on the Schedule (half a day or more) and "Ryan Off" events on the Google Calendar.
   function offOn(d) {
-    const s = sched(); if (!s) return [];
+    const s = sched(); if (!s || !shows("off")) return [];
     const T = StaffTime, ds = new Date(T.toIso(d, "00:00")).getTime(), de = new Date(T.toIso(T.addDays(d, 1), "00:00")).getTime();
     const ids = new Set((s.entries || []).filter((e) => e.kind === "off" && Math.min(de, new Date(e.ends_at).getTime()) - Math.max(ds, new Date(e.starts_at).getTime()) >= 4 * 36e5).map((e) => e.user_id));
     (s.calendar || []).forEach((c) => { if (c.off_user && d >= c.start_date && d <= c.end_date) ids.add(c.off_user); });
@@ -797,11 +817,11 @@
   function marksOf(b) {
     if (b.status === "cancelled" || b.status === "tracked") return [];
     const ds = calDays(b).filter((x) => !x.makeup).map((x) => x.day).sort(), last = ds[ds.length - 1]; if (!last) return [];
-    const nm = b.org_name || b.title, out = [{ day: StaffTime.addDays(last, 1), what: "Launch" }];
-    if (b.free_ship_ends) out.push({ day: b.free_ship_ends, what: "Free shipping ends" });
-    if (b.discount_ends) out.push({ day: b.discount_ends, what: "20% off ends" });
-    if (b.order_deadline) out.push({ day: b.order_deadline, what: "Gallery closes" });
-    const p = b.progress || {}; if (num(p.deliverables_open) && p.next_due) out.push({ day: p.next_due, what: "Due" });
+    const nm = b.org_name || b.title, out = shows("launch") ? [{ day: StaffTime.addDays(last, 1), what: "Launch" }] : [];
+    if (shows("discounts") && b.free_ship_ends) out.push({ day: b.free_ship_ends, what: "Free shipping ends" });
+    if (shows("discounts") && b.discount_ends) out.push({ day: b.discount_ends, what: "20% off ends" });
+    if (shows("gallery") && b.order_deadline) out.push({ day: b.order_deadline, what: "Gallery closes" });
+    const p = b.progress || {}; if (shows("due") && num(p.deliverables_open) && p.next_due) out.push({ day: p.next_due, what: "Due" });
     return out.map((m) => Object.assign(m, { b, text: m.what + ": " + nm }));
   }
   const holdName = (h) => h.org_name || h.label || "Hold";
@@ -814,40 +834,41 @@
     list.forEach((b) => {
       calDays(b).forEach((x) => { if (x.day >= r.start && x.day <= r.end) {
         const crew = crewOf(b, x), it = { b, x, crew };
-        it.probs = problemsOf(b, x, crew, today); it.color = colorOf(it);
+        // Nobody on it / Needs N more already shows as the red crew line (and its own count), so it isn't also a problem dot.
+        it.probs = problemsOf(b, x, crew, today).filter((t) => !shows("crew") || !/^(Nobody on it|Needs \d)/.test(t)); it.color = colorOf(it);
         (byDay[x.day] = byDay[x.day] || []).push(it); used.add(calColor === "type" ? b.type_key : calColor === "stage" ? stageKey(b) : crew ? crew.state : "na"); } });
-      if (calDeadlines && scope !== "cancelled") marksOf(b).forEach((m) => { if (m.day >= r.start && m.day <= r.end) (marks[m.day] = marks[m.day] || []).push(m); });
+      if (scope !== "cancelled") marksOf(b).forEach((m) => { if (m.day >= r.start && m.day <= r.end) (marks[m.day] = marks[m.day] || []).push(m); });
     });
     Object.values(byDay).forEach((a) => a.sort((p, q) => String(p.x.start || "~").localeCompare(String(q.x.start || "~")) || p.b.title.localeCompare(q.b.title)));
-    const holds = {}; if (scope !== "cancelled" && scope !== "owed") calData.holds.forEach((h) => { (holds[h.day] = holds[h.day] || []).push(h); });
+    const holds = {}; if (shows("holds") && scope !== "cancelled" && scope !== "owed") calData.holds.forEach((h) => { (holds[h.day] = holds[h.day] || []).push(h); });
     return { byDay, marks, holds, used };
   }
   // Does an item match the summary filter picked (the rest fade)?
   const focusHit = (it) => !calFocus || (calFocus === "problems" ? it.probs.length > 0 : calFocus === "nobody" ? !!(it.crew && it.crew.state === "none" && it.x.day >= StaffTime.today()) : calFocus === "makeup" ? !!it.x.makeup : calFocus === "roster" ? it.probs.includes(ROSTER_PROB) : false);
   const nameOf = (b, x) => (x.makeup ? "Makeup: " : "") + b.title + (x.label ? " (" + x.label + ")" : "");
-  const whoText = (it, long) => !it.crew ? "" : it.crew.on.length ? (long ? it.crew.on.map(personName).join(", ") : it.crew.on.map(initials).join(" ")) + (it.crew.state === "short" ? " (needs " + it.crew.need + ")" : "") : "Nobody on it";
+  const whoText = (it, long) => !it.crew || !shows("crew") ? "" : it.crew.on.length ? (long ? it.crew.on.map(personName).join(", ") : it.crew.on.map(initials).join(" ")) + (it.crew.state === "short" ? " (needs " + it.crew.need + ")" : "") : "Nobody on it";
   const dayOf = (x, long) => x.of > 1 ? (long ? "Day " + x.n + " of " + x.of : x.n + "/" + x.of) : x.makeup ? (long ? "Makeup day" : "") : "";
   const timeOf = (x) => (x.start ? Fmt.time(x.start).replace(":00", "") : "");
   function chip(it) {
     const { b, x } = it, [tc, tb] = it.color, who = whoText(it), dn = dayOf(x);
     const meta = [timeOf(x) ? '<span class="tm">' + esc(timeOf(x)) + "</span>" : "", who ? '<span class="' + (it.crew && it.crew.state === "none" && x.day >= StaffTime.today() ? "none" : "who") + '">' + esc(who) + "</span>" : "", dn ? "<span>" + esc(dn) + "</span>" : ""].filter(Boolean).join("");
     return '<button type="button" class="scm-chip bk-mchip' + (x.makeup ? " mk" : "") + (focusHit(it) ? "" : " dim") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" data-jday="' + esc(x.day) + '" aria-label="' + esc(nameOf(b, x) + (it.probs.length ? ". " + it.probs.join(", ") : "")) + '"' + (canHover() ? "" : ' title="' + esc(tipOf(it)) + '"') + ">" +
-      '<span class="nm">' + (it.probs.length ? '<i class="bk-pdot" aria-hidden="true"></i>' : "") + esc(nameOf(b, x)) + "</span>" + (meta ? '<span class="mt">' + meta + "</span>" : "") +
+      '<span class="nm">' + (it.probs.length && shows("problems") ? '<i class="bk-pdot" aria-hidden="true"></i>' : "") + esc(nameOf(b, x)) + "</span>" + (meta ? '<span class="mt">' + meta + "</span>" : "") +
       (rosterOn(it) ? '<span class="rs ' + Roster.state(b) + '">' + esc(Roster.words(b, true).text) + "</span>" : "") + "</button>";
   }
   // A week's (and a phone day's) card: time, the job, its type and place, who's on it and what's wrong, all on view.
   function card(it) {
     const { b, x } = it, [tc, tb] = it.color, who = whoText(it, true), wx = wxOf(b, x.day);
     return '<button type="button" class="bk-wcard' + (x.makeup ? " mk" : "") + (focusHit(it) ? "" : " dim") + '" style="--tc:' + tc + ";--tb:" + tb + '" data-job="' + esc(b.id) + '" data-jday="' + esc(x.day) + '"' + (canHover() ? "" : ' title="' + esc(tipOf(it)) + '"') + ">" +
-      '<span class="tm">' + esc(x.start ? Fmt.time(x.start) : "Time not set") + (dayOf(x, true) ? " · " + esc(dayOf(x, true)) : "") + "</span><strong>" + (it.probs.length ? '<i class="bk-pdot" aria-hidden="true"></i>' : "") + esc(nameOf(b, x)) + "</strong>" +
+      '<span class="tm">' + esc(x.start ? Fmt.time(x.start) : "Time not set") + (dayOf(x, true) ? " · " + esc(dayOf(x, true)) : "") + "</span><strong>" + (it.probs.length && shows("problems") ? '<i class="bk-pdot" aria-hidden="true"></i>' : "") + esc(nameOf(b, x)) + "</strong>" +
       '<span class="sub">' + esc([calColor === "type" ? "" : b.type_label, x.loc].filter(Boolean).join(" · ") || b.type_label || "") + "</span>" +
       (who ? '<span class="sub ' + (it.crew.state === "none" && x.day >= StaffTime.today() ? "none" : "who") + '">' + esc(who) + "</span>" : "") +
       (wx ? '<span class="sub wx">' + esc(wx.text) + "</span>" : "") +
-      (!x.makeup && x.day >= StaffTime.today() ? Roster.tag(b) : "") +
-      (cardProbs(it, who).length ? '<span class="sub prob">' + esc(cardProbs(it, who).join(", ")) + "</span>" : "") + "</button>";
+      (shows("roster") && !x.makeup && x.day >= StaffTime.today() ? Roster.tag(b) : "") +
+      (shows("problems") && cardProbs(it, who).length ? '<span class="sub prob">' + esc(cardProbs(it, who).join(", ")) + "</span>" : "") + "</button>";
   }
   // The card's problem line leaves out what it already says (who's on it, the roster tag).
-  const cardProbs = (it, who) => it.probs.filter((t) => (!who || !/^(Nobody on it|Needs \d)/.test(t)) && t !== ROSTER_PROB);
+  const cardProbs = (it, who) => it.probs.filter((t) => (!who || !/^(Nobody on it|Needs \d)/.test(t)) && (t !== ROSTER_PROB || !shows("roster")));
   const tipOf = (it) => [nameOf(it.b, it.x), it.b.type_label, it.x.start ? Fmt.time(it.x.start) : "Time not set", it.x.loc, whoText(it, true), dayOf(it.x, true), it.probs.join(", ")].filter(Boolean).join("\n");
   const holdChip = (h, today, big) => '<button type="button" class="' + (big ? "bk-wcard " : "scm-chip ") + "bk-hold" + (holdOld(h, today) ? " old" : "") + (calFocus && calFocus !== "holds" ? " dim" : "") + '" data-hold="' + esc(h.id) + '" title="' + esc("Hold: " + holdName(h) + (h.hold_until ? "\nHeld until " + Fmt.day(h.hold_until) + (holdOld(h, today) ? " (expired)" : "") : "") + (h.note ? "\n" + h.note : "") + (h.calendar_status === "synced" ? "\nOn the Google Calendar" : h.calendar_status === "error" ? "\nGoogle Calendar error" : "\nAdding to the Google Calendar")) + '">' +
     (big ? '<span class="tm">Hold' + (h.hold_until ? (holdOld(h, today) ? ", expired " : " until ") + esc(Fmt.day(h.hold_until)) : "") + "</span><strong>" + esc(holdName(h)) + "</strong>" + (h.note ? '<span class="sub">' + esc(h.note) + "</span>" : "")
@@ -861,7 +882,7 @@
     const ready = calData.key === key;
     if (!ready) loadCal(r);
     hideHover();
-    el("bkCal").classList.toggle("bk-week", week); el("bkCal").classList.toggle("bk-season", season);
+    el("bkCal").classList.toggle("bk-week", week); el("bkCal").classList.toggle("bk-nowt", !shows("weektotals")); el("bkCal").classList.toggle("bk-season", season);
     const mName = (ym, yr) => new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: yr ? "long" : "short" });
     const yr = (ym) => (ym.slice(0, 4) === today.slice(0, 4) ? "" : " " + ym.slice(0, 4));
     el("bkCalTitle").textContent = week ? "Week of " + Fmt.day(r.start) : season ? mName(r.start.slice(0, 7)) + " to " + mName(r.end.slice(0, 7)) + yr(r.end.slice(0, 7)) : mName(calAnchor.slice(0, 7), true) + yr(calAnchor.slice(0, 7));
@@ -872,9 +893,9 @@
     renderSummary(m, r, today);
     if (season) { renderSeason(m, r, today); return; }
     const days = []; for (let d = r.start; d <= r.end; d = T.addDays(d, 1)) days.push(d);
-    const plus = (d) => '<button type="button" class="bk-plus" data-plus="' + esc(d) + '" aria-label="' + esc("Book or hold " + Fmt.day(d)) + '" title="Book a job or hold this day">+</button>';
+    const plus = (d) => '<button type="button" class="bk-plus" data-plus="' + esc(d) + '" aria-label="' + esc("Book or hold " + Fmt.day(d)) + '">+</button>';
     const MAXC = calNarrow() ? 99 : 4;
-    let h = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w, i) => '<div class="scm-h">' + w + (week ? " " + esc(Fmt.day(days[i])) : "") + "</div>").join("") + (week ? "" : '<div class="scm-h scm-wt">Week</div>');
+    let h = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w, i) => '<div class="scm-h">' + w + (week ? " " + esc(Fmt.day(days[i])) : "") + "</div>").join("") + (week || !shows("weektotals") ? "" : '<div class="scm-h scm-wt">Week</div>');
     for (let w = 0; w < days.length; w += 7) {
       const wSet = new Set(); let wNone = 0, wProb = 0;
       days.slice(w, w + 7).forEach((d) => {
@@ -894,7 +915,7 @@
         h += '<div class="scm-day' + (!week && d.slice(0, 7) !== calAnchor.slice(0, 7) ? " other" : "") + (d < today ? " past" : "") + (d === today ? " today" : "") + (!week && d === calPick ? " sel" : "") + '" data-calday="' + esc(d) + '">' +
           head + body + (off.length ? '<span class="scm-off bk-off" title="' + esc("Off: " + off.join(", ")) + '">Off: ' + esc(off.join(", ")) + "</span>" : "") + "</div>";
       });
-      if (!week) h += '<button type="button" class="scm-wt link" data-weekof="' + esc(days[w]) + '" title="Open this week"><b>' + num(wSet.size) + " job" + (wSet.size === 1 ? "" : "s") + "</b>" +
+      if (!week && shows("weektotals")) h += '<button type="button" class="scm-wt link" data-weekof="' + esc(days[w]) + '" title="Open this week"><b>' + num(wSet.size) + " job" + (wSet.size === 1 ? "" : "s") + "</b>" +
         (wNone ? '<span class="bad">' + num(wNone) + " nobody on</span>" : "") + (wProb ? '<span class="bad">' + num(wProb) + " problem" + (wProb === 1 ? "" : "s") + "</span>" : "") + "</button>";
     }
     h += keyHtml(m, week && calNarrow() ? "" : !week && calNarrow() ? "Tap a day to see its jobs" : "Click a job to open it");
@@ -911,7 +932,7 @@
     const pal = calColor === "stage" ? STAGE_COLORS : calColor === "crew" ? CREW_COLORS : null;
     const keys = pal ? Object.keys(pal).filter((k) => m.used.has(k)).map((k) => [pal[k][0], pal[k][2]]) : types.filter((t) => m.used.has(t.key)).map((t) => [typeColor(t.key)[0], t.label]);
     return '<div class="scm-key">' + keys.map(([c, t]) => '<span><i style="--tc:' + c + '"></i>' + esc(t) + "</span>").join("") +
-      '<span><i class="bk-pdot" aria-hidden="true"></i>Has a problem</span>' + (calData.holds.length ? '<span><i class="bk-holdkey"></i>Hold</span>' : "") + (note ? '<span class="kl">' + esc(note) + "</span>" : "") + "</div>";
+      (shows("problems") ? '<span><i class="bk-pdot" aria-hidden="true"></i>Has a problem</span>' : "") + (calData.holds.length ? '<span><i class="bk-holdkey"></i>Hold</span>' : "") + (note ? '<span class="kl">' + esc(note) + "</span>" : "") + "</div>";
   }
   // "November: 23 jobs, 3 nobody on, 2 problems, 4 makeup days, 1 hold". Each count filters the calendar (the rest fade).
   function renderSummary(m, r, today) {
@@ -1078,8 +1099,34 @@
   });
   el("bkCal").querySelector(".bk-calmode-seg").addEventListener("change", (e) => setMode(e.target.value));
   el("bkCalColor").addEventListener("change", (e) => { calColor = e.target.value; pref("aca-bk-calcolor", calColor); renderCal(); });
-  el("bkCalDl").addEventListener("change", (e) => { calDeadlines = e.target.checked; pref("aca-bk-caldl", calDeadlines ? "1" : "0"); renderCal(); });
-  el("bkCalGc").addEventListener("change", (e) => { calGcal = e.target.checked; pref("aca-bk-calgcal", calGcal ? "1" : "0"); renderCal(); });
+  // The Show list: a tick saves this person's picks on this device; full access can make the picks everyone's default.
+  function renderShow(msg) {
+    const mine = !!showMine && SHOW.some((x) => showOf(showMine, x[0]) != null && showOf(showMine, x[0]) !== showCoOn(x[0]));
+    el("bkCalShowPop").innerHTML = SHOW.map((x) => '<label class="bk-tick"><input type="checkbox" data-show="' + x[0] + '"' + (shows(x[0]) ? " checked" : "") + " /> " + esc(x[1]) + "</label>").join("") +
+      '<div class="bk-showft"><span class="bk-sub">' + (mine ? "Your own picks (this device)." : "Everyone's default.") + "</span>" +
+      (mine ? '<button type="button" class="link" data-showreset="1">Use everyone&#39;s default</button>' : "") +
+      (ACCESS.is_admin && mine ? '<button type="button" class="small" data-showco="1">Make this everyone&#39;s default</button>' : "") +
+      (msg ? '<span class="bk-sub">' + esc(msg) + "</span>" : "") + "</div>";
+  }
+  async function loadShowCo() {
+    try { const { data, error } = await sb.rpc("calendar_show_get"); if (!error && data && typeof data === "object" && !Array.isArray(data)) showCo = data; } catch (_e) { /* built-in defaults */ }
+    renderShow(); if (view === "cal") renderCal();
+  }
+  el("bkCalShowPop").addEventListener("change", (e) => {
+    const k = e.target.dataset && e.target.dataset.show; if (!k) return;
+    showMine = Object.assign(showAll(), { [k]: e.target.checked }); pref("aca-bk-calshow", JSON.stringify(showMine)); renderShow(); renderCal();
+  });
+  el("bkCalShowPop").addEventListener("click", async (e) => {
+    if (e.target.closest("[data-showreset]")) { showMine = null; try { localStorage.removeItem("aca-bk-calshow"); } catch (_e) { /* private mode */ } renderShow(); renderCal(); return; }
+    const b = e.target.closest("[data-showco]"); if (!b) return;
+    const pick = showAll(); b.disabled = true;
+    const { error } = await sb.rpc("calendar_show_set", { p_show: pick });
+    if (error) { renderShow("Couldn't save: " + cleanErr(error)); return; }
+    showCo = pick; showMine = null; try { localStorage.removeItem("aca-bk-calshow"); } catch (_e) { /* private mode */ }
+    renderShow("Saved. Everyone sees this unless they change their own."); renderCal();
+  });
+  document.addEventListener("click", (e) => { const d = el("bkCalShow"); if (d.open && !d.contains(e.target)) d.open = false; });
+  renderShow(); loadShowCo();
   el("bkCal").addEventListener("click", (e) => {
     const f = e.target.closest("[data-focus]"); if (f) { calFocus = calFocus === f.dataset.focus ? "" : f.dataset.focus; renderCal(); return; }
     const p = e.target.closest("[data-plus]"); if (p) { e.stopPropagation(); plusMenu(p); return; }

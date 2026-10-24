@@ -271,6 +271,11 @@
     function redraw(tab) { const f = focusMark(root()); renderShell(); pick(tab); focusBack(root(), f); }
     const reload = async () => { const { data } = await sb.rpc("job_get", { p_booking: J.booking.id }); if (data) { Snap.put("job:" + data.booking.id, data); J = data; renderShell(); pick(curTab); } };
 
+    // The job's next picture day (or its last one, when they're all past): where "Assign someone" opens the Schedule.
+    function nextDay(b) {
+      const ds = (J.days || []).map((d) => d.day).filter(Boolean).sort(), today = T.today();
+      return ds.find((d) => d >= today) || ds[ds.length - 1] || b.picture_day;
+    }
     function dayLine(b) {
       const days = (J.days || []).length > 1 ? J.days : null;
       const t = b.time_set ? " \u00b7 " + timeOf(b.start_at) + (b.end_set ? "\u2013" + timeOf(b.end_at) : "") : " \u00b7 time not set";
@@ -429,7 +434,7 @@
         '<div class="jp-sec"><h3>Crew</h3>' + (crew.length ? '<ul class="jp-rows">' + crew.map((p) => "<li><span>" + esc(p.name) + (p.note ? ' <span class="muted">' + esc(p.note) + "</span>" : "") +
           '</span><span class="r">' + esc(T.fmtDay(T.local(p.starts_at).day, { weekday: "short" }) + ", " + timeOf(p.starts_at) + "\u2013" + timeOf(p.ends_at)) +
           (p.drive_before_min ? " \u00b7 " + num(p.drive_before_min) + " min drive" : "") + "</span></li>").join("") + "</ul>"
-          : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule">Open the schedule</a>.' : "") + "</div>") +
+          : '<div class="empty" style="padding:4px 0">Nobody is on this job yet.' + (canSee("scheduling") ? ' <a href="#staff/schedule" data-tojob="' + esc(b.id) + '" data-day="' + esc(nextDay(b)) + '">Assign someone</a> (opens the Schedule on ' + esc(Fmt.day(nextDay(b))) + ")." : "") + "</div>") +
         editorHtml(b) + "</div>" +
         "</div></div>";
       loadMails(b.id);
